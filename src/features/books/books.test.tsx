@@ -257,6 +257,54 @@ test('kitaplar sayfası kitabı, dersleri ve toplam ilerlemeyi gösterir', async
   );
 });
 
+test('karma sınav kitapları kullanıldığı ders adlarını gösterir', async () => {
+  const book = await createBook({ name: 'Karma Kitap' });
+  const tytFizik = await topicByKey('tyt-fiz-hareket');
+  const aytMatematik = await topicByKey('ayt-mat-turev');
+  await upsertTopicBook({
+    topicId: tytFizik.id,
+    bookId: book.id,
+    totalTests: 5,
+    solvedTests: 2,
+  });
+  await upsertTopicBook({
+    topicId: aytMatematik.id,
+    bookId: book.id,
+    totalTests: 4,
+    solvedTests: 3,
+  });
+
+  renderApp('/kitaplar');
+
+  expect(await screen.findByText('Karma Kitap')).toBeInTheDocument();
+  expect(await screen.findByText('Fizik · Matematik')).toBeInTheDocument();
+  expect(screen.queryByText('TYT / AYT')).not.toBeInTheDocument();
+});
+
+test('iki sınavdaki aynı adlı dersler sınav türüyle ayrılır', async () => {
+  const book = await createBook({ name: 'Ortak Ders Kitabı' });
+  const tytMatematik = await topicByKey('tyt-mat-turev');
+  const aytMatematik = await topicByKey('ayt-mat-turev');
+  await upsertTopicBook({
+    topicId: tytMatematik.id,
+    bookId: book.id,
+    totalTests: 8,
+    solvedTests: 4,
+  });
+  await upsertTopicBook({
+    topicId: aytMatematik.id,
+    bookId: book.id,
+    totalTests: 6,
+    solvedTests: 2,
+  });
+
+  renderApp('/kitaplar');
+
+  expect(await screen.findByText('Ortak Ders Kitabı')).toBeInTheDocument();
+  expect(await screen.findByText('TYT Matematik · AYT Matematik')).toBeInTheDocument();
+  expect(screen.queryByText('TYT / AYT')).not.toBeInTheDocument();
+});
+
 test('kitap silme onayı kayıt sayısını gösterir ve diğer verileri korur', async () => {
   const { bookId, turev } = await seedBookWithRecords();
   const subject = await subjectByKey('tyt-mat');

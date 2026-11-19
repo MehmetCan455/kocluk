@@ -44,21 +44,18 @@ function subjectSummary(subjects: Subject[]): string {
     return 'Henüz kullanılmadı';
   }
 
-  const exams = [...new Set(subjects.map((subject) => subject.exam))].sort(
-    (left, right) => EXAM_ORDER[left] - EXAM_ORDER[right],
-  );
-  if (exams.length > 1) {
-    return exams.join(' / ');
-  }
-  if (subjects.length === 1) {
-    return subjects[0].name;
+  const nameCounts = new Map<string, number>();
+  for (const subject of subjects) {
+    const key = subject.name.trim().toLocaleLowerCase('tr-TR');
+    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
   }
 
-  const firstTwo = subjects
-    .slice(0, 2)
-    .map((subject) => subject.name)
-    .join(', ');
-  return subjects.length > 2 ? `${firstTwo} +${subjects.length - 2}` : firstTwo;
+  return subjects
+    .map((subject) => {
+      const key = subject.name.trim().toLocaleLowerCase('tr-TR');
+      return (nameCounts.get(key) ?? 0) > 1 ? `${subject.exam} ${subject.name}` : subject.name;
+    })
+    .join(' · ');
 }
 
 function matchesQuery(row: BookRow, query: string): boolean {

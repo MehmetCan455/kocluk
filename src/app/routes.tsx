@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { BookDetailPage } from '@/features/books/BookDetailPage';
 import { BooksPage } from '@/features/books/BooksPage';
+import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ExamDetailPage } from '@/features/exams/ExamDetailPage';
 import { ExamFormPage } from '@/features/exams/ExamFormPage';
 import { ExamsPage } from '@/features/exams/ExamsPage';
@@ -35,15 +36,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/onboarding" element={<Onboarding />} />
-      <Route
-        path="/"
-        element={
-          <PagePlaceholder
-            title="Genel Bakış"
-            description="Ana sayfa panosu yakında burada olacak."
-          />
-        }
-      />
+      <Route path="/" element={<DashboardPage />} />
 
       <Route path="/tyt" element={<SubjectsPage exam="TYT" />} />
       <Route path="/tyt/:subjectId" element={<SubjectPage exam="TYT" />} />

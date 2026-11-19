@@ -15,13 +15,12 @@ import {
   getBook,
   listBookTopicBooks,
   updateBook,
+  type BookTopicBookRow,
 } from '@/db/repositories';
 import { calculateProgress } from '@/domain/calculations';
-import type { Book, Subject, Topic, TopicBook } from '@/domain/types';
+import type { Book } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
 import { examBasePath } from '@/features/subjects/exam';
-
-type BookUsageRecord = TopicBook & { topic: Topic; subject: Subject };
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]';
@@ -187,7 +186,7 @@ export function BookDetailPage() {
   const data = useLiveQuery(async () => {
     const book = await getBook(id);
     if (!book) {
-      return { book: undefined, records: [] as BookUsageRecord[] };
+      return { book: undefined, records: [] as BookTopicBookRow[] };
     }
     const records = await listBookTopicBooks(id);
     return { book, records };

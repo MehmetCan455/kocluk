@@ -2,18 +2,32 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ClipboardList, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { listExamResults, listExams, listSubjects } from '@/db/repositories';
-import type { Exam, ExamResult, ExamType, Subject } from '@/domain/types';
+import { listAllExamResults, listExams, listSubjects } from '@/db/repositories';
+import type { AytAlan, Exam, ExamResult, ExamType, Subject } from '@/domain/types';
+import { buildNetSeries, MAX_CHART_POINTS } from '@/features/dashboard/chartData';
+import { NetTrendChart } from '@/features/dashboard/NetTrendChart';
 import { formatNet } from '@/lib/format';
 import { formatAlan, formatExamDate, sumNet } from './examFormat';
 
 type ExamFilter = 'all' | ExamType;
+type AlanFilter = 'all' | AytAlan;
 
 const FILTERS: ReadonlyArray<{ id: ExamFilter; label: string }> = [
   { id: 'TYT', label: 'TYT' },
   { id: 'AYT', label: 'AYT' },
   { id: 'all', label: 'Tümü' },
+];
+
+// "Tüm alanlar" is deliberately distinct from the type filter's "Tümü" so the
+// two filter groups never share an accessible name.
+const ALAN_FILTERS: ReadonlyArray<{ id: AlanFilter; label: string }> = [
+  { id: 'all', label: 'Tüm alanlar' },
+  { id: 'sayisal', label: 'Sayısal' },
+  { id: 'ea', label: 'Eşit Ağırlık' },
+  { id: 'sozel', label: 'Sözel' },
+  { id: 'tumu', label: 'Genel' },
 ];
 
 const newExamLinkClass =
@@ -43,19 +57,32 @@ function sortBySubjectOrder(results: ExamResult[], subjectById: Map<string, Subj
 
 export function ExamsPage() {
   const [filter, setFilter] = useState<ExamFilter>('all');
+  const [alanFilter, setAlanFilter] = useState<AlanFilter>('all');
 
   const data = useLiveQuery(async () => {
-    const [exams, subjects] = await Promise.all([
+    // Results are fetched once and grouped, instead of one query per exam.
+    const [exams, subjects, allResults] = await Promise.all([
       listExams(filter === 'all' ? undefined : filter),
       listSubjects(),
+      listAllExamResults(),
     ]);
-    const rows = await Promise.all(
-      exams.map(async (exam): Promise<ExamRow> => {
-        const results = await listExamResults(exam.id);
-        return { exam, results, totalNet: sumNet(results) };
-      }),
-    );
-    return { rows, subjects };
+
+    const resultsByExam = new Map<string, ExamResult[]>();
+    for (const result of allResults) {
+      const results = resultsByExam.get(result.examId);
+      if (results) {
+        results.push(result);
+      } else {
+        resultsByExam.set(result.examId, [result]);
+      }
+    }
+
+    const rows = exams.map((exam): ExamRow => {
+      const results = resultsByExam.get(exam.id) ?? [];
+      return { exam, results, totalNet: sumNet(results) };
+    });
+
+    return { rows, subjects, results: allResults };
   }, [filter]);
 
   if (!data) {
@@ -67,6 +94,16 @@ export function ExamsPage() {
   }
 
   const subjectById = new Map(data.subjects.map((subject) => [subject.id, subject]));
+
+  // With "Tümü" the chart follows the latest exam's type; a specific filter
+  // always drives the chart so the control at the top has one meaning.
+  const chartType: ExamType = filter === 'all' ? (data.rows[0]?.exam.type ?? 'TYT') : filter;
+  const chartSeries = buildNetSeries(
+    data.rows.map((row) => row.exam),
+    data.results,
+    chartType,
+    filter === 'AYT' && alanFilter !== 'all' ? alanFilter : undefined,
+  );
 
   return (
     <section className="space-y-5">
@@ -107,6 +144,45 @@ export function ExamsPage() {
           );
         })}
       </div>
+
+      {data.rows.length > 0 ? (
+        <Card>
+          <NetTrendChart
+            series={chartSeries}
+            title="Net trendi"
+            description={`Son ${MAX_CHART_POINTS} ${chartType} denemesi`}
+            ariaLabel={`${chartType} net trend grafiği`}
+            headerAction={
+              filter === 'AYT' ? (
+                <div
+                  role="group"
+                  aria-label="AYT alan filtresi"
+                  className="flex flex-wrap gap-1 rounded-xl border border-line bg-canvas p-1"
+                >
+                  {ALAN_FILTERS.map((option) => {
+                    const active = option.id === alanFilter;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setAlanFilter(option.id)}
+                        className={
+                          active
+                            ? 'min-h-11 rounded-lg bg-[var(--accent-soft)] px-3 text-sm font-medium text-[var(--accent)]'
+                            : 'min-h-11 rounded-lg px-3 text-sm font-medium text-muted transition-colors hover:text-fg'
+                        }
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : undefined
+            }
+          />
+        </Card>
+      ) : null}
 
       {data.rows.length === 0 ? (
         filter === 'all' ? (

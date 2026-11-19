@@ -5,17 +5,22 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Field } from '@/components/ui/Field';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { listBooks, listBookTopicBooks } from '@/db/repositories';
+import {
+  buildBookTopicBookRows,
+  listAllTopicBooks,
+  listAllTopics,
+  listBooks,
+  listSubjects,
+  type BookTopicBookRow,
+} from '@/db/repositories';
 import { calculateProgress } from '@/domain/calculations';
-import type { Book, ExamType, Progress, Subject, Topic, TopicBook } from '@/domain/types';
+import type { Book, ExamType, Progress, Subject } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
 import { buildBookLabels } from './bookLabels';
 
-type BookUsageRecord = TopicBook & { topic: Topic; subject: Subject };
-
 interface BookRow {
   book: Book;
-  records: BookUsageRecord[];
+  records: BookTopicBookRow[];
   progress: Progress;
   subjects: Subject[];
 }
@@ -31,7 +36,7 @@ function compareSubjects(left: Subject, right: Subject): number {
   );
 }
 
-function uniqueSubjects(records: BookUsageRecord[]): Subject[] {
+function uniqueSubjects(records: BookTopicBookRow[]): Subject[] {
   const byId = new Map<string, Subject>();
   for (const record of records) {
     byId.set(record.subject.id, record.subject);
@@ -78,18 +83,33 @@ export function BooksPage() {
   const [query, setQuery] = useState('');
 
   const rows = useLiveQuery(async () => {
-    const books = await listBooks();
-    return Promise.all(
-      books.map(async (book): Promise<BookRow> => {
-        const records = await listBookTopicBooks(book.id);
-        return {
-          book,
-          records,
-          progress: calculateProgress(records),
-          subjects: uniqueSubjects(records),
-        };
-      }),
-    );
+    // One read per table instead of one join per book.
+    const [books, topics, topicBooks, subjects] = await Promise.all([
+      listBooks(),
+      listAllTopics(),
+      listAllTopicBooks(),
+      listSubjects(),
+    ]);
+
+    const recordsByBook = new Map<string, BookTopicBookRow[]>();
+    for (const record of buildBookTopicBookRows(topicBooks, topics, subjects)) {
+      const records = recordsByBook.get(record.bookId);
+      if (records) {
+        records.push(record);
+      } else {
+        recordsByBook.set(record.bookId, [record]);
+      }
+    }
+
+    return books.map((book): BookRow => {
+      const records = recordsByBook.get(book.id) ?? [];
+      return {
+        book,
+        records,
+        progress: calculateProgress(records),
+        subjects: uniqueSubjects(records),
+      };
+    });
   }, []);
 
   if (!rows) {

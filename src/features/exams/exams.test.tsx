@@ -595,3 +595,55 @@ test('silinmiş deneme için geri dönüş bağlantısı gösterilir', async () 
     '/denemeler',
   );
 });
+
+test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async () => {
+  const turkce = await subjectIdByKey('tyt-turkce');
+  const aytMatematik = await subjectIdByKey('ayt-matematik');
+
+  await insertExam({
+    name: 'TYT Denemesi',
+    date: '2026-11-01',
+    results: [{ subjectId: turkce, correct: 10, wrong: 0, blank: 0 }],
+  });
+  await saveExam({
+    type: 'AYT',
+    name: 'Sayısal AYT',
+    date: '2026-11-02',
+    alan: 'sayisal',
+    results: [{ subjectId: aytMatematik, correct: 12, wrong: 4, blank: 0 }],
+  });
+  await saveExam({
+    type: 'AYT',
+    name: 'Genel AYT',
+    date: '2026-11-03',
+    results: [{ subjectId: aytMatematik, correct: 8, wrong: 4, blank: 0 }],
+  });
+
+  renderApp('/denemeler');
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'Denemeler' })).toBeInTheDocument();
+  expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
+  expect(screen.getByText('Net trendi')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'TYT' }));
+  expect(await screen.findByRole('img', { name: 'TYT net trend grafiği' })).toBeInTheDocument();
+  expect(await screen.findByText(/1 Kas: 10,00 net/)).toBeInTheDocument();
+  expect(screen.queryByText(/3 Kas: 7,00 net/)).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'AYT' }));
+  expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
+  expect(await screen.findByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Sayısal' }));
+  await waitFor(() => expect(screen.queryByText(/3 Kas: 7,00 net/)).not.toBeInTheDocument());
+  expect(screen.getByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Genel' }));
+  expect(await screen.findByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+  expect(screen.queryByText(/2 Kas: 11,00 net/)).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Tüm alanlar' }));
+  expect(await screen.findByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+});

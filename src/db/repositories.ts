@@ -104,38 +104,37 @@ export async function updateBook(id: string, input: UpdateBookInput): Promise<vo
 
 const EXAM_ORDER: Record<ExamType, number> = { TYT: 0, AYT: 1 };
 
+export type BookTopicBookRow = TopicBook & { topic: Topic; subject: Subject };
+
+export function compareBookTopicBookRows(
+  left: BookTopicBookRow,
+  right: BookTopicBookRow,
+): number {
+  return (
+    EXAM_ORDER[left.subject.exam] - EXAM_ORDER[right.subject.exam] ||
+    left.subject.order - right.subject.order ||
+    left.subject.name.localeCompare(right.subject.name, 'tr-TR') ||
+    left.topic.order - right.topic.order ||
+    left.topic.name.localeCompare(right.topic.name, 'tr-TR') ||
+    left.createdAt.localeCompare(right.createdAt) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
 /**
- * Joins a book's topic records with their topic and subject rows. The result is
- * ordered by exam, subject and topic so the book detail page is deterministic
- * even when records were added in a different order.
+ * Joins topic test records with their topic and subject rows. Orphaned records
+ * (missing topic or subject) are skipped. The deterministic order is shared by
+ * the book detail page and the batched books overview.
  */
-export async function listBookTopicBooks(
-  bookId: string,
-): Promise<Array<TopicBook & { topic: Topic; subject: Subject }>> {
-  const records = await db.topicBooks.where('bookId').equals(bookId).toArray();
-  if (records.length === 0) {
-    return [];
-  }
+export function buildBookTopicBookRows(
+  records: TopicBook[],
+  topics: readonly Topic[],
+  subjects: readonly Subject[],
+): BookTopicBookRow[] {
+  const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+  const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
 
-  const topicIds = [...new Set(records.map((record) => record.topicId))];
-  const topics = await db.topics.bulkGet(topicIds);
-  const topicById = new Map<string, Topic>();
-  for (const topic of topics) {
-    if (topic) {
-      topicById.set(topic.id, topic);
-    }
-  }
-
-  const subjectIds = [...new Set([...topicById.values()].map((topic) => topic.subjectId))];
-  const subjects = await db.subjects.bulkGet(subjectIds);
-  const subjectById = new Map<string, Subject>();
-  for (const subject of subjects) {
-    if (subject) {
-      subjectById.set(subject.id, subject);
-    }
-  }
-
-  const rows: Array<TopicBook & { topic: Topic; subject: Subject }> = [];
+  const rows: BookTopicBookRow[] = [];
   for (const record of records) {
     const topic = topicById.get(record.topicId);
     const subject = topic ? subjectById.get(topic.subjectId) : undefined;
@@ -144,16 +143,39 @@ export async function listBookTopicBooks(
     }
   }
 
-  return rows.sort(
-    (left, right) =>
-      EXAM_ORDER[left.subject.exam] - EXAM_ORDER[right.subject.exam] ||
-      left.subject.order - right.subject.order ||
-      left.subject.name.localeCompare(right.subject.name, 'tr-TR') ||
-      left.topic.order - right.topic.order ||
-      left.topic.name.localeCompare(right.topic.name, 'tr-TR') ||
-      left.createdAt.localeCompare(right.createdAt) ||
-      left.id.localeCompare(right.id),
+  return rows.sort(compareBookTopicBookRows);
+}
+
+/** Read-only full-table reads used by the dashboard and batched overviews. */
+export async function listAllTopics(): Promise<Topic[]> {
+  return db.topics.toArray();
+}
+
+export async function listAllTopicBooks(): Promise<TopicBook[]> {
+  return db.topicBooks.toArray();
+}
+
+/**
+ * Joins a book's topic records with their topic and subject rows. The result is
+ * ordered by exam, subject and topic so the book detail page is deterministic
+ * even when records were added in a different order.
+ */
+export async function listBookTopicBooks(bookId: string): Promise<BookTopicBookRow[]> {
+  const records = await db.topicBooks.where('bookId').equals(bookId).toArray();
+  if (records.length === 0) {
+    return [];
+  }
+
+  const topicIds = [...new Set(records.map((record) => record.topicId))];
+  const topics = (await db.topics.bulkGet(topicIds)).filter(
+    (topic): topic is Topic => topic !== undefined,
   );
+  const subjectIds = [...new Set(topics.map((topic) => topic.subjectId))];
+  const subjects = (await db.subjects.bulkGet(subjectIds)).filter(
+    (subject): subject is Subject => subject !== undefined,
+  );
+
+  return buildBookTopicBookRows(records, topics, subjects);
 }
 
 /**
@@ -425,6 +447,11 @@ export async function getExam(id: string): Promise<Exam | undefined> {
 
 export async function listExamResults(examId: string): Promise<ExamResult[]> {
   return db.examResults.where('examId').equals(examId).toArray();
+}
+
+/** One table read for callers that need nets across many exams (charts, dashboard). */
+export async function listAllExamResults(): Promise<ExamResult[]> {
+  return db.examResults.toArray();
 }
 
 /**

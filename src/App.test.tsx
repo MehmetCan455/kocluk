@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { screen } from '@testing-library/react';
+import { renderApp } from '@/test/renderApp';
 
-test('uygulama adını gösterir', () => {
-  render(<App />);
-  expect(screen.getByText('Koçluk')).toBeInTheDocument();
+test('uygulama kabuğunu ve ana sayfayı gösterir', async () => {
+  renderApp('/');
+  expect(await screen.findByRole('heading', { level: 1, name: 'Genel Bakış' })).toBeInTheDocument();
+  expect(screen.getAllByText('Koçluk').length).toBeGreaterThan(0);
 });

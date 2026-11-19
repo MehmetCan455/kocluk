@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
+import { computeHiddenSubjects } from '@/data/alanSubjects';
 import { db } from '@/db/db';
 import {
   addCustomTopic,
@@ -104,6 +105,47 @@ test('TYT ders kartlarını gösterir', async () => {
   expect(await screen.findByText('Matematik')).toBeInTheDocument();
   expect(await screen.findByText('Fizik')).toBeInTheDocument();
   expect(await screen.findByText('2 konu')).toBeInTheDocument();
+});
+
+test('bir konu bitince diğer konu tamam sayılmaz', async () => {
+  const turev = await topicByKey('tyt-mat-turev');
+  await addTestRecord(turev.id, 2, 2);
+
+  renderApp('/tyt');
+
+  expect(await screen.findByText('Sırada: Polinomlar')).toBeInTheDocument();
+  expect(screen.queryByText('Tüm konular tamam')).not.toBeInTheDocument();
+});
+
+test('kaydı olan ama çözülmemiş konu sırada gösterilir', async () => {
+  const turev = await topicByKey('tyt-mat-turev');
+  const polinomlar = await topicByKey('tyt-mat-pol');
+  await addTestRecord(turev.id, 2, 2);
+  await addTestRecord(polinomlar.id, 0, 4);
+
+  renderApp('/tyt');
+
+  expect(await screen.findByText('Sırada: Polinomlar')).toBeInTheDocument();
+  const mathematicsCard = screen.getByText('Matematik').closest('a');
+  expect(mathematicsCard).not.toBeNull();
+  expect(within(mathematicsCard!).queryByText('Henüz başlanmadı')).not.toBeInTheDocument();
+});
+
+test('tüm konular bitince kart tamamlandı der', async () => {
+  const turev = await topicByKey('tyt-mat-turev');
+  const polinomlar = await topicByKey('tyt-mat-pol');
+  await addTestRecord(turev.id, 2, 2);
+  await addTestRecord(polinomlar.id, 1, 1);
+
+  renderApp('/tyt');
+
+  expect(await screen.findByText('Tüm konular tamam')).toBeInTheDocument();
+});
+
+test('hiç test kaydı yoksa kart başlanmadı der', async () => {
+  renderApp('/tyt');
+
+  expect(await screen.findAllByText('Henüz başlanmadı')).toHaveLength(2);
 });
 
 test('konu listesini ve ilerlemeyi gösterir', async () => {
@@ -234,6 +276,29 @@ test('AYT alan filtresi dersleri süzer ve seçimi saklar', async () => {
   await waitFor(() => {
     expect(screen.queryByText('Edebiyat')).not.toBeInTheDocument();
   });
+  await waitFor(async () => {
+    const settings = await getSettings();
+    expect(settings.aytAlan).toBe('sayisal');
+    expect(settings.hiddenSubjects).toEqual([edebiyat!.id]);
+  });
+});
+
+test('bayat gizli listesi AYT alan filtresini bozamaz', async () => {
+  const allSubjects = await listSubjects();
+  const edebiyat = allSubjects.find((subject) => subject.seedKey === 'ayt-edebiyat');
+  expect(edebiyat).toBeDefined();
+  await patchSettings({
+    aytAlan: 'sayisal',
+    hiddenSubjects: computeHiddenSubjects('sozel', allSubjects),
+  });
+
+  renderApp('/ayt');
+
+  expect(await screen.findByText('Matematik')).toBeInTheDocument();
+  expect(screen.queryByText('Edebiyat')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Sayısal' })).toHaveAttribute('aria-pressed', 'true');
+
+  await userEvent.click(screen.getByRole('button', { name: 'Sayısal' }));
   await waitFor(async () => {
     const settings = await getSettings();
     expect(settings.aytAlan).toBe('sayisal');

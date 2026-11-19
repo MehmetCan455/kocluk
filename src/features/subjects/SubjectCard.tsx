@@ -4,7 +4,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { getSubjectIcon } from '@/data/subjectIcons';
 import type { ExamType, Subject } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
-import { useSubjectOverview } from '@/lib/progress';
+import { useSubjectOverview, type SubjectOverview } from '@/lib/progress';
 import { examBasePath } from './exam';
 
 export interface SubjectCardProps {
@@ -12,10 +12,30 @@ export interface SubjectCardProps {
   exam: ExamType;
 }
 
+function cardMessage(overview: SubjectOverview): string {
+  const { topics } = overview;
+
+  if (topics.length === 0) {
+    return 'Henüz konu yok';
+  }
+  if (topics.every((row) => row.progress.done)) {
+    return 'Tüm konular tamam';
+  }
+  if (overview.continuingTopic) {
+    return `Devam eden: ${overview.continuingTopic.name}`;
+  }
+  if (topics.every((row) => row.progress.total === 0)) {
+    return 'Henüz başlanmadı';
+  }
+
+  const nextTopic = topics.find((row) => !row.progress.done);
+  return nextTopic ? `Sırada: ${nextTopic.topic.name}` : 'Henüz başlanmadı';
+}
+
 export function SubjectCard({ subject, exam }: SubjectCardProps) {
   const overview = useSubjectOverview(subject.id);
   const progress = overview?.progress;
-  const continuingTopic = overview?.continuingTopic;
+  const message = overview ? cardMessage(overview) : 'Yükleniyor…';
   const Icon = getSubjectIcon(subject.icon);
 
   return (
@@ -51,15 +71,7 @@ export function SubjectCard({ subject, exam }: SubjectCardProps) {
                 : 'Henüz test yok'
               : '—'}
           </span>
-          <span className="min-w-0 truncate">
-            {!progress
-              ? 'Yükleniyor…'
-              : continuingTopic
-                ? `Devam eden: ${continuingTopic.name}`
-                : progress.done && progress.total > 0
-                  ? 'Tüm konular tamam'
-                  : 'Henüz başlanmadı'}
-          </span>
+          <span className="min-w-0 truncate">{message}</span>
         </div>
       </Card>
     </Link>

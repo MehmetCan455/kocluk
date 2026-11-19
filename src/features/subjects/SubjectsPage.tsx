@@ -48,10 +48,6 @@ export function SubjectsPage({ exam }: SubjectsPageProps) {
   const isAyt = exam === 'AYT';
 
   async function changeAlan(value: AytAlan) {
-    if (value === selectedAlan) {
-      return;
-    }
-
     const previous = selectedAlan;
     setSelectedAlan(value);
 
@@ -66,21 +62,17 @@ export function SubjectsPage({ exam }: SubjectsPageProps) {
     }
   }
 
-  // TYT subjects are never filtered. On AYT, the selected alan determines the
-  // visible set; persisted hidden subjects are also respected on open. While a
-  // selection is being persisted, the local alan result is authoritative.
-  const persistedHiddenIds = new Set(isAyt ? settings.hiddenSubjects : []);
+  // TYT subjects are never filtered. On AYT, the selected alan is the sole
+  // authority for visibility: settings.hiddenSubjects can be stale until
+  // SettingsPage recomputes it, so it is not unioned here. Clicking the current
+  // selection still rewrites both fields, which reconciles a stale hidden list.
   const alanHiddenIds = new Set(
     isAyt && selectedAlan !== 'tumu' ? computeHiddenSubjects(selectedAlan, subjects) : [],
   );
-  const hiddenIds =
-    isAyt && selectedAlan === settings.aytAlan
-      ? new Set([...persistedHiddenIds, ...alanHiddenIds])
-      : alanHiddenIds;
   const visibleSubjects =
     !isAyt || selectedAlan === 'tumu'
       ? subjects
-      : subjects.filter((subject) => !hiddenIds.has(subject.id));
+      : subjects.filter((subject) => !alanHiddenIds.has(subject.id));
 
   return (
     <section className="space-y-6">

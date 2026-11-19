@@ -19,10 +19,19 @@ import type { Subject, Topic } from '@/domain/types';
 import { examBasePath } from '@/features/subjects/exam';
 import { normalizeTr } from '@/lib/normalize';
 import { searchAll, type SearchKind, type SearchResult } from './searchAll';
+import { useDebouncedValue } from './useDebouncedValue';
 
 export interface SearchModalProps {
   open: boolean;
   onClose: () => void;
+}
+
+/** Input is debounced before IndexedDB is read on every keystroke. */
+export const SEARCH_DEBOUNCE_MS = 200;
+
+interface SearchState {
+  query: string;
+  results: SearchResult[];
 }
 
 const KIND_ORDER: readonly SearchKind[] = ['topic', 'note', 'book', 'exam', 'photo'];
@@ -217,10 +226,20 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
   const baseId = useId().replace(/:/g, '');
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
+  const queryIsEmpty = normalizeTr(query) === '';
 
-  const results = useLiveQuery(
-    () => (open ? searchAll(query) : Promise.resolve<SearchResult[]>([])),
-    [open, query],
+  // The state carries the query it belongs to. Dexie keeps the previous value
+  // while a new live query is pending, so comparing the label prevents stale
+  // results from flashing between the debounce firing and IndexedDB answering.
+  const searchState = useLiveQuery(
+    async (): Promise<SearchState> => {
+      if (!open || queryIsEmpty) {
+        return { query: debouncedQuery, results: [] };
+      }
+      return { query: debouncedQuery, results: await searchAll(debouncedQuery) };
+    },
+    [open, queryIsEmpty, debouncedQuery],
   );
 
   useEffect(() => {
@@ -229,7 +248,12 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
     }
   }, [open]);
 
-  const queryIsEmpty = normalizeTr(query) === '';
+  const waitingForDebounce =
+    !queryIsEmpty && normalizeTr(debouncedQuery) !== normalizeTr(query);
+  const results =
+    searchState !== undefined && searchState.query === debouncedQuery
+      ? searchState.results
+      : undefined;
 
   return (
     <Modal
@@ -268,7 +292,7 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
 
         {queryIsEmpty ? (
           <EmptyQuery onClose={onClose} />
-        ) : results === undefined ? (
+        ) : waitingForDebounce || results === undefined ? (
           <p role="status" className="py-4 text-center text-sm text-muted">
             Aranıyor…
           </p>

@@ -461,6 +461,7 @@ test('AYT denemesi alan bilgisiyle kaydedilir', async () => {
   renderApp('/denemeler/yeni');
 
   await screen.findByLabelText('Türkçe doğru');
+  expect(screen.getByLabelText('Deneme türü')).toBeEnabled();
   await userEvent.selectOptions(screen.getByLabelText('Deneme türü'), 'AYT');
   await userEvent.selectOptions(await screen.findByLabelText('AYT alanı'), 'sayisal');
   await userEvent.type(screen.getByLabelText('Deneme adı'), '3D AYT 2');
@@ -498,6 +499,13 @@ test('deneme düzenlenince form mevcut değerleri yükler ve sonuçları güncel
 
   expect(
     await screen.findByRole('heading', { level: 1, name: 'Denemeyi düzenle' }),
+  ).toBeInTheDocument();
+  const typeSelect = screen.getByLabelText('Deneme türü');
+  expect(typeSelect).toBeDisabled();
+  expect(
+    screen.getByText(
+      'Deneme türü sonradan değiştirilemez; farklı tür için yeni deneme oluşturun.',
+    ),
   ).toBeInTheDocument();
   const nameInput = screen.getByLabelText('Deneme adı');
   expect(nameInput).toHaveValue('3D TYT 5');

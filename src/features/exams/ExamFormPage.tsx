@@ -314,12 +314,22 @@ export function ExamFormPage() {
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Deneme türü" htmlFor={typeId}>
+            <Field
+              label="Deneme türü"
+              htmlFor={typeId}
+              hint={
+                editing
+                  ? 'Deneme türü sonradan değiştirilemez; farklı tür için yeni deneme oluşturun.'
+                  : undefined
+              }
+            >
               <select
                 id={typeId}
                 value={examType}
                 onChange={(event) => setExamType(event.target.value as ExamType)}
-                className={inputClass}
+                disabled={editing}
+                aria-describedby={editing ? `${typeId}-hint` : undefined}
+                className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 <option value="TYT">TYT</option>
                 <option value="AYT">AYT</option>

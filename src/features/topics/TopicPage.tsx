@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BookOpen, Camera, FileText } from 'lucide-react';
+import { BookOpen, Camera } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
@@ -12,6 +12,7 @@ import { calculateProgress } from '@/domain/calculations';
 import type { ExamType } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
 import { examBasePath, examTitle } from '@/features/subjects/exam';
+import { NotesTab } from '@/features/notes/NotesTab';
 import { TestsTab } from './TestsTab';
 
 type TopicTab = 'testler' | 'notlar' | 'yanlislar';
@@ -106,13 +107,7 @@ export function TopicPage({ exam }: TopicPageProps) {
           {
             id: 'notlar',
             label: 'Notlar',
-            content: (
-              <EmptyState
-                icon={FileText}
-                title="Henüz not eklenmedi"
-                description="Konu notlarını buraya ekleyebileceksin."
-              />
-            ),
+            content: <NotesTab topicId={topic.id} />,
           },
           {
             id: 'yanlislar',

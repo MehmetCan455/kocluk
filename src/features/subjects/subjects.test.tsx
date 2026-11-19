@@ -352,7 +352,8 @@ test('konu sayfası sekmeleri ve boş durumları gösterir', async () => {
   expect(screen.getByText('Henüz test eklenmedi')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('tab', { name: 'Notlar' }));
-  expect(screen.getByText('Henüz not eklenmedi')).toBeInTheDocument();
+  expect(await screen.findByRole('textbox', { name: 'Konu notu' })).toBeInTheDocument();
+  expect(screen.getByText('Henüz dosya eklenmedi.')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('tab', { name: 'Yanlışlar' }));
   expect(screen.getByText('Henüz yanlış fotoğrafı yok')).toBeInTheDocument();

@@ -1,16 +1,19 @@
 import type {
   AppSettings,
+  Attachment,
   AytAlan,
   Book,
   Exam,
   ExamResult,
   ExamType,
+  Note,
   Subject,
   Topic,
   TopicBook,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
 import { newId } from '@/lib/id';
+import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
 import { db } from './db';
 
 export { seedCurriculum } from './seed';
@@ -352,6 +355,74 @@ export async function deleteCustomTopicCascade(topicId: string): Promise<void> {
     await db.photos.where('topicId').equals(topicId).modify({ topicId: undefined });
     await db.topics.delete(topicId);
   });
+}
+
+export async function getNote(topicId: string): Promise<Note | undefined> {
+  return db.notes.get(topicId);
+}
+
+/**
+ * Stores one note per topic. The HTML is sanitized before it reaches IndexedDB
+ * and `plainText` is derived from that sanitized markup so global search always
+ * matches what the editor shows. The caller-supplied text is only a fallback
+ * for markup without text nodes.
+ */
+export async function saveNote(
+  topicId: string,
+  contentHtml: string,
+  plainText: string,
+): Promise<void> {
+  const safeHtml = sanitizeHtml(contentHtml);
+  const derived = htmlToPlainText(safeHtml).trim();
+
+  await db.notes.put({
+    topicId,
+    contentHtml: safeHtml,
+    plainText: derived || plainText.trim(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+export const ATTACHMENT_SIZE_ERROR = 'Dosya boyutu 20 MB sınırını aşıyor';
+export const ATTACHMENT_TYPE_ERROR = 'Yalnızca görsel veya PDF dosyası ekleyebilirsin';
+
+/** Newest first, with the id keeping same-millisecond uploads deterministic. */
+export async function listAttachments(topicId: string): Promise<Attachment[]> {
+  const attachments = await db.attachments.where('topicId').equals(topicId).toArray();
+  return attachments.sort(
+    (left, right) =>
+      right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id),
+  );
+}
+
+/**
+ * Stores an image or PDF as-is. Task 13 will compress images to 2000 px before
+ * they reach this function; the 20 MB guard stays here as the final boundary.
+ */
+export async function addAttachment(topicId: string, file: File): Promise<Attachment> {
+  if (file.size > ATTACHMENT_MAX_BYTES) {
+    throw new Error(ATTACHMENT_SIZE_ERROR);
+  }
+  if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+    throw new Error(ATTACHMENT_TYPE_ERROR);
+  }
+
+  const attachment: Attachment = {
+    id: newId(),
+    topicId,
+    name: file.name.trim() || 'dosya',
+    mime: file.type,
+    size: file.size,
+    blob: file,
+    createdAt: new Date().toISOString(),
+  };
+  await db.attachments.add(attachment);
+  return attachment;
+}
+
+export async function deleteAttachment(id: string): Promise<void> {
+  await db.attachments.delete(id);
 }
 
 export interface SaveExamInput {

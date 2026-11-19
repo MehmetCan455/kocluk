@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { SubjectPage } from '@/features/subjects/SubjectPage';
+import { SubjectsPage } from '@/features/subjects/SubjectsPage';
+import { TopicPage } from '@/features/topics/TopicPage';
 import { PagePlaceholder } from './PagePlaceholder';
 import { useAppSettings } from './SettingsProvider';
 
@@ -37,41 +40,13 @@ export function AppRoutes() {
         }
       />
 
-      <Route
-        path="/tyt"
-        element={
-          <PagePlaceholder
-            title="TYT Dersleri"
-            description="TYT dersleri ve konuları yakında burada listelenecek."
-          />
-        }
-      />
-      <Route
-        path="/tyt/:subjectId"
-        element={<PagePlaceholder title="Ders" description="Ders detayı yakında burada olacak." />}
-      />
-      <Route
-        path="/tyt/:subjectId/:topicId"
-        element={<PagePlaceholder title="Konu" description="Konu detayı yakında burada olacak." />}
-      />
+      <Route path="/tyt" element={<SubjectsPage exam="TYT" />} />
+      <Route path="/tyt/:subjectId" element={<SubjectPage exam="TYT" />} />
+      <Route path="/tyt/:subjectId/:topicId" element={<TopicPage exam="TYT" />} />
 
-      <Route
-        path="/ayt"
-        element={
-          <PagePlaceholder
-            title="AYT Dersleri"
-            description="AYT dersleri ve konuları yakında burada listelenecek."
-          />
-        }
-      />
-      <Route
-        path="/ayt/:subjectId"
-        element={<PagePlaceholder title="Ders" description="Ders detayı yakında burada olacak." />}
-      />
-      <Route
-        path="/ayt/:subjectId/:topicId"
-        element={<PagePlaceholder title="Konu" description="Konu detayı yakında burada olacak." />}
-      />
+      <Route path="/ayt" element={<SubjectsPage exam="AYT" />} />
+      <Route path="/ayt/:subjectId" element={<SubjectPage exam="AYT" />} />
+      <Route path="/ayt/:subjectId/:topicId" element={<TopicPage exam="AYT" />} />
 
       <Route
         path="/denemeler"

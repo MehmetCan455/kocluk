@@ -57,14 +57,25 @@ export async function listTopicBooks(topicId: string): Promise<TopicBook[]> {
 }
 
 export async function addCustomTopic(subjectId: string, name: string): Promise<Topic> {
-  return db.transaction('rw', db.topics, async () => {
-    const topicCount = await db.topics.where('subjectId').equals(subjectId).count();
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Konu adı boş olamaz');
+  }
+
+  return db.transaction('rw', db.subjects, db.topics, async () => {
+    const subject = await db.subjects.get(subjectId);
+    if (!subject) {
+      throw new Error('Ders bulunamadı');
+    }
+
+    const topics = await db.topics.where('subjectId').equals(subjectId).toArray();
+    const maxOrder = topics.reduce((max, topic) => Math.max(max, topic.order), 0);
     const topic: Topic = {
       id: newId(),
       seedKey: undefined,
       subjectId,
-      name,
-      order: topicCount + 1,
+      name: trimmedName,
+      order: maxOrder + 1,
       isCustom: true,
       createdAt: new Date().toISOString(),
     };
@@ -74,7 +85,11 @@ export async function addCustomTopic(subjectId: string, name: string): Promise<T
 }
 
 export async function renameTopic(topicId: string, name: string): Promise<void> {
-  await db.topics.update(topicId, { name });
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Konu adı boş olamaz');
+  }
+  await db.topics.update(topicId, { name: trimmedName });
 }
 
 export async function deleteCustomTopicCascade(topicId: string): Promise<void> {

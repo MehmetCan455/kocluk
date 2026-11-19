@@ -2,16 +2,23 @@ import { useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
-import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { computeHiddenSubjects } from '@/data/alanSubjects';
 import { listSubjects } from '@/db/repositories';
-import type { ExamType, Subject } from '@/domain/types';
+import type { AytAlan, ExamType, Subject } from '@/domain/types';
 import { examTitle } from './exam';
 import { SubjectCard } from './SubjectCard';
 
 export interface SubjectsPageProps {
   exam: ExamType;
 }
+
+const ALAN_OPTIONS: ReadonlyArray<{ value: AytAlan; label: string }> = [
+  { value: 'sayisal', label: 'Sayısal' },
+  { value: 'ea', label: 'Eşit Ağırlık' },
+  { value: 'sozel', label: 'Sözel' },
+  { value: 'tumu', label: 'Tümü' },
+];
 
 function SubjectGrid({ subjects, exam }: { subjects: Subject[]; exam: ExamType }) {
   return (
@@ -26,8 +33,8 @@ function SubjectGrid({ subjects, exam }: { subjects: Subject[]; exam: ExamType }
 }
 
 export function SubjectsPage({ exam }: SubjectsPageProps) {
-  const { settings } = useAppSettings();
-  const [showHidden, setShowHidden] = useState(false);
+  const { settings, updateSettings } = useAppSettings();
+  const [selectedAlan, setSelectedAlan] = useState<AytAlan>(settings.aytAlan);
   const subjects = useLiveQuery(() => listSubjects(exam), [exam]);
 
   if (!subjects) {
@@ -38,11 +45,42 @@ export function SubjectsPage({ exam }: SubjectsPageProps) {
     );
   }
 
-  // TYT subjects are never hidden. AYT hidden subjects are matched by ID so a
-  // renamed subject keeps its visibility, and the toggle never writes settings.
-  const hiddenIds = new Set(exam === 'AYT' ? settings.hiddenSubjects : []);
-  const visibleSubjects = subjects.filter((subject) => !hiddenIds.has(subject.id));
-  const hiddenSubjects = subjects.filter((subject) => hiddenIds.has(subject.id));
+  const isAyt = exam === 'AYT';
+
+  async function changeAlan(value: AytAlan) {
+    if (value === selectedAlan) {
+      return;
+    }
+
+    const previous = selectedAlan;
+    setSelectedAlan(value);
+
+    try {
+      await updateSettings({
+        aytAlan: value,
+        hiddenSubjects: computeHiddenSubjects(value, await listSubjects()),
+      });
+    } catch (error: unknown) {
+      console.error('AYT alanı güncellenemedi', error);
+      setSelectedAlan(previous);
+    }
+  }
+
+  // TYT subjects are never filtered. On AYT, the selected alan determines the
+  // visible set; persisted hidden subjects are also respected on open. While a
+  // selection is being persisted, the local alan result is authoritative.
+  const persistedHiddenIds = new Set(isAyt ? settings.hiddenSubjects : []);
+  const alanHiddenIds = new Set(
+    isAyt && selectedAlan !== 'tumu' ? computeHiddenSubjects(selectedAlan, subjects) : [],
+  );
+  const hiddenIds =
+    isAyt && selectedAlan === settings.aytAlan
+      ? new Set([...persistedHiddenIds, ...alanHiddenIds])
+      : alanHiddenIds;
+  const visibleSubjects =
+    !isAyt || selectedAlan === 'tumu'
+      ? subjects
+      : subjects.filter((subject) => !hiddenIds.has(subject.id));
 
   return (
     <section className="space-y-6">
@@ -55,40 +93,48 @@ export function SubjectsPage({ exam }: SubjectsPageProps) {
               : 'Alan Yeterlilik Testi dersleri ve konuları.'}
           </p>
         </div>
-        {hiddenSubjects.length > 0 ? (
-          <Button variant="secondary" onClick={() => setShowHidden((current) => !current)}>
-            {showHidden ? 'Yalnızca alanımdaki dersler' : 'Tüm dersleri göster'}
-          </Button>
+
+        {isAyt ? (
+          <div
+            role="group"
+            aria-label="AYT alanı"
+            className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1"
+          >
+            {ALAN_OPTIONS.map((option) => {
+              const active = option.value === selectedAlan;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => void changeAlan(option.value)}
+                  className={
+                    active
+                      ? 'min-h-11 rounded-lg bg-[var(--accent-soft)] px-3 text-sm font-medium text-[var(--accent)]'
+                      : 'min-h-11 rounded-lg px-3 text-sm font-medium text-muted transition-colors hover:text-fg'
+                  }
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         ) : null}
       </header>
 
       {visibleSubjects.length === 0 ? (
         <EmptyState
           icon={BookOpen}
-          title="Gösterilecek ders yok"
+          title={isAyt ? 'Bu alanda ders yok' : 'Gösterilecek ders yok'}
           description={
-            hiddenSubjects.length > 0
-              ? 'Alanına uygun ders bulunamadı. Tüm dersleri göstererek gizli dersleri inceleyebilirsin.'
+            isAyt
+              ? 'Başka bir alan seçebilir veya Tümü ile tüm dersleri görebilirsin.'
               : 'Müfredat yüklendiğinde dersler burada listelenecek.'
           }
         />
       ) : (
         <SubjectGrid subjects={visibleSubjects} exam={exam} />
       )}
-
-      {showHidden && hiddenSubjects.length > 0 ? (
-        <section aria-labelledby="alan-disi-dersler" className="space-y-3 pt-2">
-          <div className="space-y-1">
-            <h2 id="alan-disi-dersler" className="text-lg font-semibold">
-              Alan dışı dersler
-            </h2>
-            <p className="text-sm text-muted">
-              Bu dersler ayarlarına göre gizli. Yalnızca incelemek için gösteriliyor.
-            </p>
-          </div>
-          <SubjectGrid subjects={hiddenSubjects} exam={exam} />
-        </section>
-      ) : null}
     </section>
   );
 }

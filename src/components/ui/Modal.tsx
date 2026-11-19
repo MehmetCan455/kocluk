@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from './cn';
@@ -10,9 +10,19 @@ export interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /** Optional element to focus on open instead of the dialog panel. */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
-export function Modal({ open, title, onClose, children, footer, className }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  className,
+  initialFocusRef,
+}: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -36,13 +46,14 @@ export function Modal({ open, title, onClose, children, footer, className }: Mod
       return;
     }
     const previous = document.activeElement;
-    panelRef.current?.focus();
+    const target = initialFocusRef?.current ?? panelRef.current;
+    target?.focus();
     return () => {
       if (previous instanceof HTMLElement) {
         previous.focus();
       }
     };
-  }, [open]);
+  }, [open, initialFocusRef]);
 
   if (!open) {
     return null;

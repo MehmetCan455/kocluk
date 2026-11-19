@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Search } from 'lucide-react';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { cn } from '@/components/ui/cn';
 import { NAV_ITEMS, SECONDARY_NAV_ITEMS, type NavigationItem } from './navItems';
@@ -25,7 +25,11 @@ function SidebarLink({ item }: { item: NavigationItem }) {
   );
 }
 
-export function Sidebar() {
+export interface SidebarProps {
+  onSearch?: () => void;
+}
+
+export function Sidebar({ onSearch }: SidebarProps) {
   const { settings } = useAppSettings();
   const profileName = settings.profileName.trim();
   const initial = profileName ? profileName.charAt(0).toLocaleUpperCase('tr-TR') : 'K';
@@ -38,6 +42,19 @@ export function Sidebar() {
       </div>
 
       <nav aria-label="Ana menü" className="flex-1 overflow-y-auto p-3">
+        <button
+          type="button"
+          aria-label="Ara"
+          onClick={onSearch}
+          className="mb-3 flex min-h-11 w-full items-center gap-3 rounded-xl border border-line bg-raised/60 px-3 text-sm font-medium text-muted transition-colors duration-150 hover:border-[var(--accent)] hover:text-fg"
+        >
+          <Search className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <span className="flex-1 text-left">Ara</span>
+          <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] font-medium">
+            Ctrl/⌘ K
+          </kbd>
+        </button>
+
         <ul className="space-y-1">
           {NAV_ITEMS.map((item) => (
             <SidebarLink key={item.to} item={item} />

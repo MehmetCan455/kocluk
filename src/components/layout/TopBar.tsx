@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
-import { GraduationCap, Library, Settings } from 'lucide-react';
+import { GraduationCap, Library, Search, Settings } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 
 function iconLinkClass({ isActive }: { isActive: boolean }): string {
@@ -11,7 +11,11 @@ function iconLinkClass({ isActive }: { isActive: boolean }): string {
   );
 }
 
-export function TopBar() {
+export interface TopBarProps {
+  onSearch?: () => void;
+}
+
+export function TopBar({ onSearch }: TopBarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line bg-canvas/90 px-4 backdrop-blur">
       <Link to="/" className="flex items-center gap-2 rounded-xl">
@@ -20,6 +24,15 @@ export function TopBar() {
       </Link>
 
       <div className="flex items-center gap-1">
+        <button
+          type="button"
+          aria-label="Ara"
+          title="Ara (Ctrl/⌘+K)"
+          onClick={onSearch}
+          className="grid h-11 w-11 place-items-center rounded-xl text-muted transition-colors duration-150 hover:bg-raised hover:text-fg"
+        >
+          <Search className="h-5 w-5" aria-hidden="true" />
+        </button>
         <NavLink to="/kitaplar" aria-label="Kitaplar" className={iconLinkClass}>
           <Library className="h-5 w-5" aria-hidden="true" />
         </NavLink>

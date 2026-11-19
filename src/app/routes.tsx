@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { BookDetailPage } from '@/features/books/BookDetailPage';
 import { BooksPage } from '@/features/books/BooksPage';
+import { ExamDetailPage } from '@/features/exams/ExamDetailPage';
+import { ExamFormPage } from '@/features/exams/ExamFormPage';
+import { ExamsPage } from '@/features/exams/ExamsPage';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubjectPage } from '@/features/subjects/SubjectPage';
@@ -50,33 +53,10 @@ export function AppRoutes() {
       <Route path="/ayt/:subjectId" element={<SubjectPage exam="AYT" />} />
       <Route path="/ayt/:subjectId/:topicId" element={<TopicPage exam="AYT" />} />
 
-      <Route
-        path="/denemeler"
-        element={
-          <PagePlaceholder
-            title="Denemeler"
-            description="Deneme kayıtları ve net sonuçları yakında burada olacak."
-          />
-        }
-      />
-      <Route
-        path="/denemeler/yeni"
-        element={
-          <PagePlaceholder
-            title="Yeni Deneme"
-            description="Deneme kayıt formu yakında burada olacak."
-          />
-        }
-      />
-      <Route
-        path="/denemeler/:id"
-        element={
-          <PagePlaceholder
-            title="Deneme Detayı"
-            description="Deneme detayı yakında burada olacak."
-          />
-        }
-      />
+      <Route path="/denemeler" element={<ExamsPage />} />
+      <Route path="/denemeler/yeni" element={<ExamFormPage />} />
+      <Route path="/denemeler/:id/duzenle" element={<ExamFormPage />} />
+      <Route path="/denemeler/:id" element={<ExamDetailPage />} />
 
       <Route
         path="/yanlislar"

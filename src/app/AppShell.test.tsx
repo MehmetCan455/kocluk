@@ -31,8 +31,8 @@ test('ayarlar rotasını açar', async () => {
 });
 
 test('henüz yazılmamış rotalar için yer tutucu gösterir', async () => {
-  renderApp('/denemeler/yeni');
-  expect(await screen.findByRole('heading', { level: 1, name: 'Yeni Deneme' })).toBeInTheDocument();
+  renderApp('/yanlislar');
+  expect(await screen.findByRole('heading', { level: 1, name: 'Yanlışlar' })).toBeInTheDocument();
 });
 
 test('mobilde alt navigasyonu gösterir', async () => {

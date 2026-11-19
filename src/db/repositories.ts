@@ -1,4 +1,15 @@
-import type { AppSettings, Book, ExamType, Subject, Topic, TopicBook } from '@/domain/types';
+import type {
+  AppSettings,
+  AytAlan,
+  Book,
+  Exam,
+  ExamResult,
+  ExamType,
+  Subject,
+  Topic,
+  TopicBook,
+} from '@/domain/types';
+import { calculateNet } from '@/domain/calculations';
 import { newId } from '@/lib/id';
 import { db } from './db';
 
@@ -318,5 +329,178 @@ export async function deleteCustomTopicCascade(topicId: string): Promise<void> {
     await db.attachments.where('topicId').equals(topicId).delete();
     await db.photos.where('topicId').equals(topicId).modify({ topicId: undefined });
     await db.topics.delete(topicId);
+  });
+}
+
+export interface SaveExamInput {
+  id?: string;
+  type: ExamType;
+  name: string;
+  date: string;
+  alan?: AytAlan;
+  note?: string;
+  results: Array<{
+    subjectId: string;
+    correct: number;
+    wrong: number;
+    blank: number;
+  }>;
+}
+
+interface ExamResultInput {
+  subjectId: string;
+  correct: number;
+  wrong: number;
+  blank: number;
+}
+
+const AYT_ALAN_VALUES: ReadonlySet<AytAlan> = new Set(['sayisal', 'ea', 'sozel', 'tumu']);
+
+function isValidDateString(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+function parseExamResults(rows: ExamResultInput[]): ExamResultInput[] {
+  const parsed: ExamResultInput[] = [];
+  const subjectIds = new Set<string>();
+
+  for (const row of rows) {
+    const subjectId = row.subjectId.trim();
+    if (!subjectId) {
+      throw new Error('Ders seçilmedi');
+    }
+
+    for (const count of [row.correct, row.wrong, row.blank]) {
+      if (!Number.isInteger(count) || count < 0) {
+        throw new Error('Doğru, yanlış ve boş sayıları 0 veya daha büyük tam sayı olmalı');
+      }
+    }
+
+    // A row where every field is zero is treated as "not entered" and is
+    // omitted so empty form rows never create results.
+    if (row.correct === 0 && row.wrong === 0 && row.blank === 0) {
+      continue;
+    }
+    if (subjectIds.has(subjectId)) {
+      throw new Error('Aynı ders birden fazla kez girilemez');
+    }
+
+    subjectIds.add(subjectId);
+    parsed.push({ subjectId, correct: row.correct, wrong: row.wrong, blank: row.blank });
+  }
+
+  return parsed;
+}
+
+/**
+ * Lists exams newest first. Dates are stored as `YYYY-MM-DD`, so a lexical
+ * comparison is also chronological; `createdAt` and `id` keep the order stable
+ * for several exams entered on the same day.
+ */
+export async function listExams(type?: ExamType): Promise<Exam[]> {
+  const exams = type
+    ? await db.exams.where('type').equals(type).toArray()
+    : await db.exams.toArray();
+
+  return exams.sort(
+    (left, right) =>
+      right.date.localeCompare(left.date) ||
+      right.createdAt.localeCompare(left.createdAt) ||
+      left.id.localeCompare(right.id),
+  );
+}
+
+export async function getExam(id: string): Promise<Exam | undefined> {
+  return db.exams.get(id);
+}
+
+export async function listExamResults(examId: string): Promise<ExamResult[]> {
+  return db.examResults.where('examId').equals(examId).toArray();
+}
+
+/**
+ * Creates or updates an exam and fully replaces its subject results in one
+ * transaction. Net is recomputed and stored on every result. An `id` that no
+ * longer exists is an error rather than a silent create.
+ */
+export async function saveExam(input: SaveExamInput): Promise<Exam> {
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error('Deneme adı boş olamaz');
+  }
+  if (!input.date) {
+    throw new Error('Tarih boş olamaz');
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+    throw new Error('Tarih YYYY-MM-DD biçiminde olmalı');
+  }
+  if (!isValidDateString(input.date)) {
+    throw new Error('Geçerli bir tarih gir');
+  }
+  if (input.alan !== undefined && !AYT_ALAN_VALUES.has(input.alan)) {
+    throw new Error('AYT alanı geçersiz');
+  }
+
+  const results = parseExamResults(input.results);
+  const alan = input.type === 'AYT' ? input.alan : undefined;
+  const note = input.note?.trim() ?? '';
+
+  return db.transaction('rw', db.exams, db.examResults, async () => {
+    const existing = input.id ? await db.exams.get(input.id) : undefined;
+    if (input.id && !existing) {
+      throw new Error('Deneme bulunamadı');
+    }
+
+    const exam: Exam = {
+      id: existing?.id ?? newId(),
+      type: input.type,
+      name,
+      date: input.date,
+      alan,
+      note,
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+    };
+
+    await db.exams.put(exam);
+    await db.examResults.where('examId').equals(exam.id).delete();
+
+    if (results.length > 0) {
+      await db.examResults.bulkAdd(
+        results.map((row) => ({
+          id: newId(),
+          examId: exam.id,
+          subjectId: row.subjectId,
+          correct: row.correct,
+          wrong: row.wrong,
+          blank: row.blank,
+          net: calculateNet(row.correct, row.wrong),
+        })),
+      );
+    }
+
+    return exam;
+  });
+}
+
+/**
+ * Deletes the exam and its results but keeps wrong-answer photos. Photos are
+ * only unlinked (`examId` cleared) so they remain in the Yanlışlar gallery.
+ * Everything runs in one transaction so a failure cannot leave photo links
+ * pointing at a missing exam.
+ */
+export async function deleteExamUnlinkPhotos(examId: string): Promise<void> {
+  await db.transaction('rw', db.exams, db.examResults, db.photos, async () => {
+    await db.photos.where('examId').equals(examId).modify({ examId: undefined });
+    await db.examResults.where('examId').equals(examId).delete();
+    await db.exams.delete(examId);
   });
 }

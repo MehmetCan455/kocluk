@@ -40,6 +40,13 @@ export function relativeLuminance(hex: string): number {
 }
 
 /**
+ * Relative luminance above which accent surfaces switch to dark text.
+ * White stays readable on the blue/indigo/purple presets (≈0.21–0.24),
+ * while amber, turquoise and green (≈0.37–0.44) need `#0A0A0C`.
+ */
+export const ACCENT_DARK_TEXT_THRESHOLD = 0.35;
+
+/**
  * Applies the accent palette to the document root. The whole app reads
  * `--accent*` variables, so a single call retints every accent surface.
  */
@@ -51,7 +58,8 @@ export function applyAccent(hex: string): void {
   }
 
   const root = document.documentElement;
-  const contrast = relativeLuminance(normalized) > 0.55 ? '#0A0A0C' : '#FFFFFF';
+  const contrast =
+    relativeLuminance(normalized) > ACCENT_DARK_TEXT_THRESHOLD ? '#0A0A0C' : '#FFFFFF';
   root.style.setProperty('--accent', normalized);
   root.style.setProperty('--accent-soft', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.16)`);
   root.style.setProperty('--accent-strong', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);

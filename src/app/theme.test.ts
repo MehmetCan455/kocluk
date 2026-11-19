@@ -1,4 +1,4 @@
-import { applyAccent, relativeLuminance } from './theme';
+import { ACCENT_DARK_TEXT_THRESHOLD, applyAccent, relativeLuminance } from './theme';
 
 afterEach(() => {
   document.documentElement.style.removeProperty('--accent');
@@ -22,9 +22,28 @@ test('yumuşak ve güçlü tonları yarı saydam üretir', () => {
   expect(root.style.getPropertyValue('--accent-contrast')).toBe('#FFFFFF');
 });
 
-test('parlak renklerde koyu metin kontrastı seçer', () => {
+test('hazır paletlerde okunabilir metin kontrastı seçer', () => {
+  const cases = [
+    { name: 'Mavi', hex: '#3B82F6', expected: '#FFFFFF' },
+    { name: 'Amber', hex: '#F59E0B', expected: '#0A0A0C' },
+    { name: 'Turkuaz', hex: '#14B8A6', expected: '#0A0A0C' },
+    { name: 'Yeşil', hex: '#22C55E', expected: '#0A0A0C' },
+    { name: 'Mor', hex: '#A855F7', expected: '#FFFFFF' },
+  ] as const;
+
+  for (const { name, hex, expected } of cases) {
+    applyAccent(hex);
+    expect(
+      document.documentElement.style.getPropertyValue('--accent-contrast'),
+      `${name} (${hex})`,
+    ).toBe(expected);
+  }
+});
+
+test('kontrast eşiği 0.35 ve üzerinde koyu metin seçer', () => {
+  expect(ACCENT_DARK_TEXT_THRESHOLD).toBe(0.35);
   applyAccent('#FDE68A');
-  expect(relativeLuminance('#FDE68A')).toBeGreaterThan(0.55);
+  expect(relativeLuminance('#FDE68A')).toBeGreaterThan(ACCENT_DARK_TEXT_THRESHOLD);
   expect(document.documentElement.style.getPropertyValue('--accent-contrast')).toBe('#0A0A0C');
 });
 

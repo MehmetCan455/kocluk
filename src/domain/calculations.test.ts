@@ -13,6 +13,12 @@ test('ilerleme hesaplar', () => {
   expect(calculateProgress([{ solvedTests: 3, totalTests: 3 }])).toMatchObject({ percent: 100, remaining: 0, done: true });
 });
 
+test('yüzde tamamlanmadan 100 olmaz', () => {
+  expect(calculateProgress([{ solvedTests: 299, totalTests: 300 }])).toMatchObject({ percent: 99, remaining: 1, done: false });
+  expect(calculateProgress([{ solvedTests: 1, totalTests: 300 }])).toMatchObject({ percent: 0, started: true, done: false });
+  expect(calculateProgress([{ solvedTests: 300, totalTests: 300 }])).toMatchObject({ percent: 100, done: true });
+});
+
 test('tr-TR biçimlendirir', () => {
   expect(formatNet(28)).toBe('28,00');
   expect(formatPercent(83)).toBe('%83');

@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BookOpen, Camera, ClipboardList, FileText } from 'lucide-react';
+import { BookOpen, Camera, FileText } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { RingProgress } from '@/components/ui/RingProgress';
 import { Tabs } from '@/components/ui/Tabs';
-import { listSubjects, listTopics } from '@/db/repositories';
+import { listBooks, listSubjects, listTopicBooks, listTopics } from '@/db/repositories';
+import { calculateProgress } from '@/domain/calculations';
 import type { ExamType } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
-import { useTopicProgress } from '@/lib/progress';
 import { examBasePath, examTitle } from '@/features/subjects/exam';
+import { TestsTab } from './TestsTab';
 
 type TopicTab = 'testler' | 'notlar' | 'yanlislar';
 
@@ -24,7 +25,10 @@ export function TopicPage({ exam }: TopicPageProps) {
   const [tab, setTab] = useState<TopicTab>('testler');
   const subjects = useLiveQuery(() => listSubjects(exam), [exam]);
   const topics = useLiveQuery(() => listTopics(subjectId), [subjectId]);
-  const progress = useTopicProgress(topicId);
+  const data = useLiveQuery(async () => {
+    const [records, books] = await Promise.all([listTopicBooks(topicId), listBooks()]);
+    return { records, books, progress: calculateProgress(records) };
+  }, [topicId]);
 
   if (!subjects || !topics) {
     return (
@@ -55,13 +59,15 @@ export function TopicPage({ exam }: TopicPageProps) {
     );
   }
 
-  if (!progress) {
+  if (!data) {
     return (
       <p role="status" className="py-16 text-center text-sm text-muted">
         Konu yükleniyor…
       </p>
     );
   }
+
+  const { progress } = data;
 
   return (
     <div className="space-y-5">
@@ -95,13 +101,7 @@ export function TopicPage({ exam }: TopicPageProps) {
           {
             id: 'testler',
             label: 'Testler',
-            content: (
-              <EmptyState
-                icon={ClipboardList}
-                title="Henüz test eklenmedi"
-                description="Bu konuya ait kitap ve test kayıtları burada listelenecek."
-              />
-            ),
+            content: <TestsTab topicId={topic.id} records={data.records} books={data.books} />,
           },
           {
             id: 'notlar',

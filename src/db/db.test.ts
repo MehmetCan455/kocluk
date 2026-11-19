@@ -5,14 +5,18 @@ import { db } from './db';
 import {
   DEFAULT_SETTINGS,
   addCustomTopic,
+  createBook,
   deleteCustomTopicCascade,
+  deleteTopicBook,
   getSettings,
+  listBooks,
   listSubjects,
   listTopicBooks,
   listTopics,
   patchSettings,
   renameTopic,
   seedCurriculum,
+  upsertTopicBook,
 } from './repositories';
 import type { CurriculumSeed } from './seed';
 
@@ -313,6 +317,130 @@ test('resetDb tüm tabloları temizler', async () => {
   expect(await db.subjects.count()).toBe(0);
   expect(await db.topics.count()).toBe(0);
   expect(await db.settings.count()).toBe(0);
+});
+
+async function seededSubjectAndTopic(): Promise<{ subjectId: string; topicId: string }> {
+  await seedCurriculum(matSeed);
+  const subject = await db.subjects.where('seedKey').equals('tyt-mat').first();
+  const topic = await db.topics.where('seedKey').equals('tyt-mat-turev').first();
+  if (!subject || !topic) {
+    throw new Error('Test seed verisi hazırlanamadı');
+  }
+  return { subjectId: subject.id, topicId: topic.id };
+}
+
+test('kitap oluşturur, adı kırpar ve son güncellenen önce listelenir', async () => {
+  const first = await createBook({ name: '  Matematik Soru Bankası  ', publisher: '  Palme  ' });
+
+  expect(first).toMatchObject({ name: 'Matematik Soru Bankası', publisher: 'Palme' });
+  expect(first.createdAt).toBeTruthy();
+  expect(first.updatedAt).toBe(first.createdAt);
+
+  await db.books.update(first.id, { updatedAt: '2020-01-01T00:00:00.000Z' });
+  const second = await createBook({ name: 'Fizik Soru Bankası' });
+
+  expect(second.publisher).toBeUndefined();
+  expect((await listBooks()).map((book) => book.name)).toEqual([
+    'Fizik Soru Bankası',
+    'Matematik Soru Bankası',
+  ]);
+
+  await expect(createBook({ name: '   ' })).rejects.toThrow('Kitap adı boş olamaz');
+
+  const duplicate = await createBook({ name: 'Fizik Soru Bankası' });
+  expect(duplicate.id).not.toBe(second.id);
+  expect(await db.books.where('name').equals('Fizik Soru Bankası').count()).toBe(2);
+});
+
+test('aynı kitap birden fazla konuya bağlanır, aynı konuda kayıt güncellenir', async () => {
+  const { subjectId, topicId } = await seededSubjectAndTopic();
+  const secondTopic = await addCustomTopic(subjectId, 'İkinci konu');
+  const book = await createBook({ name: 'Ortak Kitap' });
+
+  const firstRecord = await upsertTopicBook({
+    topicId,
+    bookId: book.id,
+    totalTests: 10,
+    solvedTests: 4,
+  });
+  const secondRecord = await upsertTopicBook({
+    topicId: secondTopic.id,
+    bookId: book.id,
+    totalTests: 8,
+    solvedTests: 8,
+  });
+
+  expect(firstRecord.id).not.toBe(secondRecord.id);
+  expect(firstRecord).toMatchObject({ topicId, bookId: book.id, totalTests: 10, solvedTests: 4 });
+  expect(await listTopicBooks(topicId)).toHaveLength(1);
+  expect(await listTopicBooks(secondTopic.id)).toHaveLength(1);
+  expect(await db.books.count()).toBe(1);
+
+  const merged = await upsertTopicBook({
+    topicId,
+    bookId: book.id,
+    totalTests: 12,
+    solvedTests: 9,
+  });
+
+  expect(merged.id).toBe(firstRecord.id);
+  expect(merged).toMatchObject({ totalTests: 12, solvedTests: 9 });
+  expect(await listTopicBooks(topicId)).toHaveLength(1);
+  expect(await db.topicBooks.count()).toBe(2);
+
+  const edited = await upsertTopicBook({
+    id: secondRecord.id,
+    topicId: secondTopic.id,
+    bookId: book.id,
+    totalTests: 9,
+    solvedTests: 3,
+  });
+
+  expect(edited.id).toBe(secondRecord.id);
+  expect(edited).toMatchObject({ totalTests: 9, solvedTests: 3 });
+  expect(await listTopicBooks(secondTopic.id)).toHaveLength(1);
+});
+
+test('test kaydı doğrulamaları Türkçe hata verir', async () => {
+  const { topicId } = await seededSubjectAndTopic();
+  const book = await createBook({ name: 'Doğrulama Kitabı' });
+  const base = { topicId, bookId: book.id };
+
+  await expect(
+    upsertTopicBook({ ...base, totalTests: 5, solvedTests: 6 }),
+  ).rejects.toThrow('Çözülen test sayısı toplamdan fazla olamaz');
+  await expect(
+    upsertTopicBook({ ...base, totalTests: 0, solvedTests: 0 }),
+  ).rejects.toThrow('Toplam test sayısı en az 1 olmalı');
+  await expect(
+    upsertTopicBook({ ...base, totalTests: 2.5, solvedTests: 1 }),
+  ).rejects.toThrow('Toplam test sayısı tam sayı olmalı');
+  await expect(
+    upsertTopicBook({ ...base, totalTests: 4, solvedTests: 1.5 }),
+  ).rejects.toThrow('Çözülen test sayısı tam sayı olmalı');
+  await expect(
+    upsertTopicBook({ ...base, totalTests: 4, solvedTests: -1 }),
+  ).rejects.toThrow('Çözülen test sayısı negatif olamaz');
+  await expect(
+    upsertTopicBook({ ...base, topicId: 'olmayan-konu', totalTests: 4, solvedTests: 1 }),
+  ).rejects.toThrow('Konu bulunamadı');
+  await expect(
+    upsertTopicBook({ ...base, bookId: 'olmayan-kitap', totalTests: 4, solvedTests: 1 }),
+  ).rejects.toThrow('Kitap bulunamadı');
+
+  expect(await db.topicBooks.count()).toBe(0);
+});
+
+test('test kaydı silinir, kitap korunur', async () => {
+  const { topicId } = await seededSubjectAndTopic();
+  const book = await createBook({ name: 'Silme Kitabı' });
+  const record = await upsertTopicBook({ topicId, bookId: book.id, totalTests: 6, solvedTests: 2 });
+
+  await deleteTopicBook(record.id);
+
+  expect(await listTopicBooks(topicId)).toHaveLength(0);
+  expect(await db.books.get(book.id)).toBeDefined();
+  expect((await listBooks()).map((item) => item.name)).toContain('Silme Kitabı');
 });
 
 test('resetDb temizler, seedOnboarded onboarding ayarını yazar', async () => {

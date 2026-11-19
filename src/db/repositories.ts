@@ -1,4 +1,4 @@
-import type { AppSettings, ExamType, Subject, Topic, TopicBook } from '@/domain/types';
+import type { AppSettings, Book, ExamType, Subject, Topic, TopicBook } from '@/domain/types';
 import { newId } from '@/lib/id';
 import { db } from './db';
 
@@ -54,6 +54,120 @@ export async function listTopics(subjectId: string): Promise<Topic[]> {
 
 export async function listTopicBooks(topicId: string): Promise<TopicBook[]> {
   return db.topicBooks.where('topicId').equals(topicId).toArray();
+}
+
+export async function listBooks(): Promise<Book[]> {
+  return db.books.orderBy('updatedAt').reverse().toArray();
+}
+
+export interface CreateBookInput {
+  name: string;
+  publisher?: string;
+}
+
+export async function createBook(input: CreateBookInput): Promise<Book> {
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error('Kitap adı boş olamaz');
+  }
+
+  const publisher = input.publisher?.trim() || undefined;
+  const now = new Date().toISOString();
+  const book: Book = {
+    id: newId(),
+    name,
+    publisher,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await db.books.add(book);
+  return book;
+}
+
+export interface UpsertTopicBookInput {
+  id?: string;
+  topicId: string;
+  bookId: string;
+  totalTests: number;
+  solvedTests: number;
+}
+
+function assertValidTestCounts(totalTests: number, solvedTests: number): void {
+  if (!Number.isInteger(totalTests)) {
+    throw new Error('Toplam test sayısı tam sayı olmalı');
+  }
+  if (totalTests < 1) {
+    throw new Error('Toplam test sayısı en az 1 olmalı');
+  }
+  if (!Number.isInteger(solvedTests)) {
+    throw new Error('Çözülen test sayısı tam sayı olmalı');
+  }
+  if (solvedTests < 0) {
+    throw new Error('Çözülen test sayısı negatif olamaz');
+  }
+  if (solvedTests > totalTests) {
+    throw new Error('Çözülen test sayısı toplamdan fazla olamaz');
+  }
+}
+
+/**
+ * Creates or updates the test record for a topic+book pair. Without an `id`,
+ * an existing record for the same pair is updated instead of duplicated.
+ * With an `id`, that record is updated in place and keeps its topic and book.
+ * Books and topics are never modified beyond the book's `updatedAt` touch.
+ */
+export async function upsertTopicBook(input: UpsertTopicBookInput): Promise<TopicBook> {
+  assertValidTestCounts(input.totalTests, input.solvedTests);
+
+  return db.transaction('rw', db.topics, db.books, db.topicBooks, async () => {
+    const existing = input.id
+      ? await db.topicBooks.get(input.id)
+      : await db.topicBooks
+          .where('topicId')
+          .equals(input.topicId)
+          .filter((record) => record.bookId === input.bookId)
+          .first();
+
+    if (input.id && !existing) {
+      throw new Error('Test kaydı bulunamadı');
+    }
+
+    const topicId = existing?.topicId ?? input.topicId;
+    const bookId = existing?.bookId ?? input.bookId;
+
+    if (!(await db.topics.get(topicId))) {
+      throw new Error('Konu bulunamadı');
+    }
+    if (!(await db.books.get(bookId))) {
+      throw new Error('Kitap bulunamadı');
+    }
+
+    const now = new Date().toISOString();
+    const record: TopicBook = existing
+      ? {
+          ...existing,
+          totalTests: input.totalTests,
+          solvedTests: input.solvedTests,
+          updatedAt: now,
+        }
+      : {
+          id: newId(),
+          topicId,
+          bookId,
+          totalTests: input.totalTests,
+          solvedTests: input.solvedTests,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+    await db.topicBooks.put(record);
+    await db.books.update(bookId, { updatedAt: now });
+    return record;
+  });
+}
+
+export async function deleteTopicBook(id: string): Promise<void> {
+  await db.topicBooks.delete(id);
 }
 
 export async function addCustomTopic(subjectId: string, name: string): Promise<Topic> {

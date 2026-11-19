@@ -108,6 +108,21 @@ test('saveNote HTML temizler, düz metin türetir ve güncelleme zamanını yaza
   expect(await db.notes.count()).toBe(1);
 });
 
+test('saveNote blok sınırlarını düz metinde korur', async () => {
+  const { topic } = await topicByKey('tyt-mat-turev');
+
+  await saveNote(
+    topic.id,
+    '<p>Birinci paragraf</p><p>İkinci paragraf</p><ul><li>Liste maddesi</li></ul>',
+    '',
+  );
+
+  const note = await getNote(topic.id);
+  expect(note?.plainText).toBe('Birinci paragraf\nİkinci paragraf\nListe maddesi');
+  expect(note?.plainText).not.toContain('paragrafİkinci');
+  expect(note?.plainText).not.toContain('paragrafListe');
+});
+
 test('addAttachment dosyayı olduğu gibi saklar, listeler ve siler', async () => {
   const { topic } = await topicByKey('tyt-mat-turev');
   const file = new File(['png-içeriği'], '  grafik.png  ', { type: 'image/png' });

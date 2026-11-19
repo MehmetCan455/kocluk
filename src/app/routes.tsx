@@ -1,10 +1,32 @@
-import { Route, Routes } from 'react-router-dom';
-import { PagePlaceholder } from './PagePlaceholder';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Onboarding } from '@/features/onboarding/Onboarding';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { PagePlaceholder } from './PagePlaceholder';
+import { useAppSettings } from './SettingsProvider';
+
+function AppLoading() {
+  return (
+    <div role="status" className="py-16 text-center text-sm text-muted">
+      Yükleniyor…
+    </div>
+  );
+}
 
 export function AppRoutes() {
+  const { settings, loading } = useAppSettings();
+  const location = useLocation();
+
+  if (loading) {
+    return <AppLoading />;
+  }
+
+  if (!settings.onboardingDone && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return (
     <Routes>
+      <Route path="/onboarding" element={<Onboarding />} />
       <Route
         path="/"
         element={

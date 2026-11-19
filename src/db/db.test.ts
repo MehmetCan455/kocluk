@@ -102,6 +102,13 @@ test('seed idempotenttir ve mevcut kaydı ezmez', async () => {
   expect((await getSettings()).seedVersion).toBe(2);
 });
 
+test('seed sürümünü geriye düşürmez', async () => {
+  await seedCurriculum({ ...matSeed, version: 3 });
+  await seedCurriculum(matSeed);
+
+  expect((await getSettings()).seedVersion).toBe(3);
+});
+
 test('seed eksik konuları ekler, mevcut konuya dokunmaz', async () => {
   await seedCurriculum(matSeed);
   const topic = await db.topics.where('seedKey').equals('tyt-mat-turev').first();

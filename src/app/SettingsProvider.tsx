@@ -8,7 +8,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { DEFAULT_SETTINGS, getSettings, patchSettings } from '@/db/repositories';
+import { Toast } from '@/components/ui/Toast';
+import { CURRICULUM } from '@/data/curriculum';
+import { DEFAULT_SETTINGS, getSettings, patchSettings, seedCurriculum } from '@/db/repositories';
 import type { AppSettings } from '@/domain/types';
 import { applyAccent } from './theme';
 
@@ -27,18 +29,39 @@ function createInitialSettings(): AppSettings {
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(createInitialSettings);
   const [loading, setLoading] = useState(true);
+  const [seedError, setSeedError] = useState(false);
   // If the user changes a setting before the initial read resolves, keep the
   // newer local value instead of letting the stale read win.
   const pendingUpdates = useRef<Partial<AppSettings>>({});
 
   useEffect(() => {
     let cancelled = false;
-    getSettings()
-      .then((loaded) => {
-        if (!cancelled) {
-          setSettings({ ...loaded, ...pendingUpdates.current });
+
+    async function load() {
+      const loaded = await getSettings();
+
+      if (loaded.seedVersion < CURRICULUM.version) {
+        try {
+          await seedCurriculum(CURRICULUM);
+        } catch (firstError: unknown) {
+          console.error('Müfredat yüklenemedi, tekrar denenecek', firstError);
+          try {
+            await seedCurriculum(CURRICULUM);
+          } catch (error: unknown) {
+            console.error('Müfredat yüklenemedi', error);
+            if (!cancelled) {
+              setSeedError(true);
+            }
+          }
         }
-      })
+      }
+
+      if (!cancelled) {
+        setSettings({ ...loaded, ...pendingUpdates.current });
+      }
+    }
+
+    load()
       .catch((error: unknown) => {
         console.error('Ayarlar yüklenemedi', error);
       })
@@ -47,6 +70,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       });
+
     return () => {
       cancelled = true;
     };
@@ -71,7 +95,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [settings, updateSettings, loading],
   );
 
-  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+  return (
+    <SettingsContext.Provider value={value}>
+      {children}
+      {seedError ? (
+        <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md">
+          <Toast
+            tone="error"
+            message="Müfredat yüklenemedi. Uygulamayı yenileyip tekrar dene."
+            onClose={() => setSeedError(false)}
+          />
+        </div>
+      ) : null}
+    </SettingsContext.Provider>
+  );
 }
 
 export function useAppSettings(): SettingsContextValue {

@@ -77,6 +77,12 @@ export async function seedCurriculum(seed: CurriculumSeed): Promise<void> {
       }
     }
 
-    await db.settings.put({ key: 'seedVersion', value: seed.version });
+    const currentSeedVersion = await db.settings.get('seedVersion');
+    const currentVersion =
+      typeof currentSeedVersion?.value === 'number' ? currentSeedVersion.value : 0;
+    await db.settings.put({
+      key: 'seedVersion',
+      value: Math.max(currentVersion, seed.version),
+    });
   });
 }

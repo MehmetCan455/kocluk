@@ -1,11 +1,12 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { CURRICULUM } from '@/data/curriculum';
 import { getSettings, patchSettings } from '@/db/repositories';
-import { resetDb } from '@/test/fixtures';
+import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
 
 beforeEach(async () => {
-  await resetDb();
+  await seedOnboarded(CURRICULUM);
 });
 
 test('vurgu rengi değişir ve saklanır', async () => {

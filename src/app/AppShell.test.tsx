@@ -1,10 +1,11 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { resetDb } from '@/test/fixtures';
+import { CURRICULUM } from '@/data/curriculum';
+import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
 
 beforeEach(async () => {
-  await resetDb();
+  await seedOnboarded(CURRICULUM);
 });
 
 afterEach(() => {

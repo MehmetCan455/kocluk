@@ -26,6 +26,7 @@ test('hazır paletlerde okunabilir metin kontrastı seçer', () => {
   const cases = [
     { name: 'Mavi', hex: '#3B82F6', expected: '#FFFFFF' },
     { name: 'Amber', hex: '#F59E0B', expected: '#0A0A0C' },
+    { name: 'Turuncu', hex: '#F97316', expected: '#0A0A0C' },
     { name: 'Turkuaz', hex: '#14B8A6', expected: '#0A0A0C' },
     { name: 'Yeşil', hex: '#22C55E', expected: '#0A0A0C' },
     { name: 'Mor', hex: '#A855F7', expected: '#FFFFFF' },
@@ -40,8 +41,8 @@ test('hazır paletlerde okunabilir metin kontrastı seçer', () => {
   }
 });
 
-test('kontrast eşiği 0.35 ve üzerinde koyu metin seçer', () => {
-  expect(ACCENT_DARK_TEXT_THRESHOLD).toBe(0.35);
+test('kontrast eşiği 0.30 ve üzerinde koyu metin seçer', () => {
+  expect(ACCENT_DARK_TEXT_THRESHOLD).toBe(0.3);
   applyAccent('#FDE68A');
   expect(relativeLuminance('#FDE68A')).toBeGreaterThan(ACCENT_DARK_TEXT_THRESHOLD);
   expect(document.documentElement.style.getPropertyValue('--accent-contrast')).toBe('#0A0A0C');

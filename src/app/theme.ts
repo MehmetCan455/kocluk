@@ -42,9 +42,9 @@ export function relativeLuminance(hex: string): number {
 /**
  * Relative luminance above which accent surfaces switch to dark text.
  * White stays readable on the blue/indigo/purple presets (≈0.21–0.24),
- * while amber, turquoise and green (≈0.37–0.44) need `#0A0A0C`.
+ * while amber, orange, turquoise and green (≈0.32–0.44) need `#0A0A0C`.
  */
-export const ACCENT_DARK_TEXT_THRESHOLD = 0.35;
+export const ACCENT_DARK_TEXT_THRESHOLD = 0.3;
 
 /**
  * Applies the accent palette to the document root. The whole app reads

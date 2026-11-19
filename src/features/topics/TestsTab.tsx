@@ -7,6 +7,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { deleteTopicBook } from '@/db/repositories';
 import { calculateProgress } from '@/domain/calculations';
 import type { Book, TopicBook } from '@/domain/types';
+import { buildBookLabels } from '@/features/books/bookLabels';
 import { formatPercent } from '@/lib/format';
 import { TopicBookForm } from './TopicBookForm';
 
@@ -36,6 +37,7 @@ export function TestsTab({ topicId, records, books }: TestsTabProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const progress = calculateProgress(records);
+  const bookLabels = buildBookLabels(books);
   const rows: TestRow[] = sortRows(records).map((record) => ({
     record,
     book: books.find((book) => book.id === record.bookId),
@@ -96,7 +98,9 @@ export function TestsTab({ topicId, records, books }: TestsTabProps) {
           <ul className="space-y-3">
             {rows.map((row) => {
               const rowProgress = calculateProgress([row.record]);
-              const bookName = row.book?.name ?? 'Silinmiş kitap';
+              const bookName = row.book
+                ? (bookLabels.get(row.book.id) ?? row.book.name)
+                : 'Silinmiş kitap';
               return (
                 <li
                   key={row.record.id}
@@ -163,7 +167,16 @@ export function TestsTab({ topicId, records, books }: TestsTabProps) {
         <TopicBookForm
           topicId={topicId}
           books={books}
-          initial={editing ? { record: editing.record, bookName: editing.book?.name ?? 'Silinmiş kitap' } : undefined}
+          initial={
+            editing
+              ? {
+                  record: editing.record,
+                  bookName: editing.book
+                    ? (bookLabels.get(editing.book.id) ?? editing.book.name)
+                    : 'Silinmiş kitap',
+                }
+              : undefined
+          }
           onClose={closeForm}
         />
       ) : null}

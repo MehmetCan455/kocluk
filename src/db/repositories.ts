@@ -57,7 +57,103 @@ export async function listTopicBooks(topicId: string): Promise<TopicBook[]> {
 }
 
 export async function listBooks(): Promise<Book[]> {
-  return db.books.orderBy('updatedAt').reverse().toArray();
+  const books = await db.books.toArray();
+  return books.sort(
+    (left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt) ||
+      left.name.localeCompare(right.name, 'tr-TR') ||
+      left.id.localeCompare(right.id),
+  );
+}
+
+export async function getBook(id: string): Promise<Book | undefined> {
+  return db.books.get(id);
+}
+
+export interface UpdateBookInput {
+  name: string;
+  publisher?: string;
+}
+
+export async function updateBook(id: string, input: UpdateBookInput): Promise<void> {
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error('Kitap adı boş olamaz');
+  }
+
+  const updated = await db.books.update(id, {
+    name,
+    publisher: input.publisher?.trim() || undefined,
+    updatedAt: new Date().toISOString(),
+  });
+  if (updated === 0) {
+    throw new Error('Kitap bulunamadı');
+  }
+}
+
+const EXAM_ORDER: Record<ExamType, number> = { TYT: 0, AYT: 1 };
+
+/**
+ * Joins a book's topic records with their topic and subject rows. The result is
+ * ordered by exam, subject and topic so the book detail page is deterministic
+ * even when records were added in a different order.
+ */
+export async function listBookTopicBooks(
+  bookId: string,
+): Promise<Array<TopicBook & { topic: Topic; subject: Subject }>> {
+  const records = await db.topicBooks.where('bookId').equals(bookId).toArray();
+  if (records.length === 0) {
+    return [];
+  }
+
+  const topicIds = [...new Set(records.map((record) => record.topicId))];
+  const topics = await db.topics.bulkGet(topicIds);
+  const topicById = new Map<string, Topic>();
+  for (const topic of topics) {
+    if (topic) {
+      topicById.set(topic.id, topic);
+    }
+  }
+
+  const subjectIds = [...new Set([...topicById.values()].map((topic) => topic.subjectId))];
+  const subjects = await db.subjects.bulkGet(subjectIds);
+  const subjectById = new Map<string, Subject>();
+  for (const subject of subjects) {
+    if (subject) {
+      subjectById.set(subject.id, subject);
+    }
+  }
+
+  const rows: Array<TopicBook & { topic: Topic; subject: Subject }> = [];
+  for (const record of records) {
+    const topic = topicById.get(record.topicId);
+    const subject = topic ? subjectById.get(topic.subjectId) : undefined;
+    if (topic && subject) {
+      rows.push({ ...record, topic, subject });
+    }
+  }
+
+  return rows.sort(
+    (left, right) =>
+      EXAM_ORDER[left.subject.exam] - EXAM_ORDER[right.subject.exam] ||
+      left.subject.order - right.subject.order ||
+      left.subject.name.localeCompare(right.subject.name, 'tr-TR') ||
+      left.topic.order - right.topic.order ||
+      left.topic.name.localeCompare(right.topic.name, 'tr-TR') ||
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id),
+  );
+}
+
+/**
+ * Deletes only the book and its topic test records. Topics, notes, photos and
+ * exams are deliberately outside the transaction and survive.
+ */
+export async function deleteBookCascade(bookId: string): Promise<void> {
+  await db.transaction('rw', db.books, db.topicBooks, async () => {
+    await db.topicBooks.where('bookId').equals(bookId).delete();
+    await db.books.delete(bookId);
+  });
 }
 
 export interface CreateBookInput {
@@ -130,6 +226,10 @@ export async function upsertTopicBook(input: UpsertTopicBookInput): Promise<Topi
 
     if (input.id && !existing) {
       throw new Error('Test kaydı bulunamadı');
+    }
+
+    if (existing && (existing.topicId !== input.topicId || existing.bookId !== input.bookId)) {
+      throw new Error('Test kaydı konu veya kitapla eşleşmiyor');
     }
 
     const topicId = existing?.topicId ?? input.topicId;

@@ -1,4 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BookDetailPage } from '@/features/books/BookDetailPage';
+import { BooksPage } from '@/features/books/BooksPage';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubjectPage } from '@/features/subjects/SubjectPage';
@@ -104,24 +106,8 @@ export function AppRoutes() {
         }
       />
 
-      <Route
-        path="/kitaplar"
-        element={
-          <PagePlaceholder
-            title="Kitaplar"
-            description="Kitap listesi yakında burada olacak."
-          />
-        }
-      />
-      <Route
-        path="/kitaplar/:id"
-        element={
-          <PagePlaceholder
-            title="Kitap Detayı"
-            description="Kitap detayı yakında burada olacak."
-          />
-        }
-      />
+      <Route path="/kitaplar" element={<BooksPage />} />
+      <Route path="/kitaplar/:id" element={<BookDetailPage />} />
 
       <Route path="/ayarlar" element={<SettingsPage />} />
 

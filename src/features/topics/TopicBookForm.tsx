@@ -4,6 +4,7 @@ import { Field } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { createBook, upsertTopicBook } from '@/db/repositories';
 import type { Book, TopicBook } from '@/domain/types';
+import { buildBookLabels } from '@/features/books/bookLabels';
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]';
@@ -48,6 +49,7 @@ export function TopicBookForm({ topicId, books, initial, onClose }: TopicBookFor
   const [error, setError] = useState<string | null>(null);
 
   const creatingBook = !initial && bookChoice === NEW_BOOK;
+  const bookLabels = buildBookLabels(books);
   const trimmedBookName = bookName.trim();
   const totalNumber = parseCount(totalTests);
   const solvedNumber = parseCount(solvedTests);
@@ -163,11 +165,18 @@ export function TopicBookForm({ topicId, books, initial, onClose }: TopicBookFor
               onChange={(event) => setBookChoice(event.target.value)}
               className={inputClass}
             >
-              {books.map((book) => (
-                <option key={book.id} value={book.id}>
-                  {book.publisher ? `${book.name} — ${book.publisher}` : book.name}
-                </option>
-              ))}
+              {books.map((book) => {
+                const label = bookLabels.get(book.id) ?? book.name;
+                const optionLabel =
+                  label === book.name && book.publisher
+                    ? `${book.name} — ${book.publisher}`
+                    : label;
+                return (
+                  <option key={book.id} value={book.id}>
+                    {optionLabel}
+                  </option>
+                );
+              })}
               <option value={NEW_BOOK}>Yeni kitap…</option>
             </select>
           </Field>

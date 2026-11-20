@@ -356,7 +356,6 @@ export function PracticeWizard() {
               })}
               <button
                 type="button"
-                aria-label="Tüm sorular"
                 aria-pressed={count === undefined}
                 onClick={() => setCount(undefined)}
                 className={cn(
@@ -366,7 +365,7 @@ export function PracticeWizard() {
                     : 'border-line bg-canvas text-muted hover:text-fg',
                 )}
               >
-                Tümü
+                Tümü<span className="sr-only"> sorular</span>
               </button>
             </div>
           </fieldset>

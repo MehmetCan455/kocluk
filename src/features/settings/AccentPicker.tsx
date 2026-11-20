@@ -13,6 +13,7 @@ export function AccentPicker() {
   const { settings, updateSettings } = useAppSettings();
   const [custom, setCustom] = useState('');
   const customHex = normalizeHex(custom);
+  const customError = custom !== '' && customHex === null;
   const selected = normalizeHex(settings.accent) ?? settings.accent;
 
   function handleCustomSubmit(event: FormEvent<HTMLFormElement>) {
@@ -76,6 +77,8 @@ export function AccentPicker() {
             maxLength={7}
             autoComplete="off"
             spellCheck={false}
+            aria-invalid={customError || undefined}
+            aria-describedby={customError ? 'ozel-renk-error' : undefined}
             className={inputClass}
           />
         </div>
@@ -84,8 +87,10 @@ export function AccentPicker() {
         </Button>
       </form>
 
-      {custom && !customHex ? (
-        <p className="text-xs text-danger">Geçerli bir hex kodu gir (#RRGGBB).</p>
+      {customError ? (
+        <p id="ozel-renk-error" role="alert" className="text-xs text-danger">
+          Geçerli bir hex kodu gir (#RRGGBB).
+        </p>
       ) : null}
     </div>
   );

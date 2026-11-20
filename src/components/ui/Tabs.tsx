@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type KeyboardEvent, type ReactNode } from 'react';
 import { cn } from './cn';
 
 export interface TabItem {
@@ -17,11 +17,50 @@ export interface TabsProps {
 export function Tabs({ tabs, value, onChange, className }: TabsProps) {
   const baseId = useId().replace(/:/g, '');
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (
+      event.key !== 'ArrowRight' &&
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    ) {
+      return;
+    }
+    if (tabs.length === 0) {
+      return;
+    }
+    event.preventDefault();
+
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+    );
+    const activeId = (document.activeElement as HTMLElement | null)?.id;
+    const currentIndex = Math.max(
+      0,
+      buttons.findIndex((button) => button.id === activeId),
+    );
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % tabs.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = tabs.length - 1;
+    }
+
+    onChange(tabs[nextIndex].id);
+    buttons[nextIndex]?.focus();
+  }
+
   return (
     <div className={className}>
       <div
         role="tablist"
         aria-label="Sekmeler"
+        aria-orientation="horizontal"
+        onKeyDown={handleKeyDown}
         className="flex gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1"
       >
         {tabs.map((tab) => {

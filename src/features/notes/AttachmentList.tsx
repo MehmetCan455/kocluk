@@ -37,10 +37,49 @@ function useAttachmentUrl(attachment: Attachment): string | null {
 
 interface AttachmentRowProps {
   attachment: Attachment;
+  /** Unique accessible label; duplicate filenames get an ordinal suffix. */
+  label: string;
+  duplicateOccurrence?: number;
   onDelete: (attachment: Attachment) => void;
 }
 
-function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
+interface AttachmentRowMeta {
+  attachment: Attachment;
+  label: string;
+  duplicateOccurrence?: number;
+}
+
+/**
+ * Two files can legitimately share a name. Giving every row a unique accessible
+ * label keeps open/download/delete buttons distinguishable to screen readers.
+ */
+function buildAttachmentRows(attachments: Attachment[]): AttachmentRowMeta[] {
+  const counts = new Map<string, number>();
+  for (const attachment of attachments) {
+    const key = attachment.name.trim().toLocaleLowerCase('tr-TR');
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const seen = new Map<string, number>();
+  return attachments.map((attachment) => {
+    const key = attachment.name.trim().toLocaleLowerCase('tr-TR');
+    const occurrence = (seen.get(key) ?? 0) + 1;
+    seen.set(key, occurrence);
+    const duplicate = (counts.get(key) ?? 0) > 1;
+    return {
+      attachment,
+      label: duplicate ? `${attachment.name} (${occurrence}. dosya)` : attachment.name,
+      duplicateOccurrence: duplicate ? occurrence : undefined,
+    };
+  });
+}
+
+function AttachmentRow({
+  attachment,
+  label,
+  duplicateOccurrence,
+  onDelete,
+}: AttachmentRowProps) {
   const url = useAttachmentUrl(attachment);
   const isImage = attachment.mime.startsWith('image/');
   const isPdf = attachment.mime === 'application/pdf';
@@ -52,7 +91,7 @@ function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
           <div className="mb-3 overflow-hidden rounded-xl border border-line bg-canvas">
             <img
               src={url}
-              alt={attachment.name}
+              alt={label}
               loading="lazy"
               className="max-h-56 w-full object-contain"
             />
@@ -73,7 +112,14 @@ function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
             </span>
           ) : null}
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{attachment.name}</p>
+            <p className="truncate text-sm font-medium">
+              {attachment.name}
+              {duplicateOccurrence ? (
+                <span className="ml-1 text-xs font-normal text-muted">
+                  ({duplicateOccurrence}. dosya)
+                </span>
+              ) : null}
+            </p>
             <p className="text-xs text-muted">{formatBytes(attachment.size)}</p>
           </div>
         </div>
@@ -85,7 +131,7 @@ function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
                 href={url}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`${attachment.name} dosyasını aç`}
+                aria-label={`${label} dosyasını aç`}
                 className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
               >
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -93,7 +139,7 @@ function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
               <a
                 href={url}
                 download={attachment.name}
-                aria-label={`${attachment.name} dosyasını indir`}
+                aria-label={`${label} dosyasını indir`}
                 className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
@@ -102,7 +148,7 @@ function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
           ) : null}
           <button
             type="button"
-            aria-label={`${attachment.name} dosyasını sil`}
+            aria-label={`${label} dosyasını sil`}
             onClick={() => onDelete(attachment)}
             className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-danger"
           >
@@ -117,10 +163,11 @@ function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
 export function AttachmentList({ topicId, attachments }: AttachmentListProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<Attachment | null>(null);
+  const [deleting, setDeleting] = useState<AttachmentRowMeta | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentRows = buildAttachmentRows(attachments);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -145,9 +192,9 @@ export function AttachmentList({ topicId, attachments }: AttachmentListProps) {
     }
   }
 
-  function openDelete(attachment: Attachment) {
+  function openDelete(row: AttachmentRowMeta) {
     setDeleteError(null);
-    setDeleting(attachment);
+    setDeleting(row);
   }
 
   async function confirmDelete() {
@@ -158,7 +205,7 @@ export function AttachmentList({ topicId, attachments }: AttachmentListProps) {
     setDeletingBusy(true);
     setDeleteError(null);
     try {
-      await deleteAttachment(deleting.id);
+      await deleteAttachment(deleting.attachment.id);
       setDeleting(null);
     } catch (caught: unknown) {
       console.error('Dosya silinemedi', caught);
@@ -203,11 +250,13 @@ export function AttachmentList({ topicId, attachments }: AttachmentListProps) {
         </p>
       ) : (
         <ul className="space-y-3">
-          {attachments.map((attachment) => (
+          {attachmentRows.map((row) => (
             <AttachmentRow
-              key={attachment.id}
-              attachment={attachment}
-              onDelete={openDelete}
+              key={row.attachment.id}
+              attachment={row.attachment}
+              label={row.label}
+              duplicateOccurrence={row.duplicateOccurrence}
+              onDelete={() => openDelete(row)}
             />
           ))}
         </ul>
@@ -242,7 +291,7 @@ export function AttachmentList({ topicId, attachments }: AttachmentListProps) {
           }
         >
           <p className="text-sm">
-            <span className="font-semibold">{deleting.name}</span> dosyası bu konudan
+            <span className="font-semibold">{deleting.label}</span> dosyası bu konudan
             kaldırılacak. Bu işlem geri alınamaz.
           </p>
           {deleteError ? (

@@ -1,7 +1,9 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { computeHiddenSubjects } from '@/data/alanSubjects';
 import { CURRICULUM } from '@/data/curriculum';
-import { getSettings, patchSettings } from '@/db/repositories';
+import { db } from '@/db/db';
+import { getSettings, listSubjects, patchSettings } from '@/db/repositories';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
 
@@ -33,12 +35,56 @@ test('profil adını anında saklar', async () => {
   });
 });
 
-test('AYT alanı seçimini saklar', async () => {
+test('tarih ipucu yokken sınav tarihi tanımsız bir açıklamaya bağlanmaz', async () => {
+  renderApp('/ayarlar');
+  const input = await screen.findByLabelText('Sınav tarihi');
+  expect(input).toHaveAttribute('aria-describedby', 'sinav-tarihi-hint');
+
+  fireEvent.change(input, { target: { value: '' } });
+  await waitFor(() => expect(input).not.toHaveAttribute('aria-describedby'));
+});
+
+test('AYT alanı seçimini saklar ve gizli dersleri yeniden hesaplar', async () => {
   renderApp('/ayarlar');
   await userEvent.selectOptions(await screen.findByLabelText('AYT alanı'), 'sayisal');
   await waitFor(async () => {
-    expect((await getSettings()).aytAlan).toBe('sayisal');
+    const settings = await getSettings();
+    expect(settings.aytAlan).toBe('sayisal');
+    expect(settings.hiddenSubjects).toEqual(
+      computeHiddenSubjects('sayisal', await listSubjects()),
+    );
   });
+});
+
+test('ders görünürlüğü tek tek değiştirilebilir', async () => {
+  const fizik = await db.subjects.where('seedKey').equals('ayt-fizik').first();
+  expect(fizik).toBeDefined();
+
+  renderApp('/ayarlar');
+  const checkbox = await screen.findByRole('checkbox', { name: 'Fizik' });
+  expect(checkbox).toBeChecked();
+
+  await userEvent.click(checkbox);
+  expect(checkbox).not.toBeChecked();
+  await waitFor(async () => {
+    expect((await getSettings()).hiddenSubjects).toContain(fizik!.id);
+  });
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Tümünü göster' }));
+  expect(await screen.findByRole('checkbox', { name: 'Fizik' })).toBeChecked();
+  await waitFor(async () => {
+    expect((await getSettings()).hiddenSubjects).toEqual([]);
+  });
+});
+
+test('geçersiz özel renk hata bildirir ve alanı işaretler', async () => {
+  renderApp('/ayarlar');
+  const input = await screen.findByLabelText('Özel renk');
+  await userEvent.type(input, '#GGGGGG');
+
+  expect(input).toHaveAttribute('aria-invalid', 'true');
+  expect(input).toHaveAttribute('aria-describedby', 'ozel-renk-error');
+  expect(screen.getByRole('alert')).toHaveTextContent('Geçerli bir hex kodu gir');
 });
 
 test('özel hex rengi uygular ve saklar', async () => {

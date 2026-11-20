@@ -1,10 +1,19 @@
+import { lazy, Suspense, useRef, useState } from 'react';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
 import { Field } from '@/components/ui/Field';
+import { computeHiddenSubjects } from '@/data/alanSubjects';
+import { listSubjects } from '@/db/repositories';
 import type { AytAlan } from '@/domain/types';
 import { AccentPicker } from './AccentPicker';
-import { BackupPanel } from './BackupPanel';
+import { InstallGuide } from './InstallGuide';
 import { StoragePanel } from './StoragePanel';
+import { SubjectVisibility } from './SubjectVisibility';
+
+// JSZip and zod are only needed when the user opens the backup panel.
+const BackupPanel = lazy(() =>
+  import('./BackupPanel').then((module) => ({ default: module.BackupPanel })),
+);
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
   day: 'numeric',
@@ -32,7 +41,29 @@ function formatExamDate(value: string): string {
 
 export function SettingsPage() {
   const { settings, updateSettings } = useAppSettings();
+  const [storageRefreshKey, setStorageRefreshKey] = useState(0);
+  const alanRequest = useRef(0);
   const examDateLabel = formatExamDate(settings.examDate);
+
+  // Selecting an alan is the starting point; the individual toggles in
+  // SubjectVisibility can refine the list afterwards. The request counter keeps
+  // a slow earlier read from overwriting a newer selection.
+  async function changeAlan(value: AytAlan) {
+    const request = alanRequest.current + 1;
+    alanRequest.current = request;
+    try {
+      const subjects = await listSubjects();
+      if (request !== alanRequest.current) {
+        return;
+      }
+      await updateSettings({
+        aytAlan: value,
+        hiddenSubjects: computeHiddenSubjects(value, subjects),
+      });
+    } catch (error: unknown) {
+      console.error('AYT alanı güncellenemedi', error);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -87,7 +118,7 @@ export function SettingsPage() {
             type="date"
             value={settings.examDate.slice(0, 10)}
             onChange={(event) => void updateSettings({ examDate: event.target.value })}
-            aria-describedby="sinav-tarihi-hint"
+            aria-describedby={examDateLabel ? 'sinav-tarihi-hint' : undefined}
             className={inputClass}
           />
         </Field>
@@ -100,7 +131,7 @@ export function SettingsPage() {
           <select
             id="ayt-alani"
             value={settings.aytAlan}
-            onChange={(event) => void updateSettings({ aytAlan: event.target.value as AytAlan })}
+            onChange={(event) => void changeAlan(event.target.value as AytAlan)}
             aria-describedby="ayt-alani-hint"
             className={inputClass}
           >
@@ -113,6 +144,8 @@ export function SettingsPage() {
         </Field>
       </Card>
 
+      <SubjectVisibility />
+
       <Card className="space-y-5">
         <div className="space-y-1">
           <h2 className="text-base font-semibold">Görünüm</h2>
@@ -123,8 +156,17 @@ export function SettingsPage() {
         <AccentPicker />
       </Card>
 
-      <BackupPanel />
-      <StoragePanel />
+      <InstallGuide />
+      <Suspense
+        fallback={
+          <p role="status" className="text-sm text-muted">
+            Yedekleme paneli yükleniyor…
+          </p>
+        }
+      >
+        <BackupPanel onDataChanged={() => setStorageRefreshKey((value) => value + 1)} />
+      </Suspense>
+      <StoragePanel refreshKey={storageRefreshKey} />
     </div>
   );
 }

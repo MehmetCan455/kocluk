@@ -18,7 +18,7 @@ export interface TopBarProps {
 export function TopBar({ onSearch }: TopBarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line bg-canvas/90 px-4 backdrop-blur">
-      <Link to="/" className="flex items-center gap-2 rounded-xl">
+      <Link to="/" className="flex min-h-11 items-center gap-2 rounded-xl pr-2">
         <GraduationCap className="h-6 w-6 text-[var(--accent)]" aria-hidden="true" />
         <span className="text-lg font-semibold tracking-tight">Koçluk</span>
       </Link>

@@ -324,6 +324,7 @@ test('kitap silme onayı kayıt sayısını gösterir ve diğer verileri korur',
   await userEvent.click(screen.getByRole('button', { name: 'Karekök TYT kitabını sil' }));
   const dialog = await screen.findByRole('dialog', { name: 'Kitabı sil' });
   expect(within(dialog).getByText('2 konu kaydı silinecek.')).toBeInTheDocument();
+  expect(within(dialog).getByText('Bu kayıtlarda toplam 16 test var.')).toBeInTheDocument();
   expect(
     within(dialog).getByText('Konular, notlar, fotoğraflar ve denemeler silinmez.'),
   ).toBeInTheDocument();
@@ -415,6 +416,11 @@ test('aynı adlı kitapların erişilebilir adları farklıdır', async () => {
 
   expect(labels).toHaveLength(3);
   expect(new Set(labels).size).toBe(3);
+
+  // The disambiguating suffix is visible, not only present in aria-label.
+  expect(screen.getByText('(#1)')).toBeInTheDocument();
+  expect(screen.getByText('(#2)')).toBeInTheDocument();
+  expect(screen.getByText('(#3)')).toBeInTheDocument();
 });
 
 test('kitap seçenekleri yinelenen adlarda ayırt edilebilir', async () => {

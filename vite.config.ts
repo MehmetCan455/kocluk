@@ -1,10 +1,53 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
-export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/kocluk/' : '/',
-  plugins: [react(), tailwindcss()],
-  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+export default defineConfig(({ mode }) => {
+  // Production builds (and `vite preview`, which also uses production mode)
+  // live under the GitHub Pages project path. `vite dev` stays at the root.
+  const base = mode === 'production' ? '/kocluk/' : '/';
+
+  return {
+    base,
+    plugins: [
+      react(),
+      tailwindcss(),
+      VitePWA({
+        registerType: 'prompt',
+        // SVG/PNG assets are already covered by workbox.globPatterns; only the
+        // ICO fallback needs to be added explicitly.
+        includeAssets: ['favicon.ico'],
+        manifest: {
+          name: 'Koçluk — YKS Takip',
+          short_name: 'Koçluk',
+          description:
+            'YKS hazırlığını kitaplar, testler, denemeler, notlar ve yanlış fotoğraflarıyla tek cihazda takip et.',
+          lang: 'tr',
+          theme_color: '#07080A',
+          background_color: '#07080A',
+          display: 'standalone',
+          start_url: './',
+          scope: './',
+          icons: [
+            { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+            { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+            {
+              src: 'maskable-icon-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          navigateFallback: 'index.html',
+          cleanupOutdatedCaches: true,
+        },
+      }),
+    ],
+    resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  };
 });

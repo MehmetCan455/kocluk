@@ -115,11 +115,18 @@ function EditBookModal({ book, onClose }: { book: Book; onClose: () => void }) {
 interface DeleteBookModalProps {
   book: Book;
   recordCount: number;
+  totalTests: number;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }
 
-function DeleteBookModal({ book, recordCount, onClose, onConfirm }: DeleteBookModalProps) {
+function DeleteBookModal({
+  book,
+  recordCount,
+  totalTests,
+  onClose,
+  onConfirm,
+}: DeleteBookModalProps) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -165,6 +172,11 @@ function DeleteBookModal({ book, recordCount, onClose, onConfirm }: DeleteBookMo
           {recordCount === 0
             ? 'Bu kitap hiçbir konuda kullanılmıyor.'
             : `${recordCount} konu kaydı silinecek.`}
+        </li>
+        <li>
+          {totalTests === 0
+            ? 'Bu kayıtlarda test sayısı yok.'
+            : `Bu kayıtlarda toplam ${totalTests} test var.`}
         </li>
         <li>Konular, notlar, fotoğraflar ve denemeler silinmez.</li>
       </ul>
@@ -349,6 +361,7 @@ export function BookDetailPage() {
         <DeleteBookModal
           book={book}
           recordCount={records.length}
+          totalTests={records.reduce((sum, record) => sum + record.totalTests, 0)}
           onClose={() => setDeleting(false)}
           onConfirm={async () => {
             await deleteBookCascade(book.id);

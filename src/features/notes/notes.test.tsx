@@ -138,6 +138,44 @@ test('saveNote blok sınırlarını düz metinde korur', async () => {
   expect(note?.plainText).not.toContain('paragrafListe');
 });
 
+test('saveNote yalnızca boşluk içeren HTML yerine kırpılmış düz metni saklar', async () => {
+  const { topic } = await topicByKey('tyt-mat-turev');
+
+  await saveNote(topic.id, '<p>   </p>', '  Yedek metin  ');
+
+  const note = await getNote(topic.id);
+  expect(note?.plainText).toBe('Yedek metin');
+});
+
+test('aynı adlı ekler görünür sıra rozeti ve benzersiz erişilebilir ad alır', async () => {
+  const { topic } = await topicByKey('tyt-mat-turev');
+  await addAttachment(
+    topic.id,
+    new File(['bir'], 'aynı-dosya.pdf', { type: 'application/pdf' }),
+  );
+  await addAttachment(
+    topic.id,
+    new File(['iki'], 'aynı-dosya.pdf', { type: 'application/pdf' }),
+  );
+
+  const attachments = await listAttachments(topic.id);
+  render(<AttachmentList topicId={topic.id} attachments={attachments} />);
+
+  expect(screen.getByText('(1. dosya)')).toBeInTheDocument();
+  expect(screen.getByText('(2. dosya)')).toBeInTheDocument();
+
+  const deleteButtons = screen.getAllByRole('button', { name: /dosyasını sil$/ });
+  const labels = deleteButtons.map((button) => button.getAttribute('aria-label'));
+  expect(labels).toHaveLength(2);
+  expect(new Set(labels).size).toBe(2);
+  expect(labels[0]).toContain('(1. dosya)');
+  expect(labels[1]).toContain('(2. dosya)');
+
+  await userEvent.click(deleteButtons[0]);
+  const dialog = await screen.findByRole('dialog', { name: 'Dosyayı sil' });
+  expect(within(dialog).getByText(/\(1\. dosya\)/)).toBeInTheDocument();
+});
+
 test('addAttachment PDF dosyasını olduğu gibi saklar, listeler ve siler', async () => {
   const { topic } = await topicByKey('tyt-mat-turev');
   const file = new File(['pdf-içeriği'], '  notlar.pdf  ', { type: 'application/pdf' });

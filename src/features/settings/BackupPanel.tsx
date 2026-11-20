@@ -46,7 +46,12 @@ function errorMessage(error: unknown): string {
     : 'İşlem tamamlanamadı. Lütfen tekrar dene.';
 }
 
-export function BackupPanel() {
+export interface BackupPanelProps {
+  /** Lets the storage panel re-read its estimate after import/reset. */
+  onDataChanged?: () => void;
+}
+
+export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
   const { settings, refreshSettings } = useAppSettings();
   const [busy, setBusy] = useState<BusyState>(null);
   const [preview, setPreview] = useState<BackupPreview | null>(null);
@@ -101,6 +106,7 @@ export function BackupPanel() {
     try {
       await importBackup(preview.file);
       await refreshSettings();
+      onDataChanged?.();
       setPreview(null);
       setToast({ tone: 'success', message: 'Yedek geri yüklendi.' });
     } catch (error: unknown) {
@@ -121,6 +127,7 @@ export function BackupPanel() {
       await clearAllData();
       setResetStep(0);
       await refreshSettings();
+      onDataChanged?.();
     } catch (error: unknown) {
       console.error('Veriler silinemedi', error);
       setToast({ tone: 'error', message: errorMessage(error) });

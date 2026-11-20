@@ -77,6 +77,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   Reflect.deleteProperty(navigator, 'storage');
+  sessionStorage.clear();
 });
 
 test('yedek indirir, dosya adını üretir ve son yedek tarihini gösterir', async () => {
@@ -184,6 +185,30 @@ test('depolama API yoksa desteklenmediğini söyler', async () => {
   expect(await screen.findByText('Bu tarayıcı desteklemiyor')).toBeInTheDocument();
 });
 
+test('yedek geri yüklendikten sonra depolama kullanımı yenilenir', async () => {
+  await seedPanelData();
+  const backup = await exportBackup();
+  const estimate = vi.fn().mockResolvedValue({
+    usage: 10 * 1024 * 1024,
+    quota: 100 * 1024 * 1024,
+  });
+  Object.defineProperty(navigator, 'storage', {
+    configurable: true,
+    value: { estimate, persisted: vi.fn().mockResolvedValue(false), persist: vi.fn() },
+  });
+
+  renderApp('/ayarlar');
+  expect(await screen.findByText('10 MB / 100 MB')).toBeInTheDocument();
+  expect(estimate).toHaveBeenCalledTimes(1);
+
+  const input = await screen.findByLabelText('Yedek dosyası seç');
+  await userEvent.upload(input, new File([backup], 'yedek.zip', { type: 'application/zip' }));
+  await screen.findByText('Yedek özeti');
+  await userEvent.click(screen.getByRole('button', { name: 'Mevcut verileri değiştir' }));
+
+  await waitFor(() => expect(estimate).toHaveBeenCalledTimes(2));
+});
+
 test('son yedek eskiyse dashboard yedek şeridi gösterir', async () => {
   await seedPanelData();
   await patchSettings({ lastBackupAt: '2020-01-01T00:00:00.000Z' });
@@ -207,12 +232,14 @@ test('son yedek yeniyse ve fotoğraf sayısı düşükse şerit göstermez', asy
   });
 });
 
-test('100 ve üzeri fotoğraf yedek şeridini tetikler', async () => {
+test('son yedekten sonra eklenen 100 fotoğraf yedek şeridini tetikler', async () => {
   const { subject } = await seedPanelData();
-  await patchSettings({ lastBackupAt: new Date().toISOString() });
+  await patchSettings({
+    lastBackupAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  });
   const createdAt = new Date().toISOString();
   await db.photos.bulkAdd(
-    Array.from({ length: 99 }, (_, index) => ({
+    Array.from({ length: 100 }, (_, index) => ({
       id: `foto-${index}`,
       examType: 'TYT' as const,
       subjectId: subject.id,
@@ -230,6 +257,45 @@ test('100 ve üzeri fotoğraf yedek şeridini tetikler', async () => {
   renderApp('/');
 
   expect(await screen.findByLabelText('Yedek hatırlatıcısı')).toHaveTextContent(
-    '100 fotoğraf',
+    'Son yedekten bu yana 100 fotoğraf',
   );
+});
+
+test('son yedekten önceki fotoğraflar yedek şeridini tetiklemez', async () => {
+  const { subject } = await seedPanelData();
+  await patchSettings({ lastBackupAt: new Date().toISOString() });
+  const createdAt = '2026-01-01T00:00:00.000Z';
+  await db.photos.bulkAdd(
+    Array.from({ length: 100 }, (_, index) => ({
+      id: `eski-foto-${index}`,
+      examType: 'TYT' as const,
+      subjectId: subject.id,
+      note: '',
+      blob: new Blob(['foto'], { type: 'image/jpeg' }),
+      thumbBlob: new Blob(['kucuk'], { type: 'image/jpeg' }),
+      width: 10,
+      height: 10,
+      mastered: false,
+      practiceCount: 0,
+      createdAt,
+    })),
+  );
+
+  renderApp('/');
+  await screen.findByText('Genel Bakış');
+
+  expect(screen.queryByLabelText('Yedek hatırlatıcısı')).not.toBeInTheDocument();
+});
+
+test('yedek hatırlatıcısı kapatılabilir', async () => {
+  await seedPanelData();
+  await patchSettings({ lastBackupAt: '2020-01-01T00:00:00.000Z' });
+
+  renderApp('/');
+
+  const banner = await screen.findByLabelText('Yedek hatırlatıcısı');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Yedek hatırlatıcısını kapat' }),
+  );
+  expect(banner).not.toBeInTheDocument();
 });

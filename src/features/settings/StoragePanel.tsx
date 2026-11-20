@@ -16,7 +16,12 @@ interface StorageStatus {
   persisted: boolean | null;
 }
 
-export function StoragePanel() {
+export interface StoragePanelProps {
+  /** Increment after an import/reset so the estimate is read again. */
+  refreshKey?: number;
+}
+
+export function StoragePanel({ refreshKey = 0 }: StoragePanelProps) {
   const [supported, setSupported] = useState<boolean | null>(null);
   const [status, setStatus] = useState<StorageStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +30,7 @@ export function StoragePanel() {
   useEffect(() => {
     let cancelled = false;
     const storage = navigator.storage;
+    setError(null);
 
     if (!storage || typeof storage.estimate !== 'function') {
       setSupported(false);
@@ -62,7 +68,7 @@ export function StoragePanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   async function requestPersistence() {
     const storage = navigator.storage;

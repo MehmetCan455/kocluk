@@ -25,11 +25,14 @@ test('yumuşak ve güçlü tonları yarı saydam üretir', () => {
 test('hazır paletlerde okunabilir metin kontrastı seçer', () => {
   const cases = [
     { name: 'Mavi', hex: '#3B82F6', expected: '#FFFFFF' },
-    { name: 'Amber', hex: '#F59E0B', expected: '#0A0A0C' },
-    { name: 'Turuncu', hex: '#F97316', expected: '#0A0A0C' },
+    { name: 'İndigo', hex: '#6366F1', expected: '#FFFFFF' },
+    { name: 'Mor', hex: '#A855F7', expected: '#FFFFFF' },
     { name: 'Turkuaz', hex: '#14B8A6', expected: '#0A0A0C' },
     { name: 'Yeşil', hex: '#22C55E', expected: '#0A0A0C' },
-    { name: 'Mor', hex: '#A855F7', expected: '#FFFFFF' },
+    { name: 'Amber', hex: '#F59E0B', expected: '#0A0A0C' },
+    { name: 'Turuncu', hex: '#F97316', expected: '#0A0A0C' },
+    { name: 'Pembe', hex: '#EC4899', expected: '#FFFFFF' },
+    { name: 'Kırmızı', hex: '#EF4444', expected: '#FFFFFF' },
   ] as const;
 
   for (const { name, hex, expected } of cases) {

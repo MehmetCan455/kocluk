@@ -184,7 +184,14 @@ export function BooksPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
-                          <p className="truncate text-base font-semibold">{row.book.name}</p>
+                          <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
+                            <span className="truncate">{row.book.name}</span>
+                            {label !== row.book.name ? (
+                              <span className="shrink-0 rounded-md bg-raised px-1.5 py-0.5 text-[11px] font-medium text-muted">
+                                {label.slice(row.book.name.length).trim()}
+                              </span>
+                            ) : null}
+                          </p>
                           {row.book.publisher ? (
                             <p className="truncate text-xs text-muted">{row.book.publisher}</p>
                           ) : null}

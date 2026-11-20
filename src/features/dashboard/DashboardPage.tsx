@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Archive, BookOpen, Camera, ClipboardList, Library, Plus } from 'lucide-react';
+import { Archive, BookOpen, Camera, ClipboardList, Library, Plus, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
@@ -74,7 +74,7 @@ interface DashboardData {
   books: Book[];
   exams: Exam[];
   results: ExamResult[];
-  photosCount: number;
+  photosSinceBackup: number;
 }
 
 interface BookCardRow {
@@ -112,10 +112,21 @@ function StatCard({
 export function DashboardPage() {
   const { settings } = useAppSettings();
   const [chartType, setChartType] = useState<ExamType>('TYT');
+  const reminderSignature = settings.lastBackupAt ?? 'never';
+  const [dismissedSignature, setDismissedSignature] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('kocluk:backup-reminder-dismissed');
+    } catch {
+      return null;
+    }
+  });
+  const reminderDismissed = dismissedSignature === reminderSignature;
 
   const data = useLiveQuery(async (): Promise<DashboardData> => {
-    // One read per table: no per-book or per-exam query on the dashboard.
-    const [subjects, topics, topicBooks, books, exams, results, photosCount] =
+    // One read per table: no per-book or per-exam query on the dashboard. The
+    // backup reminder counts only photos added after the last export.
+    const lastBackupAt = settings.lastBackupAt;
+    const [subjects, topics, topicBooks, books, exams, results, photosSinceBackup] =
       await Promise.all([
         listSubjects(),
         listAllTopics(),
@@ -123,10 +134,12 @@ export function DashboardPage() {
         listBooks(),
         listExams(),
         listAllExamResults(),
-        db.photos.count(),
+        lastBackupAt
+          ? db.photos.where('createdAt').above(lastBackupAt).count()
+          : db.photos.count(),
       ]);
-    return { subjects, topics, topicBooks, books, exams, results, photosCount };
-  }, []);
+    return { subjects, topics, topicBooks, books, exams, results, photosSinceBackup };
+  }, [settings.lastBackupAt]);
 
   if (!data) {
     return (
@@ -216,12 +229,15 @@ export function DashboardPage() {
   const lastBackupOld =
     !Number.isFinite(lastBackupTime) ||
     Date.now() - lastBackupTime >= 30 * 24 * 60 * 60 * 1000;
-  const manyPhotos = data.photosCount >= 100;
-  const showBackupReminder = lastBackupOld || manyPhotos;
-  const backupReminderReason = manyPhotos
-    ? `${data.photosCount} fotoğraf birikti; yedek almak için iyi bir zaman.`
-    : settings.lastBackupAt
-      ? 'Son yedeğinin üzerinden 30 günden fazla geçti.'
+  const manyNewPhotos = data.photosSinceBackup >= 100;
+  const showBackupReminder =
+    (lastBackupOld || manyNewPhotos) && !reminderDismissed;
+  const backupReminderReason = settings.lastBackupAt
+    ? manyNewPhotos
+      ? `Son yedekten bu yana ${data.photosSinceBackup} fotoğraf eklendi; yedek almak için iyi bir zaman.`
+      : 'Son yedeğinin üzerinden 30 günden fazla geçti.'
+    : data.photosSinceBackup > 0
+      ? `Henüz yedek almadın; ${data.photosSinceBackup} fotoğraf yalnızca bu cihazda.`
       : 'Henüz yedek almadın; veriler yalnızca bu cihazda.';
 
   return (
@@ -252,10 +268,9 @@ export function DashboardPage() {
             <h2 className="text-lg font-semibold">Kitaplar</h2>
             <Link
               to="/kitaplar"
-              aria-label="Tüm kitaplar"
               className="inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-medium text-[var(--accent)]"
             >
-              Tümü
+              Tümü<span className="sr-only"> kitaplar</span>
             </Link>
           </div>
 
@@ -341,10 +356,9 @@ export function DashboardPage() {
             <h2 className="text-lg font-semibold">Son denemeler</h2>
             <Link
               to="/denemeler"
-              aria-label="Tüm denemeler"
               className="inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-medium text-[var(--accent)]"
             >
-              Tümü
+              Tümü<span className="sr-only"> denemeler</span>
             </Link>
           </div>
 
@@ -421,12 +435,30 @@ export function DashboardPage() {
               {backupReminderReason}
             </p>
           </div>
-          <Link
-            to="/ayarlar"
-            className="inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-semibold text-[var(--accent)]"
-          >
-            Yedek al
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link
+              to="/ayarlar"
+              className="inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-semibold text-[var(--accent)]"
+            >
+              Yedek al
+            </Link>
+            <button
+              type="button"
+              aria-label="Yedek hatırlatıcısını kapat"
+              onClick={() => {
+                try {
+                  sessionStorage.setItem('kocluk:backup-reminder-dismissed', reminderSignature);
+                } catch {
+                  // Storage may be unavailable in private mode; dismissing for
+                  // this render is still better than showing the reminder again.
+                }
+                setDismissedSignature(reminderSignature);
+              }}
+              className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </aside>
       ) : null}
     </section>

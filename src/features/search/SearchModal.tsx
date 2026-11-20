@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { liveQuery } from 'dexie';
 import {
   BookOpen,
   Camera,
@@ -226,21 +227,47 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
   const baseId = useId().replace(/:/g, '');
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
+  const [searchState, setSearchState] = useState<SearchState | undefined>();
+  const [searchError, setSearchError] = useState<string | null>(null);
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
   const queryIsEmpty = normalizeTr(query) === '';
 
   // The state carries the query it belongs to. Dexie keeps the previous value
   // while a new live query is pending, so comparing the label prevents stale
   // results from flashing between the debounce firing and IndexedDB answering.
-  const searchState = useLiveQuery(
-    async (): Promise<SearchState> => {
-      if (!open || queryIsEmpty) {
-        return { query: debouncedQuery, results: [] };
-      }
+  // A local error state keeps a failed IndexedDB read from crashing the modal.
+  useEffect(() => {
+    if (!open || queryIsEmpty) {
+      setSearchState({ query: debouncedQuery, results: [] });
+      setSearchError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchError(null);
+    const subscription = liveQuery(async (): Promise<SearchState> => {
       return { query: debouncedQuery, results: await searchAll(debouncedQuery) };
-    },
-    [open, queryIsEmpty, debouncedQuery],
-  );
+    }).subscribe({
+      next: (value) => {
+        if (!cancelled) {
+          setSearchState(value);
+          setSearchError(null);
+        }
+      },
+      error: (error: unknown) => {
+        console.error('Arama yapılamadı', error);
+        if (!cancelled) {
+          setSearchState({ query: debouncedQuery, results: [] });
+          setSearchError('Arama yapılamadı. Lütfen tekrar dene.');
+        }
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [open, queryIsEmpty, debouncedQuery]);
 
   useEffect(() => {
     if (!open) {
@@ -292,6 +319,10 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
 
         {queryIsEmpty ? (
           <EmptyQuery onClose={onClose} />
+        ) : searchError ? (
+          <p role="alert" className="py-4 text-center text-sm text-danger">
+            {searchError}
+          </p>
         ) : waitingForDebounce || results === undefined ? (
           <p role="status" className="py-4 text-center text-sm text-muted">
             Aranıyor…

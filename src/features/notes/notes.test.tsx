@@ -242,6 +242,33 @@ test('ek önizlemesi aynı dosyanın yeni Blob örneğinde URL yeniden oluşturm
   createUrlSpy.mockRestore();
 });
 
+test('ek görseli tıklanınca yakınlaştırılabilir görüntüleyici açılır', async () => {
+  const { topic } = await topicByKey('tyt-mat-turev');
+  await addAttachment(
+    topic.id,
+    new File(['png-içeriği'], 'grafik.png', { type: 'image/png' }),
+  );
+  const attachments = await listAttachments(topic.id);
+
+  render(<AttachmentList topicId={topic.id} attachments={attachments} />);
+
+  await userEvent.click(
+    screen.getByRole('button', { name: /grafik\.png görselini büyüt/ }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'grafik.png' });
+  expect(within(dialog).getByRole('img', { name: 'grafik.png' })).toBeInTheDocument();
+
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Yakınlaştır' }),
+  );
+  expect(within(dialog).getByText('125%')).toBeInTheDocument();
+
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kapat' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
 test('addAttachment 20 MB sınırını uygular ve Türkçe hata verir', async () => {
   const { topic } = await topicByKey('tyt-mat-turev');
 

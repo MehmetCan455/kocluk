@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Download, ExternalLink, FileText, Paperclip, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, FileText, Maximize2, Paperclip, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { Modal } from '@/components/ui/Modal';
 import {
   ATTACHMENT_SIZE_ERROR,
@@ -83,80 +84,102 @@ function AttachmentRow({
   const url = useAttachmentUrl(attachment);
   const isImage = attachment.mime.startsWith('image/');
   const isPdf = attachment.mime === 'application/pdf';
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   return (
-    <li className="rounded-2xl border border-line bg-surface p-3">
-      {isImage ? (
-        url ? (
-          <div className="mb-3 overflow-hidden rounded-xl border border-line bg-canvas">
-            <img
-              src={url}
-              alt={label}
-              loading="lazy"
-              className="max-h-56 w-full object-contain"
+    <>
+      <li className="rounded-2xl border border-line bg-surface p-3">
+        {isImage ? (
+          url ? (
+            <button
+              type="button"
+              onClick={() => setViewerOpen(true)}
+              aria-label={`${label} görselini büyüt`}
+              className="group relative mb-3 block w-full overflow-hidden rounded-xl border border-line bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            >
+              <img
+                src={url}
+                alt={label}
+                loading="lazy"
+                className="max-h-56 w-full object-contain"
+              />
+              <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[11px] font-medium text-white">
+                <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Büyüt
+              </span>
+            </button>
+          ) : (
+            <div
+              className="mb-3 h-24 animate-pulse rounded-xl border border-line bg-raised"
+              aria-hidden="true"
             />
+          )
+        ) : null}
+
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {isPdf ? (
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-raised text-muted">
+                <FileText className="h-5 w-5" aria-hidden="true" />
+              </span>
+            ) : null}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {attachment.name}
+                {duplicateOccurrence ? (
+                  <span className="ml-1 text-xs font-normal text-muted">
+                    ({duplicateOccurrence}. dosya)
+                  </span>
+                ) : null}
+              </p>
+              <p className="text-xs text-muted">{formatBytes(attachment.size)}</p>
+            </div>
           </div>
-        ) : (
-          <div
-            className="mb-3 h-24 animate-pulse rounded-xl border border-line bg-raised"
-            aria-hidden="true"
-          />
-        )
+
+          <div className="flex shrink-0 items-center">
+            {isPdf && url ? (
+              <>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`${label} dosyasını aç`}
+                  className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                </a>
+                <a
+                  href={url}
+                  download={attachment.name}
+                  aria-label={`${label} dosyasını indir`}
+                  className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </>
+            ) : null}
+            <button
+              type="button"
+              aria-label={`${label} dosyasını sil`}
+              onClick={() => onDelete(attachment)}
+              className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-danger"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </li>
+
+      {isImage && url ? (
+        <ImageLightbox
+          open={viewerOpen}
+          src={url}
+          alt={label}
+          title={label}
+          onClose={() => setViewerOpen(false)}
+        />
       ) : null}
-
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {isPdf ? (
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-raised text-muted">
-              <FileText className="h-5 w-5" aria-hidden="true" />
-            </span>
-          ) : null}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {attachment.name}
-              {duplicateOccurrence ? (
-                <span className="ml-1 text-xs font-normal text-muted">
-                  ({duplicateOccurrence}. dosya)
-                </span>
-              ) : null}
-            </p>
-            <p className="text-xs text-muted">{formatBytes(attachment.size)}</p>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center">
-          {isPdf && url ? (
-            <>
-              <a
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`${label} dosyasını aç`}
-                className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
-              >
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              </a>
-              <a
-                href={url}
-                download={attachment.name}
-                aria-label={`${label} dosyasını indir`}
-                className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
-              >
-                <Download className="h-4 w-4" aria-hidden="true" />
-              </a>
-            </>
-          ) : null}
-          <button
-            type="button"
-            aria-label={`${label} dosyasını sil`}
-            onClick={() => onDelete(attachment)}
-            className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-danger"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </li>
+    </>
   );
 }
 

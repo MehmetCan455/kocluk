@@ -31,6 +31,11 @@ export interface ModalProps {
   className?: string;
   /** Optional element to focus on open instead of the dialog panel. */
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /**
+   * Fullscreen is used by the image lightbox: edge-to-edge dark panel,
+   * overlay header and no scrolling. Default keeps the sheet/dialog look.
+   */
+  variant?: 'default' | 'fullscreen';
 }
 
 export function Modal({
@@ -41,9 +46,11 @@ export function Modal({
   footer,
   className,
   initialFocusRef,
+  variant = 'default',
 }: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const fullscreen = variant === 'fullscreen';
 
   useEffect(() => {
     if (!open) {
@@ -128,7 +135,12 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-6"
+      className={cn(
+        'fixed inset-0 z-50 flex',
+        fullscreen
+          ? 'items-stretch justify-center bg-black p-0'
+          : 'items-end justify-center bg-black/70 p-0 sm:items-center sm:p-6',
+      )}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -143,12 +155,23 @@ export function Modal({
         tabIndex={-1}
         onKeyDown={handlePanelKeyDown}
         className={cn(
-          'max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-line bg-surface p-5 shadow-2xl outline-none sm:rounded-2xl',
+          fullscreen
+            ? 'h-dvh max-h-dvh w-full max-w-none overflow-hidden rounded-none border-0 bg-black p-0 shadow-2xl outline-none'
+            : 'max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-line bg-surface p-5 shadow-2xl outline-none sm:rounded-2xl',
           className,
         )}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 id={titleId} className="text-lg font-semibold">
+        <div
+          className={cn(
+            fullscreen
+              ? 'absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 bg-gradient-to-b from-black/80 to-transparent p-3'
+              : 'mb-4 flex items-start justify-between gap-4',
+          )}
+        >
+          <h2
+            id={titleId}
+            className={cn('text-lg font-semibold', fullscreen && 'truncate text-white')}
+          >
             {title}
           </h2>
           <Button
@@ -156,12 +179,12 @@ export function Modal({
             size="sm"
             aria-label="Kapat"
             onClick={onClose}
-            className="h-11 w-11 shrink-0 px-0"
+            className={cn('h-11 w-11 shrink-0 px-0', fullscreen && '!text-white hover:!bg-white/15')}
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </Button>
         </div>
-        <div className="space-y-4">{children}</div>
+        <div className={fullscreen ? 'h-full' : 'space-y-4'}>{children}</div>
         {footer ? <div className="mt-5 flex justify-end gap-2">{footer}</div> : null}
       </div>
     </div>

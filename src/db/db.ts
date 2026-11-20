@@ -6,11 +6,13 @@ import type {
   ExamResult,
   Note,
   Photo,
+  PhotoSearch,
   PracticeSession,
   Subject,
   Topic,
   TopicBook,
 } from '@/domain/types';
+import { PHOTO_SEARCH_SCHEMA, toPhotoSearch } from './photoSearch';
 
 export interface SettingsRow {
   key: string;
@@ -26,6 +28,7 @@ export class KoclukDB extends Dexie {
   exams!: Table<Exam, string>;
   examResults!: Table<ExamResult, string>;
   photos!: Table<Photo, string>;
+  photoSearch!: Table<PhotoSearch, string>;
   notes!: Table<Note, string>;
   attachments!: Table<Attachment, string>;
   practiceSessions!: Table<PracticeSession, string>;
@@ -46,6 +49,21 @@ export class KoclukDB extends Dexie {
       attachments: 'id, topicId',
       practiceSessions: 'id, createdAt, completedAt',
     });
+
+    // v2 adds the blob-free search projection. Existing photos are copied in a
+    // read-only upgrade transaction; the photos table itself is untouched.
+    this.version(2)
+      .stores({
+        photoSearch: PHOTO_SEARCH_SCHEMA,
+      })
+      .upgrade(async (transaction) => {
+        const photos = await transaction.table<Photo, string>('photos').toArray();
+        if (photos.length > 0) {
+          await transaction
+            .table<PhotoSearch, string>('photoSearch')
+            .bulkPut(photos.map(toPhotoSearch));
+        }
+      });
   }
 }
 

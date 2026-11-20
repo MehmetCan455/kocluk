@@ -89,6 +89,19 @@ export interface PhotoFilters {
   query?: string;
 }
 
+/**
+ * Blob-free projection of a photo used by global search. It is kept in sync by
+ * the photo repository so a settled query never loads image data.
+ */
+export interface PhotoSearch {
+  id: string;
+  examType: ExamType;
+  subjectId: string;
+  topicId?: string;
+  note: string;
+  createdAt: string;
+}
+
 export interface Note {
   topicId: string;
   contentHtml: string;

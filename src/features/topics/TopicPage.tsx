@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BookOpen, Camera } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
@@ -13,6 +13,7 @@ import type { ExamType } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
 import { examBasePath, examTitle } from '@/features/subjects/exam';
 import { NotesTab } from '@/features/notes/NotesTab';
+import { TopicPhotosTab } from '@/features/photos/PhotoThumb';
 import { TestsTab } from './TestsTab';
 
 type TopicTab = 'testler' | 'notlar' | 'yanlislar';
@@ -113,10 +114,10 @@ export function TopicPage({ exam }: TopicPageProps) {
             id: 'yanlislar',
             label: 'Yanlışlar',
             content: (
-              <EmptyState
-                icon={Camera}
-                title="Henüz yanlış fotoğrafı yok"
-                description="Yanlış yaptığın soruların fotoğrafları burada görünecek."
+              <TopicPhotosTab
+                topicId={topic.id}
+                subjectId={subject.id}
+                examType={exam}
               />
             ),
           },

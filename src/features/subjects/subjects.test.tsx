@@ -356,7 +356,7 @@ test('konu sayfası sekmeleri ve boş durumları gösterir', async () => {
   expect(screen.getByText('Henüz dosya eklenmedi.')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('tab', { name: 'Yanlışlar' }));
-  expect(screen.getByText('Henüz yanlış fotoğrafı yok')).toBeInTheDocument();
+  expect(await screen.findByText('Henüz yanlış fotoğrafı yok')).toBeInTheDocument();
 });
 
 test('özel konu ekleme ders doğrular ve max sırasını kullanır', async () => {

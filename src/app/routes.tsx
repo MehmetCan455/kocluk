@@ -6,6 +6,8 @@ import { ExamDetailPage } from '@/features/exams/ExamDetailPage';
 import { ExamFormPage } from '@/features/exams/ExamFormPage';
 import { ExamsPage } from '@/features/exams/ExamsPage';
 import { Onboarding } from '@/features/onboarding/Onboarding';
+import { PhotoDetail } from '@/features/photos/PhotoDetail';
+import { PhotosPage } from '@/features/photos/PhotosPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubjectPage } from '@/features/subjects/SubjectPage';
 import { SubjectsPage } from '@/features/subjects/SubjectsPage';
@@ -51,15 +53,7 @@ export function AppRoutes() {
       <Route path="/denemeler/:id/duzenle" element={<ExamFormPage />} />
       <Route path="/denemeler/:id" element={<ExamDetailPage />} />
 
-      <Route
-        path="/yanlislar"
-        element={
-          <PagePlaceholder
-            title="Yanlışlar"
-            description="Yanlış fotoğrafları galerisi yakında burada olacak."
-          />
-        }
-      />
+      <Route path="/yanlislar" element={<PhotosPage />} />
       <Route
         path="/yanlislar/test"
         element={
@@ -78,6 +72,7 @@ export function AppRoutes() {
           />
         }
       />
+      <Route path="/yanlislar/:photoId" element={<PhotoDetail />} />
 
       <Route path="/kitaplar" element={<BooksPage />} />
       <Route path="/kitaplar/:id" element={<BookDetailPage />} />

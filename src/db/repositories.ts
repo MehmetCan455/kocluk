@@ -1,3 +1,4 @@
+import { type Collection } from 'dexie';
 import type {
   AppSettings,
   Attachment,
@@ -7,14 +8,20 @@ import type {
   ExamResult,
   ExamType,
   Note,
+  Photo,
+  PhotoFilters,
   Subject,
   Topic,
   TopicBook,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
 import { newId } from '@/lib/id';
+import { compressImage } from '@/lib/image';
+import { matchesTokens, tokenizeTr } from '@/lib/normalize';
 import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
+import { STORAGE_QUOTA_MESSAGE, isStorageQuotaError } from '@/lib/storageError';
 import { db } from './db';
+import { toPhotoSearch } from './photoSearch';
 
 export { seedCurriculum } from './seed';
 export type { CurriculumSeed, CurriculumSubjectSeed, CurriculumTopicSeed } from './seed';
@@ -343,18 +350,23 @@ export async function renameTopic(topicId: string, name: string): Promise<void> 
 }
 
 export async function deleteCustomTopicCascade(topicId: string): Promise<void> {
-  await db.transaction('rw', db.topics, db.topicBooks, db.notes, db.attachments, db.photos, async () => {
-    const topic = await db.topics.get(topicId);
-    if (!topic?.isCustom) {
-      return;
-    }
+  await db.transaction(
+    'rw',
+    [db.topics, db.topicBooks, db.notes, db.attachments, db.photos, db.photoSearch],
+    async () => {
+      const topic = await db.topics.get(topicId);
+      if (!topic?.isCustom) {
+        return;
+      }
 
-    await db.topicBooks.where('topicId').equals(topicId).delete();
-    await db.notes.delete(topicId);
-    await db.attachments.where('topicId').equals(topicId).delete();
-    await db.photos.where('topicId').equals(topicId).modify({ topicId: undefined });
-    await db.topics.delete(topicId);
-  });
+      await db.topicBooks.where('topicId').equals(topicId).delete();
+      await db.notes.delete(topicId);
+      await db.attachments.where('topicId').equals(topicId).delete();
+      await db.photos.where('topicId').equals(topicId).modify({ topicId: undefined });
+      await db.photoSearch.where('topicId').equals(topicId).modify({ topicId: undefined });
+      await db.topics.delete(topicId);
+    },
+  );
 }
 
 export async function getNote(topicId: string): Promise<Note | undefined> {
@@ -397,8 +409,9 @@ export async function listAttachments(topicId: string): Promise<Attachment[]> {
 }
 
 /**
- * Stores an image or PDF as-is. Task 13 will compress images to 2000 px before
- * they reach this function; the 20 MB guard stays here as the final boundary.
+ * Stores an image or PDF. Images are compressed to a 2000 px JPEG before they
+ * reach IndexedDB; PDFs are stored as-is. The 20 MB guard stays here as the
+ * final boundary for both kinds.
  */
 export async function addAttachment(topicId: string, file: File): Promise<Attachment> {
   if (file.size > ATTACHMENT_MAX_BYTES) {
@@ -408,13 +421,21 @@ export async function addAttachment(topicId: string, file: File): Promise<Attach
     throw new Error(ATTACHMENT_TYPE_ERROR);
   }
 
+  let blob: Blob = file;
+  let mime = file.type;
+  if (file.type.startsWith('image/')) {
+    const compressed = await compressImage(file, 2000, 0.85);
+    blob = compressed.blob;
+    mime = compressed.blob.type || 'image/jpeg';
+  }
+
   const attachment: Attachment = {
     id: newId(),
     topicId,
     name: file.name.trim() || 'dosya',
-    mime: file.type,
-    size: file.size,
-    blob: file,
+    mime,
+    size: blob.size,
+    blob,
     createdAt: new Date().toISOString(),
   };
   await db.attachments.add(attachment);
@@ -423,6 +444,217 @@ export async function addAttachment(topicId: string, file: File): Promise<Attach
 
 export async function deleteAttachment(id: string): Promise<void> {
   await db.attachments.delete(id);
+}
+
+export interface AddPhotoInput {
+  file: File;
+  examId?: string;
+  examType: ExamType;
+  subjectId: string;
+  topicId?: string;
+  note?: string;
+}
+
+/**
+ * Verifies every linked exam before compression so a mismatched exam type or a
+ * stale exam link fails without doing expensive image work.
+ */
+async function assertPhotoExams(inputs: readonly AddPhotoInput[]): Promise<void> {
+  const examIds = [
+    ...new Set(
+      inputs
+        .map((input) => input.examId)
+        .filter((examId): examId is string => Boolean(examId)),
+    ),
+  ];
+  if (examIds.length === 0) {
+    return;
+  }
+
+  const exams = await db.exams.bulkGet(examIds);
+  const examById = new Map(
+    exams.filter((exam): exam is Exam => exam !== undefined).map((exam) => [exam.id, exam]),
+  );
+  for (const input of inputs) {
+    if (!input.examId) {
+      continue;
+    }
+    const exam = examById.get(input.examId);
+    if (!exam) {
+      throw new Error('Deneme bulunamadı');
+    }
+    if (exam.type !== input.examType) {
+      throw new Error('Deneme türü fotoğraf türüyle uyuşmuyor');
+    }
+  }
+}
+
+/**
+ * Compresses and stores wrong-answer photos together with their blob-free
+ * search projection. Compression happens before the transaction; the
+ * transaction itself only writes, so a quota failure rolls back both tables
+ * and never leaves a photo without a projection (or vice versa).
+ */
+export async function addPhotos(inputs: AddPhotoInput[]): Promise<Photo[]> {
+  if (inputs.length === 0) {
+    return [];
+  }
+  for (const input of inputs) {
+    if (!input.subjectId.trim()) {
+      throw new Error('Ders seçilmedi');
+    }
+  }
+  await assertPhotoExams(inputs);
+
+  const createdAt = new Date().toISOString();
+  const photos: Photo[] = [];
+  for (const input of inputs) {
+    const image = await compressImage(input.file);
+    photos.push({
+      id: newId(),
+      examId: input.examId,
+      examType: input.examType,
+      subjectId: input.subjectId,
+      topicId: input.topicId,
+      note: input.note?.trim() ?? '',
+      blob: image.blob,
+      thumbBlob: image.thumbBlob,
+      width: image.width,
+      height: image.height,
+      mastered: false,
+      practiceCount: 0,
+      createdAt,
+    });
+  }
+
+  try {
+    await db.transaction('rw', db.photos, db.photoSearch, async () => {
+      await db.photos.bulkAdd(photos);
+      await db.photoSearch.bulkAdd(photos.map(toPhotoSearch));
+    });
+  } catch (caught: unknown) {
+    if (isStorageQuotaError(caught)) {
+      throw new Error(STORAGE_QUOTA_MESSAGE);
+    }
+    throw caught;
+  }
+
+  return photos;
+}
+
+export async function getPhoto(id: string): Promise<Photo | undefined> {
+  return db.photos.get(id);
+}
+
+/**
+ * Uses one Dexie index for the most selective filter and applies the remaining
+ * filters in memory. `examType` and `mastered` are not indexed on `photos`, so
+ * they are always filtered in memory; note search is Turkish-case-insensitive.
+ */
+export async function listPhotos(filters: PhotoFilters = {}): Promise<Photo[]> {
+  let collection: Collection<Photo, string>;
+  if (filters.examId) {
+    collection = db.photos.where('examId').equals(filters.examId);
+  } else if (filters.topicId) {
+    collection = db.photos.where('topicId').equals(filters.topicId);
+  } else if (filters.subjectId) {
+    collection = db.photos.where('subjectId').equals(filters.subjectId);
+  } else if (filters.from && filters.to) {
+    collection = db.photos
+      .where('createdAt')
+      .between(
+        `${filters.from.slice(0, 10)}T00:00:00.000Z`,
+        `${filters.to.slice(0, 10)}T23:59:59.999Z`,
+        true,
+        true,
+      );
+  } else if (filters.from) {
+    collection = db.photos
+      .where('createdAt')
+      .aboveOrEqual(`${filters.from.slice(0, 10)}T00:00:00.000Z`);
+  } else if (filters.to) {
+    collection = db.photos
+      .where('createdAt')
+      .belowOrEqual(`${filters.to.slice(0, 10)}T23:59:59.999Z`);
+  } else {
+    collection = db.photos.toCollection();
+  }
+
+  const rows = await collection.toArray();
+  const tokens = filters.query ? tokenizeTr(filters.query) : [];
+  const from = filters.from?.slice(0, 10);
+  const to = filters.to?.slice(0, 10);
+
+  return rows
+    .filter((photo) => {
+      if (filters.examId && photo.examId !== filters.examId) {
+        return false;
+      }
+      if (filters.topicId && photo.topicId !== filters.topicId) {
+        return false;
+      }
+      if (filters.subjectId && photo.subjectId !== filters.subjectId) {
+        return false;
+      }
+      if (filters.examType && photo.examType !== filters.examType) {
+        return false;
+      }
+      if (filters.mastered !== undefined && photo.mastered !== filters.mastered) {
+        return false;
+      }
+      const day = photo.createdAt.slice(0, 10);
+      if (from && day < from) {
+        return false;
+      }
+      if (to && day > to) {
+        return false;
+      }
+      if (tokens.length > 0 && !matchesTokens(photo.note, tokens)) {
+        return false;
+      }
+      return true;
+    })
+    .sort(
+      (left, right) =>
+        right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
+    );
+}
+
+/**
+ * Updates the photo and rewrites its search projection in the same transaction
+ * so search never sees a stale note, subject or topic.
+ */
+export async function updatePhoto(id: string, patch: Partial<Photo>): Promise<void> {
+  const changes: Partial<Photo> = { ...patch };
+  delete changes.id;
+  if (Object.keys(changes).length === 0) {
+    return;
+  }
+
+  await db.transaction('rw', db.photos, db.photoSearch, async () => {
+    const updated = await db.photos.update(id, changes);
+    if (updated === 0) {
+      throw new Error('Fotoğraf bulunamadı');
+    }
+    const photo = await db.photos.get(id);
+    if (photo) {
+      await db.photoSearch.put(toPhotoSearch(photo));
+    }
+  });
+}
+
+/**
+ * Deletes photos and their search projections. Practice sessions keep the
+ * historical photo ids; the session viewer skips ids whose photo is gone.
+ */
+export async function deletePhotos(ids: string[]): Promise<void> {
+  if (ids.length === 0) {
+    return;
+  }
+  await db.transaction('rw', db.photos, db.photoSearch, async () => {
+    await db.photos.bulkDelete(ids);
+    await db.photoSearch.bulkDelete(ids);
+  });
 }
 
 export interface SaveExamInput {

@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
-import { deleteExamUnlinkPhotos, getExam, listExamResults, listSubjects } from '@/db/repositories';
-import type { Exam, ExamResult, Subject } from '@/domain/types';
+import { deleteExamUnlinkPhotos, getExam, listExamResults, listPhotos, listSubjects } from '@/db/repositories';
+import type { Exam, ExamResult, Photo, Subject } from '@/domain/types';
 import { formatNet } from '@/lib/format';
+import { PhotoStrip } from '@/features/photos/PhotoThumb';
+import { PhotoUpload } from '@/features/photos/PhotoUpload';
 import { formatAlan, formatExamDate, sumNet } from './examFormat';
 
 interface DetailRow {
@@ -101,20 +103,25 @@ export function ExamDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const data = useLiveQuery(async () => {
     const exam = await getExam(id);
     if (!exam) {
-      return { exam: undefined, rows: [] as DetailRow[] };
+      return { exam: undefined, rows: [] as DetailRow[], photos: [] as Photo[] };
     }
 
-    const [results, subjects] = await Promise.all([listExamResults(id), listSubjects(exam.type)]);
+    const [results, subjects, photos] = await Promise.all([
+      listExamResults(id),
+      listSubjects(exam.type),
+      listPhotos({ examId: id }),
+    ]);
     const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
     const rows = results
       .map((result) => ({ result, subject: subjectById.get(result.subjectId) }))
       .sort(compareRows);
 
-    return { exam, rows };
+    return { exam, rows, photos };
   }, [id]);
 
   if (!data) {
@@ -125,7 +132,7 @@ export function ExamDetailPage() {
     );
   }
 
-  const { exam, rows } = data;
+  const { exam, rows, photos } = data;
 
   if (!exam) {
     return (
@@ -257,13 +264,33 @@ export function ExamDetailPage() {
       ) : null}
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Yanlış fotoğrafları</h2>
-        <EmptyState
-          icon={Camera}
-          title="Henüz fotoğraf yok"
-          description="Bu denemeye bağlı yanlış fotoğraflarını buradan ekleyebileceksin."
-        />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Yanlış fotoğrafları</h2>
+          <Button variant="secondary" size="sm" onClick={() => setUploadOpen(true)}>
+            <Camera className="h-4 w-4" aria-hidden="true" />
+            Fotoğraf ekle
+          </Button>
+        </div>
+        {photos.length === 0 ? (
+          <EmptyState
+            icon={Camera}
+            title="Henüz fotoğraf yok"
+            description="Bu denemeye bağlı yanlış fotoğraflarını buradan ekleyebilirsin."
+          />
+        ) : (
+          <PhotoStrip photos={photos} />
+        )}
       </Card>
+
+      {uploadOpen ? (
+        <Modal open title="Fotoğraf yükle" onClose={() => setUploadOpen(false)}>
+          <PhotoUpload
+            examId={exam.id}
+            examType={exam.type}
+            onClose={() => setUploadOpen(false)}
+          />
+        </Modal>
+      ) : null}
 
       {confirmingDelete ? (
         <DeleteExamModal

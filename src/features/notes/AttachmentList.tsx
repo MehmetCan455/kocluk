@@ -9,6 +9,7 @@ import {
   deleteAttachment,
 } from '@/db/repositories';
 import type { Attachment } from '@/domain/types';
+import { IMAGE_TYPE_ERROR } from '@/lib/image';
 
 export interface AttachmentListProps {
   topicId: string;
@@ -142,7 +143,10 @@ export function AttachmentList({ topicId, attachments }: AttachmentListProps) {
       await addAttachment(topicId, file);
     } catch (caught: unknown) {
       const message = caught instanceof Error ? caught.message : '';
-      const known = message === ATTACHMENT_SIZE_ERROR || message === ATTACHMENT_TYPE_ERROR;
+      const known =
+        message === ATTACHMENT_SIZE_ERROR ||
+        message === ATTACHMENT_TYPE_ERROR ||
+        message === IMAGE_TYPE_ERROR;
       setError(known ? message : 'Dosya eklenemedi. Lütfen tekrar dene.');
     } finally {
       setUploading(false);

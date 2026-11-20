@@ -1,3 +1,4 @@
+import Dexie from 'dexie';
 import { beforeEach, expect, test } from 'vitest';
 import { newId } from '@/lib/id';
 import { resetDb, seedOnboarded } from '@/test/fixtures';
@@ -48,13 +49,13 @@ test('newId UUID üretir', () => {
   expect(first).not.toBe(second);
 });
 
-test('şema v1 tablolarını ve seedKey tekilliğini tanımlar', () => {
-  expect(db.tables.map((table) => table.name).sort()).toEqual([
+test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db.tables.map((table) => table.name).sort()).toEqual([
     'attachments',
     'books',
     'examResults',
     'exams',
     'notes',
+    'photoSearch',
     'photos',
     'practiceSessions',
     'settings',
@@ -192,6 +193,14 @@ test('özel konu silme bağlı verileri temizler, fotoğrafı korur', async () =
     practiceCount: 0,
     createdAt: '',
   });
+  await db.photoSearch.put({
+    id: 'p1',
+    examType: 'TYT',
+    subjectId: subject!.id,
+    topicId: topic.id,
+    note: '',
+    createdAt: '',
+  });
 
   expect(await listTopicBooks(topic.id)).toHaveLength(1);
 
@@ -203,6 +212,7 @@ test('özel konu silme bağlı verileri temizler, fotoğrafı korur', async () =
   expect(await db.attachments.count()).toBe(0);
   expect(await db.books.count()).toBe(1);
   expect((await db.photos.get('p1'))?.topicId).toBeUndefined();
+  expect((await db.photoSearch.get('p1'))?.topicId).toBeUndefined();
 });
 
 test('seed konusu cascade silmede korunur', async () => {
@@ -242,6 +252,14 @@ test('seed konusu cascade silmede korunur', async () => {
     practiceCount: 0,
     createdAt: '',
   });
+  await db.photoSearch.put({
+    id: 'p1',
+    examType: 'TYT',
+    subjectId: subject!.id,
+    topicId: topic!.id,
+    note: '',
+    createdAt: '',
+  });
 
   await deleteCustomTopicCascade(topic!.id);
 
@@ -250,6 +268,7 @@ test('seed konusu cascade silmede korunur', async () => {
   expect(await db.notes.count()).toBe(1);
   expect(await db.attachments.count()).toBe(1);
   expect((await db.photos.get('p1'))?.topicId).toBe(topic!.id);
+  expect((await db.photoSearch.get('p1'))?.topicId).toBe(topic!.id);
 });
 
 test('özel konular seedKey olmadan eklenir, sıralanır ve yeniden adlandırılır', async () => {
@@ -458,4 +477,64 @@ test('resetDb temizler, seedOnboarded onboarding ayarını yazar', async () => {
     onboardingDone: true,
     profileName: 'Deniz',
   });
+});
+
+test('v2 geçişi mevcut fotoğraflardan blobsuz arama projeksiyonu üretir', async () => {
+  await db.close();
+  await Dexie.delete('kocluk');
+
+  const legacy = new Dexie('kocluk');
+  legacy.version(1).stores({
+    settings: 'key',
+    subjects: 'id, &seedKey, exam, order',
+    topics: 'id, &seedKey, subjectId, order',
+    books: 'id, name, updatedAt',
+    topicBooks: 'id, topicId, bookId',
+    exams: 'id, type, date',
+    examResults: 'id, examId, subjectId',
+    photos: 'id, examId, subjectId, topicId, createdAt',
+    notes: 'topicId',
+    attachments: 'id, topicId',
+    practiceSessions: 'id, createdAt, completedAt',
+  });
+  await legacy.open();
+
+  const createdAt = '2026-11-01T10:00:00.000Z';
+  await legacy.table('photos').add({
+    id: 'eski-foto',
+    examId: 'eski-deneme',
+    examType: 'TYT',
+    subjectId: 'eski-ders',
+    topicId: 'eski-konu',
+    note: 'Geçiş öncesi not',
+    blob: new Blob(['tam'], { type: 'image/jpeg' }),
+    thumbBlob: new Blob(['küçük'], { type: 'image/jpeg' }),
+    width: 1600,
+    height: 900,
+    mastered: true,
+    practiceCount: 3,
+    createdAt,
+  });
+  legacy.close();
+
+  await db.open();
+
+  expect(await db.photoSearch.get('eski-foto')).toEqual({
+    id: 'eski-foto',
+    examType: 'TYT',
+    subjectId: 'eski-ders',
+    topicId: 'eski-konu',
+    note: 'Geçiş öncesi not',
+    createdAt,
+  });
+  const migrated = await db.photos.get('eski-foto');
+  expect(migrated).toMatchObject({
+    note: 'Geçiş öncesi not',
+    mastered: true,
+    practiceCount: 3,
+  });
+  // fake-indexeddb returns blobs as opaque objects in jsdom; the fields still
+  // have to survive the migration, the image bytes are not re-encoded.
+  expect(migrated).toHaveProperty('blob');
+  expect(migrated).toHaveProperty('thumbBlob');
 });

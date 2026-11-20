@@ -85,14 +85,14 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
     return [];
   }
 
-  const [subjects, topics, notes, books, exams, examResults, photos] = await Promise.all([
+  const [subjects, topics, notes, books, exams, examResults, photoSearch] = await Promise.all([
     listSubjects(),
     listAllTopics(),
     db.notes.toArray(),
     listBooks(),
     listExams(),
     listAllExamResults(),
-    db.photos.toArray(),
+    db.photoSearch.toArray(),
   ]);
 
   const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
@@ -188,7 +188,7 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
   }
 
   const photoResults: SearchResult[] = [];
-  const sortedPhotos = [...photos].sort(
+  const sortedPhotos = [...photoSearch].sort(
     (left, right) =>
       right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id),
   );

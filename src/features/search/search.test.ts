@@ -146,26 +146,24 @@ test('denemeler not metniyle de bulunur', async () => {
 
 test('yanlış fotoğrafları not metniyle bulunur ve galeriye bağlanır', async () => {
   const now = new Date().toISOString();
-  await db.photos.put({
-    id: newId(),
+  const photoId = newId();
+  // Arama yalnızca blobsuz projeksiyonu okur; photos tablosunda kayıt yoktur.
+  await db.photoSearch.put({
+    id: photoId,
     examType: 'TYT',
     subjectId: turevSubject.id,
     topicId: turevTopic.id,
     note: 'Türev fotoğrafı',
-    blob: new Blob(['x'], { type: 'image/png' }),
-    thumbBlob: new Blob(['x'], { type: 'image/png' }),
-    width: 100,
-    height: 100,
-    mastered: false,
-    practiceCount: 0,
     createdAt: now,
   });
+  expect(await db.photos.count()).toBe(0);
 
   const results = await searchAll('fotoğrafı');
 
   expect(results).toHaveLength(1);
   expect(results[0]).toMatchObject({
     kind: 'photo',
+    id: photoId,
     title: 'Türev fotoğrafı',
     subtitle: 'Matematik · Türev',
     href: '/yanlislar',

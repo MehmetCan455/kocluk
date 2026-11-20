@@ -160,24 +160,21 @@ if (typeof document.elementFromPoint !== 'function') {
 }
 
 /**
- * jsdom has no object URL implementation. Attachments create a temporary URL
- * for previews and must revoke it again, so a deterministic counter keeps both
+ * jsdom has no object URL implementation and the Node implementation rejects
+ * jsdom/IndexedDB blob-like values. Attachments create a temporary URL for
+ * previews and must revoke it again, so a deterministic counter keeps both
  * calls observable in tests.
  */
 let objectUrlCounter = 0;
 
-if (typeof URL.createObjectURL !== 'function') {
-  Object.defineProperty(URL, 'createObjectURL', {
-    configurable: true,
-    writable: true,
-    value: () => `blob:kocluk-test/${++objectUrlCounter}`,
-  });
-}
+Object.defineProperty(URL, 'createObjectURL', {
+  configurable: true,
+  writable: true,
+  value: () => `blob:kocluk-test/${++objectUrlCounter}`,
+});
 
-if (typeof URL.revokeObjectURL !== 'function') {
-  Object.defineProperty(URL, 'revokeObjectURL', {
-    configurable: true,
-    writable: true,
-    value: () => undefined,
-  });
-}
+Object.defineProperty(URL, 'revokeObjectURL', {
+  configurable: true,
+  writable: true,
+  value: () => undefined,
+});

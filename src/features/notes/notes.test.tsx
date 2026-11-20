@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import {
@@ -14,8 +14,22 @@ import {
 import type { CurriculumSeed } from '@/db/repositories';
 import type { Subject, Topic } from '@/domain/types';
 import { NotesTab } from '@/features/notes/NotesTab';
+import { compressImage } from '@/lib/image';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
+
+vi.mock('@/lib/image', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/image')>();
+  return {
+    ...actual,
+    compressImage: vi.fn(async () => ({
+      blob: new Blob(['sıkıştırılmış görsel'], { type: 'image/jpeg' }),
+      thumbBlob: new Blob(['küçük görsel'], { type: 'image/jpeg' }),
+      width: 2000,
+      height: 1000,
+    })),
+  };
+});
 
 const FIXTURE: CurriculumSeed = {
   version: 1,
@@ -123,16 +137,16 @@ test('saveNote blok sınırlarını düz metinde korur', async () => {
   expect(note?.plainText).not.toContain('paragrafListe');
 });
 
-test('addAttachment dosyayı olduğu gibi saklar, listeler ve siler', async () => {
+test('addAttachment PDF dosyasını olduğu gibi saklar, listeler ve siler', async () => {
   const { topic } = await topicByKey('tyt-mat-turev');
-  const file = new File(['png-içeriği'], '  grafik.png  ', { type: 'image/png' });
+  const file = new File(['pdf-içeriği'], '  notlar.pdf  ', { type: 'application/pdf' });
 
   const attachment = await addAttachment(topic.id, file);
 
   expect(attachment).toMatchObject({
     topicId: topic.id,
-    name: 'grafik.png',
-    mime: 'image/png',
+    name: 'notlar.pdf',
+    mime: 'application/pdf',
     size: file.size,
   });
   expect(attachment.blob.size).toBe(file.size);
@@ -143,6 +157,22 @@ test('addAttachment dosyayı olduğu gibi saklar, listeler ve siler', async () =
 
   expect(await listAttachments(topic.id)).toHaveLength(0);
   expect(await db.attachments.get(attachment.id)).toBeUndefined();
+});
+
+test('addAttachment görseli 2000 px sınırıyla sıkıştırır', async () => {
+  const { topic } = await topicByKey('tyt-mat-turev');
+  vi.mocked(compressImage).mockClear();
+  const file = new File(['png-içeriği'], 'grafik.png', { type: 'image/png' });
+
+  const attachment = await addAttachment(topic.id, file);
+
+  expect(compressImage).toHaveBeenCalledWith(file, 2000, 0.85);
+  expect(attachment).toMatchObject({
+    name: 'grafik.png',
+    mime: 'image/jpeg',
+    size: new Blob(['sıkıştırılmış görsel']).size,
+  });
+  expect(attachment.blob.type).toBe('image/jpeg');
 });
 
 test('addAttachment 20 MB sınırını uygular ve Türkçe hata verir', async () => {
@@ -299,7 +329,8 @@ test('görsel ekler, önizler ve onaylayarak siler', async () => {
 
   const stored = await listAttachments(topic.id);
   expect(stored).toHaveLength(1);
-  expect(stored[0]).toMatchObject({ name: 'grafik.png', mime: 'image/png' });
+  expect(stored[0]).toMatchObject({ name: 'grafik.png', mime: 'image/jpeg' });
+  expect(compressImage).toHaveBeenCalled();
 
   await userEvent.click(
     screen.getByRole('button', { name: 'grafik.png dosyasını sil' }),

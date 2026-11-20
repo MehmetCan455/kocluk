@@ -166,7 +166,6 @@ export function ExamFormPage() {
   const [note, setNote] = useState('');
   const [values, setValues] = useState<Record<string, Counts>>({});
   const [initialResults, setInitialResults] = useState<StoredResult[]>([]);
-  const [geometryConsent, setGeometryConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -218,7 +217,6 @@ export function ExamFormPage() {
         setAlan(exam.type === 'AYT' ? resolveAytAlan(exam, results, allSubjects) : '');
         setNote(exam.note);
         setValues(loadedValues);
-        setGeometryConsent(false);
         setInitialResults(
           results.map((result) => ({
             subjectId: result.subjectId,
@@ -298,7 +296,6 @@ export function ExamFormPage() {
     geometrySubject !== undefined &&
     storedById.has(geometrySubject.id);
   const geometryConsumedId = geometryConsumed ? geometrySubject?.id : undefined;
-  const needsGeometryConsent = geometryConsumed && !geometryConsent;
 
   const entryRows: EntryRow[] = config.flatMap((entry) => {
     const subject = subjectBySeed.get(entry.seedKey);
@@ -375,8 +372,7 @@ export function ExamFormPage() {
     date !== '' &&
     dateError === null &&
     !hasRowErrors &&
-    !awaitingAlan &&
-    !needsGeometryConsent;
+    !awaitingAlan;
 
   function updateCount(subjectId: string, field: keyof Counts, value: string) {
     setValues((current) => ({
@@ -581,28 +577,14 @@ export function ExamFormPage() {
           ) : null}
 
           {geometryConsumed ? (
-            <div className="space-y-3 rounded-xl border border-warning/60 bg-warning/10 p-3">
-              <p className="text-sm font-semibold text-warning">
+            <div className="space-y-2 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-3">
+              <p className="text-sm font-semibold text-[var(--accent)]">
                 Ayrı Geometri sonucu birleştirilecek
               </p>
-              <p id="geometri-birlesme-uyari" className="text-sm">
-                Bu denemede ayrı kaydedilmiş bir Geometri sonucu var. Birleşik geometri
-                ayarında kaydettiğinde Geometri doğru ve yanlışları Matematik satırına
-                katılacak ve ayrı Geometri kaydı silinecek. Toplam net korunur; 30 + 10
-                ayrımı geri alınamaz.
+              <p id="geometri-birlesme-bilgi" className="text-sm">
+                Bu deneme eski ayrı Geometri kaydı içeriyor. Kaydedince Matematik 40
+                olarak birleştirilecek; net korunur, ayrı Geometri kaydı kaldırılır.
               </p>
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg bg-canvas/60 px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={geometryConsent}
-                  onChange={(event) => setGeometryConsent(event.target.checked)}
-                  required
-                  aria-required="true"
-                  aria-describedby="geometri-birlesme-uyari"
-                  className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
-                />
-                <span>Geometri sonucunu matematiğe katmayı onaylıyorum</span>
-              </label>
             </div>
           ) : null}
 

@@ -494,7 +494,7 @@ test('birleşik geometride matematik 40 soru olur ve geometri satırı gizlenir'
   });
 });
 
-test('birleşik geometride eski ayrı geometri sonucu matematiğe katılır', async () => {
+test('birleşik geometride eski ayrı geometri sonucu bilgilendirmeyle matematiğe katılır', async () => {
   const matematik = await subjectIdByKey('tyt-matematik');
   const geometri = await subjectIdByKey('tyt-geometri');
   const exam = await saveExam({
@@ -516,17 +516,12 @@ test('birleşik geometride eski ayrı geometri sonucu matematiğe katılır', as
   expect(screen.getByLabelText('Matematik doğru')).toHaveValue(28);
   expect(screen.getByLabelText('Matematik yanlış')).toHaveValue(12);
   expect(screen.queryByLabelText('Geometri doğru')).not.toBeInTheDocument();
-  expect(screen.getByText('Ayrı Geometri sonucu birleştirilecek')).toBeInTheDocument();
   expect(
-    screen.getByText(/ayrı Geometri kaydı silinecek/),
+    screen.getByText(
+      'Bu deneme eski ayrı Geometri kaydı içeriyor. Kaydedince Matematik 40 olarak birleştirilecek; net korunur, ayrı Geometri kaydı kaldırılır.',
+    ),
   ).toBeInTheDocument();
-  const consent = screen.getByRole('checkbox', {
-    name: 'Geometri sonucunu matematiğe katmayı onaylıyorum',
-  });
-  expect(consent).not.toBeChecked();
-  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
-
-  await userEvent.click(consent);
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Kaydet' })).toBeEnabled();
 
   await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));

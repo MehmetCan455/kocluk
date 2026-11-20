@@ -60,7 +60,7 @@ güncelle.
 Yayın adresi:
 
 ```
-https://<kullanici>.github.io/kocluk/
+https://mehmetcan455.github.io/kocluk/
 ```
 
 Uygulama `HashRouter` kullandığı için alt sayfalar (`#/tyt`, `#/denemeler` gibi)
@@ -69,7 +69,7 @@ da taşınabilir; yalnızca taban yolunu ortama göre ayarlaman gerekir.
 
 ## Arkadaşlarınla paylaşma
 
-Yayınlanan bağlantıyı (`https://<kullanici>.github.io/kocluk/`) göndermen yeterli.
+Yayınlanan bağlantıyı (`https://mehmetcan455.github.io/kocluk/`) göndermen yeterli.
 Herkes uygulamayı kendi cihazında, kendi verisiyle kullanır. Ayarlar → **Uygulama
 linkini paylaş** düğmesi cihazın paylaşım menüsünü veya panoyu kullanır.
 

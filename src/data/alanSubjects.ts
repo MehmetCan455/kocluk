@@ -20,10 +20,6 @@ export const ALAN_SUBJECT_SEED_KEYS: Readonly<
     'ayt-edebiyat',
     'ayt-tarih-1',
     'ayt-cografya-1',
-    'ayt-tarih-2',
-    'ayt-cografya-2',
-    'ayt-felsefe-grubu',
-    'ayt-din-kulturu',
   ],
   sozel: [
     'ayt-edebiyat',

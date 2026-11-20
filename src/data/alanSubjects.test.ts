@@ -43,8 +43,16 @@ test('sayısal alanı yalnızca sayısal AYT derslerini görünür bırakır', (
   ]);
 });
 
-test('eşit ağırlık yalnızca fen derslerini gizler', () => {
-  expect(hiddenSeedKeys('ea')).toEqual(['ayt-biyoloji', 'ayt-fizik', 'ayt-kimya']);
+test('eşit ağırlık fen ve sosyal-2 derslerini gizler', () => {
+  expect(hiddenSeedKeys('ea')).toEqual([
+    'ayt-biyoloji',
+    'ayt-cografya-2',
+    'ayt-din-kulturu',
+    'ayt-felsefe-grubu',
+    'ayt-fizik',
+    'ayt-kimya',
+    'ayt-tarih-2',
+  ]);
 });
 
 test('sözel matematik ve fen derslerini gizler', () => {

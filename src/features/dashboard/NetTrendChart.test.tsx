@@ -1,6 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
-import type { NetSeries, NetSeriesPoint } from './chartData';
+import type { Exam, ExamResult } from '@/domain/types';
+import {
+  buildNetSeries,
+  tailSeries,
+  type NetSeries,
+  type NetSeriesPoint,
+} from './chartData';
 import {
   POINT_RADIUS,
   POINT_STYLE,
@@ -44,6 +50,29 @@ function point(overrides: Partial<NetSeriesPoint> = {}): NetSeriesPoint {
   };
 }
 
+function chartExam(id: string, date: string): Exam {
+  return {
+    id,
+    type: 'TYT',
+    name: id,
+    date,
+    note: '',
+    createdAt: `${date}T10:00:00.000Z`,
+  };
+}
+
+function chartResult(id: string, examId: string, net: number): ExamResult {
+  return {
+    id,
+    examId,
+    subjectId: `subject-${id}`,
+    correct: net,
+    wrong: 0,
+    blank: 0,
+    net,
+  };
+}
+
 interface CapturedLineProps {
   data: {
     labels: string[];
@@ -83,11 +112,13 @@ test('rekor nokta altın, diğerleri accent renginde', () => {
   expect(RECORD_POINT_COLOR).toBe('#FACC15');
 });
 
-test('ilk nokta veride rekor işaretli olsa bile accent ve daire kalır', () => {
-  expect(seriesPointColors([point({ record: true })], ACCENT)).toEqual([ACCENT]);
+test('ilk nokta rekor işaretliyse altın yıldız kalır', () => {
+  expect(seriesPointColors([point({ record: true })], ACCENT)).toEqual([
+    RECORD_POINT_COLOR,
+  ]);
   expect(seriesPointColors([], ACCENT)).toEqual([]);
-  expect(seriesPointStyles([point({ record: true })])).toEqual([POINT_STYLE]);
-  expect(seriesPointRadii([point({ record: true })])).toEqual([POINT_RADIUS]);
+  expect(seriesPointStyles([point({ record: true })])).toEqual([RECORD_POINT_STYLE]);
+  expect(seriesPointRadii([point({ record: true })])).toEqual([RECORD_POINT_RADIUS]);
 });
 
 test('rekor noktalar yıldız, diğerleri daire; yıldız biraz daha büyük', () => {
@@ -109,6 +140,36 @@ test('rekor noktalar yıldız, diğerleri daire; yıldız biraz daha büyük', (
     POINT_RADIUS,
   ]);
   expect(RECORD_POINT_RADIUS).toBeGreaterThan(POINT_RADIUS);
+});
+
+test('kırpılmış dashboard serisinde pencere başındaki rekor altın yıldız kalır', () => {
+  const nets = [10, 20, 30, 15, 12, 11, 9, 8, 7, 6];
+  const exams = nets.map((_, index) =>
+    chartExam(
+      `tyt-${index + 1}`,
+      `2026-09-${String(index + 1).padStart(2, '0')}`,
+    ),
+  );
+  const results = nets.map((net, index) =>
+    chartResult(`r-${index + 1}`, `tyt-${index + 1}`, net),
+  );
+  const windowed = tailSeries(buildNetSeries(exams, results, 'TYT'), 8);
+
+  // Rekor üçüncü denemede; son 8'e kırpılınca pencerenin ilk noktası oluyor.
+  expect(windowed.points[0]).toMatchObject({
+    examId: 'tyt-3',
+    net: 30,
+    record: true,
+  });
+
+  render(<NetTrendChart series={windowed} ariaLabel="Kırpılmış grafik" />);
+
+  const dataset = (captured.lineProps as CapturedLineProps).data.datasets[0];
+  expect(dataset.pointBackgroundColor[0]).toBe(RECORD_POINT_COLOR);
+  expect(dataset.pointBorderColor[0]).toBe(RECORD_POINT_COLOR);
+  expect(dataset.pointStyle[0]).toBe('star');
+  expect(dataset.pointRadius[0]).toBe(RECORD_POINT_RADIUS);
+  expect(dataset.pointHoverRadius[0]).toBe(7);
 });
 
 test('tooltip deneme adı, tarih ve neti gösterir', () => {

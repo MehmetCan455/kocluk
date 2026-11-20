@@ -10,8 +10,9 @@ const labelFormatter = new Intl.DateTimeFormat('tr-TR', {
 
 /**
  * One plotted exam. `record` is an all-time fact: it is true only when the net
- * is strictly higher than every earlier point of the full matching history.
- * The first point is never a record, and equal nets are not records.
+ * is strictly higher than every earlier recorded net of the full matching
+ * history. The first point is never a record, equal nets are not records, and
+ * a missing result (plotted at 0) never earns one.
  */
 export interface NetSeriesPoint {
   examId: string;
@@ -84,22 +85,29 @@ function selectExams(
     .sort(compareExams);
 }
 
-/** Builds points in ascending order and marks each all-time net record. */
+/**
+ * Builds points in ascending order and marks each all-time net record. A
+ * missing value (exam without results, or without a result for the selected
+ * subject) is plotted as 0 but never earns a record and never raises the
+ * high-water mark: it is not a performance.
+ */
 function toSeries(
   exams: Exam[],
-  netForExam: (examId: string) => number,
+  netForExam: (examId: string) => number | undefined,
 ): NetSeries {
   let highestNet: number | undefined;
   const points = exams.map((exam): NetSeriesPoint => {
-    const net = netForExam(exam.id);
-    const record = highestNet !== undefined && net > highestNet;
-    highestNet = highestNet === undefined ? net : Math.max(highestNet, net);
+    const value = netForExam(exam.id);
+    const record = value !== undefined && highestNet !== undefined && value > highestNet;
+    if (value !== undefined) {
+      highestNet = highestNet === undefined ? value : Math.max(highestNet, value);
+    }
     return {
       examId: exam.id,
       examName: exam.name,
       date: exam.date,
       label: formatLabel(exam.date),
-      net,
+      net: value ?? 0,
       record,
     };
   });
@@ -130,13 +138,14 @@ export function buildNetSeries(
 ): NetSeries {
   const netByExam = sumNetByExam(results);
   const points = selectExams(exams, type, alan, resolveAlan);
-  return toSeries(points, (examId) => netByExam.get(examId) ?? 0);
+  return toSeries(points, (examId) => netByExam.get(examId));
 }
 
 /**
- * Per-subject net trend. An exam without a result for the subject contributes
- * `0`, matching the total series' "not entered" convention and keeping the two
- * charts aligned on the same date labels. Every matching exam is returned.
+ * Per-subject net trend. An exam without a result for the subject is plotted
+ * at `0`, matching the total series' "not entered" convention and keeping the
+ * two charts aligned on the same date labels; it never earns a record because
+ * the underlying value is missing. Every matching exam is returned.
  */
 export function buildSubjectNetSeries(
   exams: Exam[],
@@ -153,7 +162,7 @@ export function buildSubjectNetSeries(
     }
   }
   const points = selectExams(exams, type, alan, resolveAlan);
-  return toSeries(points, (examId) => netByExam.get(examId) ?? 0);
+  return toSeries(points, (examId) => netByExam.get(examId));
 }
 
 /**

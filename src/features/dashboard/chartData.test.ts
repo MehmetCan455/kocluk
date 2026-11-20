@@ -267,6 +267,57 @@ test('ders bazında net serisi yalnızca o dersin sonuçlarını kullanır', () 
   ).toEqual([]);
 });
 
+test('ders bazında pozitif netlerde yeni zirve rekor olur', () => {
+  const exams = [
+    exam('tyt-1', 'TYT', '2026-09-01'),
+    exam('tyt-2', 'TYT', '2026-09-02'),
+    exam('tyt-3', 'TYT', '2026-09-03'),
+  ];
+  const results = [
+    { ...result('r1', 'tyt-1', 10), subjectId: 'matematik' },
+    { ...result('r2', 'tyt-2', 20), subjectId: 'matematik' },
+    { ...result('r3', 'tyt-3', 15), subjectId: 'matematik' },
+  ];
+  const points = buildSubjectNetSeries(exams, results, 'TYT', 'matematik').points;
+
+  expect(points.map((point) => point.net)).toEqual([10, 20, 15]);
+  expect(points.map((point) => point.record)).toEqual([false, true, false]);
+});
+
+test('sonuçsuz deneme 0 olarak çizilir ama rekor kazanamaz', () => {
+  const exams = [
+    exam('tyt-1', 'TYT', '2026-09-01'),
+    exam('tyt-bos', 'TYT', '2026-09-02'),
+    exam('tyt-3', 'TYT', '2026-09-03'),
+  ];
+  // Önceki netler negatif: sonuçsuz deneme 0'a düşse de rekor olmamalı.
+  const results = [
+    result('r1', 'tyt-1', -5),
+    result('r2', 'tyt-3', -6),
+  ];
+
+  const points = buildNetSeries(exams, results, 'TYT').points;
+  expect(points.map((point) => point.net)).toEqual([-5, 0, -6]);
+  expect(points.map((point) => point.record)).toEqual([false, false, false]);
+});
+
+test('seçilen derste sonucu olmayan deneme 0 olarak çizilir ama rekor kazanamaz', () => {
+  const exams = [
+    exam('tyt-1', 'TYT', '2026-09-01'),
+    exam('tyt-2', 'TYT', '2026-09-02'),
+    exam('tyt-3', 'TYT', '2026-09-03'),
+  ];
+  const results = [
+    { ...result('r1', 'tyt-1', -5), subjectId: 'matematik' },
+    { ...result('r2', 'tyt-2', -8), subjectId: 'fizik' },
+    { ...result('r3', 'tyt-3', -6), subjectId: 'matematik' },
+  ];
+
+  const points = buildSubjectNetSeries(exams, results, 'TYT', 'matematik').points;
+  expect(points.map((point) => point.net)).toEqual([-5, 0, -6]);
+  expect(points.map((point) => point.record)).toEqual([false, false, false]);
+});
+
 test('tailSeries rekor bayrağını görünen pencereye göre yeniden hesaplamaz', () => {
   const series: NetSeries = {
     points: [

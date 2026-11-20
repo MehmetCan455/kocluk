@@ -35,38 +35,35 @@ export const RECORD_POINT_RADIUS = 5;
 export const POINT_HOVER_RADIUS = 5;
 export const RECORD_POINT_HOVER_RADIUS = 7;
 
-/** First point is never gold because it has no earlier point to beat. */
+/**
+ * Trust `point.record`: `toSeries` computes it over the full history, and a
+ * trimmed window keeps the flag even when the record is now the first point.
+ */
 export function seriesPointColors(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
   accent: string,
 ): string[] {
-  return points.map((point, index) =>
-    index > 0 && point.record ? RECORD_POINT_COLOR : accent,
-  );
+  return points.map((point) => (point.record ? RECORD_POINT_COLOR : accent));
 }
 
 /** Record points are stars so the highlight survives colour-blind viewing. */
 export function seriesPointStyles(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): PointStyle[] {
-  return points.map((point, index) =>
-    index > 0 && point.record ? RECORD_POINT_STYLE : POINT_STYLE,
-  );
+  return points.map((point) => (point.record ? RECORD_POINT_STYLE : POINT_STYLE));
 }
 
 export function seriesPointRadii(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): number[] {
-  return points.map((point, index) =>
-    index > 0 && point.record ? RECORD_POINT_RADIUS : POINT_RADIUS,
-  );
+  return points.map((point) => (point.record ? RECORD_POINT_RADIUS : POINT_RADIUS));
 }
 
 export function seriesPointHoverRadii(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): number[] {
-  return points.map((point, index) =>
-    index > 0 && point.record ? RECORD_POINT_HOVER_RADIUS : POINT_HOVER_RADIUS,
+  return points.map((point) =>
+    point.record ? RECORD_POINT_HOVER_RADIUS : POINT_HOVER_RADIUS,
   );
 }
 

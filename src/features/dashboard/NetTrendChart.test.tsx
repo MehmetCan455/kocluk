@@ -180,9 +180,9 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; koyu kenar ve boy
   expect(RECORD_POINT_COLOR).toBe('#FACC15');
   expect(RECORD_POINT_BORDER_COLOR).toBe('#0A0A0C');
   expect(RECORD_POINT_BORDER_WIDTH).toBe(1.5);
-  expect(RECORD_POINT_RADIUS).toBeGreaterThanOrEqual(7);
-  expect(RECORD_POINT_RADIUS).toBeLessThanOrEqual(8);
-  expect(RECORD_POINT_HOVER_RADIUS).toBe(9);
+  expect(RECORD_POINT_RADIUS).toBeGreaterThanOrEqual(10);
+  expect(RECORD_POINT_RADIUS).toBeLessThanOrEqual(11);
+  expect(RECORD_POINT_HOVER_RADIUS).toBe(14);
   expect(RECORD_POINT_RADIUS).toBeGreaterThan(POINT_RADIUS);
 });
 

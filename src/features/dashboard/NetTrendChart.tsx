@@ -34,9 +34,9 @@ export const RECORD_POINT_STYLE: PointStyle = 'star';
 
 /** Stars need a little more room than the plain circles. */
 export const POINT_RADIUS = 3;
-export const RECORD_POINT_RADIUS = 7;
+export const RECORD_POINT_RADIUS = 10.5;
 export const POINT_HOVER_RADIUS = 5;
-export const RECORD_POINT_HOVER_RADIUS = 9;
+export const RECORD_POINT_HOVER_RADIUS = 14;
 
 export const POINT_BORDER_WIDTH = 1;
 export const RECORD_POINT_BORDER_WIDTH = 1.5;

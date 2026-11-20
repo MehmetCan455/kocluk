@@ -106,6 +106,7 @@ interface CreatePhotoOptions {
   topicKey?: string;
   examType?: ExamType;
   mastered?: boolean;
+  correctOption?: 'A' | 'B' | 'C' | 'D' | 'E';
 }
 
 async function createPhoto(options: CreatePhotoOptions): Promise<Photo> {
@@ -118,6 +119,7 @@ async function createPhoto(options: CreatePhotoOptions): Promise<Photo> {
       subjectId: subject.id,
       topicId: topic?.id,
       note: options.note,
+      correctOption: options.correctOption ?? 'A',
     },
   ]);
   if (options.mastered) {
@@ -410,9 +412,9 @@ test('cevaplar anında kaydedilir, bitince özet ve geçmiş görünür', async 
   await screen.findByRole('heading', { level: 1, name: 'Test oturumu' });
 
   const outcomes = new Map([
-    ['Doğru soru', 'Doğru'],
-    ['Yanlış soru', 'Yanlış'],
-    ['Boş soru', 'Boş'],
+    ['Doğru soru', 'A seçeneği'],
+    ['Yanlış soru', 'B seçeneği'],
+    ['Boş soru', 'Boş bırak'],
   ]);
 
   for (let step = 0; step < 3; step += 1) {
@@ -428,6 +430,18 @@ test('cevaplar anında kaydedilir, bitince özet ve geçmiş görünür', async 
       expect(stored?.practiceCount).toBe(1);
       expect(stored?.lastPracticedAt).toBeTruthy();
     });
+
+    if (outcome === 'A seçeneği') {
+      expect(
+        await screen.findByText('Doğru! Doğru cevap: A'),
+      ).toBeInTheDocument();
+    } else if (outcome === 'B seçeneği') {
+      expect(
+        await screen.findByText('Yanlış. Senin cevabın: B. Doğru cevap: A'),
+      ).toBeInTheDocument();
+    } else {
+      expect(await screen.findByText('Boş bırakıldı. Doğru cevap: A')).toBeInTheDocument();
+    }
 
     if (step < 2) {
       await userEvent.click(screen.getByRole('button', { name: 'Sonraki' }));

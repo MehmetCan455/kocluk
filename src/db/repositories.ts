@@ -4,6 +4,7 @@ import type {
   Attachment,
   AytAlan,
   Book,
+  CorrectOption,
   Exam,
   ExamResult,
   ExamType,
@@ -458,6 +459,7 @@ export interface AddPhotoInput {
   subjectId: string;
   topicId?: string;
   note?: string;
+  correctOption?: CorrectOption;
   /** Capture date; defaults to the upload time. */
   createdAt?: string;
 }
@@ -524,6 +526,7 @@ export async function addPhotos(inputs: AddPhotoInput[]): Promise<Photo[]> {
       subjectId: input.subjectId,
       topicId: input.topicId,
       note: input.note?.trim() ?? '',
+      correctOption: input.correctOption,
       blob: image.blob,
       thumbBlob: image.thumbBlob,
       width: image.width,
@@ -924,6 +927,7 @@ export async function createPracticeSession(
     filters: normalizePracticeFilters(input.filters),
     photoIds,
     results: {},
+    choices: {},
   };
   await db.practiceSessions.add(session);
   return session;
@@ -939,6 +943,7 @@ export async function recordPracticeAnswer(
   sessionId: string,
   photoId: string,
   outcome: PracticeOutcome,
+  choice?: CorrectOption | 'blank',
 ): Promise<void> {
   await db.transaction('rw', db.practiceSessions, db.photos, db.photoSearch, async () => {
     const session = await db.practiceSessions.get(sessionId);
@@ -952,6 +957,9 @@ export async function recordPracticeAnswer(
     const now = new Date().toISOString();
     await db.practiceSessions.update(sessionId, {
       results: { ...session.results, [photoId]: outcome },
+      choices: choice
+        ? { ...(session.choices ?? {}), [photoId]: choice }
+        : session.choices,
       updatedAt: now,
     });
 

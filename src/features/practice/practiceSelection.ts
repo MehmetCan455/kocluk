@@ -1,4 +1,4 @@
-import type { ExamType, PracticeFilters } from '@/domain/types';
+import type { CorrectOption, ExamType, PracticeFilters } from '@/domain/types';
 
 /**
  * The subset of photo metadata the practice filters need. `photos` rows and
@@ -11,6 +11,7 @@ export interface PracticeCandidate {
   topicId?: string;
   examId?: string;
   mastered: boolean;
+  correctOption?: CorrectOption;
 }
 
 /**
@@ -62,6 +63,11 @@ export function selectPracticePhotos<T extends PracticeCandidate>(
     // The default (absent) is "only unmastered". Explicit false keeps solved
     // photos in the pool, which is how the wizard can repeat a photo.
     if (filters.onlyUnmastered !== false && photo.mastered) {
+      return false;
+    }
+    // A question without its correct choice cannot be auto-checked; keep it
+    // out of practice until the student enters one from the photo detail.
+    if (!photo.correctOption) {
       return false;
     }
     seen.add(photo.id);

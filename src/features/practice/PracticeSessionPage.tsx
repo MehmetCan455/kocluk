@@ -24,7 +24,12 @@ import {
   getPracticeSession,
   recordPracticeAnswer,
 } from '@/db/repositories';
-import type { Photo, PhotoSearch, PracticeOutcome, PracticeSession } from '@/domain/types';
+import type {
+  CorrectOption,
+  Photo,
+  PhotoSearch,
+  PracticeSession,
+} from '@/domain/types';
 import { usePhotoObjectUrl } from '@/features/photos/PhotoThumb';
 import {
   formatPracticeDate,
@@ -37,27 +42,7 @@ function photoNoteLabel(note: string | undefined): string {
   return note?.trim() || 'Yanlış fotoğrafı';
 }
 
-const OUTCOMES: ReadonlyArray<{
-  value: PracticeOutcome;
-  label: string;
-  selectedClass: string;
-}> = [
-  {
-    value: 'correct',
-    label: 'Doğru',
-    selectedClass: 'border-success bg-success/15 text-success',
-  },
-  {
-    value: 'wrong',
-    label: 'Yanlış',
-    selectedClass: 'border-danger bg-danger/15 text-danger',
-  },
-  {
-    value: 'blank',
-    label: 'Boş',
-    selectedClass: 'border-fg/40 bg-raised text-fg',
-  },
-];
+const OPTIONS: readonly CorrectOption[] = ['A', 'B', 'C', 'D', 'E'];
 
 const linkButtonClass =
   'inline-flex min-h-11 items-center rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-contrast)]';
@@ -375,15 +360,34 @@ export function PracticeSessionPage() {
 
   const answeredVisible = photos.filter((photo) => session.results[photo.id]).length;
   const answered = current ? session.results[current.id] : undefined;
+  const answeredChoice = current ? session.choices?.[current.id] : undefined;
+  const correctOption = current?.correctOption;
 
-  async function answer(outcome: PracticeOutcome) {
-    if (!session || !current || saving) {
+  async function answerChoice(option: CorrectOption) {
+    if (!session || !current || saving || answered || !correctOption) {
+      return;
+    }
+    const outcome = option === correctOption ? 'correct' : 'wrong';
+    setSaving(true);
+    setError(null);
+    try {
+      await recordPracticeAnswer(session.id, current.id, outcome, option);
+    } catch (caught: unknown) {
+      console.error('Cevap kaydedilemedi', caught);
+      setError('Cevap kaydedilemedi. Lütfen tekrar dene.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function answerBlank() {
+    if (!session || !current || saving || answered) {
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      await recordPracticeAnswer(session.id, current.id, outcome);
+      await recordPracticeAnswer(session.id, current.id, 'blank', 'blank');
     } catch (caught: unknown) {
       console.error('Cevap kaydedilemedi', caught);
       setError('Cevap kaydedilemedi. Lütfen tekrar dene.');
@@ -509,23 +513,66 @@ export function PracticeSessionPage() {
         ) : null}
       </div>
 
-      <div role="group" aria-label="Cevap" className="grid grid-cols-3 gap-2">
-        {OUTCOMES.map((outcome) => (
-          <Button
-            key={outcome.value}
-            variant="secondary"
-            aria-pressed={answered === outcome.value}
-            disabled={saving}
-            onClick={() => void answer(outcome.value)}
-            className={cn(
-              'min-h-12',
-              answered === outcome.value ? outcome.selectedClass : 'border-line',
-            )}
-          >
-            {outcome.label}
-          </Button>
-        ))}
+      <div role="group" aria-label="Cevap" className="space-y-2">
+        {!correctOption && !answered ? (
+          <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+            Bu sorunun doğru şıkkı girilmemiş. Fotoğraf detayından doğru şıkkı
+            ekleyebilirsin; şimdilik boş bırakabilirsin.
+          </p>
+        ) : null}
+        <div className="grid grid-cols-5 gap-2">
+          {OPTIONS.map((option) => {
+            const chosen = answeredChoice === option;
+            const isCorrect = correctOption === option;
+            return (
+              <Button
+                key={option}
+                variant="secondary"
+                aria-label={`${option} seçeneği`}
+                aria-pressed={chosen}
+                disabled={saving || Boolean(answered) || !correctOption}
+                onClick={() => void answerChoice(option)}
+                className={cn(
+                  'min-h-12 text-base font-semibold',
+                  answered && isCorrect && 'border-success bg-success/15 text-success',
+                  answered && chosen && !isCorrect && 'border-danger bg-danger/15 text-danger',
+                  !answered && chosen && 'border-[var(--accent)] bg-[var(--accent-soft)]',
+                )}
+              >
+                {option}
+              </Button>
+            );
+          })}
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => void answerBlank()}
+          disabled={saving || Boolean(answered)}
+          className="w-full"
+        >
+          Boş bırak
+        </Button>
       </div>
+
+      {answered ? (
+        <p
+          role="status"
+          className={cn(
+            'rounded-xl border px-3 py-2 text-sm font-medium',
+            answered === 'correct'
+              ? 'border-success/40 bg-success/10 text-success'
+              : answered === 'wrong'
+                ? 'border-danger/40 bg-danger/10 text-danger'
+                : 'border-line bg-raised text-fg',
+          )}
+        >
+          {answered === 'correct'
+            ? `Doğru! Doğru cevap: ${correctOption}`
+            : answered === 'wrong'
+              ? `Yanlış.${answeredChoice && answeredChoice !== 'blank' ? ` Senin cevabın: ${answeredChoice}.` : ''} Doğru cevap: ${correctOption ?? '—'}`
+              : `Boş bırakıldı.${correctOption ? ` Doğru cevap: ${correctOption}` : ''}`}
+        </p>
+      ) : null}
 
       <div className="flex items-center justify-between gap-2">
         <Button

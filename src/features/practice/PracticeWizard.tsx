@@ -82,6 +82,9 @@ export function PracticeWizard() {
   const preselectedPhotos = preselectedIds
     .map((photoId) => photoById.get(photoId))
     .filter((photo): photo is PhotoSearch => photo !== undefined);
+  const preselectedTestable = preselectedPhotos.filter((photo) => photo.correctOption);
+  const missingSelected = preselectedPhotos.length - preselectedTestable.length;
+  const missingCorrectCount = (photos ?? []).filter((photo) => !photo.correctOption).length;
   const selectionMode = preselectedIds.length > 0;
 
   const filters: PracticeFilters = {
@@ -101,7 +104,7 @@ export function PracticeWizard() {
   );
   const plannedCount = count === undefined ? available.length : Math.min(count, available.length);
   const lostPhotos = preselectedIds.length - preselectedPhotos.length;
-  const canStart = selectionMode ? preselectedPhotos.length > 0 : available.length > 0;
+  const canStart = selectionMode ? preselectedTestable.length > 0 : available.length > 0;
   const subjectOptions = (subjects ?? []).filter(
     (subject) => examType === undefined || subject.exam === examType,
   );
@@ -141,7 +144,7 @@ export function PracticeWizard() {
     }
 
     const chosen = selectionMode
-      ? preselectedPhotos
+      ? preselectedTestable
       : selectPracticePhotos(photos ?? [], filters);
     if (chosen.length === 0) {
       return;
@@ -191,7 +194,7 @@ export function PracticeWizard() {
             <div className="space-y-1">
               <h2 className="text-base font-semibold">Seçilen fotoğraflar</h2>
               <p className="text-sm text-muted">
-                {preselectedPhotos.length} fotoğraf seçildi.
+                {preselectedTestable.length} fotoğraf testte kullanılacak.
               </p>
             </div>
             <Link
@@ -204,6 +207,12 @@ export function PracticeWizard() {
           {lostPhotos > 0 ? (
             <p role="status" className="text-sm text-warning">
               Seçilen {lostPhotos} fotoğraf silinmiş; testte atlanacak.
+            </p>
+          ) : null}
+          {missingSelected > 0 ? (
+            <p role="status" className="text-sm text-warning">
+              Seçilen {missingSelected} fotoğrafın doğru şıkkı girilmemiş; testte
+              kullanılmaz. Fotoğraf detayından doğru şıkkı ekleyebilirsin.
             </p>
           ) : null}
         </Card>
@@ -387,7 +396,7 @@ export function PracticeWizard() {
 
         {selectionMode ? (
           <p className="text-sm" aria-live="polite">
-            {`Seçilen ${preselectedPhotos.length} fotoğraftan test oluşturulacak.`}
+            {`Seçilen ${preselectedTestable.length} fotoğraftan test oluşturulacak.`}
           </p>
         ) : (
           <>
@@ -395,6 +404,12 @@ export function PracticeWizard() {
               {`Test ${plannedCount} fotoğraftan oluşacak.`}
             </p>
             <p className="text-xs text-muted">{describePracticeFilters(filters)}</p>
+            {missingCorrectCount > 0 ? (
+              <p className="text-sm text-warning">
+                {missingCorrectCount} fotoğrafın doğru şıkkı girilmemiş; bunlar testte
+                kullanılmaz. Fotoğraf detayından şık ekleyebilirsin.
+              </p>
+            ) : null}
             {count !== undefined && available.length < count ? (
               <p className="text-sm text-warning">
                 Yalnızca {available.length} fotoğraf var; test {available.length} sorudan

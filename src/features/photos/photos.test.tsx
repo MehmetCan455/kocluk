@@ -13,7 +13,7 @@ import {
   updatePhoto,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
-import type { ExamType, Photo, Subject, Topic } from '@/domain/types';
+import type { CorrectOption, ExamType, Photo, Subject, Topic } from '@/domain/types';
 import { searchAll } from '@/features/search/searchAll';
 import { PhotoUpload } from '@/features/photos/PhotoUpload';
 import { compressImage } from '@/lib/image';
@@ -99,6 +99,7 @@ interface CreatePhotoOptions {
   subjectKey?: string;
   examId?: string;
   examType?: ExamType;
+  correctOption?: CorrectOption;
 }
 
 async function createPhoto(options: CreatePhotoOptions = {}) {
@@ -111,6 +112,7 @@ async function createPhoto(options: CreatePhotoOptions = {}) {
       topicId: topic.id,
       examId: options.examId,
       note: options.note ?? 'Yanlış soru',
+      correctOption: options.correctOption,
     },
   ]);
   return photo;
@@ -215,6 +217,18 @@ test('fotoğraf ekler, blobsuz arama projeksiyonu yazar ve arama notu bulur', as
       href: '/yanlislar',
     }),
   );
+});
+
+test('doğru şık fotoğrafla ve arama projeksiyonuyla birlikte saklanır', async () => {
+  const photo = await createPhoto({ note: 'Cevap C olan soru', correctOption: 'C' });
+
+  expect(photo.correctOption).toBe('C');
+  expect((await db.photoSearch.get(photo.id))?.correctOption).toBe('C');
+
+  await updatePhoto(photo.id, { correctOption: 'E' });
+
+  expect((await db.photos.get(photo.id))?.correctOption).toBe('E');
+  expect((await db.photoSearch.get(photo.id))?.correctOption).toBe('E');
 });
 
 test('addPhotos notu varsayılan boş bırakır ve deneme türünü doğrular', async () => {
@@ -350,6 +364,10 @@ test('galeride fotoğraf yükler ve küçük resmi tembel yükler', async () => 
     within(dialog).getByLabelText('Galeriden seç'),
     new File(['fotoğraf'], 'soru.jpg', { type: 'image/jpeg' }),
   );
+  await userEvent.selectOptions(
+    within(dialog).getByLabelText('soru.jpg doğru şık'),
+    'C',
+  );
   await userEvent.click(within(dialog).getByRole('button', { name: 'Yükle' }));
 
   const image = await screen.findByRole('img', { name: 'Türev sorusu 1' });
@@ -358,7 +376,11 @@ test('galeride fotoğraf yükler ve küçük resmi tembel yükler', async () => 
 
   expect(await db.photos.count()).toBe(1);
   const stored = await db.photos.toCollection().first();
-  expect(stored).toMatchObject({ note: 'Türev sorusu 1', subjectId: subject.id });
+  expect(stored).toMatchObject({
+    note: 'Türev sorusu 1',
+    subjectId: subject.id,
+    correctOption: 'C',
+  });
 });
 
 test('ders filtresi galerideki fotoğrafları daraltır', async () => {

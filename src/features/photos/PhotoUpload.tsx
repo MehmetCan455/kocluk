@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { addPhotos, listExams, listSubjects, listTopics } from '@/db/repositories';
-import type { ExamType, Photo } from '@/domain/types';
+import type { CorrectOption, ExamType, Photo } from '@/domain/types';
 import { localDateToIso, todayLocalDate } from '@/lib/date';
 import { IMAGE_TYPE_ERROR } from '@/lib/image';
 import { STORAGE_QUOTA_MESSAGE, isStorageQuotaError } from '@/lib/storageError';
@@ -44,6 +44,8 @@ function uploadErrorMessage(caught: unknown): string {
 const inputClass =
   'min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]';
 
+const OPTIONS: readonly CorrectOption[] = ['A', 'B', 'C', 'D', 'E'];
+
 export function PhotoUpload({
   examId,
   examType,
@@ -78,6 +80,7 @@ export function PhotoUpload({
   const [captureDate, setCaptureDate] = useState(todayLocalDate);
   const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [correctOptions, setCorrectOptions] = useState<Array<CorrectOption | ''>>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -110,11 +113,16 @@ export function PhotoUpload({
       return;
     }
     setFiles((current) => [...current, ...picked]);
+    setCorrectOptions((current) => [
+      ...current,
+      ...picked.map((): CorrectOption | '' => ''),
+    ]);
     setError(null);
   }
 
   function removeFile(index: number) {
     setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+    setCorrectOptions((current) => current.filter((_, fileIndex) => fileIndex !== index));
   }
 
   async function handleUpload() {
@@ -136,7 +144,7 @@ export function PhotoUpload({
     const createdAt = localDateToIso(captureDate);
     const uploaded: Photo[] = [];
     try {
-      for (const file of files) {
+      for (const [index, file] of files.entries()) {
         const [photo] = await addPhotos([
           {
             file,
@@ -145,6 +153,7 @@ export function PhotoUpload({
             subjectId: selectedSubjectId,
             topicId: selectedTopicId || undefined,
             note: note.trim() || undefined,
+            correctOption: correctOptions[index] || undefined,
             createdAt,
           },
         ]);
@@ -160,6 +169,7 @@ export function PhotoUpload({
         return;
       }
       setFiles([]);
+      setCorrectOptions([]);
       setNote('');
       setCaptureDate(todayLocalDate());
       setUploadedCount(0);
@@ -173,6 +183,7 @@ export function PhotoUpload({
       // Keep only the files that have not been stored yet and reset the
       // progress counters so a retry starts from zero instead of showing 2/1.
       setFiles((current) => current.slice(uploaded.length));
+      setCorrectOptions((current) => current.slice(uploaded.length));
       setUploadedCount(0);
       setError(uploadErrorMessage(caught));
     } finally {
@@ -230,9 +241,32 @@ export function PhotoUpload({
           {files.map((file, index) => (
             <li
               key={`${file.name}-${index}`}
-              className="flex items-center justify-between gap-2 rounded-xl border border-line bg-canvas px-3 py-1.5"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-canvas px-3 py-1.5"
             >
               <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                Doğru şık
+                <select
+                  aria-label={`${file.name} doğru şık`}
+                  value={correctOptions[index] ?? ''}
+                  disabled={uploading}
+                  onChange={(event) =>
+                    setCorrectOptions((current) =>
+                      current.map((value, fileIndex) =>
+                        fileIndex === index ? (event.target.value as CorrectOption | '') : value,
+                      ),
+                    )
+                  }
+                  className="min-h-11 rounded-lg border border-line bg-surface px-2 text-sm text-fg focus:border-[var(--accent)]"
+                >
+                  <option value="">Seç</option>
+                  {OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 aria-label={`${file.name} dosyasını kaldır`}
@@ -245,6 +279,13 @@ export function PhotoUpload({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {files.length > 0 ? (
+        <p className="text-xs text-muted">
+          Test oluşturmak için her fotoğrafın doğru şıkkını işaretle. Şık
+          girilmeyen fotoğraflar rastgele testte kullanılmaz.
+        </p>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">

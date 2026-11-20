@@ -199,6 +199,7 @@ const photoSchema = z
     subjectId: idSchema,
     topicId: idSchema.optional(),
     note: z.string(),
+    correctOption: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
     blobPath: z.string(),
     thumbBlobPath: z.string(),
     width: z.number().int().nonnegative(),
@@ -235,6 +236,7 @@ const photoSearchSchema = z.object({
   note: z.string(),
   // Optional: v2 backups predate these fields. Import always rebuilds the
   // projection from the photos table, so their absence is harmless.
+  correctOption: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
   mastered: z.boolean().optional(),
   createdAt: z.string(),
 });
@@ -276,6 +278,9 @@ const practiceSessionSchema = z.object({
   filters: practiceFiltersSchema,
   photoIds: z.array(idSchema),
   results: z.record(z.string(), practiceOutcomeSchema),
+  choices: z
+    .record(z.string(), z.union([z.enum(['A', 'B', 'C', 'D', 'E']), z.literal('blank')]))
+    .optional(),
 });
 
 const backupDataSchema = z.object({
@@ -525,6 +530,7 @@ async function restorePhotos(
       subjectId: photo.subjectId,
       topicId: photo.topicId,
       note: photo.note,
+      correctOption: photo.correctOption,
       blob: new Blob([blobBytes], { type: 'image/jpeg' }),
       thumbBlob: new Blob([thumbBytes], { type: 'image/jpeg' }),
       width: photo.width,

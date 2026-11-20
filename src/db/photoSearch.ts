@@ -16,6 +16,7 @@ export function toPhotoSearch(photo: Photo): PhotoSearch {
     subjectId: photo.subjectId,
     topicId: photo.topicId,
     note: photo.note,
+    correctOption: photo.correctOption,
     mastered: photo.mastered,
     createdAt: photo.createdAt,
   };

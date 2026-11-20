@@ -16,6 +16,7 @@ async function uploadPhoto(
   await page
     .getByRole('combobox', { name: 'Ders', exact: true })
     .selectOption({ label: options.subject });
+  await page.getByLabel('photo.png doğru şık').selectOption('A');
   await page
     .getByRole('textbox', { name: 'Not', exact: true })
     .fill(options.note);
@@ -72,7 +73,7 @@ test('fotoğraf yüklenir, filtre sonucu değiştirir ve rastgele test tamamlan�
   await page.getByRole('button', { name: 'Testi başlat' }).click();
 
   await expect(page.getByRole('heading', { name: 'Test oturumu' })).toBeVisible();
-  await page.getByRole('button', { name: 'Doğru', exact: true }).click();
+  await page.getByRole('button', { name: 'A seçeneği', exact: true }).click();
   await page.getByRole('button', { name: 'Testi bitir' }).click();
 
   await expect(page.getByRole('heading', { name: 'Test tamamlandı' })).toBeVisible();

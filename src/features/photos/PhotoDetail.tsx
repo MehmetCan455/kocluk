@@ -10,13 +10,15 @@ import { Field } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { db } from '@/db/db';
 import { deletePhotos, listSubjects, listTopics, updatePhoto } from '@/db/repositories';
-import type { Photo } from '@/domain/types';
+import type { CorrectOption, Photo } from '@/domain/types';
 import { formatExamDate } from '@/features/exams/examFormat';
 import { isoToLocalDate, localDateToIso } from '@/lib/date';
 import { photoLabel, usePhotoObjectUrl } from './PhotoThumb';
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]';
+
+const OPTIONS: readonly CorrectOption[] = ['A', 'B', 'C', 'D', 'E'];
 
 interface PhotoEditModalProps {
   photo: Photo;
@@ -29,6 +31,9 @@ function PhotoEditModal({ photo, onClose }: PhotoEditModalProps) {
   const [topicId, setTopicId] = useState(photo.topicId ?? '');
   const [captureDate, setCaptureDate] = useState(isoToLocalDate(photo.createdAt));
   const [note, setNote] = useState(photo.note);
+  const [correctOption, setCorrectOption] = useState<CorrectOption | ''>(
+    photo.correctOption ?? '',
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +59,7 @@ function PhotoEditModal({ photo, onClose }: PhotoEditModalProps) {
         subjectId,
         topicId: topicId || undefined,
         note: note.trim(),
+        correctOption: correctOption || undefined,
         createdAt: localDateToIso(captureDate) ?? photo.createdAt,
       });
       onClose();
@@ -110,6 +116,26 @@ function PhotoEditModal({ photo, onClose }: PhotoEditModalProps) {
           {(topics ?? []).map((topic) => (
             <option key={topic.id} value={topic.id}>
               {topic.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field
+        label="Doğru şık"
+        htmlFor={`${baseId}-dogru-sik`}
+        hint="Rastgele testte cevabı kontrol etmek için"
+      >
+        <select
+          id={`${baseId}-dogru-sik`}
+          value={correctOption}
+          onChange={(event) => setCorrectOption(event.target.value as CorrectOption | '')}
+          className={inputClass}
+        >
+          <option value="">Belirtilmedi</option>
+          {OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
             </option>
           ))}
         </select>
@@ -323,6 +349,12 @@ export function PhotoDetail() {
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted">Konu</dt>
             <dd>{topic?.name ?? 'Konu seçilmedi'}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+              Doğru cevap
+            </dt>
+            <dd>{photo.correctOption ?? 'Girilmedi'}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted">Tarih</dt>

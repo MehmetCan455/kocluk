@@ -12,6 +12,7 @@ function photo(id: string, overrides: Partial<Photo> = {}): Photo {
     subjectId: 'matematik',
     topicId: 'turev',
     note: `${id} sorusu`,
+    correctOption: 'A',
     blob: new Blob(['buyuk']),
     thumbBlob: new Blob(['kucuk']),
     width: 10,
@@ -104,6 +105,13 @@ test('aynı fotoğrafı iki kez seçmez', () => {
     'a',
     'b',
   ]);
+});
+
+test('doğru şıkkı girilmemiş fotoğrafları test havuzuna almaz', () => {
+  const testable = photo('a');
+  const missing = photo('b', { correctOption: undefined });
+
+  expect(ids(select([testable, missing], { onlyUnmastered: false }))).toEqual(['a']);
 });
 
 test('eşleşme yoksa boş dizi döndürür', () => {

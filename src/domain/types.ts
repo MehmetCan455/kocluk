@@ -68,6 +68,8 @@ export interface Photo {
   subjectId: string;
   topicId?: string;
   note: string;
+  /** The correct choice entered with the question; practice tests need it. */
+  correctOption?: CorrectOption;
   blob: Blob;
   thumbBlob: Blob;
   width: number;
@@ -77,6 +79,8 @@ export interface Photo {
   lastPracticedAt?: string;
   createdAt: string;
 }
+
+export type CorrectOption = 'A' | 'B' | 'C' | 'D' | 'E';
 
 export interface PhotoFilters {
   examType?: ExamType;
@@ -101,6 +105,7 @@ export interface PhotoSearch {
   subjectId: string;
   topicId?: string;
   note: string;
+  correctOption?: CorrectOption;
   mastered: boolean;
   createdAt: string;
 }
@@ -141,6 +146,8 @@ export interface PracticeSession {
   filters: PracticeFilters;
   photoIds: string[];
   results: Record<string, PracticeOutcome>;
+  /** The A-E choice the student picked; 'blank' for skipped questions. */
+  choices?: Record<string, CorrectOption | 'blank'>;
 }
 
 export interface AppSettings {

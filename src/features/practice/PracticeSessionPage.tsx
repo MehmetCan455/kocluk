@@ -231,21 +231,28 @@ export function PracticeSessionPage() {
 
   if (photos.length === 0) {
     return (
-      <EmptyState
-        icon={StickyNote}
-        title="Bu testteki fotoğraflar silinmiş"
-        description="Cevaplanan sonuçlar korunur. Testi bitirerek geçmişe ekleyebilirsin."
-        action={
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button onClick={() => void finish()} disabled={finishing || saving}>
-              {finishing ? 'Bitiriliyor…' : 'Testi bitir'}
-            </Button>
-            <Link to="/yanlislar/test" className={secondaryLinkClass}>
-              Rastgele teste dön
-            </Link>
-          </div>
-        }
-      />
+      <div className="space-y-4">
+        <EmptyState
+          icon={StickyNote}
+          title="Bu testteki fotoğraflar silinmiş"
+          description="Cevaplanan sonuçlar korunur. Testi bitirerek geçmişe ekleyebilirsin."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => void finish()} disabled={finishing || saving}>
+                {finishing ? 'Bitiriliyor…' : 'Testi bitir'}
+              </Button>
+              <Link to="/yanlislar/test" className={secondaryLinkClass}>
+                Rastgele teste dön
+              </Link>
+            </div>
+          }
+        />
+        {error ? (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        ) : null}
+      </div>
     );
   }
 

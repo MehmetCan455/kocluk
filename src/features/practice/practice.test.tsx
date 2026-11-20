@@ -7,6 +7,7 @@ import {
   addPhotos,
   completePracticeSession,
   createPracticeSession,
+  deletePhotos,
   getPracticeSession,
   listOpenPracticeSessions,
   listPracticeSessions,
@@ -19,6 +20,19 @@ import { compressImage } from '@/lib/image';
 import { scorePracticeSession } from '@/features/practice/practiceSummary';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
+
+const repositoryMocks = vi.hoisted(() => ({
+  realCompletePracticeSession: undefined as unknown as typeof import('@/db/repositories')['completePracticeSession'],
+}));
+
+vi.mock('@/db/repositories', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/db/repositories')>();
+  repositoryMocks.realCompletePracticeSession = actual.completePracticeSession;
+  return {
+    ...actual,
+    completePracticeSession: vi.fn(actual.completePracticeSession),
+  };
+});
 
 vi.mock('@/lib/image', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/image')>();
@@ -57,6 +71,10 @@ const FIXTURE: CurriculumSeed = {
 
 beforeEach(async () => {
   await seedOnboarded(FIXTURE, { seedVersion: CURRICULUM.version });
+  vi.mocked(completePracticeSession).mockReset();
+  vi.mocked(completePracticeSession).mockImplementation(
+    repositoryMocks.realCompletePracticeSession,
+  );
   vi.mocked(compressImage).mockReset();
   vi.mocked(compressImage).mockResolvedValue({
     blob: new Blob(['sıkıştırılmış fotoğraf'], { type: 'image/jpeg' }),
@@ -382,6 +400,28 @@ test('yeniden açılan oturum ilk cevaplanmamış fotoğraftan devam eder ve sil
   expect(screen.getByText('Soru 2 / 2')).toBeInTheDocument();
   expect(screen.getByText('1 / 2 cevaplandı')).toBeInTheDocument();
   expect(screen.queryByRole('img', { name: 'Birinci soru' })).not.toBeInTheDocument();
+});
+
+test('tüm fotoğraflar silinmiş testte bitirme hatası görünür kalır', async () => {
+  const photo = await createPhoto({ note: 'Silinecek soru' });
+  const session = await createPracticeSession({ filters: {}, photoIds: [photo.id] });
+  await deletePhotos([photo.id]);
+  vi.mocked(completePracticeSession).mockRejectedValueOnce(new Error('yazma hatası'));
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+  renderApp(`/yanlislar/test/${session.id}`);
+
+  expect(await screen.findByText('Bu testteki fotoğraflar silinmiş')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Testi bitir' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Test bitirilemedi. Lütfen tekrar dene.',
+  );
+  expect((await getPracticeSession(session.id))?.completedAt).toBeUndefined();
+  // Hata sonrası buton yeniden denenebilir kalır.
+  expect(screen.getByRole('button', { name: 'Testi bitir' })).toBeEnabled();
+
+  consoleSpy.mockRestore();
 });
 
 test('yanlışlar sayfası devam eden testi ve seçilenlerden test bağlantısını gösterir', async () => {

@@ -2,6 +2,12 @@ export type ExamType = 'TYT' | 'AYT';
 
 export type AytAlan = 'sayisal' | 'ea' | 'sozel' | 'tumu';
 
+/**
+ * Geometry is a separate subject in topic/book tracking. Exam entry can merge
+ * it into the maths row instead, which this setting controls.
+ */
+export type GeometryMode = 'separate' | 'combined';
+
 export interface Subject {
   id: string;
   seedKey: string;
@@ -161,6 +167,7 @@ export interface AppSettings {
   seedVersion: number;
   aytAlan: AytAlan;
   hiddenSubjects: string[];
+  geometryMode: GeometryMode;
 }
 
 export interface Progress {

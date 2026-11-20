@@ -47,8 +47,60 @@ export function relativeLuminance(hex: string): number {
 export const ACCENT_DARK_TEXT_THRESHOLD = 0.3;
 
 /**
+ * The canvas stays black, but carries a very light trace of the accent. Every
+ * base is the shipped near-black value from `index.css` and every weight is a
+ * small percentage, so the tint is visible without turning the app into a
+ * coloured theme.
+ */
+export const TINTED_SURFACES = {
+  canvas: { base: '#07080A', weight: 0.05 },
+  surface: { base: '#0F1218', weight: 0.06 },
+  raised: { base: '#161A22', weight: 0.07 },
+  line: { base: '#232A36', weight: 0.08 },
+} as const;
+
+export type TintedSurface = keyof typeof TINTED_SURFACES;
+
+/** Mixes `accent` into a base colour by `weight` (0..1) and returns `#RRGGBB`. */
+export function mixHex(base: string, accent: string, weight: number): string {
+  const baseRgb = hexToRgb(base);
+  const accentRgb = hexToRgb(accent);
+  if (!baseRgb || !accentRgb) {
+    return base.toUpperCase();
+  }
+
+  const clamped = Math.min(1, Math.max(0, weight));
+  const channel = (from: number, to: number) =>
+    Math.round(from + (to - from) * clamped)
+      .toString(16)
+      .padStart(2, '0')
+      .toUpperCase();
+  return `#${channel(baseRgb.r, accentRgb.r)}${channel(baseRgb.g, accentRgb.g)}${channel(baseRgb.b, accentRgb.b)}`;
+}
+
+/** The near-black base colour tinted with the given accent. */
+export function tintedSurface(accent: string, surface: TintedSurface): string {
+  const definition = TINTED_SURFACES[surface];
+  return mixHex(definition.base, accent, definition.weight);
+}
+
+/**
+ * Keeps the browser/PWA chrome in step with the tinted canvas. The meta tag is
+ * optional (tests and embedded contexts may not have one).
+ */
+function applyThemeColor(color: string): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  document
+    .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    ?.setAttribute('content', color);
+}
+
+/**
  * Applies the accent palette to the document root. The whole app reads
- * `--accent*` variables, so a single call retints every accent surface.
+ * `--accent*` variables, so a single call retints every accent surface. The
+ * near-black canvas and raised surfaces also receive a subtle accent tint.
  */
 export function applyAccent(hex: string): void {
   const normalized = normalizeHex(hex);
@@ -64,4 +116,8 @@ export function applyAccent(hex: string): void {
   root.style.setProperty('--accent-soft', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.16)`);
   root.style.setProperty('--accent-strong', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)`);
   root.style.setProperty('--accent-contrast', contrast);
+  for (const surface of Object.keys(TINTED_SURFACES) as TintedSurface[]) {
+    root.style.setProperty(`--color-${surface}`, tintedSurface(normalized, surface));
+  }
+  applyThemeColor(tintedSurface(normalized, 'canvas'));
 }

@@ -33,6 +33,7 @@ import {
   formatExamDate,
   sumNet,
 } from '@/features/exams/examFormat';
+import { resolveAytAlan } from '@/features/exams/examConfig';
 import {
   buildNetSeries,
   DASHBOARD_CHART_POINTS,
@@ -371,7 +372,16 @@ export function DashboardPage() {
           ) : (
             <ul className="space-y-2">
               {recentExams.map(({ exam, totalNet }) => {
-                const alan = formatAlan(exam.alan);
+                const alan =
+                  exam.type === 'AYT'
+                    ? formatAlan(
+                        resolveAytAlan(
+                          exam,
+                          resultsByExam.get(exam.id) ?? [],
+                          data.subjects,
+                        ),
+                      )
+                    : null;
                 return (
                   <li key={exam.id}>
                     <Link

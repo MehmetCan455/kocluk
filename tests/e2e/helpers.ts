@@ -36,7 +36,6 @@ export async function createTytExam(page: Page, name: string): Promise<void> {
   await page.getByLabel('Deneme adı').fill(name);
   await page.getByLabel('Matematik doğru').fill('20');
   await page.getByLabel('Matematik yanlış').fill('5');
-  await page.getByLabel('Matematik boş').fill('5');
   await page.getByRole('button', { name: 'Kaydet' }).click();
   await expect(page.getByRole('heading', { name: 'Denemeler' })).toBeVisible();
 }

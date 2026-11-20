@@ -17,11 +17,12 @@ import {
   listPhotos,
   listSubjects,
 } from '@/db/repositories';
-import type { Exam, ExamResult, Photo, Subject } from '@/domain/types';
+import type { AytAlan, Exam, ExamResult, Photo, Subject } from '@/domain/types';
 import { buildExamComparison, type ExamComparison } from '@/features/dashboard/chartData';
 import { formatNet } from '@/lib/format';
 import { PhotoStrip } from '@/features/photos/PhotoThumb';
 import { PhotoUpload } from '@/features/photos/PhotoUpload';
+import { resolveAytAlan } from './examConfig';
 import { formatAlan, formatExamDate, sumNet } from './examFormat';
 
 interface DetailRow {
@@ -124,6 +125,7 @@ export function ExamDetailPage() {
         rows: [] as DetailRow[],
         photos: [] as Photo[],
         comparison: undefined as ExamComparison | undefined,
+        alan: null as string | null,
       };
     }
 
@@ -139,11 +141,30 @@ export function ExamDetailPage() {
       .map((result) => ({ result, subject: subjectById.get(result.subjectId) }))
       .sort(compareRows);
 
+    const resultsByExam = new Map<string, ExamResult[]>();
+    for (const result of allResults) {
+      const grouped = resultsByExam.get(result.examId);
+      if (grouped) {
+        grouped.push(result);
+      } else {
+        resultsByExam.set(result.examId, [result]);
+      }
+    }
+    const resolveAlan = (candidate: Exam): AytAlan =>
+      candidate.type === 'AYT'
+        ? resolveAytAlan(
+            candidate,
+            resultsByExam.get(candidate.id) ?? [],
+            subjects,
+          )
+        : 'tumu';
+
     return {
       exam,
       rows,
       photos,
-      comparison: buildExamComparison(exams, allResults, exam),
+      comparison: buildExamComparison(exams, allResults, exam, resolveAlan),
+      alan: exam.type === 'AYT' ? formatAlan(resolveAlan(exam)) : null,
     };
   }, [id]);
 
@@ -155,7 +176,7 @@ export function ExamDetailPage() {
     );
   }
 
-  const { exam, rows, photos, comparison } = data;
+  const { exam, rows, photos, comparison, alan } = data;
 
   if (!exam) {
     return (
@@ -176,7 +197,6 @@ export function ExamDetailPage() {
   }
 
   const totalNet = sumNet(rows.map((row) => row.result));
-  const alan = formatAlan(exam.alan);
 
   return (
     <div className="space-y-5">

@@ -57,6 +57,25 @@ test('AYT alanı seçimini saklar ve gizli dersleri yeniden hesaplar', async () 
   });
 });
 
+test('denemelerde geometri ayarı varsayılan ayrı ve değiştirilebilir', async () => {
+  renderApp('/ayarlar');
+
+  const select = await screen.findByLabelText('Denemelerde geometri');
+  expect(select).toHaveValue('separate');
+  expect((await getSettings()).geometryMode).toBe('separate');
+
+  await userEvent.selectOptions(select, 'combined');
+  expect(select).toHaveValue('combined');
+  await waitFor(async () => {
+    expect((await getSettings()).geometryMode).toBe('combined');
+  });
+
+  await userEvent.selectOptions(select, 'separate');
+  await waitFor(async () => {
+    expect((await getSettings()).geometryMode).toBe('separate');
+  });
+});
+
 test('ders görünürlüğü TYT ve AYT derslerini birlikte listeler', async () => {
   renderApp('/ayarlar');
 

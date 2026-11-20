@@ -5,34 +5,35 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { cn } from '@/components/ui/cn';
 import { listAllExamResults, listExams, listSubjects } from '@/db/repositories';
 import type { AytAlan, Exam, ExamResult, ExamType, Subject } from '@/domain/types';
 import {
+  buildExamComparison,
   buildNetSeries,
   buildSubjectNetSeries,
   MAX_CHART_POINTS,
 } from '@/features/dashboard/chartData';
 import { NetTrendChart } from '@/features/dashboard/NetTrendChart';
 import { formatNet } from '@/lib/format';
+import { resolveAytAlan } from './examConfig';
 import { formatAlan, formatExamDate, sumNet } from './examFormat';
 
-type ExamFilter = 'all' | ExamType;
 type AlanFilter = 'all' | AytAlan;
 
-const FILTERS: ReadonlyArray<{ id: ExamFilter; label: string }> = [
+const FILTERS: ReadonlyArray<{ id: ExamType; label: string }> = [
   { id: 'TYT', label: 'TYT' },
   { id: 'AYT', label: 'AYT' },
-  { id: 'all', label: 'Tümü' },
 ];
 
-// "Tüm alanlar" is deliberately distinct from the type filter's "Tümü" so the
-// two filter groups never share an accessible name.
+// "Tüm alanlar" is deliberately distinct from the type filter's TYT/AYT so the
+// two filter groups never share an accessible name. Genel/tumu is gone: every
+// new AYT exam has a concrete branch and old exams are inferred from results.
 const ALAN_FILTERS: ReadonlyArray<{ id: AlanFilter; label: string }> = [
   { id: 'all', label: 'Tüm alanlar' },
   { id: 'sayisal', label: 'Sayısal' },
   { id: 'ea', label: 'Eşit Ağırlık' },
   { id: 'sozel', label: 'Sözel' },
-  { id: 'tumu', label: 'Genel' },
 ];
 
 const newExamLinkClass =
@@ -62,14 +63,16 @@ function sortBySubjectOrder(results: ExamResult[], subjectById: Map<string, Subj
 
 export function ExamsPage() {
   const { settings } = useAppSettings();
-  const [filter, setFilter] = useState<ExamFilter>('all');
+  const [filter, setFilter] = useState<ExamType>('TYT');
   const [alanFilter, setAlanFilter] = useState<AlanFilter>('all');
   const [chartSubjectId, setChartSubjectId] = useState('');
 
   const data = useLiveQuery(async () => {
-    // Results are fetched once and grouped, instead of one query per exam.
+    // Results and every exam are fetched once and grouped, instead of one query
+    // per exam. The type filter is applied in memory so the previous-exam delta
+    // can still see the whole history.
     const [exams, subjects, allResults] = await Promise.all([
-      listExams(filter === 'all' ? undefined : filter),
+      listExams(),
       listSubjects(),
       listAllExamResults(),
     ]);
@@ -90,7 +93,7 @@ export function ExamsPage() {
     });
 
     return { rows, subjects, results: allResults };
-  }, [filter]);
+  }, []);
 
   if (!data) {
     return (
@@ -101,10 +104,18 @@ export function ExamsPage() {
   }
 
   const subjectById = new Map(data.subjects.map((subject) => [subject.id, subject]));
+  const resultsByExam = new Map(data.rows.map((row) => [row.exam.id, row.results]));
 
-  // With "Tümü" the chart follows the latest exam's type; a specific filter
-  // always drives the chart so the control at the top has one meaning.
-  const chartType: ExamType = filter === 'all' ? (data.rows[0]?.exam.type ?? 'TYT') : filter;
+  // Old AYT exams keep their branch in storage only when it was concrete.
+  // Legacy Genel/tumu rows are inferred from their results for labels and
+  // comparisons; their results are never rewritten here.
+  const resolveAlan = (exam: Exam): AytAlan =>
+    exam.type === 'AYT'
+      ? resolveAytAlan(exam, resultsByExam.get(exam.id) ?? [], data.subjects)
+      : 'tumu';
+
+  const visibleRows = data.rows.filter((row) => row.exam.type === filter);
+  const chartType: ExamType = filter;
   const hidden = new Set(settings.hiddenSubjects);
   const chartSubjects = data.subjects.filter(
     (subject) => subject.exam === chartType && !hidden.has(subject.id),
@@ -117,12 +128,14 @@ export function ExamsPage() {
         chartType,
         selectedSubject.id,
         filter === 'AYT' && alanFilter !== 'all' ? alanFilter : undefined,
+        resolveAlan,
       )
     : buildNetSeries(
         data.rows.map((row) => row.exam),
         data.results,
         chartType,
         filter === 'AYT' && alanFilter !== 'all' ? alanFilter : undefined,
+        resolveAlan,
       );
   const chartTitle = selectedSubject ? `${selectedSubject.name} net trendi` : 'Net trendi';
   const chartAriaLabel = selectedSubject
@@ -169,7 +182,7 @@ export function ExamsPage() {
         })}
       </div>
 
-      {data.rows.length > 0 ? (
+      {visibleRows.length > 0 ? (
         <Card>
           <NetTrendChart
             series={chartSeries}
@@ -224,24 +237,30 @@ export function ExamsPage() {
       ) : null}
 
       {data.rows.length === 0 ? (
-        filter === 'all' ? (
-          <EmptyState
-            icon={ClipboardList}
-            title="Henüz deneme yok"
-            description="İlk denemeni ekleyerek ders bazında netlerini kaydetmeye başla."
-          />
-        ) : (
-          <EmptyState
-            icon={ClipboardList}
-            title={`Henüz ${filter} denemesi yok`}
-            description="Farklı bir tür seçebilir veya yeni bir deneme ekleyebilirsin."
-          />
-        )
+        <EmptyState
+          icon={ClipboardList}
+          title="Henüz deneme yok"
+          description="İlk denemeni ekleyerek ders bazında netlerini kaydetmeye başla."
+        />
+      ) : visibleRows.length === 0 ? (
+        <EmptyState
+          icon={ClipboardList}
+          title={`Henüz ${filter} denemesi yok`}
+          description="Farklı bir tür seçebilir veya yeni bir deneme ekleyebilirsin."
+        />
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {data.rows.map(({ exam, results, totalNet }) => {
-            const alan = formatAlan(exam.alan);
+          {visibleRows.map(({ exam, results, totalNet }) => {
+            const isAyt = exam.type === 'AYT';
+            const alan = isAyt ? formatAlan(resolveAlan(exam)) : null;
             const sortedResults = sortBySubjectOrder(results, subjectById);
+            const comparison = buildExamComparison(
+              data.rows.map((row) => row.exam),
+              data.results,
+              exam,
+              resolveAlan,
+            );
+            const delta = comparison.delta;
             const maxNet = Math.max(
               1,
               ...sortedResults.map((result) => Math.max(result.net, 0)),
@@ -270,6 +289,23 @@ export function ExamsPage() {
                       </p>
                       <p className="text-xl font-semibold tabular-nums text-[var(--accent)]">
                         {formatNet(totalNet)}
+                      </p>
+                      <p
+                        className={cn(
+                          'text-xs font-medium tabular-nums',
+                          delta === undefined
+                            ? 'text-muted'
+                            : delta > 0
+                              ? 'text-success'
+                              : delta < 0
+                                ? 'text-danger'
+                                : 'text-muted',
+                        )}
+                      >
+                        <span className="sr-only">Önceki denemeye göre net farkı: </span>
+                        {delta === undefined
+                          ? 'İlk deneme'
+                          : `${delta > 0 ? '+' : ''}${formatNet(delta)}`}
                       </p>
                     </div>
                   </div>

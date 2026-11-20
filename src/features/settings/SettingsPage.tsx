@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Field } from '@/components/ui/Field';
 import { computeHiddenSubjects } from '@/data/alanSubjects';
 import { listSubjects } from '@/db/repositories';
-import type { AytAlan } from '@/domain/types';
+import type { AytAlan, GeometryMode } from '@/domain/types';
 import { AccentPicker } from './AccentPicker';
 import { InstallGuide } from './InstallGuide';
 import { StoragePanel } from './StoragePanel';
@@ -149,6 +149,35 @@ export function SettingsPage() {
             {alanError}
           </p>
         ) : null}
+      </Card>
+
+      <Card className="space-y-5">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold">Denemeler</h2>
+          <p className="text-sm text-muted">
+            Yalnızca deneme girişini ve deneme netlerini etkiler. Konu ve kitap takibinde
+            Geometri ayrı bir ders olarak kalır.
+          </p>
+        </div>
+
+        <Field
+          label="Denemelerde geometri"
+          htmlFor="denemelerde-geometri"
+          hint="Ayrı: matematik 30 + geometri 10 soru. Matematikle birlikte: tek matematik satırı 40 soru."
+        >
+          <select
+            id="denemelerde-geometri"
+            value={settings.geometryMode}
+            onChange={(event) =>
+              void updateSettings({ geometryMode: event.target.value as GeometryMode })
+            }
+            aria-describedby="denemelerde-geometri-hint"
+            className={inputClass}
+          >
+            <option value="separate">Ayrı</option>
+            <option value="combined">Matematikle birlikte</option>
+          </select>
+        </Field>
       </Card>
 
       <SubjectVisibility />

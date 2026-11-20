@@ -79,6 +79,7 @@ test('varsayılan ayarları döner ve yamayı saklar', async () => {
     seedVersion: 1,
     aytAlan: 'tumu',
     hiddenSubjects: [],
+    geometryMode: 'separate',
   });
   expect(await getSettings()).toMatchObject(DEFAULT_SETTINGS);
   await patchSettings({ profileName: 'Deniz', aytAlan: 'sayisal' });

@@ -83,6 +83,7 @@ const SETTING_VALUE_SCHEMAS = {
   seedVersion: z.number().int().nonnegative(),
   aytAlan: aytAlanSchema,
   hiddenSubjects: z.array(z.string()),
+  geometryMode: z.enum(['separate', 'combined']),
 } satisfies Record<keyof AppSettings, z.ZodType>;
 
 type SettingKey = keyof typeof SETTING_VALUE_SCHEMAS;

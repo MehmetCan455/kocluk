@@ -42,6 +42,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seedVersion: 1,
   aytAlan: 'tumu',
   hiddenSubjects: [],
+  geometryMode: 'separate',
 };
 
 export async function getSettings(): Promise<AppSettings> {

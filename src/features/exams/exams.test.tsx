@@ -38,12 +38,21 @@ const FIXTURE: CurriculumSeed = {
       topics: [],
     },
     {
+      seedKey: 'tyt-geometri',
+      exam: 'TYT',
+      name: 'Geometri',
+      slug: 'geometri',
+      icon: 'triangle',
+      order: 3,
+      topics: [],
+    },
+    {
       seedKey: 'tyt-fizik',
       exam: 'TYT',
       name: 'Fizik',
       slug: 'fizik',
       icon: 'atom',
-      order: 3,
+      order: 4,
       topics: [],
     },
     {
@@ -310,7 +319,6 @@ test('deneme formundan kaydedilen sonuç listelenir ve detayda görünür', asyn
   fireEvent.change(screen.getByLabelText('Tarih'), { target: { value: '2026-11-17' } });
   await userEvent.type(screen.getByLabelText('Türkçe doğru'), '30');
   await userEvent.type(screen.getByLabelText('Türkçe yanlış'), '8');
-  await userEvent.type(screen.getByLabelText('Türkçe boş'), '2');
   await userEvent.type(screen.getByLabelText('Matematik doğru'), '20');
   await userEvent.type(screen.getByLabelText('Matematik yanlış'), '10');
   await userEvent.type(screen.getByLabelText('Not'), 'İlk deneme notu');
@@ -369,11 +377,150 @@ test('boş bırakılan ders satırı kayda katılmaz', async () => {
     expect(exams).toHaveLength(1);
     const results = await listExamResults(exams[0].id);
     expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({ correct: 10, wrong: 0, blank: 0, net: 10 });
+    expect(results[0]).toMatchObject({ correct: 10, wrong: 0, blank: 30, net: 10 });
   });
 });
 
-test('deneme listesi TYT, AYT ve tümü olarak süzülür', async () => {
+test('form boş sayısını otomatik hesaplar, boş inputu göstermez ve kaydeder', async () => {
+  renderApp('/denemeler/yeni');
+
+  await screen.findByLabelText('Türkçe doğru');
+  expect(screen.queryByLabelText('Türkçe boş')).toBeInTheDocument();
+  expect(
+    screen.queryByRole('spinbutton', { name: 'Türkçe boş' }),
+  ).not.toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText('Deneme adı'), 'Oto Boş');
+  fireEvent.change(screen.getByLabelText('Tarih'), { target: { value: '2026-11-17' } });
+  await userEvent.type(screen.getByLabelText('Türkçe doğru'), '30');
+  await userEvent.type(screen.getByLabelText('Türkçe yanlış'), '8');
+
+  expect(await screen.findByLabelText('Türkçe boş')).toHaveTextContent('2');
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Denemeler' })).toBeInTheDocument();
+
+  await waitFor(async () => {
+    const exams = await listExams('TYT');
+    expect(exams).toHaveLength(1);
+    const results = await listExamResults(exams[0].id);
+    expect(results[0]).toMatchObject({ correct: 30, wrong: 8, blank: 2, net: 28 });
+  });
+});
+
+test('doğru + yanlış soru sayısını aşınca satır hatası verir ve kaydı kapatır', async () => {
+  renderApp('/denemeler/yeni');
+
+  await screen.findByLabelText('Türkçe doğru');
+  await userEvent.type(screen.getByLabelText('Deneme adı'), 'Hatalı Deneme');
+  await userEvent.type(screen.getByLabelText('Türkçe doğru'), '41');
+
+  expect(
+    await screen.findByText('Doğru ve yanlış toplamı 40 soruyu aşıyor.'),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText('Türkçe doğru')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+
+  await userEvent.clear(screen.getByLabelText('Türkçe doğru'));
+  await userEvent.type(screen.getByLabelText('Türkçe doğru'), '30');
+  await userEvent.type(screen.getByLabelText('Türkçe yanlış'), '8');
+  expect(screen.queryByText('Doğru ve yanlış toplamı 40 soruyu aşıyor.')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeEnabled();
+});
+
+test('negatif veya ondalıklı doğru/yanlış değeri kabul edilmez', async () => {
+  renderApp('/denemeler/yeni');
+
+  await screen.findByLabelText('Türkçe doğru');
+  await userEvent.type(screen.getByLabelText('Deneme adı'), 'Geçersiz Sayı');
+  fireEvent.change(screen.getByLabelText('Türkçe doğru'), { target: { value: '-2' } });
+
+  expect(
+    await screen.findByText('D ve Y 0 veya daha büyük tam sayı olmalı.'),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+
+  fireEvent.change(screen.getByLabelText('Türkçe doğru'), { target: { value: '1.5' } });
+  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+});
+
+test('ayrı geometri varsayılanında matematik 30, geometri 10 soru', async () => {
+  renderApp('/denemeler/yeni');
+
+  const matematik = await screen.findByLabelText('Matematik doğru');
+  const geometri = screen.getByLabelText('Geometri doğru');
+  expect(matematik).toHaveAttribute('max', '30');
+  expect(geometri).toHaveAttribute('max', '10');
+});
+
+test('birleşik geometride matematik 40 soru olur ve geometri satırı gizlenir', async () => {
+  await patchSettings({ geometryMode: 'combined' });
+  renderApp('/denemeler/yeni');
+
+  const matematik = await screen.findByLabelText('Matematik doğru');
+  expect(matematik).toHaveAttribute('max', '40');
+  expect(screen.queryByLabelText('Geometri doğru')).not.toBeInTheDocument();
+  expect(screen.queryByText('Geometri')).not.toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText('Deneme adı'), 'Birleşik');
+  fireEvent.change(screen.getByLabelText('Tarih'), { target: { value: '2026-11-17' } });
+  await userEvent.type(screen.getByLabelText('Matematik doğru'), '30');
+  await userEvent.type(screen.getByLabelText('Matematik yanlış'), '5');
+  expect(await screen.findByLabelText('Matematik boş')).toHaveTextContent('5');
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Denemeler' })).toBeInTheDocument();
+
+  await waitFor(async () => {
+    const exams = await listExams('TYT');
+    const results = await listExamResults(exams[0].id);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ correct: 30, wrong: 5, blank: 5, net: 28.75 });
+  });
+});
+
+test('birleşik geometride eski ayrı geometri sonucu matematiğe katılır', async () => {
+  const matematik = await subjectIdByKey('tyt-matematik');
+  const geometri = await subjectIdByKey('tyt-geometri');
+  const exam = await saveExam({
+    type: 'TYT',
+    name: 'Eski Ayrı Deneme',
+    date: '2026-11-17',
+    results: [
+      { subjectId: matematik, correct: 20, wrong: 10, blank: 0 },
+      { subjectId: geometri, correct: 8, wrong: 2, blank: 0 },
+    ],
+  });
+  await patchSettings({ geometryMode: 'combined' });
+
+  renderApp(`/denemeler/${exam.id}/duzenle`);
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Denemeyi düzenle' }),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText('Matematik doğru')).toHaveValue(28);
+  expect(screen.getByLabelText('Matematik yanlış')).toHaveValue(12);
+  expect(screen.queryByLabelText('Geometri doğru')).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Eski Ayrı Deneme' }),
+  ).toBeInTheDocument();
+  await waitFor(async () => {
+    const results = await listExamResults(exam.id);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      subjectId: matematik,
+      correct: 28,
+      wrong: 12,
+      blank: 0,
+      net: 25,
+    });
+  });
+});
+
+test('deneme listesi varsayılan TYT, Tümü filtresi yok ve AYT sekmesine geçilebilir', async () => {
   const turkce = await subjectIdByKey('tyt-turkce');
   await insertExam({
     name: 'TYT Denemesi',
@@ -385,19 +532,16 @@ test('deneme listesi TYT, AYT ve tümü olarak süzülür', async () => {
   renderApp('/denemeler');
 
   expect(await screen.findByText('TYT Denemesi')).toBeInTheDocument();
-  expect(screen.getByText('AYT Denemesi')).toBeInTheDocument();
-
-  await userEvent.click(screen.getByRole('button', { name: 'TYT' }));
-  expect(await screen.findByText('TYT Denemesi')).toBeInTheDocument();
-  await waitFor(() => expect(screen.queryByText('AYT Denemesi')).not.toBeInTheDocument());
+  expect(screen.queryByText('AYT Denemesi')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Tümü' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'TYT' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 
   await userEvent.click(screen.getByRole('button', { name: 'AYT' }));
   expect(await screen.findByText('AYT Denemesi')).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByText('TYT Denemesi')).not.toBeInTheDocument());
-
-  await userEvent.click(screen.getByRole('button', { name: 'Tümü' }));
-  expect(await screen.findByText('TYT Denemesi')).toBeInTheDocument();
-  expect(screen.getByText('AYT Denemesi')).toBeInTheDocument();
 });
 
 test('AYT formu alan seçtirir ve gizlenen dersleri göstermez', async () => {
@@ -412,11 +556,15 @@ test('AYT formu alan seçtirir ve gizlenen dersleri göstermez', async () => {
 
   await userEvent.selectOptions(screen.getByLabelText('Deneme türü'), 'AYT');
   expect(await screen.findByLabelText('AYT alanı')).toBeInTheDocument();
-  expect(await screen.findByLabelText('Matematik doğru')).toBeInTheDocument();
-  expect(screen.getByRole('option', { name: 'Genel' })).toBeInTheDocument();
+  expect(screen.getByText('Dersleri görmek için önce AYT alanını seç.')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Matematik doğru')).not.toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: 'Genel' })).not.toBeInTheDocument();
   expect(screen.getByRole('option', { name: 'Sayısal' })).toBeInTheDocument();
   expect(screen.getByRole('option', { name: 'Eşit Ağırlık' })).toBeInTheDocument();
   expect(screen.getByRole('option', { name: 'Sözel' })).toBeInTheDocument();
+
+  await userEvent.selectOptions(screen.getByLabelText('AYT alanı'), 'sayisal');
+  expect(await screen.findByLabelText('Matematik doğru')).toBeInTheDocument();
 });
 
 test('gizlenen dersin mevcut sonucu düzenlemede korunur', async () => {
@@ -480,6 +628,34 @@ test('AYT denemesi alan bilgisiyle kaydedilir', async () => {
     const results = await listExamResults(exams[0].id);
     expect(results).toHaveLength(1);
     expect(results[0].net).toBe(11);
+  });
+});
+
+test('eski alansız AYT denemesi sonuçlarından çıkarılır ve düzenlemede korunur', async () => {
+  const fizik = await subjectIdByKey('ayt-fizik');
+  const exam = await saveExam({
+    type: 'AYT',
+    name: 'Eski AYT',
+    date: '2026-11-17',
+    results: [{ subjectId: fizik, correct: 5, wrong: 0, blank: 9 }],
+  });
+  expect(exam.alan).toBeUndefined();
+
+  renderApp(`/denemeler/${exam.id}/duzenle`);
+
+  expect(await screen.findByLabelText('AYT alanı')).toHaveValue('sayisal');
+  expect(await screen.findByLabelText('Fizik doğru')).toHaveValue(5);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Eski AYT' }),
+  ).toBeInTheDocument();
+  await waitFor(async () => {
+    expect((await getExam(exam.id))?.alan).toBe('sayisal');
+    const results = await listExamResults(exam.id);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ subjectId: fizik, correct: 5, blank: 9, net: 5 });
   });
 });
 
@@ -623,11 +799,8 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
   renderApp('/denemeler');
 
   expect(await screen.findByRole('heading', { level: 1, name: 'Denemeler' })).toBeInTheDocument();
-  expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
-  expect(screen.getByText('Net trendi')).toBeInTheDocument();
-
-  await userEvent.click(screen.getByRole('button', { name: 'TYT' }));
   expect(await screen.findByRole('img', { name: 'TYT net trend grafiği' })).toBeInTheDocument();
+  expect(screen.getByText('Net trendi')).toBeInTheDocument();
   expect(await screen.findByText(/1 Kas: 10,00 net/)).toBeInTheDocument();
   expect(screen.queryByText(/3 Kas: 7,00 net/)).not.toBeInTheDocument();
 
@@ -635,12 +808,14 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
   expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
   expect(await screen.findByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
   expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Genel' })).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Sayısal' }));
   await waitFor(() => expect(screen.queryByText(/3 Kas: 7,00 net/)).not.toBeInTheDocument());
   expect(screen.getByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: 'Genel' }));
+  // The old exam has no stored branch; its results imply Eşit Ağırlık.
+  await userEvent.click(screen.getByRole('button', { name: 'Eşit Ağırlık' }));
   expect(await screen.findByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
   expect(screen.queryByText(/2 Kas: 11,00 net/)).not.toBeInTheDocument();
 
@@ -656,6 +831,7 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
   ).toBeInTheDocument();
   expect(screen.getByText('Matematik net trendi')).toBeInTheDocument();
   expect(screen.getByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
 
   await userEvent.selectOptions(chartSelect, '');
   expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
@@ -679,4 +855,55 @@ test('deneme detayı önceki denemeye göre net farkını gösterir', async () =
   expect(await screen.findByRole('heading', { level: 1, name: 'Ekim TYT' })).toBeInTheDocument();
   expect(screen.getByText('Önceki denemeye göre +9,50 net')).toBeInTheDocument();
   expect(screen.getByText(/Eylül TYT · 1 Eylül 2026/)).toBeInTheDocument();
+});
+
+test('deneme kartları önceki aynı tür denemeye göre net farkını gösterir', async () => {
+  const turkce = await subjectIdByKey('tyt-turkce');
+  await insertExam({
+    name: 'Eylül TYT',
+    date: '2026-09-01',
+    results: [{ subjectId: turkce, correct: 10, wrong: 0, blank: 0 }],
+  });
+  await insertExam({
+    name: 'Ekim TYT',
+    date: '2026-10-01',
+    results: [{ subjectId: turkce, correct: 20, wrong: 2, blank: 0 }],
+  });
+  await insertExam({
+    name: 'Kasım TYT',
+    date: '2026-11-01',
+    results: [{ subjectId: turkce, correct: 10, wrong: 10, blank: 0 }],
+  });
+
+  renderApp('/denemeler');
+
+  expect(await screen.findByText('Kasım TYT')).toBeInTheDocument();
+  expect(await screen.findByText('+9,50')).toBeInTheDocument();
+  expect(screen.getByText('-12,00')).toBeInTheDocument();
+  expect(screen.getByText('İlk deneme')).toBeInTheDocument();
+});
+
+test('eski alansız AYT denemesi çıkarılan alanla karşılaştırılır', async () => {
+  const aytMatematik = await subjectIdByKey('ayt-matematik');
+  await saveExam({
+    type: 'AYT',
+    name: 'Eski AYT',
+    date: '2026-09-01',
+    results: [{ subjectId: aytMatematik, correct: 10, wrong: 0, blank: 0 }],
+  });
+  await saveExam({
+    type: 'AYT',
+    name: 'Yeni EA AYT',
+    date: '2026-10-01',
+    alan: 'ea',
+    results: [{ subjectId: aytMatematik, correct: 20, wrong: 0, blank: 0 }],
+  });
+
+  renderApp('/denemeler');
+  await userEvent.click(await screen.findByRole('button', { name: 'AYT' }));
+
+  expect(await screen.findByText('Yeni EA AYT')).toBeInTheDocument();
+  expect(await screen.findByText('+10,00')).toBeInTheDocument();
+  expect(screen.getByText('İlk deneme')).toBeInTheDocument();
+  expect(screen.getByText('Eski AYT')).toBeInTheDocument();
 });

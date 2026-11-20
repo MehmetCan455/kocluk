@@ -41,6 +41,8 @@ function alanOf(exam: Exam): AytAlan {
   return exam.alan ?? 'tumu';
 }
 
+export type AlanResolver = (exam: Exam) => AytAlan;
+
 function compareExams(left: Exam, right: Exam): number {
   return (
     left.date.localeCompare(right.date) ||
@@ -58,10 +60,11 @@ function selectExams(
   type: ExamType,
   alan?: AytAlan,
   limit = MAX_CHART_POINTS,
+  resolveAlan: AlanResolver = alanOf,
 ): Exam[] {
   return exams
     .filter((exam) => exam.type === type)
-    .filter((exam) => type !== 'AYT' || alan === undefined || alanOf(exam) === alan)
+    .filter((exam) => type !== 'AYT' || alan === undefined || resolveAlan(exam) === alan)
     .sort(compareExams)
     .slice(-limit);
 }
@@ -84,9 +87,10 @@ export function buildNetSeries(
   results: ExamResult[],
   type: ExamType,
   alan?: AytAlan,
+  resolveAlan: AlanResolver = alanOf,
 ): NetSeries {
   const netByExam = sumNetByExam(results);
-  const points = selectExams(exams, type, alan);
+  const points = selectExams(exams, type, alan, MAX_CHART_POINTS, resolveAlan);
 
   return {
     labels: points.map((exam) => formatLabel(exam.date)),
@@ -105,6 +109,7 @@ export function buildSubjectNetSeries(
   type: ExamType,
   subjectId: string,
   alan?: AytAlan,
+  resolveAlan: AlanResolver = alanOf,
 ): NetSeries {
   const netByExam = new Map<string, number>();
   for (const result of results) {
@@ -112,7 +117,7 @@ export function buildSubjectNetSeries(
       netByExam.set(result.examId, (netByExam.get(result.examId) ?? 0) + result.net);
     }
   }
-  const points = selectExams(exams, type, alan);
+  const points = selectExams(exams, type, alan, MAX_CHART_POINTS, resolveAlan);
 
   return {
     labels: points.map((exam) => formatLabel(exam.date)),
@@ -130,12 +135,16 @@ export function buildExamComparison(
   exams: Exam[],
   results: ExamResult[],
   current: Exam,
+  resolveAlan: AlanResolver = alanOf,
 ): ExamComparison {
   const netByExam = sumNetByExam(results);
   const currentTotal = netByExam.get(current.id) ?? 0;
   const pool = exams
     .filter((exam) => exam.type === current.type)
-    .filter((exam) => current.type !== 'AYT' || alanOf(exam) === alanOf(current))
+    .filter(
+      (exam) =>
+        current.type !== 'AYT' || resolveAlan(exam) === resolveAlan(current),
+    )
     .sort(compareExams);
 
   const currentIndex = pool.findIndex((exam) => exam.id === current.id);

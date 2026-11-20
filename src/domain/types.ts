@@ -90,15 +90,18 @@ export interface PhotoFilters {
 }
 
 /**
- * Blob-free projection of a photo used by global search. It is kept in sync by
- * the photo repository so a settled query never loads image data.
+ * Blob-free projection of a photo used by global search and by the practice
+ * flow. It is kept in sync by the photo repository so list screens never need
+ * to read the full-size image blobs.
  */
 export interface PhotoSearch {
   id: string;
+  examId?: string;
   examType: ExamType;
   subjectId: string;
   topicId?: string;
   note: string;
+  mastered: boolean;
   createdAt: string;
 }
 

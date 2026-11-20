@@ -9,12 +9,12 @@ import { cn } from '@/components/ui/cn';
 import {
   createPracticeSession,
   listExams,
-  listPhotos,
+  listPhotoSearch,
   listPracticeSessions,
   listSubjects,
   listTopics,
 } from '@/db/repositories';
-import type { ExamType, Photo, PracticeFilters } from '@/domain/types';
+import type { ExamType, PhotoSearch, PracticeFilters } from '@/domain/types';
 import { formatExamDate } from '@/features/exams/examFormat';
 import { selectPracticePhotos } from './practiceSelection';
 import {
@@ -25,6 +25,7 @@ import {
 
 const HISTORY_LIMIT = 10;
 const COUNT_OPTIONS = [5, 10, 20] as const;
+const DEFAULT_COUNT = 10;
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]';
@@ -41,13 +42,15 @@ export function PracticeWizard() {
   const [topicIds, setTopicIds] = useState<string[]>([]);
   const [examId, setExamId] = useState('');
   const [onlyUnmastered, setOnlyUnmastered] = useState(true);
-  const [count, setCount] = useState<number | undefined>();
+  const [count, setCount] = useState<number | undefined>(DEFAULT_COUNT);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const subjects = useLiveQuery(() => listSubjects(), []);
   const exams = useLiveQuery(() => listExams(examType), [examType]);
-  const photos = useLiveQuery(() => listPhotos(), []);
+  // Only the blob-free projection is needed to build a session; image data is
+  // read one photo at a time on the session screen.
+  const photos = useLiveQuery(() => listPhotoSearch(), []);
   const history = useLiveQuery(() => listPracticeSessions(HISTORY_LIMIT), []);
 
   const subjectKey = subjectIds.join(',');
@@ -78,7 +81,7 @@ export function PracticeWizard() {
 
   const preselectedPhotos = preselectedIds
     .map((photoId) => photoById.get(photoId))
-    .filter((photo): photo is Photo => photo !== undefined);
+    .filter((photo): photo is PhotoSearch => photo !== undefined);
   const selectionMode = preselectedIds.length > 0;
 
   const filters: PracticeFilters = {
@@ -356,6 +359,7 @@ export function PracticeWizard() {
               })}
               <button
                 type="button"
+                aria-label="Tümü sorular"
                 aria-pressed={count === undefined}
                 onClick={() => setCount(undefined)}
                 className={cn(
@@ -365,9 +369,15 @@ export function PracticeWizard() {
                     : 'border-line bg-canvas text-muted hover:text-fg',
                 )}
               >
-                Tümü<span className="sr-only"> sorular</span>
+                Tümü
               </button>
             </div>
+            {count === undefined ? (
+              <p role="status" className="text-sm text-warning">
+                Tümü seçildi: filtreye uyan bütün fotoğraflar teste girer. Büyük arşivlerde
+                test uzun sürebilir; 10 soruluk varsayılanı öneririz.
+              </p>
+            ) : null}
           </fieldset>
         </Card>
       )}

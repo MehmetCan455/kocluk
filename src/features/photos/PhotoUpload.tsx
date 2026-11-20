@@ -6,6 +6,7 @@ import { Field } from '@/components/ui/Field';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { addPhotos, listExams, listSubjects, listTopics } from '@/db/repositories';
 import type { ExamType, Photo } from '@/domain/types';
+import { localDateToIso, todayLocalDate } from '@/lib/date';
 import { IMAGE_TYPE_ERROR } from '@/lib/image';
 import { STORAGE_QUOTA_MESSAGE, isStorageQuotaError } from '@/lib/storageError';
 import { formatExamDate } from '@/features/exams/examFormat';
@@ -74,6 +75,7 @@ export function PhotoUpload({
   const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId ?? '');
   const [selectedTopicId, setSelectedTopicId] = useState(topicId ?? '');
   const [selectedExamId, setSelectedExamId] = useState(examId ?? '');
+  const [captureDate, setCaptureDate] = useState(todayLocalDate);
   const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -131,6 +133,7 @@ export function PhotoUpload({
     busyChangeRef.current?.(true);
     setUploadedCount(0);
     setError(null);
+    const createdAt = localDateToIso(captureDate);
     const uploaded: Photo[] = [];
     try {
       for (const file of files) {
@@ -142,6 +145,7 @@ export function PhotoUpload({
             subjectId: selectedSubjectId,
             topicId: selectedTopicId || undefined,
             note: note.trim() || undefined,
+            createdAt,
           },
         ]);
         // A route change or an externally unmounted modal must not receive
@@ -157,6 +161,7 @@ export function PhotoUpload({
       }
       setFiles([]);
       setNote('');
+      setCaptureDate(todayLocalDate());
       setUploadedCount(0);
       onUploaded?.(uploaded);
       onClose?.();
@@ -311,6 +316,17 @@ export function PhotoUpload({
             </select>
           </Field>
         )}
+
+        <Field label="Tarih" htmlFor={`${baseId}-tarih`} hint="Varsayılan: bugün">
+          <input
+            id={`${baseId}-tarih`}
+            type="date"
+            value={captureDate}
+            disabled={uploading}
+            onChange={(event) => setCaptureDate(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
       </div>
 
       <Field label="Not" htmlFor={`${baseId}-not`} hint="İsteğe bağlı">

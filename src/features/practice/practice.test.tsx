@@ -318,6 +318,82 @@ test('sihirbaz fotoğrafları seçer ve oturum başlatır', async () => {
   expect(new Set(sessions[0]?.photoIds)).toEqual(new Set([first.id, second.id]));
 });
 
+test('sihirbaz varsayılan olarak 10 soru seçer ve Tümü açık uyarı verir', async () => {
+  for (let index = 1; index <= 12; index += 1) {
+    await createPhoto({ note: `Soru ${index}` });
+  }
+
+  renderApp('/yanlislar/test');
+
+  expect(await screen.findByText('Test 10 fotoğraftan oluşacak.')).toBeInTheDocument();
+  expect(screen.queryByText(/Tümü seçildi/)).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Tümü sorular' }));
+
+  expect(await screen.findByText('Test 12 fotoğraftan oluşacak.')).toBeInTheDocument();
+  expect(screen.getByText(/Tümü seçildi/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: '10 soru' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Testi başlat' }));
+
+  await screen.findByRole('heading', { level: 1, name: 'Test oturumu' });
+  const sessions = await db.practiceSessions.toArray();
+  expect(sessions).toHaveLength(1);
+  expect(sessions[0].photoIds).toHaveLength(10);
+});
+
+test('test oturumu iptal edilir, cevaplar ve fotoğraf durumu korunur', async () => {
+  const photo = await createPhoto({ note: 'İptal sorusu' });
+  const history = await createPracticeSession({ filters: {}, photoIds: [photo.id] });
+  await completePracticeSession(history.id);
+  const session = await createPracticeSession({ filters: {}, photoIds: [photo.id] });
+  await recordPracticeAnswer(session.id, photo.id, 'wrong');
+
+  renderApp(`/yanlislar/test/${session.id}`);
+
+  expect(await screen.findByRole('img', { name: 'İptal sorusu' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Testi iptal et' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Testi iptal et' });
+  expect(within(dialog).getByText(/Cevapladığın soruların sonuçları/)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole('button', { name: 'İptal et' }));
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Rastgele Test' }),
+  ).toBeInTheDocument();
+  expect(await getPracticeSession(session.id)).toBeUndefined();
+  expect(await listOpenPracticeSessions()).toHaveLength(0);
+  // Tamamlanmış geçmiş test iptalden etkilenmez.
+  expect((await listPracticeSessions()).map((item) => item.id)).toEqual([history.id]);
+  const stored = await db.photos.get(photo.id);
+  expect(stored).toMatchObject({ practiceCount: 1, mastered: false });
+});
+
+test('oturum yalnızca mevcut fotoğrafın tam blobunu okur', async () => {
+  const first = await createPhoto({ note: 'Birinci soru' });
+  const second = await createPhoto({ note: 'İkinci soru' });
+  const session = await createPracticeSession({
+    filters: {},
+    photoIds: [first.id, second.id],
+  });
+  const getSpy = vi.spyOn(db.photos, 'get');
+  const bulkGetSpy = vi.spyOn(db.photos, 'bulkGet');
+
+  renderApp(`/yanlislar/test/${session.id}`);
+
+  expect(await screen.findByRole('img', { name: 'Birinci soru' })).toBeInTheDocument();
+  expect(bulkGetSpy).not.toHaveBeenCalled();
+  const requestedIds = getSpy.mock.calls.map((call) => call[0]);
+  expect(requestedIds).toContain(first.id);
+  expect(requestedIds).not.toContain(second.id);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Sonraki' }));
+  expect(await screen.findByRole('img', { name: 'İkinci soru' })).toBeInTheDocument();
+  expect(getSpy.mock.calls.map((call) => call[0])).toContain(second.id);
+
+  getSpy.mockRestore();
+  bulkGetSpy.mockRestore();
+});
+
 test('cevaplar anında kaydedilir, bitince özet ve geçmiş görünür', async () => {
   const correctPhoto = await createPhoto({ note: 'Doğru soru' });
   const wrongPhoto = await createPhoto({ note: 'Yanlış soru', mastered: true });

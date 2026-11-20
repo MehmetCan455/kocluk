@@ -199,6 +199,7 @@ test('özel konu silme bağlı verileri temizler, fotoğrafı korur', async () =
     subjectId: subject!.id,
     topicId: topic.id,
     note: '',
+    mastered: false,
     createdAt: '',
   });
 
@@ -258,6 +259,7 @@ test('seed konusu cascade silmede korunur', async () => {
     subjectId: subject!.id,
     topicId: topic!.id,
     note: '',
+    mastered: false,
     createdAt: '',
   });
 
@@ -479,7 +481,7 @@ test('resetDb temizler, seedOnboarded onboarding ayarını yazar', async () => {
   });
 });
 
-test('v2 geçişi mevcut fotoğraflardan blobsuz arama projeksiyonu üretir', async () => {
+test('v2/v3 geçişi mevcut fotoğraflardan blobsuz arama projeksiyonu üretir', async () => {
   await db.close();
   await Dexie.delete('kocluk');
 
@@ -521,10 +523,12 @@ test('v2 geçişi mevcut fotoğraflardan blobsuz arama projeksiyonu üretir', as
 
   expect(await db.photoSearch.get('eski-foto')).toEqual({
     id: 'eski-foto',
+    examId: 'eski-deneme',
     examType: 'TYT',
     subjectId: 'eski-ders',
     topicId: 'eski-konu',
     note: 'Geçiş öncesi not',
+    mastered: true,
     createdAt,
   });
   const migrated = await db.photos.get('eski-foto');

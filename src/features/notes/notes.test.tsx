@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
@@ -324,6 +324,52 @@ test('sekme değişince bekleyen not kaybolmaz', async () => {
     },
     { timeout: 3000 },
   );
+});
+
+test('pagehide bekleyen notu beklemeden kaydeder', async () => {
+  const { topic } = await topicByKey('tyt-mat-turev');
+  const editor = await openNotes();
+
+  await userEvent.type(editor, 'Sayfa kapanıyor');
+  fireEvent(window, new Event('pagehide'));
+
+  await waitFor(
+    async () => {
+      const note = await getNote(topic.id);
+      expect(note?.plainText).toContain('Sayfa kapanıyor');
+    },
+    { timeout: 2000 },
+  );
+});
+
+test('kaydetme hatasında not korunur ve Tekrar dene ile kurtarılır', async () => {
+  const { topic } = await topicByKey('tyt-mat-turev');
+  const editor = await openNotes();
+  const putSpy = vi
+    .spyOn(db.notes, 'put')
+    .mockRejectedValueOnce(new Error('yazma hatası'));
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+  await userEvent.type(editor, 'Kaybolmayacak not');
+
+  expect(
+    await screen.findByText('Kaydedilemedi', {}, { timeout: 3000 }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Tekrar dene' })).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Tekrar dene' }));
+
+  await waitFor(
+    async () => {
+      const note = await getNote(topic.id);
+      expect(note?.plainText).toContain('Kaybolmayacak not');
+    },
+    { timeout: 3000 },
+  );
+  expect(await screen.findByText('Kaydedildi')).toBeInTheDocument();
+
+  putSpy.mockRestore();
+  consoleSpy.mockRestore();
 });
 
 test('araç çubuğuyla kalın biçimlendirir ve HTML olarak saklar', async () => {

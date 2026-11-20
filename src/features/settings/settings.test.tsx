@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { expect, test, vi } from 'vitest';
 import { computeHiddenSubjects } from '@/data/alanSubjects';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
@@ -56,12 +57,21 @@ test('AYT alanı seçimini saklar ve gizli dersleri yeniden hesaplar', async () 
   });
 });
 
+test('ders görünürlüğü TYT ve AYT derslerini birlikte listeler', async () => {
+  renderApp('/ayarlar');
+
+  expect(await screen.findByRole('checkbox', { name: 'TYT · Matematik' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'AYT · Matematik' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'TYT · Fizik' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'AYT · Fizik' })).toBeChecked();
+});
+
 test('ders görünürlüğü tek tek değiştirilebilir', async () => {
   const fizik = await db.subjects.where('seedKey').equals('ayt-fizik').first();
   expect(fizik).toBeDefined();
 
   renderApp('/ayarlar');
-  const checkbox = await screen.findByRole('checkbox', { name: 'Fizik' });
+  const checkbox = await screen.findByRole('checkbox', { name: 'AYT · Fizik' });
   expect(checkbox).toBeChecked();
 
   await userEvent.click(checkbox);
@@ -71,10 +81,36 @@ test('ders görünürlüğü tek tek değiştirilebilir', async () => {
   });
 
   await userEvent.click(await screen.findByRole('button', { name: 'Tümünü göster' }));
-  expect(await screen.findByRole('checkbox', { name: 'Fizik' })).toBeChecked();
+  expect(await screen.findByRole('checkbox', { name: 'AYT · Fizik' })).toBeChecked();
   await waitFor(async () => {
     expect((await getSettings()).hiddenSubjects).toEqual([]);
   });
+});
+
+test('ayar yazımı başarısız olursa görünür uyarı verir ve seçimi geri alır', async () => {
+  const fizik = await db.subjects.where('seedKey').equals('ayt-fizik').first();
+  expect(fizik).toBeDefined();
+  const writeSpy = vi
+    .spyOn(db.settings, 'bulkPut')
+    .mockRejectedValueOnce(new Error('yazma hatası'));
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+  renderApp('/ayarlar');
+  const checkbox = await screen.findByRole('checkbox', { name: 'AYT · Fizik' });
+  expect(checkbox).toBeChecked();
+
+  await userEvent.click(checkbox);
+
+  expect(
+    await screen.findByText('Ayarlar kaydedilemedi. Lütfen tekrar dene.'),
+  ).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByRole('checkbox', { name: 'AYT · Fizik' })).toBeChecked();
+  });
+  expect((await getSettings()).hiddenSubjects).not.toContain(fizik!.id);
+
+  writeSpy.mockRestore();
+  consoleSpy.mockRestore();
 });
 
 test('geçersiz özel renk hata bildirir ve alanı işaretler', async () => {

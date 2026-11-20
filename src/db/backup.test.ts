@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { beforeEach, expect, test } from 'vitest';
-import type { BackupManifest } from '@/db/backup';
+import { CURRICULUM } from '@/data/curriculum';
+import type { BackupManifest, BackupProgress } from '@/db/backup';
 import {
   BACKUP_SCHEMA_VERSION,
   clearAllData,
@@ -95,7 +96,12 @@ async function mutateZip(
 }
 
 async function fullSeed() {
-  await seedOnboarded(seed, { profileName: 'Ada' });
+  await seedOnboarded(seed, {
+    profileName: 'Ada',
+    // Keep the fixture's seed version current so the post-import curriculum
+    // check does not add the full 22-subject curriculum to these fixtures.
+    seedVersion: CURRICULUM.version,
+  });
   const subject = (await db.subjects.where('seedKey').equals('tyt-mat').first())!;
   const topic = (await db.topics.where('seedKey').equals('tyt-mat-turev').first())!;
   const book = await createBook({ name: 'Matematik Soru Bankası', publisher: 'Palme' });
@@ -458,6 +464,87 @@ test('yinelenen topicBook doğal anahtarı mevcut veriyi silmeden reddedilir', a
   );
   expect((await getSettings()).profileName).toBe('Korunacak Profil');
   expect(await db.topicBooks.count()).toBe(before);
+});
+
+test('yedek dışa aktarımı okuma, blob ve zip ilerlemesi bildirir', async () => {
+  await fullSeed();
+  const events: BackupProgress[] = [];
+
+  await exportBackup((progress) => events.push(progress));
+
+  expect(events[0]).toMatchObject({ phase: 'reading', percent: 0 });
+  expect(events.some((event) => event.phase === 'blobs')).toBe(true);
+  expect(events.some((event) => event.phase === 'zip')).toBe(true);
+  expect(events.at(-1)).toMatchObject({ phase: 'zip', percent: 100 });
+  const blobEvent = events.find((event) => event.phase === 'blobs');
+  expect(blobEvent?.total).toBeGreaterThanOrEqual(3);
+});
+
+test('eksik fotoğraf blobu özet ve geri yüklemeden önce reddedilir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+
+  const broken = await mutateZip(exported, async (zip) => {
+    zip.remove('fotograflar/yanlislar/foto-1.jpg');
+  });
+
+  await expect(readBackupSummary(new File([broken], 'eksik.zip'))).rejects.toThrow(
+    /eksik dosya/,
+  );
+  await expect(importBackup(new File([broken], 'eksik.zip'))).rejects.toThrow(/eksik dosya/);
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.photos.count()).toBe(1);
+});
+
+test('geri yükleme bozuk net değerini yeniden hesaplar', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  const tampered = await mutateZip(exported, async (_zip, data) => {
+    const results = data.examResults as Array<Record<string, unknown>>;
+    results[0].net = 999;
+  });
+
+  await resetDb();
+  await importBackup(new File([tampered], 'net.zip'));
+
+  const results = await db.examResults.toArray();
+  expect(results).toHaveLength(1);
+  // 10 doğru - 2 yanlış / 4 = 9.5
+  expect(results[0].net).toBe(9.5);
+});
+
+test('geçersiz deneme tarihi mevcut veriyi değiştirmeden reddedilir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const exams = data.exams as Array<Record<string, unknown>>;
+    exams[0].date = '2026-02-31';
+  });
+
+  await expect(importBackup(new File([invalid], 'tarih.zip'))).rejects.toThrow(
+    /deneme tarihi geçersiz/,
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.exams.count()).toBe(1);
+});
+
+test('eski seed sürümlü yedekten sonra eksik müfredat tamamlanır', async () => {
+  await seedOnboarded(seed, { profileName: 'Eski Yedek', seedVersion: 1 });
+  const exported = await exportBackup();
+
+  await resetDb();
+  await importBackup(new File([exported], 'eski-mufredat.zip'));
+
+  const settings = await getSettings();
+  expect(settings.seedVersion).toBe(CURRICULUM.version);
+  expect(await db.subjects.count()).toBeGreaterThanOrEqual(CURRICULUM.subjects.length);
+  expect(
+    await db.subjects.where('seedKey').equals('ayt-fizik').first(),
+  ).toBeDefined();
+  expect(await db.topics.count()).toBeGreaterThan(1);
 });
 
 test('tüm verileri silme ayarlar dahil tüm tabloları boşaltır', async () => {

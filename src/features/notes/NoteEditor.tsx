@@ -147,6 +147,12 @@ export function NoteEditor({ topicId, initialHtml, initialUpdatedAt }: NoteEdito
       }
     } catch (caught: unknown) {
       console.error('Not kaydedilemedi', caught);
+      // Keep the failed snapshot so a pagehide/unmount flush, the next edit or
+      // the explicit retry button can try again. A newer edit already waiting
+      // is newer than this snapshot and must win.
+      if (pendingRef.current === null) {
+        pendingRef.current = pending;
+      }
       if (mountedRef.current) {
         setStatus('error');
       }
@@ -201,7 +207,12 @@ export function NoteEditor({ topicId, initialHtml, initialUpdatedAt }: NoteEdito
 
   useEffect(() => {
     mountedRef.current = true;
+    const onPageHide = () => {
+      void flush();
+    };
+    window.addEventListener('pagehide', onPageHide);
     return () => {
+      window.removeEventListener('pagehide', onPageHide);
       mountedRef.current = false;
       if (timerRef.current !== null) {
         window.clearTimeout(timerRef.current);
@@ -216,7 +227,7 @@ export function NoteEditor({ topicId, initialHtml, initialUpdatedAt }: NoteEdito
         });
       }
     };
-  }, [topicId]);
+  }, [flush, topicId]);
 
   function openLinkForm() {
     if (!editor) {
@@ -389,20 +400,27 @@ export function NoteEditor({ topicId, initialHtml, initialUpdatedAt }: NoteEdito
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <p
-          role="status"
-          aria-live="polite"
-          className={cn(
-            'font-medium',
-            status === 'error'
-              ? 'text-danger'
-              : status === 'saved'
-                ? 'text-success'
-                : 'text-muted',
-          )}
-        >
-          {STATUS_TEXT[status]}
-        </p>
+        <div className="flex items-center gap-3">
+          <p
+            role="status"
+            aria-live="polite"
+            className={cn(
+              'font-medium',
+              status === 'error'
+                ? 'text-danger'
+                : status === 'saved'
+                  ? 'text-success'
+                  : 'text-muted',
+            )}
+          >
+            {STATUS_TEXT[status]}
+          </p>
+          {status === 'error' ? (
+            <Button variant="secondary" size="sm" onClick={() => void flush()}>
+              Tekrar dene
+            </Button>
+          ) : null}
+        </div>
         {savedLabel ? <p className="text-muted">Son kayıt: {savedLabel}</p> : null}
       </div>
     </div>

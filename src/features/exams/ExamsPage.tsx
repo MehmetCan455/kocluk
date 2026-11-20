@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ClipboardList, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { listAllExamResults, listExams, listSubjects } from '@/db/repositories';
 import type { AytAlan, Exam, ExamResult, ExamType, Subject } from '@/domain/types';
-import { buildNetSeries, MAX_CHART_POINTS } from '@/features/dashboard/chartData';
+import {
+  buildNetSeries,
+  buildSubjectNetSeries,
+  MAX_CHART_POINTS,
+} from '@/features/dashboard/chartData';
 import { NetTrendChart } from '@/features/dashboard/NetTrendChart';
 import { formatNet } from '@/lib/format';
 import { formatAlan, formatExamDate, sumNet } from './examFormat';
@@ -56,8 +61,10 @@ function sortBySubjectOrder(results: ExamResult[], subjectById: Map<string, Subj
 }
 
 export function ExamsPage() {
+  const { settings } = useAppSettings();
   const [filter, setFilter] = useState<ExamFilter>('all');
   const [alanFilter, setAlanFilter] = useState<AlanFilter>('all');
+  const [chartSubjectId, setChartSubjectId] = useState('');
 
   const data = useLiveQuery(async () => {
     // Results are fetched once and grouped, instead of one query per exam.
@@ -98,12 +105,29 @@ export function ExamsPage() {
   // With "Tümü" the chart follows the latest exam's type; a specific filter
   // always drives the chart so the control at the top has one meaning.
   const chartType: ExamType = filter === 'all' ? (data.rows[0]?.exam.type ?? 'TYT') : filter;
-  const chartSeries = buildNetSeries(
-    data.rows.map((row) => row.exam),
-    data.results,
-    chartType,
-    filter === 'AYT' && alanFilter !== 'all' ? alanFilter : undefined,
+  const hidden = new Set(settings.hiddenSubjects);
+  const chartSubjects = data.subjects.filter(
+    (subject) => subject.exam === chartType && !hidden.has(subject.id),
   );
+  const selectedSubject = chartSubjects.find((subject) => subject.id === chartSubjectId);
+  const chartSeries = selectedSubject
+    ? buildSubjectNetSeries(
+        data.rows.map((row) => row.exam),
+        data.results,
+        chartType,
+        selectedSubject.id,
+        filter === 'AYT' && alanFilter !== 'all' ? alanFilter : undefined,
+      )
+    : buildNetSeries(
+        data.rows.map((row) => row.exam),
+        data.results,
+        chartType,
+        filter === 'AYT' && alanFilter !== 'all' ? alanFilter : undefined,
+      );
+  const chartTitle = selectedSubject ? `${selectedSubject.name} net trendi` : 'Net trendi';
+  const chartAriaLabel = selectedSubject
+    ? `${chartType} ${selectedSubject.name} net trend grafiği`
+    : `${chartType} net trend grafiği`;
 
   return (
     <section className="space-y-5">
@@ -149,36 +173,51 @@ export function ExamsPage() {
         <Card>
           <NetTrendChart
             series={chartSeries}
-            title="Net trendi"
+            title={chartTitle}
             description={`Son ${MAX_CHART_POINTS} ${chartType} denemesi`}
-            ariaLabel={`${chartType} net trend grafiği`}
+            ariaLabel={chartAriaLabel}
             headerAction={
-              filter === 'AYT' ? (
-                <div
-                  role="group"
-                  aria-label="AYT alan filtresi"
-                  className="flex flex-wrap gap-1 rounded-xl border border-line bg-canvas p-1"
+              <div className="flex flex-wrap items-start gap-2">
+                <select
+                  aria-label="Grafik dersi"
+                  value={selectedSubject?.id ?? ''}
+                  onChange={(event) => setChartSubjectId(event.target.value)}
+                  className="min-h-11 rounded-xl border border-line bg-canvas px-3 text-sm text-fg"
                 >
-                  {ALAN_FILTERS.map((option) => {
-                    const active = option.id === alanFilter;
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setAlanFilter(option.id)}
-                        className={
-                          active
-                            ? 'min-h-11 rounded-lg bg-[var(--accent-soft)] px-3 text-sm font-medium text-[var(--accent)]'
-                            : 'min-h-11 rounded-lg px-3 text-sm font-medium text-muted transition-colors hover:text-fg'
-                        }
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : undefined
+                  <option value="">Toplam net</option>
+                  {chartSubjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))}
+                </select>
+                {filter === 'AYT' ? (
+                  <div
+                    role="group"
+                    aria-label="AYT alan filtresi"
+                    className="flex flex-wrap gap-1 rounded-xl border border-line bg-canvas p-1"
+                  >
+                    {ALAN_FILTERS.map((option) => {
+                      const active = option.id === alanFilter;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setAlanFilter(option.id)}
+                          className={
+                            active
+                              ? 'min-h-11 rounded-lg bg-[var(--accent-soft)] px-3 text-sm font-medium text-[var(--accent)]'
+                              : 'min-h-11 rounded-lg px-3 text-sm font-medium text-muted transition-colors hover:text-fg'
+                          }
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
             }
           />
         </Card>

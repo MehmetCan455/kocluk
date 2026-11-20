@@ -10,6 +10,7 @@ import type {
   Note,
   Photo,
   PhotoFilters,
+  PhotoSearch,
   PracticeFilters,
   PracticeOutcome,
   PracticeSession,
@@ -18,6 +19,7 @@ import type {
   TopicBook,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
+import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
 import { compressImage } from '@/lib/image';
 import { matchesTokens, tokenizeTr } from '@/lib/normalize';
@@ -456,6 +458,8 @@ export interface AddPhotoInput {
   subjectId: string;
   topicId?: string;
   note?: string;
+  /** Capture date; defaults to the upload time. */
+  createdAt?: string;
 }
 
 /**
@@ -526,7 +530,7 @@ export async function addPhotos(inputs: AddPhotoInput[]): Promise<Photo[]> {
       height: image.height,
       mastered: false,
       practiceCount: 0,
-      createdAt,
+      createdAt: input.createdAt ?? createdAt,
     });
   }
 
@@ -547,6 +551,19 @@ export async function addPhotos(inputs: AddPhotoInput[]): Promise<Photo[]> {
 
 export async function getPhoto(id: string): Promise<Photo | undefined> {
   return db.photos.get(id);
+}
+
+/**
+ * The blob-free photo projection, newest first. Practice screens use it for
+ * ids, notes, subject/topic, exam link and mastery so a session never loads the
+ * whole archive's image data.
+ */
+export async function listPhotoSearch(): Promise<PhotoSearch[]> {
+  const rows = await db.photoSearch.toArray();
+  return rows.sort(
+    (left, right) =>
+      right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
+  );
 }
 
 /**
@@ -647,6 +664,35 @@ export async function updatePhoto(id: string, patch: Partial<Photo>): Promise<vo
 }
 
 /**
+ * Applies the same tags to several photos in one transaction. Used by the
+ * gallery's bulk "Etiket değiştir" action; the search projection is rewritten
+ * for each photo so filters and search stay in sync.
+ */
+export async function updatePhotoTags(
+  ids: string[],
+  tags: Pick<Photo, 'examType' | 'subjectId' | 'topicId' | 'examId'>,
+): Promise<void> {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) {
+    return;
+  }
+  if (!tags.subjectId.trim()) {
+    throw new Error('Ders seçilmedi');
+  }
+
+  await db.transaction('rw', db.photos, db.photoSearch, async () => {
+    for (const id of uniqueIds) {
+      await updatePhoto(id, {
+        examType: tags.examType,
+        subjectId: tags.subjectId,
+        topicId: tags.topicId,
+        examId: tags.examId,
+      });
+    }
+  });
+}
+
+/**
  * Deletes photos and their search projections. Practice sessions keep the
  * historical photo ids; the session viewer skips ids whose photo is gone.
  */
@@ -683,19 +729,6 @@ interface ExamResultInput {
 }
 
 const AYT_ALAN_VALUES: ReadonlySet<AytAlan> = new Set(['sayisal', 'ea', 'sozel', 'tumu']);
-
-function isValidDateString(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-  const [year, month, day] = value.split('-').map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  return (
-    parsed.getUTCFullYear() === year &&
-    parsed.getUTCMonth() === month - 1 &&
-    parsed.getUTCDate() === day
-  );
-}
 
 function parseExamResults(rows: ExamResultInput[]): ExamResultInput[] {
   const parsed: ExamResultInput[] = [];
@@ -831,8 +864,12 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
  * pointing at a missing exam.
  */
 export async function deleteExamUnlinkPhotos(examId: string): Promise<void> {
-  await db.transaction('rw', db.exams, db.examResults, db.photos, async () => {
+  await db.transaction('rw', db.exams, db.examResults, db.photos, db.photoSearch, async () => {
     await db.photos.where('examId').equals(examId).modify({ examId: undefined });
+    await db.photoSearch
+      .where('examId')
+      .equals(examId)
+      .modify({ examId: undefined });
     await db.examResults.where('examId').equals(examId).delete();
     await db.exams.delete(examId);
   });
@@ -903,7 +940,7 @@ export async function recordPracticeAnswer(
   photoId: string,
   outcome: PracticeOutcome,
 ): Promise<void> {
-  await db.transaction('rw', db.practiceSessions, db.photos, async () => {
+  await db.transaction('rw', db.practiceSessions, db.photos, db.photoSearch, async () => {
     const session = await db.practiceSessions.get(sessionId);
     if (!session) {
       throw new Error('Test oturumu bulunamadı');
@@ -934,6 +971,15 @@ export async function recordPracticeAnswer(
       changes.mastered = false;
     }
     await db.photos.update(photoId, changes);
+
+    // Keep the blob-free practice projection in step with mastery. Without
+    // this the "only unmastered" filter would still see the old state.
+    if (changes.mastered !== undefined) {
+      const projection = await db.photoSearch.get(photoId);
+      if (projection) {
+        await db.photoSearch.put({ ...projection, mastered: changes.mastered });
+      }
+    }
   });
 }
 
@@ -949,6 +995,15 @@ export async function completePracticeSession(sessionId: string): Promise<void> 
 
   const now = new Date().toISOString();
   await db.practiceSessions.update(sessionId, { completedAt: now, updatedAt: now });
+}
+
+/**
+ * Cancels an open session by removing it from the open list. Answers already
+ * recorded on the session and the resulting photo mastery/practice counters are
+ * deliberately kept, matching the spec's "iptal edilmiş cevaplar geri alınmaz".
+ */
+export async function cancelPracticeSession(sessionId: string): Promise<void> {
+  await db.practiceSessions.delete(sessionId);
 }
 
 /** Completed sessions, newest first. The default history size is 10. */

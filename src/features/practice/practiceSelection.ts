@@ -1,4 +1,17 @@
-import type { Photo, PracticeFilters } from '@/domain/types';
+import type { ExamType, PracticeFilters } from '@/domain/types';
+
+/**
+ * The subset of photo metadata the practice filters need. `photos` rows and
+ * the blob-free `photoSearch` projection are both assignable to it.
+ */
+export interface PracticeCandidate {
+  id: string;
+  examType: ExamType;
+  subjectId: string;
+  topicId?: string;
+  examId?: string;
+  mastered: boolean;
+}
 
 /**
  * Applies the practice filters, shuffles the matching photos and takes at most
@@ -16,11 +29,11 @@ import type { Photo, PracticeFilters } from '@/domain/types';
  * input entry can never appear twice in one session. The input array is never
  * mutated and `shuffle` is injectable for deterministic tests.
  */
-export function selectPracticePhotos(
-  photos: readonly Photo[],
+export function selectPracticePhotos<T extends PracticeCandidate>(
+  photos: readonly T[],
   filters: PracticeFilters,
   shuffle: () => number = Math.random,
-): Photo[] {
+): T[] {
   const seen = new Set<string>();
   const matching = photos.filter((photo) => {
     if (seen.has(photo.id)) {
@@ -63,7 +76,7 @@ export function selectPracticePhotos(
 }
 
 /** Fisher–Yates; the random callback is clamped so test doubles returning 1 are safe. */
-function shufflePhotos(photos: Photo[], random: () => number): Photo[] {
+function shufflePhotos<T>(photos: T[], random: () => number): T[] {
   const result = [...photos];
   for (let index = result.length - 1; index > 0; index -= 1) {
     const target = Math.max(0, Math.min(index, Math.floor(random() * (index + 1))));

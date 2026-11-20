@@ -350,6 +350,7 @@ test('deneme formundan kaydedilen sonuç listelenir ve detayda görünür', asyn
   expect(screen.getByText('Toplam net')).toBeInTheDocument();
   expect(screen.getByText('45,50')).toBeInTheDocument();
   expect(screen.getByText('Yanlış fotoğrafları')).toBeInTheDocument();
+  expect(screen.getByText('Karşılaştırılacak önceki TYT denemesi yok.')).toBeInTheDocument();
 });
 
 test('boş bırakılan ders satırı kayda katılmaz', async () => {
@@ -646,4 +647,36 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
   await userEvent.click(screen.getByRole('button', { name: 'Tüm alanlar' }));
   expect(await screen.findByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
   expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+
+  const chartSelect = screen.getByLabelText('Grafik dersi');
+  await userEvent.selectOptions(chartSelect, aytMatematik);
+
+  expect(
+    await screen.findByRole('img', { name: 'AYT Matematik net trend grafiği' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Matematik net trendi')).toBeInTheDocument();
+  expect(screen.getByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
+
+  await userEvent.selectOptions(chartSelect, '');
+  expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
+});
+
+test('deneme detayı önceki denemeye göre net farkını gösterir', async () => {
+  const turkce = await subjectIdByKey('tyt-turkce');
+  await insertExam({
+    name: 'Eylül TYT',
+    date: '2026-09-01',
+    results: [{ subjectId: turkce, correct: 10, wrong: 0, blank: 0 }],
+  });
+  const current = await insertExam({
+    name: 'Ekim TYT',
+    date: '2026-10-01',
+    results: [{ subjectId: turkce, correct: 20, wrong: 2, blank: 0 }],
+  });
+
+  renderApp(`/denemeler/${current.id}`);
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'Ekim TYT' })).toBeInTheDocument();
+  expect(screen.getByText('Önceki denemeye göre +9,50 net')).toBeInTheDocument();
+  expect(screen.getByText(/Eylül TYT · 1 Eylül 2026/)).toBeInTheDocument();
 });

@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft,
   ChevronRight,
   Maximize2,
   StickyNote,
+  XCircle,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
@@ -13,21 +14,28 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { cn } from '@/components/ui/cn';
 import { db } from '@/db/db';
 import {
+  cancelPracticeSession,
   completePracticeSession,
   getPracticeSession,
   recordPracticeAnswer,
 } from '@/db/repositories';
-import type { Photo, PracticeOutcome, PracticeSession } from '@/domain/types';
-import { photoLabel, usePhotoObjectUrl } from '@/features/photos/PhotoThumb';
+import type { Photo, PhotoSearch, PracticeOutcome, PracticeSession } from '@/domain/types';
+import { usePhotoObjectUrl } from '@/features/photos/PhotoThumb';
 import {
   formatPracticeDate,
   formatPracticeDuration,
   scorePracticeSession,
 } from './practiceSummary';
+
+/** Same fallback as `photoLabel`, without requiring a full photo row. */
+function photoNoteLabel(note: string | undefined): string {
+  return note?.trim() || 'Yanlış fotoğrafı';
+}
 
 const OUTCOMES: ReadonlyArray<{
   value: PracticeOutcome;
@@ -140,8 +148,61 @@ function CompletedPractice({ session }: { session: PracticeSession }) {
   );
 }
 
+interface CancelPracticeModalProps {
+  cancelling: boolean;
+  error: string | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+function CancelPracticeModal({
+  cancelling,
+  error,
+  onClose,
+  onConfirm,
+}: CancelPracticeModalProps) {
+  return (
+    <Modal
+      open
+      title="Testi iptal et"
+      onClose={() => {
+        if (!cancelling) {
+          onClose();
+        }
+      }}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={cancelling}>
+            Vazgeç
+          </Button>
+          <Button
+            variant="danger"
+            onClick={onConfirm}
+            disabled={cancelling}
+            aria-busy={cancelling}
+          >
+            {cancelling ? 'İptal ediliyor…' : 'İptal et'}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm">
+        Bu oturum kapatılacak ve “Devam eden test” listesinden kalkacak. Cevapladığın
+        soruların sonuçları ve fotoğraf durumları korunur; iptal edilen cevaplar geri
+        alınmaz.
+      </p>
+      {error ? (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+    </Modal>
+  );
+}
+
 export function PracticeSessionPage() {
   const { sessionId = '' } = useParams();
+  const navigate = useNavigate();
   const noteId = useId();
   const [index, setIndex] = useState(0);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -149,25 +210,44 @@ export function PracticeSessionPage() {
   const [saving, setSaving] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const initializedFor = useRef<string | null>(null);
 
+  // Only the blob-free projection is loaded for the whole session. Image data
+  // is fetched separately for the current photo only (see `currentPhoto`).
   const data = useLiveQuery(async () => {
     const session = await getPracticeSession(sessionId);
     if (!session) {
-      return { session: undefined, photos: [] as Photo[] };
+      return { session: undefined, photos: [] as PhotoSearch[] };
     }
-    const rows = await db.photos.bulkGet(session.photoIds);
-    return {
-      session,
-      photos: rows.filter((photo): photo is Photo => photo !== undefined),
-    };
+    const rows = await db.photoSearch.bulkGet(session.photoIds);
+    const byId = new Map(
+      rows
+        .filter((row): row is PhotoSearch => row !== undefined)
+        .map((row) => [row.id, row]),
+    );
+    const photos = session.photoIds
+      .map((photoId) => byId.get(photoId))
+      .filter((photo): photo is PhotoSearch => photo !== undefined);
+    return { session, photos };
   }, [sessionId]);
 
   const session = data?.session;
   const photos = data?.photos ?? [];
   const safeIndex = Math.min(index, Math.max(0, photos.length - 1));
   const current = photos[safeIndex];
-  const imageUrl = usePhotoObjectUrl(current?.id, current?.blob, 'full');
+  const loadedPhoto = useLiveQuery(
+    async () => (current ? db.photos.get(current.id) : undefined),
+    [current?.id],
+  );
+  // Ignore the previous photo while the new blob read is in flight.
+  const currentPhoto: Photo | undefined =
+    loadedPhoto && current && loadedPhoto.id === current.id ? loadedPhoto : undefined;
+  const imageUrl = usePhotoObjectUrl(currentPhoto?.id, currentPhoto?.blob, 'full');
+  const currentNote = currentPhoto?.note ?? current?.note ?? '';
+  const currentLabel = photoNoteLabel(currentNote);
 
   // Resume once per session at the first unanswered visible photo. Live-query
   // updates after each answer must not move the reader back.
@@ -229,6 +309,34 @@ export function PracticeSessionPage() {
     }
   }
 
+  async function cancel() {
+    if (!session || cancelling) {
+      return;
+    }
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await cancelPracticeSession(session.id);
+      navigate('/yanlislar/test');
+    } catch (caught: unknown) {
+      console.error('Test iptal edilemedi', caught);
+      setCancelError('Test iptal edilemedi. Lütfen tekrar dene.');
+      setCancelling(false);
+    }
+  }
+
+  const cancelModal = confirmingCancel ? (
+    <CancelPracticeModal
+      cancelling={cancelling}
+      error={cancelError}
+      onClose={() => {
+        setConfirmingCancel(false);
+        setCancelError(null);
+      }}
+      onConfirm={() => void cancel()}
+    />
+  ) : null;
+
   if (photos.length === 0) {
     return (
       <div className="space-y-4">
@@ -241,6 +349,14 @@ export function PracticeSessionPage() {
               <Button onClick={() => void finish()} disabled={finishing || saving}>
                 {finishing ? 'Bitiriliyor…' : 'Testi bitir'}
               </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setConfirmingCancel(true)}
+                disabled={cancelling}
+              >
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+                Testi iptal et
+              </Button>
               <Link to="/yanlislar/test" className={secondaryLinkClass}>
                 Rastgele teste dön
               </Link>
@@ -252,13 +368,13 @@ export function PracticeSessionPage() {
             {error}
           </p>
         ) : null}
+        {cancelModal}
       </div>
     );
   }
 
   const answeredVisible = photos.filter((photo) => session.results[photo.id]).length;
   const answered = current ? session.results[current.id] : undefined;
-  const currentLabel = current ? photoLabel(current) : 'Yanlış fotoğrafı';
 
   async function answer(outcome: PracticeOutcome) {
     if (!session || !current || saving) {
@@ -358,7 +474,7 @@ export function PracticeSessionPage() {
           size="sm"
           aria-expanded={noteOpen}
           aria-controls={noteId}
-          disabled={!current?.note.trim()}
+          disabled={!currentNote.trim()}
           onClick={() => setNoteOpen((open) => !open)}
         >
           <StickyNote className="h-4 w-4" aria-hidden="true" />
@@ -385,10 +501,10 @@ export function PracticeSessionPage() {
       </div>
 
       <div id={noteId}>
-        {noteOpen && current?.note.trim() ? (
+        {noteOpen && currentNote.trim() ? (
           <Card className="space-y-2">
             <h2 className="text-base font-semibold">Not</h2>
-            <p className="whitespace-pre-wrap text-sm">{current.note}</p>
+            <p className="whitespace-pre-wrap text-sm">{currentNote}</p>
           </Card>
         ) : null}
       </div>
@@ -430,19 +546,32 @@ export function PracticeSessionPage() {
         </Button>
       </div>
 
-      {answeredVisible === photos.length ? (
-        <Button onClick={() => void finish()} disabled={finishing || saving}>
-          {finishing ? 'Bitiriliyor…' : 'Testi bitir'}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {answeredVisible === photos.length ? (
+          <Button onClick={() => void finish()} disabled={finishing || saving}>
+            {finishing ? 'Bitiriliyor…' : 'Testi bitir'}
+          </Button>
+        ) : (
+          <p className="text-sm text-muted">Bitirmek için tüm soruları cevapla.</p>
+        )}
+        <Button
+          variant="ghost"
+          className="text-danger hover:bg-danger/10 hover:text-danger"
+          onClick={() => setConfirmingCancel(true)}
+          disabled={cancelling}
+        >
+          <XCircle className="h-4 w-4" aria-hidden="true" />
+          Testi iptal et
         </Button>
-      ) : (
-        <p className="text-sm text-muted">Bitirmek için tüm soruları cevapla.</p>
-      )}
+      </div>
 
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}
+
+      {cancelModal}
     </section>
   );
 }

@@ -7,8 +7,18 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
-import { deleteExamUnlinkPhotos, getExam, listExamResults, listPhotos, listSubjects } from '@/db/repositories';
+import { cn } from '@/components/ui/cn';
+import {
+  deleteExamUnlinkPhotos,
+  getExam,
+  listAllExamResults,
+  listExamResults,
+  listExams,
+  listPhotos,
+  listSubjects,
+} from '@/db/repositories';
 import type { Exam, ExamResult, Photo, Subject } from '@/domain/types';
+import { buildExamComparison, type ExamComparison } from '@/features/dashboard/chartData';
 import { formatNet } from '@/lib/format';
 import { PhotoStrip } from '@/features/photos/PhotoThumb';
 import { PhotoUpload } from '@/features/photos/PhotoUpload';
@@ -109,20 +119,32 @@ export function ExamDetailPage() {
   const data = useLiveQuery(async () => {
     const exam = await getExam(id);
     if (!exam) {
-      return { exam: undefined, rows: [] as DetailRow[], photos: [] as Photo[] };
+      return {
+        exam: undefined,
+        rows: [] as DetailRow[],
+        photos: [] as Photo[],
+        comparison: undefined as ExamComparison | undefined,
+      };
     }
 
-    const [results, subjects, photos] = await Promise.all([
+    const [results, subjects, photos, exams, allResults] = await Promise.all([
       listExamResults(id),
       listSubjects(exam.type),
       listPhotos({ examId: id }),
+      listExams(exam.type),
+      listAllExamResults(),
     ]);
     const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
     const rows = results
       .map((result) => ({ result, subject: subjectById.get(result.subjectId) }))
       .sort(compareRows);
 
-    return { exam, rows, photos };
+    return {
+      exam,
+      rows,
+      photos,
+      comparison: buildExamComparison(exams, allResults, exam),
+    };
   }, [id]);
 
   if (!data) {
@@ -133,7 +155,7 @@ export function ExamDetailPage() {
     );
   }
 
-  const { exam, rows, photos } = data;
+  const { exam, rows, photos, comparison } = data;
 
   if (!exam) {
     return (
@@ -174,6 +196,29 @@ export function ExamDetailPage() {
           <p className="text-3xl font-semibold tabular-nums text-[var(--accent)]">
             {formatNet(totalNet)}
           </p>
+          {comparison?.previous && comparison.delta !== undefined ? (
+            <p
+              className={cn(
+                'mt-1 text-sm font-medium tabular-nums',
+                comparison.delta > 0
+                  ? 'text-success'
+                  : comparison.delta < 0
+                    ? 'text-danger'
+                    : 'text-muted',
+              )}
+            >
+              {`Önceki denemeye göre ${
+                comparison.delta > 0 ? '+' : ''
+              }${formatNet(comparison.delta)} net`}
+              <span className="block text-xs font-normal text-muted">
+                {comparison.previous.name} · {formatExamDate(comparison.previous.date)}
+              </span>
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-muted">
+              Karşılaştırılacak önceki {exam.type} denemesi yok.
+            </p>
+          )}
         </div>
       </Card>
 

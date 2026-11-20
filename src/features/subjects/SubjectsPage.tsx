@@ -34,7 +34,7 @@ function SubjectGrid({ subjects, exam }: { subjects: Subject[]; exam: ExamType }
 
 export function SubjectsPage({ exam }: SubjectsPageProps) {
   const { settings, updateSettings } = useAppSettings();
-  const [selectedAlan, setSelectedAlan] = useState<AytAlan>(settings.aytAlan);
+  const [error, setError] = useState<string | null>(null);
   const subjects = useLiveQuery(() => listSubjects(exam), [exam]);
 
   if (!subjects) {
@@ -46,33 +46,24 @@ export function SubjectsPage({ exam }: SubjectsPageProps) {
   }
 
   const isAyt = exam === 'AYT';
+  const selectedAlan = settings.aytAlan;
 
   async function changeAlan(value: AytAlan) {
-    const previous = selectedAlan;
-    setSelectedAlan(value);
-
-    try {
-      await updateSettings({
-        aytAlan: value,
-        hiddenSubjects: computeHiddenSubjects(value, await listSubjects()),
-      });
-    } catch (error: unknown) {
-      console.error('AYT alanı güncellenemedi', error);
-      setSelectedAlan(previous);
+    setError(null);
+    const result = await updateSettings({
+      aytAlan: value,
+      hiddenSubjects: computeHiddenSubjects(value, await listSubjects()),
+    });
+    if (!result.ok) {
+      setError('AYT alanı güncellenemedi. Lütfen tekrar dene.');
     }
   }
 
-  // TYT subjects are never filtered. On AYT, the selected alan is the sole
-  // authority for visibility: settings.hiddenSubjects can be stale until
-  // SettingsPage recomputes it, so it is not unioned here. Clicking the current
-  // selection still rewrites both fields, which reconciles a stale hidden list.
-  const alanHiddenIds = new Set(
-    isAyt && selectedAlan !== 'tumu' ? computeHiddenSubjects(selectedAlan, subjects) : [],
-  );
-  const visibleSubjects =
-    !isAyt || selectedAlan === 'tumu'
-      ? subjects
-      : subjects.filter((subject) => !alanHiddenIds.has(subject.id));
+  // `hiddenSubjects` is the single visibility source for both exams. Every
+  // alan change recomputes it and "Tümü" clears it, so the TYT page, AYT page,
+  // exam form and settings checkboxes always agree.
+  const hiddenIds = new Set(settings.hiddenSubjects);
+  const visibleSubjects = subjects.filter((subject) => !hiddenIds.has(subject.id));
 
   return (
     <section className="space-y-6">
@@ -120,13 +111,19 @@ export function SubjectsPage({ exam }: SubjectsPageProps) {
           title={isAyt ? 'Bu alanda ders yok' : 'Gösterilecek ders yok'}
           description={
             isAyt
-              ? 'Başka bir alan seçebilir veya Tümü ile tüm dersleri görebilirsin.'
-              : 'Müfredat yüklendiğinde dersler burada listelenecek.'
+              ? 'Başka bir alan seçebilir, Tümü ile tüm dersleri görebilir veya Ayarlar’dan ders görünürlüğünü açabilirsin.'
+              : 'Ayarlar’dan ders görünürlüğünü açarak gizlediğin dersleri geri getirebilirsin.'
           }
         />
       ) : (
         <SubjectGrid subjects={visibleSubjects} exam={exam} />
       )}
+
+      {error ? (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
     </section>
   );
 }

@@ -248,10 +248,14 @@ test('konu filtreleri devam eden ve biten konuları ayırır', async () => {
 });
 
 test('AYT alan filtresi dersleri süzer ve seçimi saklar', async () => {
-  const aytSubjects = await listSubjects('AYT');
+  const allSubjects = await listSubjects();
+  const aytSubjects = allSubjects.filter((subject) => subject.exam === 'AYT');
   const edebiyat = aytSubjects.find((subject) => subject.seedKey === 'ayt-edebiyat');
   expect(edebiyat).toBeDefined();
-  await patchSettings({ aytAlan: 'sayisal' });
+  await patchSettings({
+    aytAlan: 'sayisal',
+    hiddenSubjects: computeHiddenSubjects('sayisal', allSubjects),
+  });
 
   renderApp('/ayt');
 
@@ -283,37 +287,36 @@ test('AYT alan filtresi dersleri süzer ve seçimi saklar', async () => {
   });
 });
 
-test('bayat gizli listesi AYT alan filtresini bozamaz', async () => {
+test('Tümü seçiliyken elle gizlenen AYT dersi gizli kalır', async () => {
   const allSubjects = await listSubjects();
   const edebiyat = allSubjects.find((subject) => subject.seedKey === 'ayt-edebiyat');
   expect(edebiyat).toBeDefined();
-  await patchSettings({
-    aytAlan: 'sayisal',
-    hiddenSubjects: computeHiddenSubjects('sozel', allSubjects),
-  });
+  await patchSettings({ aytAlan: 'tumu', hiddenSubjects: [edebiyat!.id] });
 
   renderApp('/ayt');
 
   expect(await screen.findByText('Matematik')).toBeInTheDocument();
   expect(screen.queryByText('Edebiyat')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Sayısal' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('button', { name: 'Tümü' })).toHaveAttribute('aria-pressed', 'true');
 
-  await userEvent.click(screen.getByRole('button', { name: 'Sayısal' }));
+  // Tümü yeniden seçildiğinde gizli liste temizlenir.
+  await userEvent.click(screen.getByRole('button', { name: 'Tümü' }));
+  expect(await screen.findByText('Edebiyat')).toBeInTheDocument();
   await waitFor(async () => {
-    const settings = await getSettings();
-    expect(settings.aytAlan).toBe('sayisal');
-    expect(settings.hiddenSubjects).toEqual([edebiyat!.id]);
+    expect((await getSettings()).hiddenSubjects).toEqual([]);
   });
 });
 
-test('TYT dersleri gizli ayarından etkilenmez ve alan filtresi göstermez', async () => {
+test('TYT dersleri gizli ayarına uyar ve alan filtresi göstermez', async () => {
   const tytSubjects = await listSubjects('TYT');
-  await patchSettings({ hiddenSubjects: tytSubjects.map((subject) => subject.id) });
+  const fizik = tytSubjects.find((subject) => subject.seedKey === 'tyt-fiz');
+  expect(fizik).toBeDefined();
+  await patchSettings({ hiddenSubjects: [fizik!.id] });
 
   renderApp('/tyt');
 
   expect(await screen.findByText('Matematik')).toBeInTheDocument();
-  expect(await screen.findByText('Fizik')).toBeInTheDocument();
+  expect(screen.queryByText('Fizik')).not.toBeInTheDocument();
   expect(screen.queryByRole('group', { name: 'AYT alanı' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Sayısal' })).not.toBeInTheDocument();
 });

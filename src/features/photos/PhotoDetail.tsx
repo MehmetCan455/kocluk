@@ -11,6 +11,8 @@ import { Modal } from '@/components/ui/Modal';
 import { db } from '@/db/db';
 import { deletePhotos, listSubjects, listTopics, updatePhoto } from '@/db/repositories';
 import type { Photo } from '@/domain/types';
+import { formatExamDate } from '@/features/exams/examFormat';
+import { isoToLocalDate, localDateToIso } from '@/lib/date';
 import { photoLabel, usePhotoObjectUrl } from './PhotoThumb';
 
 const inputClass =
@@ -25,6 +27,7 @@ function PhotoEditModal({ photo, onClose }: PhotoEditModalProps) {
   const baseId = useId().replace(/:/g, '');
   const [subjectId, setSubjectId] = useState(photo.subjectId);
   const [topicId, setTopicId] = useState(photo.topicId ?? '');
+  const [captureDate, setCaptureDate] = useState(isoToLocalDate(photo.createdAt));
   const [note, setNote] = useState(photo.note);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +54,7 @@ function PhotoEditModal({ photo, onClose }: PhotoEditModalProps) {
         subjectId,
         topicId: topicId || undefined,
         note: note.trim(),
+        createdAt: localDateToIso(captureDate) ?? photo.createdAt,
       });
       onClose();
     } catch (caught: unknown) {
@@ -117,6 +121,16 @@ function PhotoEditModal({ photo, onClose }: PhotoEditModalProps) {
           value={note}
           rows={3}
           onChange={(event) => setNote(event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label="Tarih" htmlFor={`${baseId}-tarih`} hint="Fotoğrafın çekildiği tarih">
+        <input
+          id={`${baseId}-tarih`}
+          type="date"
+          value={captureDate}
+          onChange={(event) => setCaptureDate(event.target.value)}
           className={inputClass}
         />
       </Field>
@@ -309,6 +323,10 @@ export function PhotoDetail() {
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted">Konu</dt>
             <dd>{topic?.name ?? 'Konu seçilmedi'}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Tarih</dt>
+            <dd>{formatExamDate(photo.createdAt)}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted">Deneme</dt>

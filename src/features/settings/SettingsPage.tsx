@@ -42,6 +42,7 @@ function formatExamDate(value: string): string {
 export function SettingsPage() {
   const { settings, updateSettings } = useAppSettings();
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
+  const [alanError, setAlanError] = useState<string | null>(null);
   const alanRequest = useRef(0);
   const examDateLabel = formatExamDate(settings.examDate);
 
@@ -51,17 +52,17 @@ export function SettingsPage() {
   async function changeAlan(value: AytAlan) {
     const request = alanRequest.current + 1;
     alanRequest.current = request;
-    try {
-      const subjects = await listSubjects();
-      if (request !== alanRequest.current) {
-        return;
-      }
-      await updateSettings({
-        aytAlan: value,
-        hiddenSubjects: computeHiddenSubjects(value, subjects),
-      });
-    } catch (error: unknown) {
-      console.error('AYT alanı güncellenemedi', error);
+    setAlanError(null);
+    const subjects = await listSubjects();
+    if (request !== alanRequest.current) {
+      return;
+    }
+    const result = await updateSettings({
+      aytAlan: value,
+      hiddenSubjects: computeHiddenSubjects(value, subjects),
+    });
+    if (!result.ok) {
+      setAlanError('AYT alanı güncellenemedi. Lütfen tekrar dene.');
     }
   }
 
@@ -142,6 +143,12 @@ export function SettingsPage() {
             ))}
           </select>
         </Field>
+
+        {alanError ? (
+          <p role="alert" className="text-sm text-danger">
+            {alanError}
+          </p>
+        ) : null}
       </Card>
 
       <SubjectVisibility />

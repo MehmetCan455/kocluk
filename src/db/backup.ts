@@ -1,7 +1,9 @@
 import JSZip from 'jszip';
 import { z } from 'zod';
+import { CURRICULUM } from '@/data/curriculum';
 import { db, type SettingsRow } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
+import { seedCurriculum } from '@/db/seed';
 import type {
   AppSettings,
   Attachment,
@@ -10,6 +12,8 @@ import type {
   PhotoSearch,
   PracticeSession,
 } from '@/domain/types';
+import { calculateNet } from '@/domain/calculations';
+import { isValidDateString } from '@/lib/date';
 import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
 import { isStorageQuotaError, STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
 import { readBlobAsArrayBuffer } from '@/lib/zip';
@@ -37,6 +41,18 @@ export interface BackupSummary {
 }
 
 export type ImportBackupResult = BackupSummary;
+
+export interface BackupProgress {
+  phase: 'reading' | 'blobs' | 'zip';
+  /** Overall percent, 0-100. */
+  percent: number;
+  /** Files written so far during the blob/zip phases. */
+  current?: number;
+  /** Total files that will be written. */
+  total?: number;
+}
+
+export type BackupProgressHandler = (progress: BackupProgress) => void;
 
 const idSchema = z
   .string()
@@ -212,10 +228,14 @@ const photoSchema = z
 
 const photoSearchSchema = z.object({
   id: idSchema,
+  examId: idSchema.optional(),
   examType: examTypeSchema,
   subjectId: idSchema,
   topicId: idSchema.optional(),
   note: z.string(),
+  // Optional: v2 backups predate these fields. Import always rebuilds the
+  // projection from the photos table, so their absence is harmless.
+  mastered: z.boolean().optional(),
   createdAt: z.string(),
 });
 
@@ -417,6 +437,28 @@ async function readJson(zip: JSZip, path: string): Promise<unknown> {
   }
 }
 
+function assertArchiveBlobs(zip: JSZip, data: BackupData): void {
+  const missing: string[] = [];
+  for (const photo of data.photos) {
+    if (!zip.file(photo.blobPath)) {
+      missing.push(photo.blobPath);
+    }
+    if (!zip.file(photo.thumbBlobPath)) {
+      missing.push(photo.thumbBlobPath);
+    }
+  }
+  for (const attachment of data.attachments) {
+    if (!zip.file(attachment.blobPath)) {
+      missing.push(attachment.blobPath);
+    }
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `${INVALID_BACKUP_MESSAGE}: yedekte eksik dosya var (${missing[0]}).`,
+    );
+  }
+}
+
 async function readArchive(file: File): Promise<Archive> {
   let zip: JSZip;
   try {
@@ -445,6 +487,7 @@ async function readArchive(file: File): Promise<Archive> {
 
   const data = migrateBackupData(dataResult.data, manifest.schemaVersion);
   assertUniqueBackupKeys(data);
+  assertArchiveBlobs(zip, data);
 
   return {
     zip,
@@ -551,14 +594,27 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
     };
   });
 
+  // `net` is derived data: never trust a modified/stale backup value.
+  // Exam dates are used for charts and sorting, so they must be real days.
+  const normalizedExams = data.exams.map((exam) => {
+    if (!isValidDateString(exam.date)) {
+      throw new Error(`${INVALID_BACKUP_MESSAGE}: deneme tarihi geçersiz.`);
+    }
+    return exam;
+  });
+  const normalizedExamResults = data.examResults.map((row) => ({
+    ...row,
+    net: calculateNet(row.correct, row.wrong),
+  }));
+
   const restored: RestoredData = {
     settings: data.settings as SettingsRow[],
     subjects: data.subjects,
     topics: data.topics,
     books: data.books,
     topicBooks: data.topicBooks,
-    exams: data.exams,
-    examResults: data.examResults,
+    exams: normalizedExams,
+    examResults: normalizedExamResults,
     photos: photos.photos,
     photoSearch: photos.photoSearch,
     notes,
@@ -595,6 +651,17 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
     });
   }
 
+  // A backup taken before a curriculum update would otherwise leave the app
+  // with missing seed topics until the next SettingsProvider mount. The seed
+  // is idempotent and only adds missing seed entries, never overwriting user
+  // renames. Restored data is already committed at this point.
+  const restoredSeed = restored.settings.find((row) => row.key === 'seedVersion');
+  const restoredSeedVersion =
+    typeof restoredSeed?.value === 'number' ? restoredSeed.value : 0;
+  if (restoredSeedVersion < CURRICULUM.version) {
+    await seedCurriculum(CURRICULUM);
+  }
+
   return { exportedAt: manifest.exportedAt, counts };
 }
 
@@ -618,9 +685,36 @@ async function addBlob(
  * Creates a portable zip with every table and every photo/attachment blob.
  * `lastBackupAt` is written only after the zip is fully generated, so a failed
  * export never claims to be a successful backup.
+ *
+ * The whole archive is still built in memory (streaming is out of scope for
+ * v1). `onProgress` lets the settings panel show reading/blob/zip progress and
+ * warn about large archives.
  */
-export async function exportBackup(): Promise<Blob> {
-  const [
+export async function exportBackup(
+  onProgress?: BackupProgressHandler,
+): Promise<Blob> {
+  const report = (progress: BackupProgress) => {
+    onProgress?.(progress);
+  };
+  report({ phase: 'reading', percent: 0 });
+
+  // One read transaction keeps the exported tables mutually consistent.
+  const snapshot = await db.transaction('r', db.tables, async () => ({
+    settings: await db.settings.toArray(),
+    subjects: await db.subjects.toArray(),
+    topics: await db.topics.toArray(),
+    books: await db.books.toArray(),
+    topicBooks: await db.topicBooks.toArray(),
+    exams: await db.exams.toArray(),
+    examResults: await db.examResults.toArray(),
+    photos: await db.photos.toArray(),
+    photoSearch: await db.photoSearch.toArray(),
+    notes: await db.notes.toArray(),
+    attachments: await db.attachments.toArray(),
+    practiceSessions: await db.practiceSessions.toArray(),
+  }));
+
+  const {
     settings,
     subjects,
     topics,
@@ -633,20 +727,7 @@ export async function exportBackup(): Promise<Blob> {
     notes,
     attachments,
     practiceSessions,
-  ] = await Promise.all([
-    db.settings.toArray(),
-    db.subjects.toArray(),
-    db.topics.toArray(),
-    db.books.toArray(),
-    db.topicBooks.toArray(),
-    db.exams.toArray(),
-    db.examResults.toArray(),
-    db.photos.toArray(),
-    db.photoSearch.toArray(),
-    db.notes.toArray(),
-    db.attachments.toArray(),
-    db.practiceSessions.toArray(),
-  ]);
+  } = snapshot;
 
   const serializedPhotos = photos.map(({ blob, thumbBlob, ...photo }) => ({
     ...photo,
@@ -693,18 +774,54 @@ export async function exportBackup(): Promise<Blob> {
   };
 
   const zip = new JSZip();
+  const totalFiles = photos.length * 2 + attachments.length + 2;
+  let written = 0;
+  const advance = () => {
+    written += 1;
+    report({
+      phase: 'blobs',
+      percent: 5 + Math.round((written / totalFiles) * 65),
+      current: written,
+      total: totalFiles,
+    });
+  };
+
   zip.file('manifest.json', JSON.stringify(manifest), { compression: 'DEFLATE' });
+  advance();
   zip.file('veri.json', JSON.stringify(data), { compression: 'DEFLATE' });
+  advance();
+
+  report({ phase: 'reading', percent: 5 });
+
   for (const photo of photos) {
     const paths = photoBackupPaths(photo.id);
     await addBlob(zip, paths.blobPath, photo.blob);
+    advance();
     await addBlob(zip, paths.thumbBlobPath, photo.thumbBlob);
+    advance();
   }
   for (const attachment of attachments) {
     await addBlob(zip, attachmentBackupPath(attachment), attachment.blob);
+    advance();
   }
 
-  const blob = await zip.generateAsync({ type: 'blob' });
+  report({
+    phase: 'zip',
+    percent: 70,
+    current: written,
+    total: totalFiles,
+  });
+
+  const blob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+    report({
+      phase: 'zip',
+      percent: 70 + Math.round(metadata.percent * 0.3),
+      current: written,
+      total: totalFiles,
+    });
+  });
+
   await db.settings.put({ key: 'lastBackupAt', value: exportedAt });
+  report({ phase: 'zip', percent: 100, current: totalFiles, total: totalFiles });
   return blob;
 }

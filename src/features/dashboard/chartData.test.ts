@@ -1,6 +1,10 @@
 import { expect, test } from 'vitest';
 import type { AytAlan, Exam, ExamResult, ExamType } from '@/domain/types';
-import { buildNetSeries } from './chartData';
+import {
+  buildExamComparison,
+  buildNetSeries,
+  buildSubjectNetSeries,
+} from './chartData';
 
 function exam(
   id: string,
@@ -118,4 +122,79 @@ test('AYT alan filtresi yalnızca eşleşenleri alır, alanı boş denemeler Gen
 
 test('veri yoksa boş seri döndürür', () => {
   expect(buildNetSeries([], [], 'TYT')).toEqual({ labels: [], values: [] });
+});
+
+test('ders bazında net serisi yalnızca o dersin sonuçlarını kullanır', () => {
+  const exams = [
+    exam('tyt-1', 'TYT', '2026-09-01'),
+    exam('tyt-2', 'TYT', '2026-09-02'),
+    exam('tyt-3', 'TYT', '2026-09-03'),
+    exam('ayt-1', 'AYT', '2026-09-04', 'sayisal'),
+  ];
+  const results = [
+    result('r1', 'tyt-1', 10),
+    result('r2', 'tyt-1', 6),
+    result('r3', 'tyt-2', 20),
+    result('r4', 'ayt-1', 30),
+  ];
+  // r1/r2 share the same derived subject id; simulate two rows for the
+  // requested subject on one exam and a missing subject on another.
+  results[0] = { ...results[0], subjectId: 'matematik' };
+  results[1] = { ...results[1], subjectId: 'matematik' };
+  results[2] = { ...results[2], subjectId: 'fizik' };
+  results[3] = { ...results[3], subjectId: 'matematik' };
+
+  expect(buildSubjectNetSeries(exams, results, 'TYT', 'matematik')).toEqual({
+    labels: ['1 Eyl', '2 Eyl', '3 Eyl'],
+    values: [16, 0, 0],
+  });
+  expect(buildSubjectNetSeries(exams, results, 'AYT', 'matematik', 'sayisal')).toEqual({
+    labels: ['4 Eyl'],
+    values: [30],
+  });
+  expect(buildSubjectNetSeries(exams, results, 'AYT', 'matematik', 'ea')).toEqual({
+    labels: [],
+    values: [],
+  });
+});
+
+test('deneme karşılaştırması aynı tür ve alandaki bir önceki denemeyi bulur', () => {
+  const tyt = [
+    exam('tyt-1', 'TYT', '2026-09-01'),
+    exam('tyt-2', 'TYT', '2026-09-02'),
+    exam('tyt-3', 'TYT', '2026-09-03'),
+  ];
+  const ayt = [
+    exam('ayt-say-1', 'AYT', '2026-09-01', 'sayisal'),
+    exam('ayt-say-2', 'AYT', '2026-09-02', 'sayisal'),
+    exam('ayt-ea-1', 'AYT', '2026-09-03', 'ea'),
+    exam('ayt-genel', 'AYT', '2026-09-04'),
+  ];
+  const results = [
+    result('r1', 'tyt-1', 10),
+    result('r2', 'tyt-2', 20),
+    result('r3', 'tyt-3', 15),
+    result('r4', 'ayt-say-1', 30),
+    result('r5', 'ayt-say-2', 40),
+    result('r6', 'ayt-ea-1', 50),
+    result('r7', 'ayt-genel', 60),
+  ];
+
+  expect(buildExamComparison(tyt, results, tyt[1])).toMatchObject({
+    previous: { id: 'tyt-1' },
+    currentTotal: 20,
+    previousTotal: 10,
+    delta: 10,
+  });
+  expect(buildExamComparison(tyt, results, tyt[0]).delta).toBeUndefined();
+  expect(buildExamComparison([...tyt, ...ayt], results, ayt[1])).toMatchObject({
+    previous: { id: 'ayt-say-1' },
+    delta: 10,
+  });
+  // Genel/alanı boş AYT denemesi Sayısal ile karşılaştırılmaz.
+  expect(buildExamComparison([...tyt, ...ayt], results, ayt[3]).previous).toBeUndefined();
+  const eaComparison = buildExamComparison([...tyt, ...ayt], results, ayt[2]);
+  expect(eaComparison.currentTotal).toBe(50);
+  expect(eaComparison.previous).toBeUndefined();
+  expect(eaComparison.delta).toBeUndefined();
 });

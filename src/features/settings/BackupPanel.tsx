@@ -3,12 +3,14 @@ import { AlertTriangle, Archive, Download, Trash2, Upload } from 'lucide-react';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Toast } from '@/components/ui/Toast';
 import {
   clearAllData,
   exportBackup,
   importBackup,
   readBackupSummary,
+  type BackupProgress,
   type BackupSummary,
 } from '@/db/backup';
 import { backupFileName, saveBlob } from '@/lib/zip';
@@ -56,6 +58,7 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
   const [busy, setBusy] = useState<BusyState>(null);
   const [preview, setPreview] = useState<BackupPreview | null>(null);
   const [resetStep, setResetStep] = useState<0 | 1 | 2>(0);
+  const [progress, setProgress] = useState<BackupProgress | null>(null);
   const [toast, setToast] = useState<{ tone: 'success' | 'error'; message: string } | null>(
     null,
   );
@@ -65,9 +68,10 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
       return;
     }
     setBusy('download');
+    setProgress(null);
     setToast(null);
     try {
-      const blob = await exportBackup();
+      const blob = await exportBackup(setProgress);
       saveBlob(blob, backupFileName());
       await refreshSettings();
       setToast({ tone: 'success', message: 'Yedek indirildi.' });
@@ -75,6 +79,7 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
       console.error('Yedek indirilemedi', error);
       setToast({ tone: 'error', message: errorMessage(error) });
     } finally {
+      setProgress(null);
       setBusy(null);
     }
   }
@@ -187,13 +192,32 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
           </label>
         </div>
 
-        {busy === 'download' || busy === 'preview' || busy === 'import' ? (
+        {busy === 'download' ? (
+          <div className="space-y-2">
+            <ProgressBar
+              value={progress?.percent ?? 0}
+              label="Yedek hazırlama ilerlemesi"
+            />
+            <p role="status" className="text-sm text-muted" aria-live="polite">
+              {progress
+                ? `Yedek hazırlanıyor: %${Math.round(progress.percent)}${
+                    progress.total
+                      ? ` · ${progress.current ?? 0}/${progress.total} dosya`
+                      : ''
+                  }`
+                : 'Yedek hazırlanıyor…'}
+            </p>
+            <p className="text-xs text-muted">
+              Fotoğraf arşivi büyükse zip hazırlanması birkaç dakika sürebilir. Zip
+              bellekte oluşturulduğu için işlem sırasında yüksek bellek kullanılabilir;
+              uygulamayı kapatma.
+            </p>
+          </div>
+        ) : busy === 'preview' || busy === 'import' ? (
           <p role="status" className="text-sm text-muted">
-            {busy === 'download'
-              ? 'Zip dosyası hazırlanıyor; fotoğraf sayısına göre birkaç saniye sürebilir.'
-              : busy === 'preview'
-                ? 'Yedek doğrulanıyor…'
-                : 'Mevcut veriler değiştiriliyor…'}
+            {busy === 'preview'
+              ? 'Yedek doğrulanıyor…'
+              : 'Mevcut veriler değiştiriliyor…'}
           </p>
         ) : null}
 

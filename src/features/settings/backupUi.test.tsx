@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { saveAs } from 'file-saver';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { CURRICULUM } from '@/data/curriculum';
 import { exportBackup } from '@/db/backup';
 import { db } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
@@ -34,7 +35,7 @@ const seed: CurriculumSeed = {
 };
 
 async function seedPanelData(profileName = 'Yedek Profili') {
-  await seedOnboarded(seed, { profileName });
+  await seedOnboarded(seed, { profileName, seedVersion: CURRICULUM.version });
   const subject = (await db.subjects.where('seedKey').equals('tyt-mat').first())!;
   const topic = (await db.topics.where('seedKey').equals('tyt-mat-turev').first())!;
   await createBook({ name: 'Matematik Soru Bankası' });

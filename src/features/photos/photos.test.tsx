@@ -195,6 +195,7 @@ test('fotoğraf ekler, blobsuz arama projeksiyonu yazar ve arama notu bulur', as
     subjectId: photo.subjectId,
     topicId: photo.topicId,
     note: 'Türev fotoğrafı',
+    mastered: false,
     createdAt: photo.createdAt,
   });
   expect(projection).not.toHaveProperty('blob');
@@ -606,4 +607,123 @@ test('depolama kotası hatasında Türkçe mesaj gösterir ve yükleme askıda k
   expect(within(dialog).getByRole('button', { name: 'Yükle' })).toBeEnabled();
   expect(await db.photos.count()).toBe(0);
   expect(await db.photoSearch.count()).toBe(0);
+});
+
+test('tarih aralığı filtresi galeriyi daraltır', async () => {
+  const older = await createPhoto({ note: 'Eski soru', subjectKey: 'tyt-mat-turev' });
+  const newer = await createPhoto({ note: 'Yeni soru', subjectKey: 'tyt-fiz-hareket' });
+  await updatePhoto(older.id, { createdAt: '2026-11-01T12:00:00.000Z' });
+  await updatePhoto(newer.id, { createdAt: '2026-11-10T12:00:00.000Z' });
+
+  renderApp('/yanlislar');
+
+  expect(await screen.findByRole('img', { name: 'Eski soru' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Yeni soru' })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Başlangıç tarihi'), {
+    target: { value: '2026-11-05' },
+  });
+
+  await waitFor(() => {
+    expect(screen.queryByRole('img', { name: 'Eski soru' })).not.toBeInTheDocument();
+  });
+  expect(screen.getByRole('img', { name: 'Yeni soru' })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Bitiş tarihi'), {
+    target: { value: '2026-11-04' },
+  });
+  expect(
+    await screen.findByText('Başlangıç tarihi bitiş tarihinden sonra olamaz.'),
+  ).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Filtreleri temizle' }));
+  expect(await screen.findByRole('img', { name: 'Eski soru' })).toBeInTheDocument();
+});
+
+test('yükleme sırasında fotoğraf tarihi seçilebilir', async () => {
+  const { subject } = await topicByKey('tyt-mat-turev');
+  const dialog = await openUploadDialog();
+
+  await userEvent.selectOptions(within(dialog).getByLabelText(/Ders/), subject.id);
+  fireEvent.change(within(dialog).getByLabelText('Tarih'), {
+    target: { value: '2026-10-05' },
+  });
+  await userEvent.upload(
+    within(dialog).getByLabelText('Galeriden seç'),
+    new File(['fotoğraf'], 'tarihli.jpg', { type: 'image/jpeg' }),
+  );
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Yükle' }));
+
+  await waitFor(async () => {
+    expect(await db.photos.count()).toBe(1);
+  });
+  const stored = await db.photos.toCollection().first();
+  expect(stored?.createdAt.slice(0, 10)).toBe('2026-10-05');
+});
+
+test('fotoğraf detayında tarih düzenlenir', async () => {
+  const photo = await createPhoto({ note: 'Tarihi düzenlenecek soru' });
+
+  renderApp(`/yanlislar/${photo.id}`);
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Düzenle' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Fotoğrafı düzenle' });
+  fireEvent.change(within(dialog).getByLabelText('Tarih'), {
+    target: { value: '2026-10-05' },
+  });
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  await waitFor(async () => {
+    const stored = await db.photos.get(photo.id);
+    expect(stored?.createdAt.slice(0, 10)).toBe('2026-10-05');
+  });
+  expect(await db.photoSearch.get(photo.id)).toMatchObject({
+    createdAt: expect.stringContaining('2026-10-05'),
+  });
+});
+
+test('toplu etiket değiştir ders, konu ve deneme bağlantısını günceller', async () => {
+  const mat = await topicByKey('tyt-mat-turev');
+  const exam = await saveExam({
+    type: 'TYT',
+    name: 'Etiket Denemesi',
+    date: '2026-11-10',
+    results: [],
+  });
+  const first = await createPhoto({ note: 'Birinci soru', subjectKey: 'tyt-mat-turev' });
+  const second = await createPhoto({ note: 'İkinci soru', subjectKey: 'tyt-fiz-hareket' });
+
+  renderApp('/yanlislar');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Seç' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Birinci soru' }));
+  await userEvent.click(screen.getByRole('button', { name: 'İkinci soru' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Etiket değiştir' }));
+
+  const dialog = await screen.findByRole('dialog', { name: 'Etiket değiştir' });
+  await userEvent.selectOptions(within(dialog).getByLabelText(/Ders/), mat.subject.id);
+  await userEvent.selectOptions(
+    await within(dialog).findByLabelText('Konu'),
+    mat.topic.id,
+  );
+  await userEvent.selectOptions(within(dialog).getByLabelText('Deneme'), exam.id);
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  await waitFor(async () => {
+    const stored = await Promise.all([db.photos.get(first.id), db.photos.get(second.id)]);
+    for (const photo of stored) {
+      expect(photo?.subjectId).toBe(mat.subject.id);
+      expect(photo?.topicId).toBe(mat.topic.id);
+      expect(photo?.examId).toBe(exam.id);
+      expect(photo?.examType).toBe('TYT');
+    }
+  });
+
+  const projections = await db.photoSearch.bulkGet([first.id, second.id]);
+  for (const projection of projections) {
+    expect(projection?.subjectId).toBe(mat.subject.id);
+    expect(projection?.topicId).toBe(mat.topic.id);
+    expect(projection?.examId).toBe(exam.id);
+  }
+  expect(screen.queryByRole('dialog', { name: 'Etiket değiştir' })).not.toBeInTheDocument();
 });

@@ -30,7 +30,11 @@ export function PhotoFilters({ value, subjects, topics, exams, onChange }: Photo
     value.topicId !== undefined ||
     value.examId !== undefined ||
     value.mastered !== undefined ||
+    value.from !== undefined ||
+    value.to !== undefined ||
     Boolean(value.query);
+  const invalidRange =
+    value.from !== undefined && value.to !== undefined && value.from > value.to;
 
   function patch(next: Partial<PhotoFiltersValue>) {
     onChange({ ...value, ...next });
@@ -155,7 +159,35 @@ export function PhotoFilters({ value, subjects, topics, exams, onChange }: Photo
             className={inputClass}
           />
         </Field>
+
+        <Field label="Başlangıç tarihi" htmlFor={`${baseId}-baslangic`}>
+          <input
+            id={`${baseId}-baslangic`}
+            type="date"
+            value={value.from ?? ''}
+            aria-invalid={invalidRange ? true : undefined}
+            onChange={(event) => patch({ from: event.target.value || undefined })}
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="Bitiş tarihi" htmlFor={`${baseId}-bitis`}>
+          <input
+            id={`${baseId}-bitis`}
+            type="date"
+            value={value.to ?? ''}
+            aria-invalid={invalidRange ? true : undefined}
+            onChange={(event) => patch({ to: event.target.value || undefined })}
+            className={inputClass}
+          />
+        </Field>
       </div>
+
+      {invalidRange ? (
+        <p role="alert" className="text-sm text-danger">
+          Başlangıç tarihi bitiş tarihinden sonra olamaz.
+        </p>
+      ) : null}
     </Card>
   );
 }

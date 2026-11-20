@@ -154,6 +154,7 @@ test('yanlış fotoğrafları not metniyle bulunur ve galeriye bağlanır', asyn
     subjectId: turevSubject.id,
     topicId: turevTopic.id,
     note: 'Türev fotoğrafı',
+    mastered: false,
     createdAt: now,
   });
   expect(await db.photos.count()).toBe(0);

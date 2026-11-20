@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Camera, Check, FlaskConical, Plus, Trash2 } from 'lucide-react';
+import { Camera, Check, FlaskConical, Plus, Tags, Trash2 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -22,6 +22,7 @@ import {
   formatPracticeDate,
   scorePracticeSession,
 } from '@/features/practice/practiceSummary';
+import { PhotoBulkTagModal } from './PhotoBulkTagModal';
 import { PhotoFilters } from './PhotoFilters';
 import { PhotoThumb, photoLabel } from './PhotoThumb';
 import { PhotoUpload } from './PhotoUpload';
@@ -41,6 +42,8 @@ function hasActiveFilters(filters: PhotoFiltersValue): boolean {
     filters.topicId !== undefined ||
     filters.examId !== undefined ||
     filters.mastered !== undefined ||
+    filters.from !== undefined ||
+    filters.to !== undefined ||
     Boolean(filters.query)
   );
 }
@@ -55,6 +58,7 @@ export function PhotosPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [tagging, setTagging] = useState(false);
 
   const subjects = useLiveQuery(() => listSubjects(), []);
   const exams = useLiveQuery(() => listExams(), []);
@@ -65,11 +69,13 @@ export function PhotosPage() {
   const photos = useLiveQuery(() => listPhotos(filters), [filters]);
   const openSessions = useLiveQuery(() => listOpenPracticeSessions(), []);
   const summary = useLiveQuery(async () => {
+    // Counts come from the blob-free projection; the gallery rows themselves
+    // still read thumbnails/full metadata (see the report's residual note).
     const [total, mastered] = await Promise.all([
-      db.photos.count(),
-      db.photos.filter((photo) => photo.mastered).count(),
+      db.photoSearch.count(),
+      db.photoSearch.filter((photo) => photo.mastered).count(),
     ]);
-    const thisWeek = await db.photos
+    const thisWeek = await db.photoSearch
       .where('createdAt')
       .aboveOrEqual(weekStartIso())
       .count();
@@ -255,6 +261,15 @@ export function PhotosPage() {
                 Seçimi bitir
               </Button>
               <Button
+                variant="secondary"
+                size="sm"
+                disabled={selected.size === 0}
+                onClick={() => setTagging(true)}
+              >
+                <Tags className="h-4 w-4" aria-hidden="true" />
+                Etiket değiştir
+              </Button>
+              <Button
                 variant="danger"
                 size="sm"
                 disabled={selected.size === 0}
@@ -392,6 +407,20 @@ export function PhotosPage() {
             onClose={() => setUploadOpen(false)}
           />
         </Modal>
+      ) : null}
+
+      {tagging ? (
+        <PhotoBulkTagModal
+          photoIds={[...selected]}
+          subjects={subjects ?? []}
+          exams={exams ?? []}
+          onClose={() => setTagging(false)}
+          onSaved={() => {
+            setTagging(false);
+            setSelected(new Set());
+            setSelecting(false);
+          }}
+        />
       ) : null}
 
       {confirmingDelete ? (

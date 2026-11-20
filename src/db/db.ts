@@ -64,6 +64,22 @@ export class KoclukDB extends Dexie {
             .bulkPut(photos.map(toPhotoSearch));
         }
       });
+
+    // v3 adds `examId` and `mastered` to the projection so the practice flow
+    // can filter without loading full photo rows. Existing projections are
+    // rebuilt from the photos table.
+    this.version(3)
+      .stores({
+        photoSearch: PHOTO_SEARCH_SCHEMA,
+      })
+      .upgrade(async (transaction) => {
+        const photos = await transaction.table<Photo, string>('photos').toArray();
+        if (photos.length > 0) {
+          await transaction
+            .table<PhotoSearch, string>('photoSearch')
+            .bulkPut(photos.map(toPhotoSearch));
+        }
+      });
   }
 }
 

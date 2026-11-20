@@ -93,13 +93,18 @@ export function Onboarding() {
     try {
       await seedCurriculum(CURRICULUM);
       const subjects = await listSubjects();
-      await updateSettings({
+      const result = await updateSettings({
         profileName: trimmedName,
         accent,
         aytAlan: alan,
         hiddenSubjects: computeHiddenSubjects(alan, subjects),
         onboardingDone: true,
       });
+      if (!result.ok) {
+        setError('Kurulum tamamlanamadı. Lütfen tekrar dene.');
+        setSaving(false);
+        return;
+      }
       navigate('/', { replace: true });
     } catch (caught: unknown) {
       console.error('Kurulum tamamlanamadı', caught);

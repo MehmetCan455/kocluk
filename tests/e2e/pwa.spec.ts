@@ -32,6 +32,8 @@ test('manifest kurulabilir ve uygulama ilk yüklemeden sonra çevrimdışı aç�
   expect(manifest.short_name).toBe('Koçluk');
   expect(manifest.display).toBe('standalone');
   expect(manifest.theme_color).toBe('#07080A');
+  expect(manifest.start_url).toBe('./');
+  expect(manifest.scope).toBe('./');
   expect(manifest.icons.some((icon) => icon.sizes === '192x192')).toBe(true);
   expect(manifest.icons.some((icon) => icon.sizes === '512x512')).toBe(true);
   expect(manifest.icons.some((icon) => icon.purpose === 'maskable')).toBe(true);

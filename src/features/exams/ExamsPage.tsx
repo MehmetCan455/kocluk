@@ -6,7 +6,7 @@ import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/components/ui/cn';
-import { manualHiddenSubjects } from '@/data/alanSubjects';
+import { ALAN_SUBJECT_SEED_KEYS, manualHiddenSubjects } from '@/data/alanSubjects';
 import { listAllExamResults, listExams, listSubjects } from '@/db/repositories';
 import type { AytAlan, Exam, ExamResult, ExamType, Subject } from '@/domain/types';
 import {
@@ -17,7 +17,7 @@ import {
 } from '@/features/dashboard/chartData';
 import { NetTrendChart } from '@/features/dashboard/NetTrendChart';
 import { formatNet } from '@/lib/format';
-import { resolveAytAlan } from './examConfig';
+import { isAytBranch, resolveAytAlan } from './examConfig';
 import { formatAlan, formatExamDate, sumNet } from './examFormat';
 
 type AlanFilter = 'all' | AytAlan;
@@ -72,6 +72,7 @@ export function ExamsPage() {
   const [chartSubjectId, setChartSubjectId] = useState('');
 
   function changeFilter(next: ExamType) {
+    setChartSubjectId('');
     setSearchParams(next === 'AYT' ? { tur: 'AYT' } : {}, { replace: true });
   }
 
@@ -136,7 +137,18 @@ export function ExamsPage() {
   const chartSubjects = data.subjects.filter(
     (subject) => subject.exam === chartType && !hiddenIds.has(subject.id),
   );
-  const selectedSubject = chartSubjects.find((subject) => subject.id === chartSubjectId);
+  // A concrete AYT branch narrows the selector to that branch's subjects; a
+  // subject from another branch would otherwise produce a flat zero line.
+  const branchSeedKeys =
+    chartType === 'AYT' && alanFilter !== 'all' && isAytBranch(alanFilter)
+      ? new Set(ALAN_SUBJECT_SEED_KEYS[alanFilter])
+      : null;
+  const visibleChartSubjects = branchSeedKeys
+    ? chartSubjects.filter((subject) => branchSeedKeys.has(subject.seedKey))
+    : chartSubjects;
+  const selectedSubject = visibleChartSubjects.find(
+    (subject) => subject.id === chartSubjectId,
+  );
   const chartSeries = selectedSubject
     ? buildSubjectNetSeries(
         data.rows.map((row) => row.exam),
@@ -214,7 +226,7 @@ export function ExamsPage() {
                   className="min-h-11 rounded-xl border border-line bg-canvas px-3 text-sm text-fg"
                 >
                   <option value="">Toplam net</option>
-                  {chartSubjects.map((subject) => (
+                  {visibleChartSubjects.map((subject) => (
                     <option key={subject.id} value={subject.id}>
                       {subject.name}
                     </option>
@@ -233,7 +245,10 @@ export function ExamsPage() {
                           key={option.id}
                           type="button"
                           aria-pressed={active}
-                          onClick={() => setAlanFilter(option.id)}
+                          onClick={() => {
+                            setChartSubjectId('');
+                            setAlanFilter(option.id);
+                          }}
                           className={
                             active
                               ? 'min-h-11 rounded-lg bg-[var(--accent-soft)] px-3 text-sm font-medium text-[var(--accent)]'

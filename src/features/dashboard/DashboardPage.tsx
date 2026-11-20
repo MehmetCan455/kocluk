@@ -219,8 +219,13 @@ export function DashboardPage() {
     totalNet: sumNet(resultsByExam.get(exam.id) ?? []),
   }));
 
-  // All exams, not just the recent five: highest total and mean total net.
-  const examTotalNets = data.exams.map((exam) =>
+  // Only exams that actually have a result row count towards the net cards. A
+  // newly created exam with no subjects entered has a total of 0, but it is not
+  // a 0-net exam and must not drag the average down.
+  const examsWithResults = data.exams.filter(
+    (exam) => (resultsByExam.get(exam.id)?.length ?? 0) > 0,
+  );
+  const examTotalNets = examsWithResults.map((exam) =>
     sumNet(resultsByExam.get(exam.id) ?? []),
   );
   const highestNet =
@@ -310,7 +315,7 @@ export function DashboardPage() {
                 {formatNet(averageNet)}
               </p>
               <p className="text-xs text-muted">
-                {data.exams.length} denemenin ortalaması
+                {examsWithResults.length} denemenin ortalaması
               </p>
             </>
           )}

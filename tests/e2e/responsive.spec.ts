@@ -6,6 +6,7 @@ const PAGES: ReadonlyArray<{ path: string; heading: string }> = [
   { path: './#/tyt', heading: 'TYT Dersleri' },
   { path: './#/denemeler', heading: 'Denemeler' },
   { path: './#/yanlislar', heading: 'Yanlışlar' },
+  { path: './#/program', heading: 'Haftalık Program' },
   { path: './#/kitaplar', heading: 'Kitaplar' },
   { path: './#/ayarlar', heading: 'Ayarlar' },
 ];
@@ -38,6 +39,20 @@ test('390, 768 ve 1024 px ana sayfada yatay kaydırma olmaz', async ({ page }) =
     );
     expect(overflow, `${width} px yatay kaydırma üretti`).toBeLessThanOrEqual(1);
   }
+});
+
+test('1024 px program sayfasında yatay kaydırma olmaz', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await completeOnboarding(page, TEST_NAME, 'Tümü');
+  await page.goto('./#/program');
+
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Haftalık Program' }),
+  ).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
 });
 
 test('1440 px masaüstünde yan menü görünür ve yatay kaydırma olmaz', async ({ page }) => {

@@ -1003,6 +1003,51 @@ test('grafik dersi elle gizlenenleri saklar, çalışma alanının otomatik gizl
   ).not.toBeInTheDocument();
 });
 
+test('AYT alan filtresi grafik dersi seçeneklerini daraltır ve seçimi sıfırlar', async () => {
+  const aytMatematik = await subjectIdByKey('ayt-matematik');
+  const aytEdebiyat = await subjectIdByKey('ayt-edebiyat');
+  await saveExam({
+    type: 'AYT',
+    name: 'Sayısal AYT',
+    date: '2026-11-02',
+    alan: 'sayisal',
+    results: [{ subjectId: aytMatematik, correct: 12, wrong: 4, blank: 0 }],
+  });
+  await saveExam({
+    type: 'AYT',
+    name: 'EA AYT',
+    date: '2026-11-03',
+    alan: 'ea',
+    results: [{ subjectId: aytEdebiyat, correct: 8, wrong: 0, blank: 16 }],
+  });
+
+  renderApp('/denemeler?tur=AYT');
+
+  const chartSelect = await screen.findByLabelText('Grafik dersi');
+  expect(within(chartSelect).getByRole('option', { name: 'Edebiyat' })).toBeInTheDocument();
+  await userEvent.selectOptions(chartSelect, aytEdebiyat);
+  expect(
+    await screen.findByRole('img', { name: 'AYT Edebiyat net trend grafiği' }),
+  ).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Sayısal' }));
+  await waitFor(() =>
+    expect(
+      within(chartSelect).queryByRole('option', { name: 'Edebiyat' }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(within(chartSelect).getByRole('option', { name: 'Matematik' })).toBeInTheDocument();
+  expect(chartSelect).toHaveValue('');
+
+  await userEvent.click(screen.getByRole('button', { name: 'Tüm alanlar' }));
+  expect(
+    await within(chartSelect).findByRole('option', { name: 'Edebiyat' }),
+  ).toBeInTheDocument();
+  // Branş değişimi seçili dersi sıfırlar; geri dönünce eski seçim geri gelmez.
+  expect(chartSelect).toHaveValue('');
+  expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
+});
+
 test('deneme detayı önceki denemeye göre net farkını gösterir', async () => {
   const turkce = await subjectIdByKey('tyt-turkce');
   await insertExam({

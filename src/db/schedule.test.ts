@@ -144,6 +144,31 @@ test('program kaydı oluşturur, düzenler ve gün/saate göre sıralar', async 
   expect(await db.scheduleEntries.count()).toBe(2);
 });
 
+test('program kaydı geçersiz ders kimliğini boşaltır', async () => {
+  const mat = await subjectId();
+  const withValidSubject = await saveScheduleEntry({
+    day: 2,
+    startTime: '09:00',
+    endTime: '10:00',
+    title: 'Geçerli ders',
+    subjectId: `  ${mat}  `,
+  });
+  expect(withValidSubject.subjectId).toBe(mat);
+
+  const missingSubject = await saveScheduleEntry({
+    day: 2,
+    startTime: '10:00',
+    endTime: '11:00',
+    title: 'Silinmiş ders',
+    subjectId: 'silinmis-ders',
+  });
+  expect(missingSubject.subjectId).toBeUndefined();
+  expect(await db.scheduleEntries.get(missingSubject.id)).toMatchObject({
+    title: 'Silinmiş ders',
+  });
+  expect((await db.scheduleEntries.get(missingSubject.id))?.subjectId).toBeUndefined();
+});
+
 test('program kaydı doğrulamaları Türkçe hata verir', async () => {
   const base = {
     day: 1,

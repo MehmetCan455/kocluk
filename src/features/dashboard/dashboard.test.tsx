@@ -254,6 +254,45 @@ test('en yüksek ve ortalama net son beşle sınırlı kalmadan tüm denemeleri 
   expect(within(averageCard).getByText('6 denemenin ortalaması')).toBeInTheDocument();
 });
 
+test('sonucu girilmemiş deneme en yüksek ve ortalama nete katılmaz', async () => {
+  await seedDashboardData();
+  await saveExam({
+    type: 'TYT',
+    name: 'Boş Deneme',
+    date: '2026-11-18',
+    results: [],
+  });
+
+  renderApp('/');
+
+  const highestCard = await screen.findByRole('group', { name: 'En yüksek net' });
+  expect(within(highestCard).getByText('45,50')).toBeInTheDocument();
+  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
+  expect(within(averageCard).getByText('22,17')).toBeInTheDocument();
+  expect(within(averageCard).getByText('3 denemenin ortalaması')).toBeInTheDocument();
+  // Son denemeler listesinde boş deneme görünse de net kartları 0,00'a düşmez.
+  expect(within(averageCard).queryByText('0,00')).not.toBeInTheDocument();
+});
+
+test('yalnızca sonucu olmayan deneme varsa net kartları boş durum gösterir', async () => {
+  await saveExam({
+    type: 'TYT',
+    name: 'Boş Deneme',
+    date: '2026-11-18',
+    results: [],
+  });
+
+  renderApp('/');
+
+  const highestCard = await screen.findByRole('group', { name: 'En yüksek net' });
+  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
+  expect(within(highestCard).getByText('Henüz deneme yok')).toBeInTheDocument();
+  expect(within(averageCard).getByText('Henüz deneme yok')).toBeInTheDocument();
+  expect(within(highestCard).queryByText('0,00')).not.toBeInTheDocument();
+  expect(within(averageCard).queryByText('0,00')).not.toBeInTheDocument();
+  expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+});
+
 test('gizlenen dersler genel ve AYT yüzdelerine katılmaz', async () => {
   const seed = await seedDashboardData();
   await patchSettings({ hiddenSubjects: [seed.aytFizik] });

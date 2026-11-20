@@ -130,6 +130,8 @@ export function ScheduleEntryModal({
             id={dayId}
             value={day}
             onChange={(event) => setDay(Number(event.target.value))}
+            aria-required="true"
+            aria-invalid={errors.day ? true : undefined}
             aria-describedby={errors.day ? `${dayId}-error` : undefined}
             className={inputClass}
           >
@@ -149,6 +151,8 @@ export function ScheduleEntryModal({
               step={60}
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
+              aria-required="true"
+              aria-invalid={errors.startTime ? true : undefined}
               aria-describedby={errors.startTime ? `${startId}-error` : undefined}
               className={inputClass}
             />
@@ -160,6 +164,8 @@ export function ScheduleEntryModal({
               step={60}
               value={endTime}
               onChange={(event) => setEndTime(event.target.value)}
+              aria-required="true"
+              aria-invalid={errors.endTime ? true : undefined}
               aria-describedby={errors.endTime ? `${endId}-error` : undefined}
               className={inputClass}
             />
@@ -174,6 +180,8 @@ export function ScheduleEntryModal({
             onChange={(event) => setTitle(event.target.value)}
             maxLength={120}
             placeholder={`Örn. ${scheduleDayLabel(day)} matematik tekrarı`}
+            aria-required="true"
+            aria-invalid={errors.title ? true : undefined}
             aria-describedby={errors.title ? `${titleId}-error` : undefined}
             className={inputClass}
           />

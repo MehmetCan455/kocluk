@@ -97,16 +97,13 @@ export function SchedulePage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const data = useLiveQuery(async () => {
-    const [entries, files, subjects] = await Promise.all([
-      listScheduleEntries(),
-      listScheduleFiles(),
-      listSubjects(),
-    ]);
-    return { entries, files, subjects };
-  }, []);
+  // Separate live queries: changing an entry must not re-read the file table
+  // (and its blobs). Dexie only re-runs the query whose table changed.
+  const entries = useLiveQuery(() => listScheduleEntries(), []);
+  const files = useLiveQuery(() => listScheduleFiles(), []);
+  const subjects = useLiveQuery(() => listSubjects(), []);
 
-  if (!data) {
+  if (!entries || !files || !subjects) {
     return (
       <p role="status" className="py-16 text-center text-sm text-muted">
         Program yükleniyor…
@@ -114,8 +111,8 @@ export function SchedulePage() {
     );
   }
 
-  const grouped = groupByDay(data.entries);
-  const subjectById = new Map(data.subjects.map((subject) => [subject.id, subject]));
+  const grouped = groupByDay(entries);
+  const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
 
   async function confirmDelete() {
     if (!deleting || deleteBusy) {
@@ -157,16 +154,16 @@ export function SchedulePage() {
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold">Haftalık plan</h2>
           <p className="text-xs text-muted">
-            {data.entries.length === 0
+            {entries.length === 0
               ? 'Henüz kayıt yok'
-              : `${data.entries.length} kayıt`}
+              : `${entries.length} kayıt`}
           </p>
         </div>
 
-        <div className="lg:overflow-x-auto lg:pb-1">
-          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[980px] lg:grid-cols-7">
+        <div className="xl:overflow-x-auto xl:pb-1">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:min-w-[980px] xl:grid-cols-7">
             {SCHEDULE_DAYS.map((day) => {
-              const entries = grouped.get(day.day) ?? [];
+              const dayEntries = grouped.get(day.day) ?? [];
               const headingId = `program-gun-${day.day}`;
               return (
                 <section
@@ -176,8 +173,8 @@ export function SchedulePage() {
                 >
                   <div className="flex items-center justify-between gap-1">
                     <h3 id={headingId} className="min-w-0 truncate text-sm font-semibold">
-                      <span className="lg:hidden">{day.label}</span>
-                      <span className="hidden lg:inline">{day.short}</span>
+                      <span className="xl:hidden">{day.label}</span>
+                      <span className="hidden xl:inline">{day.short}</span>
                     </h3>
                     <button
                       type="button"
@@ -189,13 +186,13 @@ export function SchedulePage() {
                     </button>
                   </div>
 
-                  {entries.length === 0 ? (
+                  {dayEntries.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-line px-2 py-4 text-center text-xs text-muted">
                       Kayıt yok
                     </p>
                   ) : (
                     <ul className="space-y-2">
-                      {entries.map((entry) => (
+                      {dayEntries.map((entry) => (
                         <ScheduleEntryCard
                           key={entry.id}
                           entry={entry}
@@ -218,13 +215,13 @@ export function SchedulePage() {
         </div>
       </div>
 
-      <ScheduleFileList files={data.files} />
+      <ScheduleFileList files={files} />
 
       {entryModal ? (
         <ScheduleEntryModal
           entry={entryModal.entry}
           initialDay={entryModal.day}
-          subjects={data.subjects}
+          subjects={subjects}
           onClose={() => setEntryModal(null)}
         />
       ) : null}

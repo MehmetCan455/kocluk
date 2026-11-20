@@ -155,6 +155,17 @@ test('program formu başlık ve saat doğrulaması gösterir', async () => {
 
   await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
   expect(await within(dialog).findByText('Başlık boş olamaz')).toBeInTheDocument();
+  expect(within(dialog).getByLabelText(/^Gün/)).toHaveAttribute('aria-required', 'true');
+  expect(within(dialog).getByLabelText(/^Başlangıç saati/)).toHaveAttribute(
+    'aria-required',
+    'true',
+  );
+  expect(within(dialog).getByLabelText(/^Bitiş saati/)).toHaveAttribute(
+    'aria-required',
+    'true',
+  );
+  expect(within(dialog).getByLabelText(/^Başlık/)).toHaveAttribute('aria-required', 'true');
+  expect(within(dialog).getByLabelText(/^Başlık/)).toHaveAttribute('aria-invalid', 'true');
 
   await userEvent.type(within(dialog).getByLabelText(/^Başlık/), 'Fizik');
   fireEvent.change(within(dialog).getByLabelText(/^Bitiş saati/), {
@@ -165,6 +176,10 @@ test('program formu başlık ve saat doğrulaması gösterir', async () => {
   expect(
     await within(dialog).findByText('Bitiş saati başlangıçtan sonra olmalı'),
   ).toBeInTheDocument();
+  expect(within(dialog).getByLabelText(/^Bitiş saati/)).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
   expect(await listScheduleEntries()).toHaveLength(0);
 });
 

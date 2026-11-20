@@ -509,13 +509,20 @@ function assertValidScheduleEntry(input: SaveScheduleEntryInput): string {
  */
 export async function saveScheduleEntry(input: SaveScheduleEntryInput): Promise<ScheduleEntry> {
   const title = assertValidScheduleEntry(input);
-  const subjectId = input.subjectId?.trim() || undefined;
+  const requestedSubjectId = input.subjectId?.trim() || undefined;
   const note = input.note?.trim() || undefined;
 
-  return db.transaction('rw', db.scheduleEntries, async () => {
+  return db.transaction('rw', db.scheduleEntries, db.subjects, async () => {
     const existing = input.id ? await db.scheduleEntries.get(input.id) : undefined;
     if (input.id && !existing) {
       throw new Error('Program kaydı bulunamadı');
+    }
+
+    // A subject deleted from the curriculum must not leave a dangling id (and
+    // an invisible chip) on the schedule row; normalize it to "no subject".
+    let subjectId: string | undefined;
+    if (requestedSubjectId && (await db.subjects.get(requestedSubjectId))) {
+      subjectId = requestedSubjectId;
     }
 
     const now = new Date().toISOString();

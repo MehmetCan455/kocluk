@@ -28,6 +28,8 @@ const pluralCounts = [
   { key: 'photos', singular: 'fotoğraf' },
   { key: 'notes', singular: 'not' },
   { key: 'practiceSessions', singular: 'test oturumu' },
+  { key: 'scheduleEntries', singular: 'program kaydı' },
+  { key: 'scheduleFiles', singular: 'program dosyası' },
 ] as const;
 
 type BusyState = 'download' | 'preview' | 'import' | 'reset' | null;
@@ -237,7 +239,7 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
                 </p>
               </div>
             </div>
-            <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
               {pluralCounts.map(({ key, singular }) => (
                 <li key={key} className="rounded-lg bg-raised px-3 py-2 tabular-nums">
                   {preview.summary.counts[key] ?? 0} {singular}
@@ -271,7 +273,8 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-danger">Tüm verileri sil</h3>
             <p className="text-sm text-muted">
-              Bu cihazdaki ders, kitap, deneme, not, fotoğraf ve test geçmişini siler.
+              Bu cihazdaki ders, kitap, deneme, not, fotoğraf, haftalık program ve test
+              geçmişini siler.
             </p>
           </div>
 

@@ -7,11 +7,13 @@ import { exportBackup } from '@/db/backup';
 import { db } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import {
+  addScheduleFile,
   createBook,
   createPracticeSession,
   getSettings,
   patchSettings,
   saveExam,
+  saveScheduleEntry,
   type CurriculumSeed,
 } from '@/db/repositories';
 import { resetDb, seedOnboarded } from '@/test/fixtures';
@@ -68,6 +70,16 @@ async function seedPanelData(profileName = 'Yedek Profili') {
   await db.photos.add(photo);
   await db.photoSearch.put(toPhotoSearch(photo));
   await createPracticeSession({ filters: { examType: 'TYT' }, photoIds: [photo.id] });
+  await saveScheduleEntry({
+    day: 1,
+    startTime: '09:00',
+    endTime: '10:00',
+    title: 'Panel programı',
+    subjectId: subject.id,
+  });
+  await addScheduleFile(
+    new File(['%PDF-1.4 panel'], 'panel-program.pdf', { type: 'application/pdf' }),
+  );
   return { subject, topic };
 }
 
@@ -112,6 +124,8 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
   expect(screen.getByText(/1 fotoğraf/)).toBeInTheDocument();
   expect(screen.getByText(/1 not/)).toBeInTheDocument();
   expect(screen.getByText(/1 test oturumu/)).toBeInTheDocument();
+  expect(screen.getByText(/1 program kaydı/)).toBeInTheDocument();
+  expect(screen.getByText(/1 program dosyası/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Mevcut verileri değiştir' }));
 
@@ -143,6 +157,7 @@ test('tüm verileri silme iki onay ister ve yedeği önerir', async () => {
 
   await userEvent.click(await screen.findByRole('button', { name: 'Tüm verileri sil' }));
   expect(screen.getByText(/Önce yedek almanı öneririz/)).toBeInTheDocument();
+  expect(screen.getByText(/haftalık program/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Devam et' }));
   expect(screen.getByText(/Bu işlem geri alınamaz/)).toBeInTheDocument();
@@ -155,6 +170,8 @@ test('tüm verileri silme iki onay ister ve yedeği önerir', async () => {
   await waitFor(async () => {
     expect(await db.subjects.count()).toBe(0);
   });
+  expect(await db.scheduleEntries.count()).toBe(0);
+  expect(await db.scheduleFiles.count()).toBe(0);
   expect(await screen.findByRole('heading', { name: 'Seni tanıyalım' })).toBeInTheDocument();
 });
 

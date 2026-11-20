@@ -1,0 +1,129 @@
+import { render } from '@testing-library/react';
+import { expect, test, vi } from 'vitest';
+import type { NetSeries, NetSeriesPoint } from './chartData';
+import {
+  IMPROVED_POINT_COLOR,
+  netTooltipLabel,
+  netTooltipTitle,
+  NetTrendChart,
+  seriesPointColors,
+} from './NetTrendChart';
+
+const ACCENT = '#3B82F6';
+
+const captured = vi.hoisted(() => ({
+  lineProps: null as null | { data: unknown; options: unknown },
+}));
+
+vi.mock('react-chartjs-2', () => ({
+  Line: (props: { data: unknown; options: unknown }) => {
+    captured.lineProps = props;
+    return null;
+  },
+}));
+
+vi.mock('@/app/SettingsProvider', () => ({
+  useAppSettings: () => ({ settings: { accent: ACCENT } }),
+}));
+
+function point(overrides: Partial<NetSeriesPoint> = {}): NetSeriesPoint {
+  return {
+    examId: 'exam-1',
+    examName: '3D TYT 5',
+    date: '2026-11-17',
+    label: '17 Kas',
+    net: 45.5,
+    improved: false,
+    ...overrides,
+  };
+}
+
+interface CapturedLineProps {
+  data: {
+    labels: string[];
+    datasets: Array<{
+      borderColor: string;
+      data: number[];
+      pointBackgroundColor: string[];
+      pointBorderColor: string[];
+    }>;
+  };
+  options: {
+    plugins: {
+      tooltip: {
+        callbacks: {
+          title: (items: Array<{ dataIndex: number }>) => string;
+          label: (context: { dataIndex: number; parsed: { y: number } }) => string;
+        };
+      };
+    };
+  };
+}
+
+test('gelişen nokta altın, diğerleri accent renginde', () => {
+  expect(
+    seriesPointColors(
+      [
+        point({ net: 20, improved: false }),
+        point({ net: 30, improved: true }),
+        point({ net: 25, improved: false }),
+      ],
+      ACCENT,
+    ),
+  ).toEqual([ACCENT, IMPROVED_POINT_COLOR, ACCENT]);
+  expect(IMPROVED_POINT_COLOR).toBe('#FACC15');
+});
+
+test('ilk nokta veride gelişmiş işaretli olsa bile accent kalır', () => {
+  expect(seriesPointColors([point({ improved: true })], ACCENT)).toEqual([ACCENT]);
+  expect(seriesPointColors([], ACCENT)).toEqual([]);
+});
+
+test('tooltip deneme adı, tarih ve neti gösterir', () => {
+  expect(netTooltipTitle(point())).toBe('3D TYT 5');
+  expect(netTooltipLabel(point())).toBe('17 Kasım 2026 · 45,50 net');
+  expect(netTooltipLabel(point({ date: '2026-09-01', net: 28 }))).toBe(
+    '1 Eylül 2026 · 28,00 net',
+  );
+});
+
+test('grafik bileşeni nokta renklerini ve tooltip callbacklerini Chart.js verisine aktarır', () => {
+  const series: NetSeries = {
+    points: [
+      point({ examId: 'sabah', examName: 'Sabah Denemesi', net: 20, improved: false }),
+      point({
+        examId: 'aksam',
+        examName: 'Akşam Denemesi',
+        date: '2026-11-18',
+        label: '18 Kas',
+        net: 30,
+        improved: true,
+      }),
+    ],
+  };
+
+  render(<NetTrendChart series={series} ariaLabel="Test net grafiği" />);
+
+  const props = captured.lineProps as CapturedLineProps;
+  expect(props.data.labels).toEqual(['17 Kas', '18 Kas']);
+  expect(props.data.datasets[0].borderColor).toBe(ACCENT);
+  expect(props.data.datasets[0].data).toEqual([20, 30]);
+  expect(props.data.datasets[0].pointBackgroundColor).toEqual([
+    ACCENT,
+    IMPROVED_POINT_COLOR,
+  ]);
+  expect(props.data.datasets[0].pointBorderColor).toEqual([
+    ACCENT,
+    IMPROVED_POINT_COLOR,
+  ]);
+
+  const { title, label } = props.options.plugins.tooltip.callbacks;
+  expect(title([{ dataIndex: 0 }])).toBe('Sabah Denemesi');
+  expect(title([{ dataIndex: 1 }])).toBe('Akşam Denemesi');
+  expect(label({ dataIndex: 0, parsed: { y: 20 } })).toBe(
+    '17 Kasım 2026 · 20,00 net',
+  );
+  expect(label({ dataIndex: 1, parsed: { y: 30 } })).toBe(
+    '18 Kasım 2026 · 30,00 net',
+  );
+});

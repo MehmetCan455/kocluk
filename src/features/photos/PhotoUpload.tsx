@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Camera, Images, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +17,8 @@ export interface PhotoUploadProps {
   topicId?: string;
   onClose?: () => void;
   onUploaded?: (photos: Photo[]) => void;
+  /** Lets the parent guard Modal dismissal while a write is in flight. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 const UPLOAD_ERROR = 'Fotoğraflar yüklenemedi. Lütfen tekrar dene.';
@@ -48,10 +50,25 @@ export function PhotoUpload({
   topicId,
   onClose,
   onUploaded,
+  onBusyChange,
 }: PhotoUploadProps) {
   const baseId = useId().replace(/:/g, '');
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+  const busyChangeRef = useRef(onBusyChange);
+
+  useEffect(() => {
+    busyChangeRef.current = onBusyChange;
+  }, [onBusyChange]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    busyChangeRef.current?.(false);
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const [type, setType] = useState<ExamType>(examType ?? 'TYT');
   const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId ?? '');
@@ -111,6 +128,7 @@ export function PhotoUpload({
     }
 
     setUploading(true);
+    busyChangeRef.current?.(true);
     setUploadedCount(0);
     setError(null);
     const uploaded: Photo[] = [];
@@ -126,8 +144,16 @@ export function PhotoUpload({
             note: note.trim() || undefined,
           },
         ]);
+        // A route change or an externally unmounted modal must not receive
+        // state updates or close a newly opened instance.
+        if (!mountedRef.current) {
+          return;
+        }
         uploaded.push(photo);
         setUploadedCount(uploaded.length);
+      }
+      if (!mountedRef.current) {
+        return;
       }
       setFiles([]);
       setNote('');
@@ -136,13 +162,19 @@ export function PhotoUpload({
       onClose?.();
     } catch (caught: unknown) {
       console.error('Fotoğraflar yüklenemedi', caught);
+      if (!mountedRef.current) {
+        return;
+      }
       // Keep only the files that have not been stored yet and reset the
       // progress counters so a retry starts from zero instead of showing 2/1.
       setFiles((current) => current.slice(uploaded.length));
       setUploadedCount(0);
       setError(uploadErrorMessage(caught));
     } finally {
-      setUploading(false);
+      if (mountedRef.current) {
+        setUploading(false);
+        busyChangeRef.current?.(false);
+      }
     }
   }
 

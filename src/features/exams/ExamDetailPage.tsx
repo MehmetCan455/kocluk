@@ -104,6 +104,7 @@ export function ExamDetailPage() {
   const navigate = useNavigate();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
 
   const data = useLiveQuery(async () => {
     const exam = await getExam(id);
@@ -283,10 +284,19 @@ export function ExamDetailPage() {
       </Card>
 
       {uploadOpen ? (
-        <Modal open title="Fotoğraf yükle" onClose={() => setUploadOpen(false)}>
+        <Modal
+          open
+          title="Fotoğraf yükle"
+          onClose={() => {
+            if (!uploadBusy) {
+              setUploadOpen(false);
+            }
+          }}
+        >
           <PhotoUpload
             examId={exam.id}
             examType={exam.type}
+            onBusyChange={setUploadBusy}
             onClose={() => setUploadOpen(false)}
           />
         </Modal>

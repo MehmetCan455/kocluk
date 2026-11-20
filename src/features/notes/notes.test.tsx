@@ -12,7 +12,8 @@ import {
   saveNote,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
-import type { Subject, Topic } from '@/domain/types';
+import type { Attachment, Subject, Topic } from '@/domain/types';
+import { AttachmentList } from '@/features/notes/AttachmentList';
 import { NotesTab } from '@/features/notes/NotesTab';
 import { compressImage } from '@/lib/image';
 import { seedOnboarded } from '@/test/fixtures';
@@ -173,6 +174,34 @@ test('addAttachment görseli 2000 px sınırıyla sıkıştırır', async () => 
     size: new Blob(['sıkıştırılmış görsel']).size,
   });
   expect(attachment.blob.type).toBe('image/jpeg');
+});
+
+test('ek önizlemesi aynı dosyanın yeni Blob örneğinde URL yeniden oluşturmaz', () => {
+  const createUrlSpy = vi.spyOn(URL, 'createObjectURL');
+  const attachment: Attachment = {
+    id: 'ek-1',
+    topicId: 'konu-1',
+    name: 'grafik.png',
+    mime: 'image/png',
+    size: 1,
+    blob: new Blob(['x'], { type: 'image/png' }),
+    createdAt: '2026-11-01T00:00:00.000Z',
+  };
+
+  const { rerender } = render(
+    <AttachmentList topicId="konu-1" attachments={[attachment]} />,
+  );
+  expect(createUrlSpy).toHaveBeenCalledTimes(1);
+
+  rerender(
+    <AttachmentList
+      topicId="konu-1"
+      attachments={[{ ...attachment, blob: new Blob(['x'], { type: 'image/png' }) }]}
+    />,
+  );
+  expect(createUrlSpy).toHaveBeenCalledTimes(1);
+
+  createUrlSpy.mockRestore();
 });
 
 test('addAttachment 20 MB sınırını uygular ve Türkçe hata verir', async () => {

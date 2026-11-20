@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { Download, ExternalLink, FileText, Paperclip, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -10,6 +10,7 @@ import {
 } from '@/db/repositories';
 import type { Attachment } from '@/domain/types';
 import { IMAGE_TYPE_ERROR } from '@/lib/image';
+import { useStableObjectUrl } from '@/lib/useObjectUrl';
 
 export interface AttachmentListProps {
   topicId: string;
@@ -28,19 +29,10 @@ function formatBytes(bytes: number): string {
   return `${sizeFormatter.format(bytes / (1024 * 1024))} MB`;
 }
 
-/** Temporary blob URL that is revoked when the row unmounts or the blob changes. */
-function useObjectUrl(blob: Blob): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const next = URL.createObjectURL(blob);
-    setUrl(next);
-    return () => {
-      URL.revokeObjectURL(next);
-    };
-  }, [blob]);
-
-  return url;
+/** Stable blob URL: a live-query re-read of the same attachment must not flicker. */
+function useAttachmentUrl(attachment: Attachment): string | null {
+  const key = `${attachment.id}:${attachment.blob?.size ?? 0}`;
+  return useStableObjectUrl(key, attachment.blob);
 }
 
 interface AttachmentRowProps {
@@ -49,7 +41,7 @@ interface AttachmentRowProps {
 }
 
 function AttachmentRow({ attachment, onDelete }: AttachmentRowProps) {
-  const url = useObjectUrl(attachment.blob);
+  const url = useAttachmentUrl(attachment);
   const isImage = attachment.mime.startsWith('image/');
   const isPdf = attachment.mime === 'application/pdf';
 

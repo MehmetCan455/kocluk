@@ -153,7 +153,7 @@ export function PhotoDetail() {
   }, [photoId]);
 
   const photo = data?.photo;
-  const imageUrl = usePhotoObjectUrl(photo?.blob);
+  const imageUrl = usePhotoObjectUrl(photo?.id, photo?.blob, 'full');
 
   if (!data) {
     return (

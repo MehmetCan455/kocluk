@@ -39,6 +39,7 @@ export function PhotosPage() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -310,8 +311,19 @@ export function PhotosPage() {
       </button>
 
       {uploadOpen ? (
-        <Modal open title="Fotoğraf yükle" onClose={() => setUploadOpen(false)}>
-          <PhotoUpload onClose={() => setUploadOpen(false)} />
+        <Modal
+          open
+          title="Fotoğraf yükle"
+          onClose={() => {
+            if (!uploadBusy) {
+              setUploadOpen(false);
+            }
+          }}
+        >
+          <PhotoUpload
+            onBusyChange={setUploadBusy}
+            onClose={() => setUploadOpen(false)}
+          />
         </Modal>
       ) : null}
 

@@ -1,6 +1,8 @@
-﻿import { screen, waitFor, within } from '@testing-library/react';
+﻿import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
+import { Modal } from '@/components/ui/Modal';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import {
@@ -11,15 +13,21 @@ import {
   updatePhoto,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
-import type { ExamType, Subject, Topic } from '@/domain/types';
+import type { ExamType, Photo, Subject, Topic } from '@/domain/types';
 import { searchAll } from '@/features/search/searchAll';
+import { PhotoUpload } from '@/features/photos/PhotoUpload';
 import { compressImage } from '@/lib/image';
 import { STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
 
+const mockState = vi.hoisted(() => ({
+  realAddPhotos: undefined as unknown as typeof import('@/db/repositories')['addPhotos'],
+}));
+
 vi.mock('@/db/repositories', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/db/repositories')>();
+  mockState.realAddPhotos = actual.addPhotos;
   return {
     ...actual,
     addPhotos: vi.fn(actual.addPhotos),
@@ -70,7 +78,8 @@ beforeEach(async () => {
     width: 1600,
     height: 900,
   });
-  vi.mocked(addPhotos).mockClear();
+  vi.mocked(addPhotos).mockReset();
+  vi.mocked(addPhotos).mockImplementation(mockState.realAddPhotos);
 });
 
 async function topicByKey(seedKey: string): Promise<{ subject: Subject; topic: Topic }> {
@@ -111,6 +120,57 @@ async function openUploadDialog(): Promise<HTMLElement> {
   renderApp('/yanlislar');
   await userEvent.click(await screen.findByRole('button', { name: 'Fotoğraf ekle' }));
   return screen.findByRole('dialog', { name: 'Fotoğraf yükle' });
+}
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
+function pendingPhoto(note: string): Photo {
+  return {
+    id: `bekleyen-${note}`,
+    examType: 'TYT',
+    subjectId: 'ders',
+    note,
+    blob: new Blob(['tam'], { type: 'image/jpeg' }),
+    thumbBlob: new Blob(['küçük'], { type: 'image/jpeg' }),
+    width: 1,
+    height: 1,
+    mastered: false,
+    practiceCount: 0,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function UploadHarness() {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(false)}>
+        Gizle
+      </button>
+      <button type="button" onClick={() => setOpen(true)}>
+        Göster
+      </button>
+      {open ? (
+        <Modal open title="Fotoğraf yükle" onClose={() => setOpen(false)}>
+          <PhotoUpload onClose={() => setOpen(false)} />
+        </Modal>
+      ) : (
+        <p>Kapalı</p>
+      )}
+    </div>
+  );
 }
 
 test('fotoğraf ekler, blobsuz arama projeksiyonu yazar ve arama notu bulur', async () => {
@@ -430,6 +490,102 @@ test('Test oluştur bağlantısı rastgele test sayfasına gider', async () => {
   expect(
     await screen.findByRole('heading', { level: 1, name: 'Rastgele Test' }),
   ).toBeInTheDocument();
+});
+
+test('yükleme sürerken modal kapanmaz, iki dosyalı akışta da korunur', async () => {
+  const { subject } = await topicByKey('tyt-mat-turev');
+  const first = deferred<Photo[]>();
+  const second = deferred<Photo[]>();
+  vi.mocked(addPhotos)
+    .mockImplementationOnce(() => first.promise)
+    .mockImplementationOnce(() => second.promise);
+
+  const dialog = await openUploadDialog();
+  await userEvent.selectOptions(within(dialog).getByLabelText(/Ders/), subject.id);
+  await userEvent.upload(within(dialog).getByLabelText('Galeriden seç'), [
+    new File(['bir'], 'bir.jpg', { type: 'image/jpeg' }),
+    new File(['iki'], 'iki.jpg', { type: 'image/jpeg' }),
+  ]);
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Yükle' }));
+
+  await waitFor(() => expect(addPhotos).toHaveBeenCalledTimes(1));
+
+  await userEvent.keyboard('{Escape}');
+  expect(screen.getByRole('dialog', { name: 'Fotoğraf yükle' })).toBeInTheDocument();
+
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kapat' }));
+  expect(screen.getByRole('dialog', { name: 'Fotoğraf yükle' })).toBeInTheDocument();
+
+  fireEvent.click(dialog.parentElement as HTMLElement);
+  expect(screen.getByRole('dialog', { name: 'Fotoğraf yükle' })).toBeInTheDocument();
+
+  await act(async () => {
+    first.resolve([pendingPhoto('bir')]);
+    await first.promise;
+  });
+  await waitFor(() => expect(addPhotos).toHaveBeenCalledTimes(2));
+
+  // İlk dosya bitti, ikinci hâlâ sürüyor: modal yine kapanmamalı.
+  await userEvent.keyboard('{Escape}');
+  expect(screen.getByRole('dialog', { name: 'Fotoğraf yükle' })).toBeInTheDocument();
+
+  await act(async () => {
+    second.resolve([pendingPhoto('iki')]);
+    await second.promise;
+  });
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Fotoğraf yükle' })).not.toBeInTheDocument();
+  });
+
+  // Tamamlandıktan sonra yeniden açılan modal normal şekilde kapanabilir.
+  await userEvent.click(screen.getByRole('button', { name: 'Fotoğraf ekle' }));
+  expect(await screen.findByRole('dialog', { name: 'Fotoğraf yükle' })).toBeInTheDocument();
+  await userEvent.keyboard('{Escape}');
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Fotoğraf yükle' })).not.toBeInTheDocument();
+  });
+});
+
+test('geç tamamlanan yükleme yeniden açılan modalı kapatmaz', async () => {
+  const { subject } = await topicByKey('tyt-mat-turev');
+  const pending = deferred<Photo[]>();
+  vi.mocked(addPhotos).mockImplementationOnce(() => pending.promise);
+
+  render(<UploadHarness />);
+  const dialog = await screen.findByRole('dialog', { name: 'Fotoğraf yükle' });
+  await screen.findByRole('option', { name: 'Matematik' });
+  await userEvent.selectOptions(within(dialog).getByLabelText(/Ders/), subject.id);
+  await userEvent.upload(
+    within(dialog).getByLabelText('Galeriden seç'),
+    new File(['bir'], 'bir.jpg', { type: 'image/jpeg' }),
+  );
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Yükle' }));
+  await waitFor(() => expect(addPhotos).toHaveBeenCalledTimes(1));
+
+  // Route değişimi / ebeveyn unmount'u gibi: yükleme sürerken örnek kaldırılır.
+  await userEvent.click(screen.getByRole('button', { name: 'Gizle' }));
+  expect(screen.queryByRole('dialog', { name: 'Fotoğraf yükle' })).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Göster' }));
+  expect(await screen.findByRole('dialog', { name: 'Fotoğraf yükle' })).toBeInTheDocument();
+
+  await act(async () => {
+    pending.resolve([pendingPhoto('geç')]);
+    await pending.promise;
+  });
+
+  // Eski örneğin tamamlanması yeni modalı kapatmamalı.
+  expect(screen.getByRole('dialog', { name: 'Fotoğraf yükle' })).toBeInTheDocument();
+
+  await userEvent.click(
+    within(screen.getByRole('dialog', { name: 'Fotoğraf yükle' })).getByRole('button', {
+      name: 'Kapat',
+    }),
+  );
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Fotoğraf yükle' })).not.toBeInTheDocument();
+  });
 });
 
 test('depolama kotası hatasında Türkçe mesaj gösterir ve yükleme askıda kalmaz', async () => {

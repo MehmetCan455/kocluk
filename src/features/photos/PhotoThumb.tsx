@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -8,34 +8,21 @@ import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/components/ui/cn';
 import { listPhotos } from '@/db/repositories';
 import type { ExamType, Photo } from '@/domain/types';
+import { useStableObjectUrl } from '@/lib/useObjectUrl';
 import { PhotoUpload } from './PhotoUpload';
 
-/** Temporary blob URL that is revoked when the blob changes or the view unmounts. */
-export function usePhotoObjectUrl(blob: Blob | undefined): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!blob) {
-      setUrl(null);
-      return;
-    }
-    let next: string;
-    try {
-      next = URL.createObjectURL(blob);
-    } catch (caught: unknown) {
-      // Corrupt/imported rows may carry a non-Blob value; show the placeholder
-      // instead of crashing the whole gallery.
-      console.error('Fotoğraf önizlemesi oluşturulamadı', caught);
-      setUrl(null);
-      return;
-    }
-    setUrl(next);
-    return () => {
-      URL.revokeObjectURL(next);
-    };
-  }, [blob]);
-
-  return url;
+/**
+ * Stable object URL for a photo variant. The key includes the blob size so a
+ * replaced image gets a fresh URL while a live-query re-read of the same photo
+ * does not.
+ */
+export function usePhotoObjectUrl(
+  photoId: string | undefined,
+  blob: Blob | undefined,
+  variant: 'thumb' | 'full' = 'thumb',
+): string | null {
+  const key = photoId ? `${photoId}:${variant}:${blob?.size ?? 0}` : undefined;
+  return useStableObjectUrl(key, blob);
 }
 
 export function photoLabel(photo: Photo): string {
@@ -49,7 +36,7 @@ export interface PhotoThumbProps {
 
 /** Grid thumbnail; always reads `thumbBlob`, never the full-size image. */
 export function PhotoThumb({ photo, className }: PhotoThumbProps) {
-  const url = usePhotoObjectUrl(photo.thumbBlob);
+  const url = usePhotoObjectUrl(photo.id, photo.thumbBlob);
 
   if (!url) {
     return (
@@ -100,6 +87,7 @@ export interface TopicPhotosTabProps {
 /** Topic-level slice of the archive with its own upload shortcut. */
 export function TopicPhotosTab({ topicId, subjectId, examType }: TopicPhotosTabProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const photos = useLiveQuery(() => listPhotos({ topicId }), [topicId]);
 
   return (
@@ -127,11 +115,20 @@ export function TopicPhotosTab({ topicId, subjectId, examType }: TopicPhotosTabP
       )}
 
       {uploadOpen ? (
-        <Modal open title="Fotoğraf yükle" onClose={() => setUploadOpen(false)}>
+        <Modal
+          open
+          title="Fotoğraf yükle"
+          onClose={() => {
+            if (!uploadBusy) {
+              setUploadOpen(false);
+            }
+          }}
+        >
           <PhotoUpload
             examType={examType}
             subjectId={subjectId}
             topicId={topicId}
+            onBusyChange={setUploadBusy}
             onClose={() => setUploadOpen(false)}
           />
         </Modal>

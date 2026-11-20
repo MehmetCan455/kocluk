@@ -13,8 +13,17 @@ import type {
   PracticeSession,
   ScheduleEntry,
   ScheduleFile,
+  ScheduleTable,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
+import {
+  SCHEDULE_TABLE_CELL_MAX_LENGTH,
+  SCHEDULE_TABLE_ID,
+  SCHEDULE_TABLE_MAX_ROWS,
+  SCHEDULE_TABLE_NOTE_MAX_LENGTH,
+  SCHEDULE_TABLE_SUBJECT_MAX_LENGTH,
+  SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
+} from '@/domain/scheduleTable';
 import { isValidDateString } from '@/lib/date';
 import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
 import { compareHHmm, isHHmm } from '@/lib/time';
@@ -22,11 +31,12 @@ import { isStorageQuotaError, STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
 import { readBlobAsArrayBuffer } from '@/lib/zip';
 
 /**
- * Backup format version. Version 3 adds the weekly program tables; version 2
- * added the blob-free `photoSearch` projection, and version 1 predates it.
- * Missing tables in older archives are read as empty lists.
+ * Backup format version. Version 4 adds the manual schedule table; version 3
+ * added the weekly program tables, version 2 the blob-free `photoSearch`
+ * projection, and version 1 predates it. Missing tables in older archives are
+ * read as empty lists.
  */
-export const BACKUP_SCHEMA_VERSION = 3;
+export const BACKUP_SCHEMA_VERSION = 4;
 const MIN_BACKUP_SCHEMA_VERSION = 1;
 export const INVALID_BACKUP_MESSAGE = 'Geçersiz yedek dosyası';
 const NEWER_BACKUP_MESSAGE =
@@ -88,6 +98,7 @@ const SETTING_VALUE_SCHEMAS = {
   aytAlan: aytAlanSchema,
   hiddenSubjects: z.array(z.string()),
   geometryMode: z.enum(['separate', 'combined']),
+  scheduleMode: z.enum(['upload', 'manual']),
 } satisfies Record<keyof AppSettings, z.ZodType>;
 
 type SettingKey = keyof typeof SETTING_VALUE_SCHEMAS;
@@ -307,6 +318,49 @@ const scheduleFileSchema = z
     }
   });
 
+const scheduleDayCellsSchema = z.tuple([
+  z.string().max(SCHEDULE_TABLE_CELL_MAX_LENGTH),
+  z.string().max(SCHEDULE_TABLE_CELL_MAX_LENGTH),
+  z.string().max(SCHEDULE_TABLE_CELL_MAX_LENGTH),
+  z.string().max(SCHEDULE_TABLE_CELL_MAX_LENGTH),
+  z.string().max(SCHEDULE_TABLE_CELL_MAX_LENGTH),
+  z.string().max(SCHEDULE_TABLE_CELL_MAX_LENGTH),
+  z.string().max(SCHEDULE_TABLE_CELL_MAX_LENGTH),
+]);
+
+const scheduleTableRowSchema = z.object({
+  id: idSchema,
+  subject: z.string().max(SCHEDULE_TABLE_SUBJECT_MAX_LENGTH),
+  days: scheduleDayCellsSchema,
+  total: z.string().max(SCHEDULE_TABLE_TOTAL_MAX_LENGTH),
+});
+
+const scheduleTableSchema = z
+  .object({
+    id: z.literal(SCHEDULE_TABLE_ID),
+    rows: z.array(scheduleTableRowSchema).max(SCHEDULE_TABLE_MAX_ROWS),
+    totals: z.object({
+      label: z.string().min(1).max(SCHEDULE_TABLE_TOTAL_MAX_LENGTH),
+      days: scheduleDayCellsSchema,
+      total: z.string().max(SCHEDULE_TABLE_TOTAL_MAX_LENGTH),
+    }),
+    note: z.string().max(SCHEDULE_TABLE_NOTE_MAX_LENGTH),
+    updatedAt: z.string(),
+  })
+  .superRefine((table, context) => {
+    const rowIds = new Set<string>();
+    for (const [index, row] of table.rows.entries()) {
+      if (rowIds.has(row.id)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['rows', index, 'id'],
+          message: 'Çizelge satırı kimliği tekrar ediyor',
+        });
+      }
+      rowIds.add(row.id);
+    }
+  });
+
 const practiceFiltersSchema = z.object({
   examType: examTypeSchema.optional(),
   subjectIds: z.array(idSchema).optional(),
@@ -346,6 +400,8 @@ const backupDataSchema = z.object({
   // Backups written before v3 simply do not have these tables.
   scheduleEntries: z.array(scheduleEntrySchema).default([]),
   scheduleFiles: z.array(scheduleFileSchema).default([]),
+  // v4 adds the single manual table; older archives read it as empty.
+  scheduleTables: z.array(scheduleTableSchema).max(1).default([]),
 });
 
 const manifestSchema = z.object({
@@ -380,6 +436,7 @@ interface RestoredData {
   practiceSessions: PracticeSession[];
   scheduleEntries: ScheduleEntry[];
   scheduleFiles: ScheduleFile[];
+  scheduleTables: ScheduleTable[];
 }
 
 function invalidBackup(): Error {
@@ -433,6 +490,7 @@ function countTables(data: BackupData): Record<string, number> {
     practiceSessions: data.practiceSessions.length,
     scheduleEntries: data.scheduleEntries.length,
     scheduleFiles: data.scheduleFiles.length,
+    scheduleTables: data.scheduleTables.length,
   };
 }
 
@@ -443,8 +501,8 @@ function migrateBackupData(data: BackupData, fromVersion: number): BackupData {
     // migration needed is accepting the missing table.
     return { ...data, photoSearch: data.photoSearch ?? [] };
   }
-  // v3's schedule tables are optional in the schema and default to empty, so
-  // an older archive needs no row-level migration.
+  // The schedule tables added in v3/v4 are optional in the schema and default
+  // to empty, so an older archive needs no row-level migration.
   return data;
 }
 
@@ -491,6 +549,7 @@ function assertUniqueBackupKeys(data: BackupData): void {
   assertUnique('practiceSessions.id', data.practiceSessions.map((row) => row.id));
   assertUnique('scheduleEntries.id', data.scheduleEntries.map((row) => row.id));
   assertUnique('scheduleFiles.id', data.scheduleFiles.map((row) => row.id));
+  assertUnique('scheduleTables.id', data.scheduleTables.map((row) => row.id));
 }
 
 async function readJson(zip: JSZip, path: string): Promise<unknown> {
@@ -717,6 +776,7 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
     practiceSessions: data.practiceSessions as PracticeSession[],
     scheduleEntries: data.scheduleEntries,
     scheduleFiles,
+    scheduleTables: data.scheduleTables as ScheduleTable[],
   };
   const counts = countTables(data);
 
@@ -737,6 +797,7 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
       await db.practiceSessions.bulkPut(restored.practiceSessions);
       await db.scheduleEntries.bulkPut(restored.scheduleEntries);
       await db.scheduleFiles.bulkPut(restored.scheduleFiles);
+      await db.scheduleTables.bulkPut(restored.scheduleTables);
       // patchSettings intentionally skips undefined values. Delete the row so
       // a restored device never shows a backup date it did not create.
       await db.settings.delete('lastBackupAt');
@@ -813,6 +874,7 @@ export async function exportBackup(
     practiceSessions: await db.practiceSessions.toArray(),
     scheduleEntries: await db.scheduleEntries.toArray(),
     scheduleFiles: await db.scheduleFiles.toArray(),
+    scheduleTables: await db.scheduleTables.toArray(),
   }));
 
   const {
@@ -830,6 +892,7 @@ export async function exportBackup(
     practiceSessions,
     scheduleEntries,
     scheduleFiles,
+    scheduleTables,
   } = snapshot;
 
   const serializedPhotos = photos.map(({ blob, thumbBlob, ...photo }) => ({
@@ -859,6 +922,7 @@ export async function exportBackup(
     practiceSessions,
     scheduleEntries,
     scheduleFiles: serializedScheduleFiles,
+    scheduleTables,
   };
   const counts: Record<string, number> = {
     settings: settings.length,
@@ -875,6 +939,7 @@ export async function exportBackup(
     practiceSessions: practiceSessions.length,
     scheduleEntries: scheduleEntries.length,
     scheduleFiles: scheduleFiles.length,
+    scheduleTables: scheduleTables.length,
   };
   const exportedAt = new Date().toISOString();
   const manifest: BackupManifest = {

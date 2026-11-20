@@ -5,24 +5,39 @@ import { completeOnboarding, TEST_NAME } from './helpers';
 const PROGRAM_IMAGE = fileURLToPath(new URL('./fixtures/photo.png', import.meta.url));
 const PROGRAM_PDF = fileURLToPath(new URL('./fixtures/program.pdf', import.meta.url));
 
-test('program kaydı eklenir, görsel ve PDF önizlenir, dosyalar silinir', async ({
+test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', async ({
   page,
 }) => {
   await completeOnboarding(page, TEST_NAME, 'Tümü');
 
-  await page.locator('header').getByRole('link', { name: 'Program', exact: true }).click();
+  await page
+    .locator('header')
+    .getByRole('link', { name: 'Ders Çalışma Çizelgesi', exact: true })
+    .click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Haftalık Program' }),
+    page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Kayıt ekle', exact: true }).click();
-  const entryDialog = page.getByRole('dialog', { name: 'Yeni program kaydı' });
-  await entryDialog.getByLabel(/^Başlık/).fill('E2E program kaydı');
-  await entryDialog.getByRole('button', { name: 'Kaydet' }).click();
-  await expect(entryDialog).not.toBeVisible();
-  await expect(page.getByText('E2E program kaydı', { exact: true })).toBeVisible();
+  // Manual table is the default mode.
+  const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
+  await expect(table).toBeVisible();
+  await table.getByLabel('1. satır ders').fill('Matematik');
+  await table.getByLabel('1. satır Pazartesi').fill('2 saat');
+  await table.getByLabel('1. satır Salı').fill('40 soru');
+  await table.getByLabel('1. satır toplam').fill('2 saat');
+  await table.getByLabel('Toplam satırı Pazartesi').fill('10 saat');
+  await table.getByLabel('Genel toplam').fill('10 saat');
+  await page.getByLabel('Haftanın notu').fill('E2E hafta notu');
+  await expect(page.getByText('Kaydedilmemiş değişiklikler')).toBeVisible();
 
-  const fileInput = page.getByLabel('Program dosyası seç');
+  await page.getByRole('button', { name: 'Kaydet', exact: true }).click();
+  await expect(page.getByText('Kaydedildi', { exact: true })).toBeVisible();
+
+  // Upload mode still keeps the photo/PDF archive.
+  await page.getByRole('button', { name: 'Fotoğraf/PDF', exact: true }).click();
+  await expect(page.getByText('Henüz çizelge dosyası yok')).toBeVisible();
+
+  const fileInput = page.getByLabel('Çizelge dosyası seç');
   await fileInput.setInputFiles(PROGRAM_IMAGE);
   await expect(page.getByText('photo.png', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'photo.png görselini büyüt' }).click();
@@ -38,14 +53,28 @@ test('program kaydı eklenir, görsel ve PDF önizlenir, dosyalar silinir', asyn
   ).toHaveAttribute('href', /^blob:/);
 
   await page.getByRole('button', { name: 'program.pdf dosyasını sil' }).click();
-  const pdfDeleteDialog = page.getByRole('dialog', { name: 'Program dosyasını sil' });
+  const pdfDeleteDialog = page.getByRole('dialog', { name: 'Çizelge dosyasını sil' });
   await pdfDeleteDialog.getByRole('button', { name: 'Sil' }).click();
   await expect(pdfDeleteDialog).not.toBeVisible();
   await expect(page.getByText('program.pdf', { exact: true })).not.toBeVisible();
 
   await page.getByRole('button', { name: 'photo.png dosyasını sil' }).click();
-  const imageDeleteDialog = page.getByRole('dialog', { name: 'Program dosyasını sil' });
+  const imageDeleteDialog = page.getByRole('dialog', { name: 'Çizelge dosyasını sil' });
   await imageDeleteDialog.getByRole('button', { name: 'Sil' }).click();
   await expect(imageDeleteDialog).not.toBeVisible();
-  await expect(page.getByText('Henüz program dosyası yok')).toBeVisible();
+  await expect(page.getByText('Henüz çizelge dosyası yok')).toBeVisible();
+
+  // The upload mode choice survives a reload; the saved table is still there.
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
+  ).toBeVisible();
+  await expect(page.getByText('Henüz çizelge dosyası yok')).toBeVisible();
+  await page.getByRole('button', { name: 'Elle tablo', exact: true }).click();
+  const reloadedTable = page.getByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  await expect(reloadedTable.getByLabel('1. satır ders')).toHaveValue('Matematik');
+  await expect(reloadedTable.getByLabel('1. satır Pazartesi')).toHaveValue('2 saat');
+  await expect(page.getByLabel('Haftanın notu')).toHaveValue('E2E hafta notu');
 });

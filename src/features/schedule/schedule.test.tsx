@@ -1,11 +1,11 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
-import { db } from '@/db/db';
 import {
   SCHEDULE_FILE_MAX_BYTES,
-  listScheduleEntries,
+  getScheduleTable,
+  getSettings,
   listScheduleFiles,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
@@ -46,11 +46,20 @@ beforeEach(async () => {
   vi.mocked(compressImage).mockClear();
 });
 
-async function openProgram(): Promise<void> {
-  renderApp('/program');
+async function openSchedule() {
+  const view = renderApp('/program');
   expect(
-    await screen.findByRole('heading', { level: 1, name: 'Haftalık Program' }),
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'Ders Çalışma Çizelgesi',
+    }),
   ).toBeInTheDocument();
+  return view;
+}
+
+async function switchToUpload(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: 'Fotoğraf/PDF' }));
+  expect(await screen.findByText('Henüz çizelge dosyası yok')).toBeInTheDocument();
 }
 
 interface FakeSizeFile extends File {
@@ -63,132 +72,98 @@ function fileWithSize(name: string, type: string, size: number): FakeSizeFile {
   return file;
 }
 
-test('program kaydı ekler, düzenler ve siler', async () => {
-  const subject = await db.subjects.where('seedKey').equals('tyt-mat').first();
-  if (!subject) {
-    throw new Error('Test dersi bulunamadı');
-  }
-  await openProgram();
+test('elle tablo beş boş satırla açılır, satır eklenip silinir', async () => {
+  await openSchedule();
 
-  expect(screen.getAllByText('Kayıt yok')).toHaveLength(7);
-
-  await userEvent.click(screen.getByRole('button', { name: 'Kayıt ekle' }));
-  const createDialog = await screen.findByRole('dialog', { name: 'Yeni program kaydı' });
-
-  await userEvent.selectOptions(within(createDialog).getByLabelText(/^Gün/), 'Pazartesi');
-  fireEvent.change(within(createDialog).getByLabelText(/^Başlangıç saati/), {
-    target: { value: '09:00' },
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
   });
-  fireEvent.change(within(createDialog).getByLabelText(/^Bitiş saati/), {
-    target: { value: '10:30' },
-  });
-  await userEvent.type(within(createDialog).getByLabelText(/^Başlık/), 'Matematik çalışması');
-  await userEvent.selectOptions(
-    within(createDialog).getByLabelText('Ders (isteğe bağlı)'),
-    subject.id,
-  );
-  await userEvent.type(
-    within(createDialog).getByLabelText('Not (isteğe bağlı)'),
-    'Türev tekrarı',
-  );
-  await userEvent.click(within(createDialog).getByRole('button', { name: 'Kaydet' }));
+  expect(within(table).getAllByLabelText(/^\d+\. satır ders$/)).toHaveLength(5);
+  expect(within(table).getByText('DERSLER / TARİH')).toBeInTheDocument();
+  expect(within(table).getAllByText('TOPLAM SÜRE/SORU')).toHaveLength(2);
+  expect(screen.getByLabelText('Haftanın notu')).toBeInTheDocument();
+  expect(screen.getByText('Henüz kaydedilmedi')).toBeInTheDocument();
 
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
+  await userEvent.click(screen.getByRole('button', { name: 'Satır ekle' }));
+  expect(within(table).getAllByLabelText(/^\d+\. satır ders$/)).toHaveLength(6);
 
-  expect(await screen.findByText('Matematik çalışması')).toBeInTheDocument();
-  expect(screen.getByText('09:00–10:30')).toBeInTheDocument();
-  expect(screen.getByText('Matematik')).toBeInTheDocument();
-  expect(screen.getByText('Türev tekrarı')).toBeInTheDocument();
-
-  const stored = await listScheduleEntries();
-  expect(stored).toHaveLength(1);
-  expect(stored[0]).toMatchObject({
-    day: 1,
-    startTime: '09:00',
-    endTime: '10:30',
-    title: 'Matematik çalışması',
-    subjectId: subject.id,
-    note: 'Türev tekrarı',
-  });
-
-  await userEvent.click(
-    screen.getByRole('button', {
-      name: /Matematik çalışması, Pazartesi 09:00 kaydını düzenle/,
-    }),
-  );
-  const editDialog = await screen.findByRole('dialog', { name: 'Program kaydını düzenle' });
-  const titleInput = within(editDialog).getByLabelText(/^Başlık/);
-  expect(titleInput).toHaveValue('Matematik çalışması');
-
-  await userEvent.clear(titleInput);
-  await userEvent.type(titleInput, 'Matematik tekrarı');
-  await userEvent.click(within(editDialog).getByRole('button', { name: 'Kaydet' }));
-
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-  expect(await screen.findByText('Matematik tekrarı')).toBeInTheDocument();
-  expect(screen.queryByText('Matematik çalışması')).not.toBeInTheDocument();
-  expect((await listScheduleEntries())[0]?.title).toBe('Matematik tekrarı');
-
-  await userEvent.click(
-    screen.getByRole('button', {
-      name: /Matematik tekrarı, Pazartesi 09:00 kaydını sil/,
-    }),
-  );
-  const deleteDialog = await screen.findByRole('dialog', { name: 'Program kaydını sil' });
-  await userEvent.click(within(deleteDialog).getByRole('button', { name: 'Sil' }));
-
-  await waitFor(() => {
-    expect(screen.queryByText('Matematik tekrarı')).not.toBeInTheDocument();
-  });
-  expect(await listScheduleEntries()).toHaveLength(0);
+  await userEvent.click(screen.getByRole('button', { name: '6. satırı sil' }));
+  expect(within(table).getAllByLabelText(/^\d+\. satır ders$/)).toHaveLength(5);
 });
 
-test('program formu başlık ve saat doğrulaması gösterir', async () => {
-  await openProgram();
-
-  await userEvent.click(screen.getByRole('button', { name: 'Kayıt ekle' }));
-  const dialog = await screen.findByRole('dialog', { name: 'Yeni program kaydı' });
-
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-  expect(await within(dialog).findByText('Başlık boş olamaz')).toBeInTheDocument();
-  expect(within(dialog).getByLabelText(/^Gün/)).toHaveAttribute('aria-required', 'true');
-  expect(within(dialog).getByLabelText(/^Başlangıç saati/)).toHaveAttribute(
-    'aria-required',
-    'true',
-  );
-  expect(within(dialog).getByLabelText(/^Bitiş saati/)).toHaveAttribute(
-    'aria-required',
-    'true',
-  );
-  expect(within(dialog).getByLabelText(/^Başlık/)).toHaveAttribute('aria-required', 'true');
-  expect(within(dialog).getByLabelText(/^Başlık/)).toHaveAttribute('aria-invalid', 'true');
-
-  await userEvent.type(within(dialog).getByLabelText(/^Başlık/), 'Fizik');
-  fireEvent.change(within(dialog).getByLabelText(/^Bitiş saati/), {
-    target: { value: '07:00' },
+test('elle tablo doldurulur, kaydedilir ve yeniden açınca korunur', async () => {
+  const view = await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
   });
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
 
-  expect(
-    await within(dialog).findByText('Bitiş saati başlangıçtan sonra olmalı'),
-  ).toBeInTheDocument();
-  expect(within(dialog).getByLabelText(/^Bitiş saati/)).toHaveAttribute(
-    'aria-invalid',
-    'true',
+  await userEvent.type(within(table).getByLabelText('1. satır ders'), 'Matematik');
+  await userEvent.type(within(table).getByLabelText('1. satır Pazartesi'), '2 saat');
+  await userEvent.type(within(table).getByLabelText('1. satır Salı'), '40 soru');
+  await userEvent.type(within(table).getByLabelText('1. satır toplam'), '2 saat');
+  await userEvent.type(
+    within(table).getByLabelText('Toplam satırı Pazartesi'),
+    '10 saat',
   );
-  expect(await listScheduleEntries()).toHaveLength(0);
+  await userEvent.type(within(table).getByLabelText('Genel toplam'), '10 saat');
+  await userEvent.type(screen.getByLabelText('Haftanın notu'), 'Türev tekrarı');
+
+  expect(await screen.findByText('Kaydedilmemiş değişiklikler')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  expect(await screen.findByText('Kaydedildi')).toBeInTheDocument();
+
+  const stored = await getScheduleTable();
+  expect(stored?.id).toBe('main');
+  expect(stored?.rows[0]).toMatchObject({
+    subject: 'Matematik',
+    days: ['2 saat', '40 soru', '', '', '', '', ''],
+    total: '2 saat',
+  });
+  expect(stored?.totals).toMatchObject({
+    label: 'TOPLAM SÜRE/SORU',
+    days: ['10 saat', '', '', '', '', '', ''],
+    total: '10 saat',
+  });
+  expect(stored?.note).toBe('Türev tekrarı');
+
+  view.unmount();
+  await openSchedule();
+  const reloaded = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  expect(within(reloaded).getByLabelText('1. satır ders')).toHaveValue('Matematik');
+  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveValue('2 saat');
+  expect(within(reloaded).getByLabelText('Genel toplam')).toHaveValue('10 saat');
+  expect(screen.getByLabelText('Haftanın notu')).toHaveValue('Türev tekrarı');
+  expect(screen.getByText('Kaydedildi')).toBeInTheDocument();
+});
+
+test('mod seçimi kalıcıdır; yükleme ve elle tablo arasında geçilir', async () => {
+  const view = await openSchedule();
+
+  await switchToUpload();
+  expect(
+    screen.queryByRole('table', { name: 'Haftalık ders çalışma tablosu' }),
+  ).not.toBeInTheDocument();
+  expect((await getSettings()).scheduleMode).toBe('upload');
+
+  view.unmount();
+  await openSchedule();
+  expect(await screen.findByText('Henüz çizelge dosyası yok')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Elle tablo' }));
+  expect(
+    await screen.findByRole('table', { name: 'Haftalık ders çalışma tablosu' }),
+  ).toBeInTheDocument();
+  expect((await getSettings()).scheduleMode).toBe('manual');
 });
 
 test('program görselini büyütür, PDF bağlantısını açar ve dosyaları siler', async () => {
-  await openProgram();
+  await openSchedule();
+  await switchToUpload();
 
-  expect(screen.getByText('Henüz program dosyası yok')).toBeInTheDocument();
-
-  const input = screen.getByLabelText('Program dosyası seç');
+  const input = screen.getByLabelText('Çizelge dosyası seç');
   await userEvent.upload(
     input,
     new File(['png-içeriği'], 'program.png', { type: 'image/png' }),
@@ -231,7 +206,7 @@ test('program görselini büyütür, PDF bağlantısını açar ve dosyaları si
     screen.getByRole('button', { name: 'program.pdf dosyasını sil' }),
   );
   const deleteDialog = await screen.findByRole('dialog', {
-    name: 'Program dosyasını sil',
+    name: 'Çizelge dosyasını sil',
   });
   await userEvent.click(within(deleteDialog).getByRole('button', { name: 'Sil' }));
 
@@ -241,11 +216,12 @@ test('program görselini büyütür, PDF bağlantısını açar ve dosyaları si
   expect(await listScheduleFiles()).toHaveLength(1);
 });
 
-test('20 MB üzerindeki program dosyasını yüklemez', async () => {
-  await openProgram();
+test('20 MB üzerindeki çizelge dosyasını yüklemez', async () => {
+  await openSchedule();
+  await switchToUpload();
 
   await userEvent.upload(
-    screen.getByLabelText('Program dosyası seç'),
+    screen.getByLabelText('Çizelge dosyası seç'),
     fileWithSize('büyük.pdf', 'application/pdf', SCHEDULE_FILE_MAX_BYTES + 1),
   );
 

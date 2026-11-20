@@ -26,7 +26,7 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
 ];
 
 export const SECONDARY_NAV_ITEMS: readonly NavigationItem[] = [
-  { to: '/program', label: 'Program', icon: CalendarDays },
+  { to: '/program', label: 'Ders Çalışma Çizelgesi', icon: CalendarDays },
   { to: '/kitaplar', label: 'Kitaplar', icon: Library },
   { to: '/ayarlar', label: 'Ayarlar', icon: Settings },
 ];

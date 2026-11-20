@@ -7,10 +7,19 @@ import {
   addScheduleFile,
   deleteScheduleEntry,
   deleteScheduleFile,
+  getScheduleTable,
   listScheduleEntries,
   listScheduleFiles,
   saveScheduleEntry,
+  saveScheduleTable,
 } from '@/db/repositories';
+import {
+  SCHEDULE_TABLE_CELL_MAX_LENGTH,
+  SCHEDULE_TABLE_MAX_ROWS,
+  SCHEDULE_TABLE_NOTE_MAX_LENGTH,
+  createEmptyScheduleRow,
+  createEmptyScheduleTable,
+} from '@/domain/scheduleTable';
 import { compressImage } from '@/lib/image';
 import { seedOnboarded } from '@/test/fixtures';
 
@@ -256,4 +265,96 @@ test('program dosyası 20 MB sınırını ve dosya türünü uygular', async () 
   ).rejects.toThrow('Yalnızca görsel veya PDF dosyası ekleyebilirsin');
 
   expect(await listScheduleFiles()).toHaveLength(1);
+});
+
+test('elle çizelgeyi tek main kaydı olarak kaydeder ve yeniden okur', async () => {
+  const empty = createEmptyScheduleTable();
+  const firstRowId = empty.rows[0].id;
+  const saved = await saveScheduleTable({
+    rows: empty.rows.map((row, index) =>
+      index === 0
+        ? {
+            ...row,
+            subject: '  Matematik  ',
+            days: ['2 saat', '40 soru', '', '', '', '', ''],
+            total: '2 saat',
+          }
+        : row,
+    ),
+    totals: {
+      ...empty.totals,
+      days: ['10 saat', '', '', '', '', '', ''],
+      total: '10 saat',
+    },
+    note: '  Türev tekrarı  ',
+  });
+
+  expect(saved.id).toBe('main');
+  expect(saved.rows).toHaveLength(5);
+  expect(saved.rows[0]).toMatchObject({
+    id: firstRowId,
+    subject: 'Matematik',
+    days: ['2 saat', '40 soru', '', '', '', '', ''],
+    total: '2 saat',
+  });
+  expect(saved.totals).toMatchObject({
+    label: 'TOPLAM SÜRE/SORU',
+    days: ['10 saat', '', '', '', '', '', ''],
+    total: '10 saat',
+  });
+  expect(saved.note).toBe('Türev tekrarı');
+  expect(saved.updatedAt).toBeTruthy();
+  expect(await getScheduleTable()).toEqual(saved);
+
+  const updated = await saveScheduleTable({
+    rows: [
+      {
+        id: 'tek-satir',
+        subject: 'Fizik',
+        days: ['', '', '', '', '', '', ''],
+        total: '',
+      },
+    ],
+    note: '',
+  });
+
+  expect(updated.id).toBe('main');
+  expect(await db.scheduleTables.count()).toBe(1);
+  expect(await getScheduleTable()).toMatchObject({
+    id: 'main',
+    rows: [{ id: 'tek-satir', subject: 'Fizik' }],
+    note: '',
+  });
+});
+
+test('elle çizelge doğrulamaları Türkçe hata verir', async () => {
+  const duplicate = createEmptyScheduleRow();
+  await expect(
+    saveScheduleTable({ rows: [duplicate, { ...duplicate }] }),
+  ).rejects.toThrow('Çizelge satırı kimliği tekrar ediyor');
+
+  const longCell = createEmptyScheduleRow();
+  longCell.days[0] = 'x'.repeat(SCHEDULE_TABLE_CELL_MAX_LENGTH + 1);
+  await expect(saveScheduleTable({ rows: [longCell] })).rejects.toThrow(
+    `Ders satırı 1. gün en fazla ${SCHEDULE_TABLE_CELL_MAX_LENGTH} karakter olabilir`,
+  );
+
+  const tooManyRows = Array.from(
+    { length: SCHEDULE_TABLE_MAX_ROWS + 1 },
+    createEmptyScheduleRow,
+  );
+  await expect(saveScheduleTable({ rows: tooManyRows })).rejects.toThrow(
+    `Çizelge en fazla ${SCHEDULE_TABLE_MAX_ROWS} satır olabilir`,
+  );
+
+  await expect(
+    saveScheduleTable({
+      rows: [createEmptyScheduleRow()],
+      note: 'x'.repeat(SCHEDULE_TABLE_NOTE_MAX_LENGTH + 1),
+    }),
+  ).rejects.toThrow(
+    `Haftanın notu en fazla ${SCHEDULE_TABLE_NOTE_MAX_LENGTH} karakter olabilir`,
+  );
+
+  expect(await getScheduleTable()).toBeUndefined();
 });

@@ -18,9 +18,11 @@ import {
   patchSettings,
   saveExam,
   saveScheduleEntry,
+  saveScheduleTable,
   upsertTopicBook,
   type CurriculumSeed,
 } from '@/db/repositories';
+import { createEmptyScheduleTable } from '@/domain/scheduleTable';
 import { resetDb, seedOnboarded } from '@/test/fixtures';
 
 const seed: CurriculumSeed = {
@@ -586,6 +588,25 @@ test('program kaydı, görsel ve PDF yedekten kayıpsız geri yüklenir', async 
     subjectId: seeded.subject.id,
     note: 'Üçgenler',
   });
+  const tableSource = createEmptyScheduleTable();
+  const table = await saveScheduleTable({
+    rows: tableSource.rows.map((row, index) =>
+      index === 0
+        ? {
+            ...row,
+            subject: 'Matematik',
+            days: ['2 saat', '40 soru', '', '', '', '', ''],
+            total: '2 saat',
+          }
+        : row,
+    ),
+    totals: {
+      ...tableSource.totals,
+      days: ['10 saat', '', '', '', '', '', ''],
+      total: '10 saat',
+    },
+    note: 'Haftanın notu',
+  });
   await db.scheduleFiles.bulkAdd([
     {
       id: 'program-gorsel',
@@ -632,12 +653,30 @@ test('program kaydı, görsel ve PDF yedekten kayıpsız geri yüklenir', async 
   expect(data.scheduleFiles[0]).not.toHaveProperty('blob');
   expect(zip.file('program/program-gorsel.png')).not.toBeNull();
   expect(zip.file('program/program-pdf.pdf')).not.toBeNull();
+  expect(data.scheduleTables).toHaveLength(1);
+  expect(data.scheduleTables[0]).toMatchObject({
+    id: 'main',
+    totals: { label: 'TOPLAM SÜRE/SORU', total: '10 saat' },
+    note: 'Haftanın notu',
+  });
+  const serializedRows = data.scheduleTables[0].rows as Array<Record<string, unknown>>;
+  expect(serializedRows).toHaveLength(5);
+  expect(serializedRows[0]).toMatchObject({
+    subject: 'Matematik',
+    days: ['2 saat', '40 soru', '', '', '', '', ''],
+    total: '2 saat',
+  });
 
   await resetDb();
   const imported = await importBackup(new File([exported], 'program.zip'));
 
-  expect(imported.counts).toMatchObject({ scheduleEntries: 1, scheduleFiles: 2 });
+  expect(imported.counts).toMatchObject({
+    scheduleEntries: 1,
+    scheduleFiles: 2,
+    scheduleTables: 1,
+  });
   expect(await db.scheduleEntries.count()).toBe(1);
+  expect(await db.scheduleTables.get('main')).toEqual(table);
   expect(await db.scheduleEntries.get(entry.id)).toMatchObject({
     day: 3,
     startTime: '14:00',
@@ -666,23 +705,34 @@ test('program kaydı, görsel ve PDF yedekten kayıpsız geri yüklenir', async 
   expect(await blobToText(pdf!.blob)).toBe(SCHEDULE_PDF_BYTES);
 });
 
-test('program tabloları olmayan eski yedek boş listelerle yüklenir', async () => {
+test('program tabloları ve elle çizelge olmayan eski yedek boş yüklenir', async () => {
   await fullSeed();
   const exported = await exportBackup();
 
   const old = await mutateZip(exported, async (_zip, data, manifest) => {
     delete data.scheduleEntries;
     delete data.scheduleFiles;
+    delete data.scheduleTables;
     manifest.schemaVersion = 2;
-    manifest.counts = { ...manifest.counts, scheduleEntries: 0, scheduleFiles: 0 };
+    manifest.counts = {
+      ...manifest.counts,
+      scheduleEntries: 0,
+      scheduleFiles: 0,
+      scheduleTables: 0,
+    };
   });
 
   await resetDb();
   const imported = await importBackup(new File([old], 'eski-program.zip'));
 
-  expect(imported.counts).toMatchObject({ scheduleEntries: 0, scheduleFiles: 0 });
+  expect(imported.counts).toMatchObject({
+    scheduleEntries: 0,
+    scheduleFiles: 0,
+    scheduleTables: 0,
+  });
   expect(await db.scheduleEntries.count()).toBe(0);
   expect(await db.scheduleFiles.count()).toBe(0);
+  expect(await db.scheduleTables.count()).toBe(0);
   // The rest of the old archive still restores normally.
   expect(await db.photos.count()).toBe(1);
   expect(await db.attachments.count()).toBe(1);

@@ -17,11 +17,25 @@ import type {
   PracticeSession,
   ScheduleEntry,
   ScheduleFile,
+  ScheduleTable,
+  ScheduleTableDayCells,
+  ScheduleTableRow,
+  ScheduleTableTotals,
   Subject,
   Topic,
   TopicBook,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
+import {
+  SCHEDULE_TABLE_CELL_MAX_LENGTH,
+  SCHEDULE_TABLE_ID,
+  SCHEDULE_TABLE_MAX_ROWS,
+  SCHEDULE_TABLE_NOTE_MAX_LENGTH,
+  SCHEDULE_TABLE_SUBJECT_MAX_LENGTH,
+  SCHEDULE_TABLE_TOTAL_LABEL,
+  SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
+  emptyScheduleTableDays,
+} from '@/domain/scheduleTable';
 import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
 import { compressImage } from '@/lib/image';
@@ -46,6 +60,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   aytAlan: 'tumu',
   hiddenSubjects: [],
   geometryMode: 'separate',
+  scheduleMode: 'manual',
 };
 
 export async function getSettings(): Promise<AppSettings> {
@@ -590,6 +605,128 @@ export async function addScheduleFile(file: File): Promise<ScheduleFile> {
 
 export async function deleteScheduleFile(id: string): Promise<void> {
   await db.scheduleFiles.delete(id);
+}
+
+export interface SaveScheduleTableInput {
+  rows: ScheduleTableRow[];
+  totals?: ScheduleTableTotals;
+  note?: string;
+}
+
+function assertScheduleText(
+  value: unknown,
+  label: string,
+  maxLength: number,
+): string {
+  if (typeof value !== 'string') {
+    throw new Error(`${label} metin olmalı`);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > maxLength) {
+    throw new Error(`${label} en fazla ${maxLength} karakter olabilir`);
+  }
+  return trimmed;
+}
+
+function parseScheduleDays(value: unknown, label: string): ScheduleTableDayCells {
+  if (!Array.isArray(value) || value.length !== 7) {
+    throw new Error(`${label} yedi gün hücresi içermeli`);
+  }
+  return value.map((cell, index) =>
+    assertScheduleText(cell, `${label} ${index + 1}. gün`, SCHEDULE_TABLE_CELL_MAX_LENGTH),
+  ) as ScheduleTableDayCells;
+}
+
+function parseScheduleRows(value: unknown): ScheduleTableRow[] {
+  if (!Array.isArray(value)) {
+    throw new Error('Çizelge satırları geçersiz');
+  }
+  if (value.length > SCHEDULE_TABLE_MAX_ROWS) {
+    throw new Error(`Çizelge en fazla ${SCHEDULE_TABLE_MAX_ROWS} satır olabilir`);
+  }
+
+  const rowIds = new Set<string>();
+  return value.map((row, index) => {
+    if (typeof row !== 'object' || row === null) {
+      throw new Error(`${index + 1}. çizelge satırı geçersiz`);
+    }
+    const candidate = row as Partial<ScheduleTableRow>;
+    const id = assertScheduleText(candidate.id, 'Çizelge satırı kimliği', 200);
+    if (!id) {
+      throw new Error('Çizelge satırı kimliği boş olamaz');
+    }
+    if (rowIds.has(id)) {
+      throw new Error('Çizelge satırı kimliği tekrar ediyor');
+    }
+    rowIds.add(id);
+
+    return {
+      id,
+      subject: assertScheduleText(
+        candidate.subject ?? '',
+        'Ders adı',
+        SCHEDULE_TABLE_SUBJECT_MAX_LENGTH,
+      ),
+      days: parseScheduleDays(candidate.days, 'Ders satırı'),
+      total: assertScheduleText(
+        candidate.total ?? '',
+        'Ders toplamı',
+        SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
+      ),
+    };
+  });
+}
+
+function parseScheduleTotals(value: unknown): ScheduleTableTotals {
+  const candidate =
+    typeof value === 'object' && value !== null
+      ? (value as Partial<ScheduleTableTotals>)
+      : {};
+  const label = assertScheduleText(
+    candidate.label ?? SCHEDULE_TABLE_TOTAL_LABEL,
+    'Toplam satırı başlığı',
+    SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
+  );
+
+  return {
+    label: label || SCHEDULE_TABLE_TOTAL_LABEL,
+    days: parseScheduleDays(
+      candidate.days ?? emptyScheduleTableDays(),
+      'Toplam satırı',
+    ),
+    total: assertScheduleText(
+      candidate.total ?? '',
+      'Genel toplam',
+      SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
+    ),
+  };
+}
+
+export async function getScheduleTable(): Promise<ScheduleTable | undefined> {
+  return db.scheduleTables.get(SCHEDULE_TABLE_ID);
+}
+
+/**
+ * Upserts the single `main` table. Rows and cells are free text, but row ids
+ * must be unique and every field has a length cap so a malformed import or a
+ * pasted essay cannot bloat the record.
+ */
+export async function saveScheduleTable(
+  input: SaveScheduleTableInput,
+): Promise<ScheduleTable> {
+  const table: ScheduleTable = {
+    id: SCHEDULE_TABLE_ID,
+    rows: parseScheduleRows(input.rows),
+    totals: parseScheduleTotals(input.totals),
+    note: assertScheduleText(
+      input.note ?? '',
+      'Haftanın notu',
+      SCHEDULE_TABLE_NOTE_MAX_LENGTH,
+    ),
+    updatedAt: new Date().toISOString(),
+  };
+  await db.scheduleTables.put(table);
+  return table;
 }
 
 export interface AddPhotoInput {

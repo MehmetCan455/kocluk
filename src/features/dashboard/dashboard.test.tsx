@@ -215,10 +215,11 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
   expect(screen.getByRole('link', { name: 'Test kaydı' })).toHaveAttribute('href', '/tyt');
   const quickAdd = screen.getByRole('heading', { name: 'Hızlı ekle' }).parentElement;
   expect(quickAdd).not.toBeNull();
-  expect(within(quickAdd as HTMLElement).getByRole('link', { name: 'Program' })).toHaveAttribute(
-    'href',
-    '/program',
-  );
+  expect(
+    within(quickAdd as HTMLElement).getByRole('link', {
+      name: 'Ders Çalışma Çizelgesi',
+    }),
+  ).toHaveAttribute('href', '/program');
 });
 
 test('en yüksek ve ortalama net son beşle sınırlı kalmadan tür bazında tüm denemeleri kapsar', async () => {

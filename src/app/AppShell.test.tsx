@@ -25,12 +25,17 @@ test('menüden TYT sayfasına gider', async () => {
   expect(await screen.findByRole('heading', { level: 1, name: 'TYT Dersleri' })).toBeInTheDocument();
 });
 
-test('menüden Program sayfasına gider', async () => {
+test('menüden Ders Çalışma Çizelgesi sayfasına gider', async () => {
   renderApp('/');
   const nav = await screen.findByRole('navigation', { name: 'Ana menü' });
-  await userEvent.click(within(nav).getByRole('link', { name: 'Program' }));
+  await userEvent.click(
+    within(nav).getByRole('link', { name: 'Ders Çalışma Çizelgesi' }),
+  );
   expect(
-    await screen.findByRole('heading', { level: 1, name: 'Haftalık Program' }),
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'Ders Çalışma Çizelgesi',
+    }),
   ).toBeInTheDocument();
 });
 
@@ -60,7 +65,9 @@ test('mobilde alt navigasyonu gösterir', async () => {
   expect(await screen.findByRole('navigation', { name: 'Alt menü' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Denemeler' })).toBeInTheDocument();
   expect(
-    within(screen.getByRole('banner')).getByRole('link', { name: 'Program' }),
+    within(screen.getByRole('banner')).getByRole('link', {
+      name: 'Ders Çalışma Çizelgesi',
+    }),
   ).toBeInTheDocument();
 });
 

@@ -511,7 +511,7 @@ export function DashboardPage() {
             <li>
               <Link to="/program" className={quickAddLinkClass}>
                 <CalendarDays className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
-                Program
+                Ders Çalışma Çizelgesi
               </Link>
             </li>
           </ul>

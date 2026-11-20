@@ -8,15 +8,23 @@ import {
   type NetSeriesPoint,
 } from './chartData';
 import {
+  POINT_BORDER_WIDTH,
+  POINT_HOVER_RADIUS,
   POINT_RADIUS,
   POINT_STYLE,
+  RECORD_POINT_BORDER_COLOR,
+  RECORD_POINT_BORDER_WIDTH,
   RECORD_POINT_COLOR,
+  RECORD_POINT_HOVER_RADIUS,
   RECORD_POINT_RADIUS,
   RECORD_POINT_STYLE,
   netTooltipLabel,
   netTooltipTitle,
   NetTrendChart,
+  seriesPointBorderColors,
+  seriesPointBorderWidths,
   seriesPointColors,
+  seriesPointHoverRadii,
   seriesPointRadii,
   seriesPointStyles,
 } from './NetTrendChart';
@@ -81,6 +89,9 @@ interface CapturedLineProps {
       data: number[];
       pointBackgroundColor: string[];
       pointBorderColor: string[];
+      pointBorderWidth: number[];
+      pointHoverBorderColor: string[];
+      pointHoverBorderWidth: number[];
       pointStyle: string[];
       pointRadius: number[];
       pointHoverRadius: number[];
@@ -119,9 +130,15 @@ test('ilk nokta rekor işaretliyse altın yıldız kalır', () => {
   expect(seriesPointColors([], ACCENT)).toEqual([]);
   expect(seriesPointStyles([point({ record: true })])).toEqual([RECORD_POINT_STYLE]);
   expect(seriesPointRadii([point({ record: true })])).toEqual([RECORD_POINT_RADIUS]);
+  expect(seriesPointBorderColors([point({ record: true })], ACCENT)).toEqual([
+    RECORD_POINT_BORDER_COLOR,
+  ]);
+  expect(seriesPointBorderWidths([point({ record: true })])).toEqual([
+    RECORD_POINT_BORDER_WIDTH,
+  ]);
 });
 
-test('rekor noktalar yıldız, diğerleri daire; yıldız biraz daha büyük', () => {
+test('rekor noktalar altın yıldız, diğerleri accent daire; koyu kenar ve boyutlar', () => {
   const points = [
     point({ net: 20, record: false }),
     point({ net: 30, record: true }),
@@ -139,6 +156,29 @@ test('rekor noktalar yıldız, diğerleri daire; yıldız biraz daha büyük', (
     RECORD_POINT_RADIUS,
     POINT_RADIUS,
   ]);
+  expect(seriesPointHoverRadii(points)).toEqual([
+    POINT_HOVER_RADIUS,
+    RECORD_POINT_HOVER_RADIUS,
+    POINT_HOVER_RADIUS,
+  ]);
+  expect(seriesPointBorderColors(points, ACCENT)).toEqual([
+    ACCENT,
+    RECORD_POINT_BORDER_COLOR,
+    ACCENT,
+  ]);
+  expect(seriesPointBorderWidths(points)).toEqual([
+    POINT_BORDER_WIDTH,
+    RECORD_POINT_BORDER_WIDTH,
+    POINT_BORDER_WIDTH,
+  ]);
+
+  // Klasik 5 köşeli yıldız: altın dolgu, koyu ince kenar, 7-8 yarıçap.
+  expect(RECORD_POINT_COLOR).toBe('#FACC15');
+  expect(RECORD_POINT_BORDER_COLOR).toBe('#0A0A0C');
+  expect(RECORD_POINT_BORDER_WIDTH).toBe(1.5);
+  expect(RECORD_POINT_RADIUS).toBeGreaterThanOrEqual(7);
+  expect(RECORD_POINT_RADIUS).toBeLessThanOrEqual(8);
+  expect(RECORD_POINT_HOVER_RADIUS).toBe(9);
   expect(RECORD_POINT_RADIUS).toBeGreaterThan(POINT_RADIUS);
 });
 
@@ -166,10 +206,11 @@ test('kırpılmış dashboard serisinde pencere başındaki rekor altın yıldı
 
   const dataset = (captured.lineProps as CapturedLineProps).data.datasets[0];
   expect(dataset.pointBackgroundColor[0]).toBe(RECORD_POINT_COLOR);
-  expect(dataset.pointBorderColor[0]).toBe(RECORD_POINT_COLOR);
+  expect(dataset.pointBorderColor[0]).toBe(RECORD_POINT_BORDER_COLOR);
+  expect(dataset.pointBorderWidth[0]).toBe(RECORD_POINT_BORDER_WIDTH);
   expect(dataset.pointStyle[0]).toBe('star');
   expect(dataset.pointRadius[0]).toBe(RECORD_POINT_RADIUS);
-  expect(dataset.pointHoverRadius[0]).toBe(7);
+  expect(dataset.pointHoverRadius[0]).toBe(RECORD_POINT_HOVER_RADIUS);
 });
 
 test('tooltip deneme adı, tarih ve neti gösterir', () => {
@@ -209,14 +250,29 @@ test('grafik bileşeni nokta renklerini, şekillerini ve tooltip callbacklerini 
   ]);
   expect(props.data.datasets[0].pointBorderColor).toEqual([
     ACCENT,
-    RECORD_POINT_COLOR,
+    RECORD_POINT_BORDER_COLOR,
+  ]);
+  expect(props.data.datasets[0].pointBorderWidth).toEqual([
+    POINT_BORDER_WIDTH,
+    RECORD_POINT_BORDER_WIDTH,
+  ]);
+  expect(props.data.datasets[0].pointHoverBorderColor).toEqual([
+    ACCENT,
+    RECORD_POINT_BORDER_COLOR,
+  ]);
+  expect(props.data.datasets[0].pointHoverBorderWidth).toEqual([
+    POINT_BORDER_WIDTH,
+    RECORD_POINT_BORDER_WIDTH,
   ]);
   expect(props.data.datasets[0].pointStyle).toEqual(['circle', 'star']);
   expect(props.data.datasets[0].pointRadius).toEqual([
     POINT_RADIUS,
     RECORD_POINT_RADIUS,
   ]);
-  expect(props.data.datasets[0].pointHoverRadius).toEqual([5, 7]);
+  expect(props.data.datasets[0].pointHoverRadius).toEqual([
+    POINT_HOVER_RADIUS,
+    RECORD_POINT_HOVER_RADIUS,
+  ]);
 
   const { title, label } = props.options.plugins.tooltip.callbacks;
   expect(title([{ dataIndex: 0 }])).toBe('Sabah Denemesi');

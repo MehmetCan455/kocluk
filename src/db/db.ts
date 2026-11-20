@@ -10,6 +10,7 @@ import type {
   PracticeSession,
   ScheduleEntry,
   ScheduleFile,
+  ScheduleTable,
   Subject,
   Topic,
   TopicBook,
@@ -36,6 +37,7 @@ export class KoclukDB extends Dexie {
   practiceSessions!: Table<PracticeSession, string>;
   scheduleEntries!: Table<ScheduleEntry, string>;
   scheduleFiles!: Table<ScheduleFile, string>;
+  scheduleTables!: Table<ScheduleTable, string>;
 
   constructor() {
     super('kocluk');
@@ -90,6 +92,12 @@ export class KoclukDB extends Dexie {
     this.version(4).stores({
       scheduleEntries: 'id, day, startTime, updatedAt',
       scheduleFiles: 'id, createdAt',
+    });
+
+    // v5 adds the single manual schedule table. The old schedule entries and
+    // files stay in place; only the new table is used by the manual UI.
+    this.version(5).stores({
+      scheduleTables: 'id',
     });
   }
 }

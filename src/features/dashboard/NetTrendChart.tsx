@@ -7,6 +7,7 @@ import {
   LineElement,
   PointElement,
   Tooltip,
+  type ChartArea,
   type ChartOptions,
   type PointStyle,
 } from 'chart.js';
@@ -18,22 +19,102 @@ import { formatExamDate } from '@/features/exams/examFormat';
 import { formatNet } from '@/lib/format';
 import type { NetSeries, NetSeriesPoint } from './chartData';
 
+/** Draws a filled, classic five-point star centred on `(x, y)`. */
+function drawClassicStar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  rotation: number,
+  fill: CanvasRenderingContext2D['fillStyle'],
+  stroke: CanvasRenderingContext2D['strokeStyle'],
+  borderWidth: number,
+): void {
+  const innerRadius = radius * 0.42;
+  const startAngle = -Math.PI / 2 + (rotation * Math.PI) / 180;
+  ctx.beginPath();
+  for (let index = 0; index < 10; index += 1) {
+    const currentRadius = index % 2 === 0 ? radius : innerRadius;
+    const angle = startAngle + (index * Math.PI) / 5;
+    const pointX = x + Math.cos(angle) * currentRadius;
+    const pointY = y + Math.sin(angle) * currentRadius;
+    if (index === 0) {
+      ctx.moveTo(pointX, pointY);
+    } else {
+      ctx.lineTo(pointX, pointY);
+    }
+  }
+  ctx.closePath();
+
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (borderWidth > 0) {
+    ctx.lineJoin = 'miter';
+    ctx.lineWidth = borderWidth;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+  }
+}
+
+/**
+ * Chart.js' built-in `star` point style is an unfilled eight-spoke sparkle, not
+ * a classic five-point star. Patching only the `star` style keeps the normal
+ * `point*` option resolution, colours and hover radius (`pointHoverRadius` is
+ * resolved into `options.radius` before drawing).
+ */
+let starPointRendererInstalled = false;
+function installClassicStarPointRenderer(): void {
+  if (starPointRendererInstalled) {
+    return;
+  }
+  starPointRendererInstalled = true;
+
+  const originalDraw = PointElement.prototype.draw;
+  PointElement.prototype.draw = function draw(
+    this: PointElement,
+    ctx: CanvasRenderingContext2D,
+    area: ChartArea,
+  ): void {
+    const options = this.options;
+    if (options.pointStyle === 'star' && !this.skip && options.radius >= 0.1) {
+      drawClassicStar(
+        ctx,
+        this.x,
+        this.y,
+        options.radius,
+        options.rotation,
+        options.backgroundColor,
+        options.borderColor,
+        options.borderWidth,
+      );
+      return;
+    }
+    originalDraw.call(this, ctx, area);
+  };
+}
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
+installClassicStarPointRenderer();
 
 const GRID_COLOR = '#232A36';
 const TICK_COLOR = '#98A2B3';
 
 /** An all-time net record is gold; everything else is accent. */
 export const RECORD_POINT_COLOR = '#FACC15';
+/** The near-black outline keeps the gold star readable on the dark chart. */
+export const RECORD_POINT_BORDER_COLOR = '#0A0A0C';
 
 export const POINT_STYLE: PointStyle = 'circle';
 export const RECORD_POINT_STYLE: PointStyle = 'star';
 
 /** Stars need a little more room than the plain circles. */
 export const POINT_RADIUS = 3;
-export const RECORD_POINT_RADIUS = 5;
+export const RECORD_POINT_RADIUS = 7;
 export const POINT_HOVER_RADIUS = 5;
-export const RECORD_POINT_HOVER_RADIUS = 7;
+export const RECORD_POINT_HOVER_RADIUS = 9;
+
+export const POINT_BORDER_WIDTH = 1;
+export const RECORD_POINT_BORDER_WIDTH = 1.5;
 
 /**
  * Trust `point.record`: `toSeries` computes it over the full history, and a
@@ -64,6 +145,25 @@ export function seriesPointHoverRadii(
 ): number[] {
   return points.map((point) =>
     point.record ? RECORD_POINT_HOVER_RADIUS : POINT_HOVER_RADIUS,
+  );
+}
+
+/** Records get the dark outline; ordinary points keep the accent outline. */
+export function seriesPointBorderColors(
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
+  accent: string,
+): string[] {
+  return points.map((point) =>
+    point.record ? RECORD_POINT_BORDER_COLOR : accent,
+  );
+}
+
+/** The star outline is slightly thicker than the plain circle outline. */
+export function seriesPointBorderWidths(
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
+): number[] {
+  return points.map((point) =>
+    point.record ? RECORD_POINT_BORDER_WIDTH : POINT_BORDER_WIDTH,
   );
 }
 
@@ -106,6 +206,8 @@ export function NetTrendChart({
     const pointStyles = seriesPointStyles(points);
     const pointRadii = seriesPointRadii(points);
     const pointHoverRadii = seriesPointHoverRadii(points);
+    const pointBorderColors = seriesPointBorderColors(points, accent);
+    const pointBorderWidths = seriesPointBorderWidths(points);
     return {
       labels: points.map((point) => point.label),
       datasets: [
@@ -115,9 +217,11 @@ export function NetTrendChart({
           borderColor: accent,
           backgroundColor: fillColor,
           pointBackgroundColor: pointColors,
-          pointBorderColor: pointColors,
+          pointBorderColor: pointBorderColors,
+          pointBorderWidth: pointBorderWidths,
           pointHoverBackgroundColor: pointColors,
-          pointHoverBorderColor: pointColors,
+          pointHoverBorderColor: pointBorderColors,
+          pointHoverBorderWidth: pointBorderWidths,
           pointStyle: pointStyles,
           pointRadius: pointRadii,
           pointHoverRadius: pointHoverRadii,

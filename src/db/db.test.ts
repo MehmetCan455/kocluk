@@ -60,6 +60,7 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db
     'practiceSessions',
     'scheduleEntries',
     'scheduleFiles',
+    'scheduleTables',
     'settings',
     'subjects',
     'topicBooks',
@@ -74,6 +75,7 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db
     'updatedAt',
   ]);
   expect(db.scheduleFiles.schema.indexes.map((index) => index.name)).toEqual(['createdAt']);
+  expect(db.scheduleTables.schema.primKey.name).toBe('id');
 });
 
 test('varsayılan ayarları döner ve yamayı saklar', async () => {
@@ -88,6 +90,7 @@ test('varsayılan ayarları döner ve yamayı saklar', async () => {
     aytAlan: 'tumu',
     hiddenSubjects: [],
     geometryMode: 'separate',
+    scheduleMode: 'manual',
   });
   expect(await getSettings()).toMatchObject(DEFAULT_SETTINGS);
   await patchSettings({ profileName: 'Deniz', aytAlan: 'sayisal' });
@@ -490,7 +493,7 @@ test('resetDb temizler, seedOnboarded onboarding ayarını yazar', async () => {
   });
 });
 
-test('v2/v3 geçişi projeksiyon üretir, v4 program tablolarını ekler', async () => {
+test('v2/v3 geçişi projeksiyon üretir, v4/v5 program ve çizelge tablolarını ekler', async () => {
   await db.close();
   await Dexie.delete('kocluk');
 
@@ -550,8 +553,66 @@ test('v2/v3 geçişi projeksiyon üretir, v4 program tablolarını ekler', async
   // the migration must keep both blobs without re-encoding them.
   expect(migrated).toHaveProperty('blob');
   expect(migrated).toHaveProperty('thumbBlob');
-  // v4 is additive: the program tables exist and the old photo is untouched.
+  // v4/v5 are additive: the program and schedule table stores exist and the
+  // old photo is untouched.
   expect(await db.scheduleEntries.count()).toBe(0);
   expect(await db.scheduleFiles.count()).toBe(0);
+  expect(await db.scheduleTables.count()).toBe(0);
   expect(await db.photos.count()).toBe(1);
+});
+
+test('v5 geçişi eski program kayıtlarını ve dosyalarını korur', async () => {
+  await db.close();
+  await Dexie.delete('kocluk');
+
+  const legacy = new Dexie('kocluk');
+  legacy.version(1).stores({
+    settings: 'key',
+    subjects: 'id, &seedKey, exam, order',
+    topics: 'id, &seedKey, subjectId, order',
+    books: 'id, name, updatedAt',
+    topicBooks: 'id, topicId, bookId',
+    exams: 'id, type, date',
+    examResults: 'id, examId, subjectId',
+    photos: 'id, examId, subjectId, topicId, createdAt',
+    notes: 'topicId',
+    attachments: 'id, topicId',
+    practiceSessions: 'id, createdAt, completedAt',
+  });
+  legacy.version(4).stores({
+    scheduleEntries: 'id, day, startTime, updatedAt',
+    scheduleFiles: 'id, createdAt',
+  });
+  await legacy.open();
+
+  await legacy.table('scheduleEntries').add({
+    id: 'eski-program-kaydi',
+    day: 2,
+    startTime: '09:00',
+    endTime: '10:00',
+    title: 'Eski program kaydı',
+    createdAt: '2026-11-01T10:00:00.000Z',
+    updatedAt: '2026-11-01T10:00:00.000Z',
+  });
+  await legacy.table('scheduleFiles').add({
+    id: 'eski-program-dosyasi',
+    name: 'eski-program.pdf',
+    mime: 'application/pdf',
+    size: 5,
+    blob: new Blob(['%PDF'], { type: 'application/pdf' }),
+    createdAt: '2026-11-01T10:01:00.000Z',
+  });
+  legacy.close();
+
+  await db.open();
+
+  expect(await db.scheduleEntries.get('eski-program-kaydi')).toMatchObject({
+    day: 2,
+    title: 'Eski program kaydı',
+  });
+  expect(await db.scheduleFiles.get('eski-program-dosyasi')).toMatchObject({
+    name: 'eski-program.pdf',
+    mime: 'application/pdf',
+  });
+  expect(await db.scheduleTables.count()).toBe(0);
 });

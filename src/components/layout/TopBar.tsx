@@ -33,7 +33,11 @@ export function TopBar({ onSearch }: TopBarProps) {
         >
           <Search className="h-5 w-5" aria-hidden="true" />
         </button>
-        <NavLink to="/program" aria-label="Program" className={iconLinkClass}>
+        <NavLink
+          to="/program"
+          aria-label="Ders Çalışma Çizelgesi"
+          className={iconLinkClass}
+        >
           <CalendarDays className="h-5 w-5" aria-hidden="true" />
         </NavLink>
         <NavLink to="/kitaplar" aria-label="Kitaplar" className={iconLinkClass}>

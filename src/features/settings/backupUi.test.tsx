@@ -14,8 +14,10 @@ import {
   patchSettings,
   saveExam,
   saveScheduleEntry,
+  saveScheduleTable,
   type CurriculumSeed,
 } from '@/db/repositories';
+import { createEmptyScheduleTable } from '@/domain/scheduleTable';
 import { resetDb, seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
 
@@ -80,6 +82,13 @@ async function seedPanelData(profileName = 'Yedek Profili') {
   await addScheduleFile(
     new File(['%PDF-1.4 panel'], 'panel-program.pdf', { type: 'application/pdf' }),
   );
+  const table = createEmptyScheduleTable();
+  await saveScheduleTable({
+    rows: table.rows.map((row, index) =>
+      index === 0 ? { ...row, subject: 'Panel dersi' } : row,
+    ),
+    note: 'Panel notu',
+  });
   return { subject, topic };
 }
 
@@ -126,6 +135,7 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
   expect(screen.getByText(/1 test oturumu/)).toBeInTheDocument();
   expect(screen.getByText(/1 program kaydı/)).toBeInTheDocument();
   expect(screen.getByText(/1 program dosyası/)).toBeInTheDocument();
+  expect(screen.getByText(/1 çizelge tablosu/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Mevcut verileri değiştir' }));
 
@@ -157,7 +167,7 @@ test('tüm verileri silme iki onay ister ve yedeği önerir', async () => {
 
   await userEvent.click(await screen.findByRole('button', { name: 'Tüm verileri sil' }));
   expect(screen.getByText(/Önce yedek almanı öneririz/)).toBeInTheDocument();
-  expect(screen.getByText(/haftalık program/)).toBeInTheDocument();
+  expect(screen.getByText(/ders çalışma çizelgesi/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Devam et' }));
   expect(screen.getByText(/Bu işlem geri alınamaz/)).toBeInTheDocument();
@@ -172,6 +182,7 @@ test('tüm verileri silme iki onay ister ve yedeği önerir', async () => {
   });
   expect(await db.scheduleEntries.count()).toBe(0);
   expect(await db.scheduleFiles.count()).toBe(0);
+  expect(await db.scheduleTables.count()).toBe(0);
   expect(await screen.findByRole('heading', { name: 'Seni tanıyalım' })).toBeInTheDocument();
 });
 

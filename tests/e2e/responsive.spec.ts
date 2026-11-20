@@ -6,7 +6,7 @@ const PAGES: ReadonlyArray<{ path: string; heading: string }> = [
   { path: './#/tyt', heading: 'TYT Dersleri' },
   { path: './#/denemeler', heading: 'Denemeler' },
   { path: './#/yanlislar', heading: 'Yanlışlar' },
-  { path: './#/program', heading: 'Haftalık Program' },
+  { path: './#/program', heading: 'Ders Çalışma Çizelgesi' },
   { path: './#/kitaplar', heading: 'Kitaplar' },
   { path: './#/ayarlar', heading: 'Ayarlar' },
 ];
@@ -47,7 +47,7 @@ test('1024 px program sayfasında yatay kaydırma olmaz', async ({ page }) => {
   await page.goto('./#/program');
 
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Haftalık Program' }),
+    page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
   ).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

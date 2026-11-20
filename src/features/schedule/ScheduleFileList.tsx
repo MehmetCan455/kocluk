@@ -123,7 +123,7 @@ export interface ScheduleFileListProps {
   files: ScheduleFile[];
 }
 
-/** Upload, preview and delete the weekly program photo/PDF archive. */
+/** Upload, preview and delete the weekly schedule photo/PDF archive. */
 export function ScheduleFileList({ files }: ScheduleFileListProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +166,7 @@ export function ScheduleFileList({ files }: ScheduleFileListProps) {
       await deleteScheduleFile(deleting.id);
       setDeleting(null);
     } catch (caught: unknown) {
-      console.error('Program dosyası silinemedi', caught);
+      console.error('Çizelge dosyası silinemedi', caught);
       setDeleteError('Dosya silinemedi. Lütfen tekrar dene.');
     } finally {
       setDeletingBusy(false);
@@ -178,7 +178,7 @@ export function ScheduleFileList({ files }: ScheduleFileListProps) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h2 id="program-dosyalari" className="text-lg font-semibold">
-            Program görseli / PDF
+            Çizelge görseli / PDF
           </h2>
           <p className="text-xs text-muted">Görsel veya PDF · en fazla 20 MB</p>
         </div>
@@ -186,7 +186,7 @@ export function ScheduleFileList({ files }: ScheduleFileListProps) {
           ref={fileInputRef}
           type="file"
           accept="image/*,application/pdf"
-          aria-label="Program dosyası seç"
+          aria-label="Çizelge dosyası seç"
           className="sr-only"
           onChange={(event) => void handleFileChange(event)}
         />
@@ -209,8 +209,8 @@ export function ScheduleFileList({ files }: ScheduleFileListProps) {
       {files.length === 0 ? (
         <EmptyState
           icon={Upload}
-          title="Henüz program dosyası yok"
-          description="Programının fotoğrafını veya PDF'ini yükleyerek burada saklayabilirsin."
+          title="Henüz çizelge dosyası yok"
+          description="Ders çalışma çizelgenin fotoğrafını veya PDF'ini yükleyerek burada saklayabilirsin."
         />
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -230,7 +230,7 @@ export function ScheduleFileList({ files }: ScheduleFileListProps) {
       {deleting ? (
         <Modal
           open
-          title="Program dosyasını sil"
+          title="Çizelge dosyasını sil"
           onClose={() => {
             if (!deletingBusy) {
               setDeleting(null);
@@ -256,7 +256,7 @@ export function ScheduleFileList({ files }: ScheduleFileListProps) {
           }
         >
           <p className="text-sm">
-            <span className="font-semibold">{deleting.name}</span> dosyası programdan
+            <span className="font-semibold">{deleting.name}</span> dosyası çizelgeden
             kaldırılacak. Bu işlem geri alınamaz.
           </p>
           {deleteError ? (

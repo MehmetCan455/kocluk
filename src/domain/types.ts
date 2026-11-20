@@ -160,6 +160,42 @@ export interface ScheduleFile {
   createdAt: string;
 }
 
+/** How the schedule page is shown: a free-text table or photo/PDF uploads. */
+export type ScheduleMode = 'upload' | 'manual';
+
+/** Seven free-text cells, Monday first. Totals are not calculated automatically. */
+export type ScheduleTableDayCells = [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+];
+
+export interface ScheduleTableRow {
+  id: string;
+  subject: string;
+  days: ScheduleTableDayCells;
+  total: string;
+}
+
+export interface ScheduleTableTotals {
+  label: string;
+  days: ScheduleTableDayCells;
+  total: string;
+}
+
+/** The single manual weekly table (`id: 'main'`), saved as one record. */
+export interface ScheduleTable {
+  id: string;
+  rows: ScheduleTableRow[];
+  totals: ScheduleTableTotals;
+  note: string;
+  updatedAt: string;
+}
+
 export type PracticeOutcome = 'correct' | 'wrong' | 'blank';
 
 export interface PracticeFilters {
@@ -195,6 +231,7 @@ export interface AppSettings {
   aytAlan: AytAlan;
   hiddenSubjects: string[];
   geometryMode: GeometryMode;
+  scheduleMode: ScheduleMode;
 }
 
 export interface Progress {

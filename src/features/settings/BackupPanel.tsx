@@ -30,6 +30,7 @@ const pluralCounts = [
   { key: 'practiceSessions', singular: 'test oturumu' },
   { key: 'scheduleEntries', singular: 'program kaydı' },
   { key: 'scheduleFiles', singular: 'program dosyası' },
+  { key: 'scheduleTables', singular: 'çizelge tablosu' },
 ] as const;
 
 type BusyState = 'download' | 'preview' | 'import' | 'reset' | null;
@@ -273,8 +274,8 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-danger">Tüm verileri sil</h3>
             <p className="text-sm text-muted">
-              Bu cihazdaki ders, kitap, deneme, not, fotoğraf, haftalık program ve test
-              geçmişini siler.
+              Bu cihazdaki ders, kitap, deneme, not, fotoğraf, ders çalışma çizelgesi
+              ve test geçmişini siler.
             </p>
           </div>
 

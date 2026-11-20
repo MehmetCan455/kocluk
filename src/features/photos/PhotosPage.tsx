@@ -8,8 +8,20 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/components/ui/cn';
 import { db } from '@/db/db';
-import { deletePhotos, listExams, listPhotos, listSubjects, listTopics } from '@/db/repositories';
+import {
+  deletePhotos,
+  listExams,
+  listOpenPracticeSessions,
+  listPhotos,
+  listSubjects,
+  listTopics,
+} from '@/db/repositories';
 import type { Photo, PhotoFilters as PhotoFiltersValue, Subject } from '@/domain/types';
+import {
+  describePracticeFilters,
+  formatPracticeDate,
+  scorePracticeSession,
+} from '@/features/practice/practiceSummary';
 import { PhotoFilters } from './PhotoFilters';
 import { PhotoThumb, photoLabel } from './PhotoThumb';
 import { PhotoUpload } from './PhotoUpload';
@@ -51,6 +63,7 @@ export function PhotosPage() {
     [filters.subjectId],
   );
   const photos = useLiveQuery(() => listPhotos(filters), [filters]);
+  const openSessions = useLiveQuery(() => listOpenPracticeSessions(), []);
   const summary = useLiveQuery(async () => {
     const [total, mastered] = await Promise.all([
       db.photos.count(),
@@ -168,6 +181,37 @@ export function PhotosPage() {
         </div>
       </Card>
 
+      {openSessions && openSessions.length > 0 ? (
+        <Card className="space-y-3 border-[var(--accent)]/40">
+          <h2 className="text-base font-semibold">Devam eden test</h2>
+          <ul className="divide-y divide-line" aria-label="Devam eden testler">
+            {openSessions.map((session) => {
+              const score = scorePracticeSession(session);
+              return (
+                <li key={session.id}>
+                  <Link
+                    to={`/yanlislar/test/${session.id}`}
+                    className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 transition-colors hover:text-[var(--accent)]"
+                  >
+                    <span className="min-w-0 space-y-0.5">
+                      <span className="block text-sm font-medium">
+                        {formatPracticeDate(session.createdAt)}
+                      </span>
+                      <span className="block text-xs text-muted">
+                        {describePracticeFilters(session.filters)}
+                      </span>
+                    </span>
+                    <span className="text-sm font-semibold text-[var(--accent)] tabular-nums">
+                      {`${score.answered}/${score.total} cevaplandı · Devam et`}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
+
       <PhotoFilters
         value={filters}
         subjects={subjectOptions}
@@ -184,6 +228,29 @@ export function PhotosPage() {
         <div className="flex flex-wrap gap-2">
           {selecting ? (
             <>
+              <Link
+                to={
+                  selected.size > 0
+                    ? `/yanlislar/test?photoIds=${[...selected]
+                        .map((photoId) => encodeURIComponent(photoId))
+                        .join(',')}`
+                    : '/yanlislar/test'
+                }
+                aria-disabled={selected.size === 0}
+                tabIndex={selected.size === 0 ? -1 : undefined}
+                onClick={(event) => {
+                  if (selected.size === 0) {
+                    event.preventDefault();
+                  }
+                }}
+                className={cn(
+                  'inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-raised px-4 text-sm font-semibold text-fg transition-colors hover:bg-surface',
+                  selected.size === 0 && 'pointer-events-none opacity-50',
+                )}
+              >
+                <FlaskConical className="h-4 w-4" aria-hidden="true" />
+                Seçilenlerden test oluştur
+              </Link>
               <Button variant="secondary" size="sm" onClick={stopSelecting}>
                 Seçimi bitir
               </Button>

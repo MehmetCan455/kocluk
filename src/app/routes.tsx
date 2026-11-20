@@ -8,6 +8,8 @@ import { ExamsPage } from '@/features/exams/ExamsPage';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { PhotoDetail } from '@/features/photos/PhotoDetail';
 import { PhotosPage } from '@/features/photos/PhotosPage';
+import { PracticeSessionPage } from '@/features/practice/PracticeSessionPage';
+import { PracticeWizard } from '@/features/practice/PracticeWizard';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubjectPage } from '@/features/subjects/SubjectPage';
 import { SubjectsPage } from '@/features/subjects/SubjectsPage';
@@ -54,24 +56,8 @@ export function AppRoutes() {
       <Route path="/denemeler/:id" element={<ExamDetailPage />} />
 
       <Route path="/yanlislar" element={<PhotosPage />} />
-      <Route
-        path="/yanlislar/test"
-        element={
-          <PagePlaceholder
-            title="Rastgele Test"
-            description="Rastgele test sihirbazı yakında burada olacak."
-          />
-        }
-      />
-      <Route
-        path="/yanlislar/test/:sessionId"
-        element={
-          <PagePlaceholder
-            title="Test Oturumu"
-            description="Test oturumu yakında burada olacak."
-          />
-        }
-      />
+      <Route path="/yanlislar/test" element={<PracticeWizard />} />
+      <Route path="/yanlislar/test/:sessionId" element={<PracticeSessionPage />} />
       <Route path="/yanlislar/:photoId" element={<PhotoDetail />} />
 
       <Route path="/kitaplar" element={<BooksPage />} />

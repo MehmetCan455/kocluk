@@ -10,6 +10,9 @@ import type {
   Note,
   Photo,
   PhotoFilters,
+  PracticeFilters,
+  PracticeOutcome,
+  PracticeSession,
   Subject,
   Topic,
   TopicBook,
@@ -833,4 +836,149 @@ export async function deleteExamUnlinkPhotos(examId: string): Promise<void> {
     await db.examResults.where('examId').equals(examId).delete();
     await db.exams.delete(examId);
   });
+}
+
+/**
+ * Canonical stored form of the wizard's filters: a shallow copy with the
+ * multi-select ids deduplicated and `count` coerced to a non-negative integer.
+ * Absent fields stay absent, so `examType` absent still reads as mixed, `count`
+ * absent as all matching photos and `onlyUnmastered` absent as true.
+ */
+function normalizePracticeFilters(filters: PracticeFilters): PracticeFilters {
+  const normalized: PracticeFilters = { ...filters };
+
+  if (filters.subjectIds) {
+    normalized.subjectIds = [...new Set(filters.subjectIds)];
+  }
+  if (filters.topicIds) {
+    normalized.topicIds = [...new Set(filters.topicIds)];
+  }
+  if (filters.count !== undefined) {
+    normalized.count = Math.max(0, Math.floor(filters.count));
+  }
+
+  return normalized;
+}
+
+export interface CreatePracticeSessionInput {
+  filters: PracticeFilters;
+  photoIds: string[];
+}
+
+/**
+ * Creates an open session with an immutable photo order. Duplicate ids are
+ * removed so one photo never contributes twice to the same session.
+ */
+export async function createPracticeSession(
+  input: CreatePracticeSessionInput,
+): Promise<PracticeSession> {
+  const photoIds = [
+    ...new Set(input.photoIds.map((photoId) => photoId.trim()).filter(Boolean)),
+  ];
+  if (photoIds.length === 0) {
+    throw new Error('Test için fotoğraf bulunamadı');
+  }
+
+  const now = new Date().toISOString();
+  const session: PracticeSession = {
+    id: newId(),
+    createdAt: now,
+    updatedAt: now,
+    filters: normalizePracticeFilters(input.filters),
+    photoIds,
+    results: {},
+  };
+  await db.practiceSessions.add(session);
+  return session;
+}
+
+/**
+ * Persists one answer and the resulting mastery transition atomically. The
+ * session result is written even when the photo row was deleted; only the
+ * photo update is skipped. Re-answering is intentional and increments
+ * `practiceCount` again, while a blank answer never changes `mastered`.
+ */
+export async function recordPracticeAnswer(
+  sessionId: string,
+  photoId: string,
+  outcome: PracticeOutcome,
+): Promise<void> {
+  await db.transaction('rw', db.practiceSessions, db.photos, async () => {
+    const session = await db.practiceSessions.get(sessionId);
+    if (!session) {
+      throw new Error('Test oturumu bulunamadı');
+    }
+    if (session.completedAt) {
+      throw new Error('Test zaten tamamlandı');
+    }
+
+    const now = new Date().toISOString();
+    await db.practiceSessions.update(sessionId, {
+      results: { ...session.results, [photoId]: outcome },
+      updatedAt: now,
+    });
+
+    const photo = await db.photos.get(photoId);
+    if (!photo) {
+      return;
+    }
+
+    const changes: Partial<Photo> = {
+      practiceCount: photo.practiceCount + 1,
+      lastPracticedAt: now,
+    };
+    if (outcome === 'correct') {
+      changes.mastered = true;
+    } else if (outcome === 'wrong') {
+      // Wrong reverts a previously solved photo, as the mastery machine says.
+      changes.mastered = false;
+    }
+    await db.photos.update(photoId, changes);
+  });
+}
+
+/** Idempotent: a second call keeps the original completion time. */
+export async function completePracticeSession(sessionId: string): Promise<void> {
+  const session = await db.practiceSessions.get(sessionId);
+  if (!session) {
+    throw new Error('Test oturumu bulunamadı');
+  }
+  if (session.completedAt) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  await db.practiceSessions.update(sessionId, { completedAt: now, updatedAt: now });
+}
+
+/** Completed sessions, newest first. The default history size is 10. */
+export async function listPracticeSessions(limit = 10): Promise<PracticeSession[]> {
+  const sessions = await db.practiceSessions
+    .filter((session) => Boolean(session.completedAt))
+    .toArray();
+
+  return sessions
+    .sort(
+      (left, right) =>
+        (right.completedAt ?? '').localeCompare(left.completedAt ?? '') ||
+        right.createdAt.localeCompare(left.createdAt) ||
+        left.id.localeCompare(right.id),
+    )
+    .slice(0, Math.max(0, Math.floor(limit)));
+}
+
+/** Open sessions, newest first, used by the "Devam eden test" card. */
+export async function listOpenPracticeSessions(): Promise<PracticeSession[]> {
+  const sessions = await db.practiceSessions
+    .filter((session) => !session.completedAt)
+    .toArray();
+
+  return sessions.sort(
+    (left, right) =>
+      right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id),
+  );
+}
+
+export async function getPracticeSession(id: string): Promise<PracticeSession | undefined> {
+  return db.practiceSessions.get(id);
 }

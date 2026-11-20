@@ -34,8 +34,10 @@ function formatLabel(date: string): string {
 }
 
 /**
- * An AYT exam without an alan is a general AYT exam, so it belongs to the
- * Genel (`tumu`) bucket. TYT exams never store an alan.
+ * Default alan for callers that do not pass a resolver. Legacy exams can be
+ * stored without an alan (or as `tumu`); they fall into the old Genel bucket
+ * here. Screens that can infer a concrete branch pass an `AlanResolver`
+ * instead, so a legacy exam is compared and charted with its inferred branch.
  */
 function alanOf(exam: Exam): AytAlan {
   return exam.alan ?? 'tumu';
@@ -53,7 +55,8 @@ function compareExams(left: Exam, right: Exam): number {
 
 /**
  * Filters exams by type/alan and returns the most recent `limit` points in
- * ascending order, which is what every chart needs.
+ * ascending order, which is what every chart needs. `resolveAlan` lets legacy
+ * exams participate in a concrete branch instead of the Genel bucket.
  */
 function selectExams(
   exams: Exam[],
@@ -79,8 +82,10 @@ function sumNetByExam(results: ExamResult[]): Map<string, number> {
 
 /**
  * Builds an ascending total-net trend for one exam type. An omitted `alan`
- * keeps every AYT exam; `tumu` means Genel and also matches exams whose alan
- * was left empty. Only the most recent `MAX_CHART_POINTS` exams are returned.
+ * keeps every AYT exam. A concrete `alan` is matched through `resolveAlan`,
+ * which defaults to the stored value (missing alan = legacy Genel); callers
+ * that know the subjects can infer legacy branches from results. Only the most
+ * recent `MAX_CHART_POINTS` exams are returned.
  */
 export function buildNetSeries(
   exams: Exam[],

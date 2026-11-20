@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Field } from '@/components/ui/Field';
+import { computeHiddenSubjects } from '@/data/alanSubjects';
 import { getExam, listExamResults, listSubjects, saveExam } from '@/db/repositories';
 import { calculateNet } from '@/domain/calculations';
 import type { AytAlan, ExamType, Subject } from '@/domain/types';
@@ -165,6 +166,7 @@ export function ExamFormPage() {
   const [note, setNote] = useState('');
   const [values, setValues] = useState<Record<string, Counts>>({});
   const [initialResults, setInitialResults] = useState<StoredResult[]>([]);
+  const [geometryConsent, setGeometryConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -216,6 +218,7 @@ export function ExamFormPage() {
         setAlan(exam.type === 'AYT' ? resolveAytAlan(exam, results, allSubjects) : '');
         setNote(exam.note);
         setValues(loadedValues);
+        setGeometryConsent(false);
         setInitialResults(
           results.map((result) => ({
             subjectId: result.subjectId,
@@ -269,14 +272,24 @@ export function ExamFormPage() {
     );
   }
 
-  const hiddenIds = new Set(settings.hiddenSubjects);
+  // `hiddenSubjects` mixes the study-branch auto-hides with manual hides. The
+  // exam form follows the branch selected on the exam itself, but still hides
+  // subjects the user unchecked by hand. Auto-derived hides are the difference
+  // between the stored hidden list and what the current study alan hides.
+  const autoHiddenIds = new Set(
+    examType === 'AYT' ? computeHiddenSubjects(settings.aytAlan, subjects) : [],
+  );
+  const hiddenIds = new Set(
+    settings.hiddenSubjects.filter((subjectId) => !autoHiddenIds.has(subjectId)),
+  );
   const subjectBySeed = new Map(subjects.map((subject) => [subject.seedKey, subject]));
   const storedById = new Map(initialResults.map((result) => [result.subjectId, result]));
 
   const mathSubject = subjectBySeed.get(mathSeedKey(examType));
   const geometrySubject = subjectBySeed.get(geometrySeedKey(examType));
   const config = getExamSubjectConfig(examType, alan, settings.geometryMode);
-  const mathConfigured = config.some((row) => row.seedKey === mathSeedKey(examType));
+  const configSeedKeys = new Set(config.map((row) => row.seedKey));
+  const mathConfigured = configSeedKeys.has(mathSeedKey(examType));
   const geometryConsumed =
     settings.geometryMode === 'combined' &&
     mathConfigured &&
@@ -285,6 +298,7 @@ export function ExamFormPage() {
     geometrySubject !== undefined &&
     storedById.has(geometrySubject.id);
   const geometryConsumedId = geometryConsumed ? geometrySubject?.id : undefined;
+  const needsGeometryConsent = geometryConsumed && !geometryConsent;
 
   const entryRows: EntryRow[] = config.flatMap((entry) => {
     const subject = subjectBySeed.get(entry.seedKey);
@@ -361,7 +375,8 @@ export function ExamFormPage() {
     date !== '' &&
     dateError === null &&
     !hasRowErrors &&
-    !awaitingAlan;
+    !awaitingAlan &&
+    !needsGeometryConsent;
 
   function updateCount(subjectId: string, field: keyof Counts, value: string) {
     setValues((current) => ({
@@ -415,7 +430,13 @@ export function ExamFormPage() {
         results: [...entryResults, ...untouchedResults],
       });
 
-      navigate(editing ? `/denemeler/${saved.id}` : '/denemeler');
+      navigate(
+        editing
+          ? `/denemeler/${saved.id}`
+          : examType === 'AYT'
+            ? '/denemeler?tur=AYT'
+            : '/denemeler',
+      );
     } catch (caught: unknown) {
       console.error('Deneme kaydedilemedi', caught);
       setError(
@@ -559,11 +580,42 @@ export function ExamFormPage() {
             </div>
           ) : null}
 
+          {geometryConsumed ? (
+            <div className="space-y-3 rounded-xl border border-warning/60 bg-warning/10 p-3">
+              <p className="text-sm font-semibold text-warning">
+                Ayrı Geometri sonucu birleştirilecek
+              </p>
+              <p id="geometri-birlesme-uyari" className="text-sm">
+                Bu denemede ayrı kaydedilmiş bir Geometri sonucu var. Birleşik geometri
+                ayarında kaydettiğinde Geometri doğru ve yanlışları Matematik satırına
+                katılacak ve ayrı Geometri kaydı silinecek. Toplam net korunur; 30 + 10
+                ayrımı geri alınamaz.
+              </p>
+              <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg bg-canvas/60 px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={geometryConsent}
+                  onChange={(event) => setGeometryConsent(event.target.checked)}
+                  required
+                  aria-required="true"
+                  aria-describedby="geometri-birlesme-uyari"
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+                />
+                <span>Geometri sonucunu matematiğe katmayı onaylıyorum</span>
+              </label>
+            </div>
+          ) : null}
+
           <ul className="divide-y divide-line">
             {entryRows.map(({ subject, questionCount, counts, parsed }) => {
               const errorId = `sonuc-${subject.id}-error`;
               return (
-                <li key={subject.id} className="py-2">
+                <li
+                  key={subject.id}
+                  role="group"
+                  aria-label={subject.name}
+                  className="py-2"
+                >
                   <div className={ROW_GRID}>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{subject.name}</p>
@@ -603,10 +655,8 @@ export function ExamFormPage() {
                       placeholder="0"
                       className={countInputClass}
                     />
-                    <span
-                      aria-label={`${subject.name} boş`}
-                      className="text-center text-sm tabular-nums text-muted"
-                    >
+                    <span className="text-center text-sm tabular-nums text-muted">
+                      <span className="sr-only">Boş: </span>
                       {parsed.blank ?? '—'}
                     </span>
                     <span className="text-right text-sm font-semibold tabular-nums">
@@ -630,7 +680,9 @@ export function ExamFormPage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{subject.name}</p>
                     <p className="text-xs text-muted">
-                      Soru sayısı tanımlı değil · korunuyor
+                      {configSeedKeys.has(subject.seedKey)
+                        ? 'Soru sayısı tanımlı değil · eski sonuç korunuyor'
+                        : 'Bu alanda girilmiyor · eski sonuç korunuyor'}
                     </p>
                   </div>
                   <span className="text-center text-sm tabular-nums">{result.correct}</span>
@@ -654,7 +706,14 @@ export function ExamFormPage() {
 
           {!awaitingAlan && entryRows.length === 0 && preservedRows.length === 0 ? (
             <p className="text-sm text-muted">
-              Görünür ders yok. Ayarlar bölümünden ders görünürlüğünü değiştirebilirsin.
+              Görünür ders yok. Bu alandaki dersler{' '}
+              <Link
+                to="/ayarlar"
+                className="font-medium text-[var(--accent)] underline underline-offset-2"
+              >
+                Ayarlar &gt; Ders görünürlüğü
+              </Link>{' '}
+              bölümünde elle gizlenmiş olabilir; devam etmek için oradan açabilirsin.
             </p>
           ) : null}
 
@@ -666,8 +725,8 @@ export function ExamFormPage() {
 
           {preservedRows.length > 0 ? (
             <p className="text-xs text-muted">
-              Bu denemede soru sayısı tanımlı olmayan {preservedRows.length} dersin eski
-              sonucu olduğu gibi korunacak.
+              Bu denemede girilmeyen {preservedRows.length} dersin eski sonucu olduğu gibi
+              korunacak.
             </p>
           ) : null}
 

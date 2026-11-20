@@ -8,6 +8,7 @@ import {
 } from '@/db/repositories';
 import type { Book, Exam, ExamType, Subject, Topic } from '@/domain/types';
 import { formatAlan, formatExamDate } from '@/features/exams/examFormat';
+import { resolveAytAlan } from '@/features/exams/examConfig';
 import { examBasePath } from '@/features/subjects/exam';
 import { formatNet } from '@/lib/format';
 import { matchesTokens, tokenizeTr } from '@/lib/normalize';
@@ -61,11 +62,15 @@ function bookSubtitle(book: Book): string {
   return book.publisher ? `Yayınevi: ${book.publisher}` : 'Kitap';
 }
 
-function examSubtitle(exam: Exam, totalNet: number | undefined): string {
+function examSubtitle(
+  exam: Exam,
+  totalNet: number | undefined,
+  alan: ReturnType<typeof resolveAytAlan> | undefined,
+): string {
   const parts = [exam.type, formatExamDate(exam.date)];
-  const alan = formatAlan(exam.alan);
-  if (alan) {
-    parts.push(alan);
+  const alanLabel = alan ? formatAlan(alan) : null;
+  if (alanLabel) {
+    parts.push(alanLabel);
   }
   if (totalNet !== undefined) {
     parts.push(`${formatNet(totalNet)} net`);
@@ -99,8 +104,15 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
   const topicById = new Map(topics.map((topic) => [topic.id, topic]));
 
   const netByExam = new Map<string, number>();
+  const resultsByExam = new Map<string, typeof examResults>();
   for (const result of examResults) {
     netByExam.set(result.examId, (netByExam.get(result.examId) ?? 0) + result.net);
+    const grouped = resultsByExam.get(result.examId);
+    if (grouped) {
+      grouped.push(result);
+    } else {
+      resultsByExam.set(result.examId, [result]);
+    }
   }
 
   const topicResults: SearchResult[] = [];
@@ -178,11 +190,15 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
     if (!matchesTokens(`${exam.name} ${exam.note}`, tokens)) {
       continue;
     }
+    const alan =
+      exam.type === 'AYT'
+        ? resolveAytAlan(exam, resultsByExam.get(exam.id) ?? [], subjects)
+        : undefined;
     examResultsList.push({
       kind: 'exam',
       id: exam.id,
       title: exam.name,
-      subtitle: examSubtitle(exam, netByExam.get(exam.id)),
+      subtitle: examSubtitle(exam, netByExam.get(exam.id), alan),
       href: `/denemeler/${exam.id}`,
     });
   }

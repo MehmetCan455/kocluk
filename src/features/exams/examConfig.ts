@@ -16,6 +16,8 @@ export const AYT_TOTAL_QUESTIONS = 80;
 
 /** Geometry is 10 questions, folded into maths when `geometryMode` is combined. */
 export const GEOMETRY_QUESTIONS = 10;
+/** Standalone maths question count before geometry is folded in. */
+const MATH_QUESTIONS = 30;
 
 const TYT_BASE: readonly ExamSubjectConfig[] = [
   { seedKey: 'tyt-turkce', questionCount: 40 },
@@ -23,8 +25,8 @@ const TYT_BASE: readonly ExamSubjectConfig[] = [
   { seedKey: 'tyt-cografya', questionCount: 5 },
   { seedKey: 'tyt-felsefe', questionCount: 5 },
   { seedKey: 'tyt-din-kulturu', questionCount: 5 },
-  { seedKey: 'tyt-matematik', questionCount: 30 },
-  { seedKey: 'tyt-geometri', questionCount: 10 },
+  { seedKey: 'tyt-matematik', questionCount: MATH_QUESTIONS },
+  { seedKey: 'tyt-geometri', questionCount: GEOMETRY_QUESTIONS },
   { seedKey: 'tyt-fizik', questionCount: 7 },
   { seedKey: 'tyt-kimya', questionCount: 7 },
   { seedKey: 'tyt-biyoloji', questionCount: 6 },
@@ -32,8 +34,8 @@ const TYT_BASE: readonly ExamSubjectConfig[] = [
 
 const AYT_BASE: Readonly<Record<AytBranch, readonly ExamSubjectConfig[]>> = {
   sayisal: [
-    { seedKey: 'ayt-matematik', questionCount: 30 },
-    { seedKey: 'ayt-geometri', questionCount: 10 },
+    { seedKey: 'ayt-matematik', questionCount: MATH_QUESTIONS },
+    { seedKey: 'ayt-geometri', questionCount: GEOMETRY_QUESTIONS },
     { seedKey: 'ayt-fizik', questionCount: 14 },
     { seedKey: 'ayt-kimya', questionCount: 13 },
     { seedKey: 'ayt-biyoloji', questionCount: 13 },
@@ -42,8 +44,8 @@ const AYT_BASE: Readonly<Record<AytBranch, readonly ExamSubjectConfig[]>> = {
     { seedKey: 'ayt-edebiyat', questionCount: 24 },
     { seedKey: 'ayt-tarih-1', questionCount: 10 },
     { seedKey: 'ayt-cografya-1', questionCount: 6 },
-    { seedKey: 'ayt-matematik', questionCount: 30 },
-    { seedKey: 'ayt-geometri', questionCount: 10 },
+    { seedKey: 'ayt-matematik', questionCount: MATH_QUESTIONS },
+    { seedKey: 'ayt-geometri', questionCount: GEOMETRY_QUESTIONS },
   ],
   sozel: [
     { seedKey: 'ayt-edebiyat', questionCount: 24 },
@@ -57,9 +59,9 @@ const AYT_BASE: Readonly<Record<AytBranch, readonly ExamSubjectConfig[]>> = {
 };
 
 /**
- * The order requested for the AYT form. Branch configs above already follow
- * it; this constant documents the order and lets the list/detail screens use
- * the same subject sequence later.
+ * The global AYT order requested by the brief. Every branch config above must
+ * stay a subsequence of this list; `examConfig.test.ts` enforces that coupling
+ * instead of deriving a union (the branch lists have different starts).
  */
 export const AYT_SUBJECT_ORDER: readonly string[] = [
   'ayt-edebiyat',
@@ -76,18 +78,8 @@ export const AYT_SUBJECT_ORDER: readonly string[] = [
   'ayt-biyoloji',
 ];
 
-export const TYT_SUBJECT_ORDER: readonly string[] = [
-  'tyt-turkce',
-  'tyt-tarih',
-  'tyt-cografya',
-  'tyt-felsefe',
-  'tyt-din-kulturu',
-  'tyt-matematik',
-  'tyt-geometri',
-  'tyt-fizik',
-  'tyt-kimya',
-  'tyt-biyoloji',
-];
+/** TYT order is exactly the config order, so it is derived rather than repeated. */
+export const TYT_SUBJECT_ORDER: readonly string[] = TYT_BASE.map((row) => row.seedKey);
 
 const SAYISAL_MARKERS: ReadonlySet<string> = new Set([
   'ayt-fizik',

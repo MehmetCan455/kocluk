@@ -144,6 +144,25 @@ test('denemeler not metniyle de bulunur', async () => {
   ]);
 });
 
+test('alansız eski AYT denemesi aramada çıkarılan alanla gösterilir', async () => {
+  const aytSubject = await db.subjects.where('seedKey').equals('ayt-mat').first();
+  expect(aytSubject).toBeDefined();
+  const legacy = await saveExam({
+    type: 'AYT',
+    name: 'Eski AYT Tarama',
+    date: '2026-11-12',
+    results: [{ subjectId: aytSubject!.id, correct: 10, wrong: 0, blank: 0 }],
+  });
+
+  const results = await searchAll('Eski AYT');
+  const examResult = results.find(
+    (result) => result.kind === 'exam' && result.id === legacy.id,
+  );
+
+  expect(examResult?.subtitle).toContain('Eşit Ağırlık');
+  expect(examResult?.subtitle).not.toContain('Genel');
+});
+
 test('yanlış fotoğrafları not metniyle bulunur ve galeriye bağlanır', async () => {
   const now = new Date().toISOString();
   const photoId = newId();

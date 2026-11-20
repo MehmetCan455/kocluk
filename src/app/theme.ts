@@ -48,9 +48,9 @@ export const ACCENT_DARK_TEXT_THRESHOLD = 0.3;
 
 /**
  * The canvas stays black, but carries a very light trace of the accent. Every
- * base is the shipped near-black value from `index.css` and every weight is a
- * small percentage, so the tint is visible without turning the app into a
- * coloured theme.
+ * base must stay in sync with the corresponding `@theme` value in
+ * `src/styles/index.css`; CSS variables cannot be imported, so the coupling is
+ * kept explicit here and asserted by theme tests.
  */
 export const TINTED_SURFACES = {
   canvas: { base: '#07080A', weight: 0.05 },

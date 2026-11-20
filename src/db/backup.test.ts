@@ -411,6 +411,21 @@ test('geçersiz hiddenSubjects mevcut veriyi silmeden reddedilir', async () => {
   expect(await db.photos.count()).toBe(1);
 });
 
+test('geometryMode içermeyen eski yedek varsayılan ayrı ayarla yüklenir', async () => {
+  await fullSeed();
+  await patchSettings({ geometryMode: 'combined' });
+  const exported = await exportBackup();
+
+  const legacy = await mutateZip(exported, async (_zip, data) => {
+    const settings = data.settings as Array<{ key: string; value: unknown }>;
+    data.settings = settings.filter((row) => row.key !== 'geometryMode');
+  });
+
+  await importBackup(new File([legacy], 'eski-ayar.yedek.zip'));
+
+  expect((await getSettings()).geometryMode).toBe('separate');
+});
+
 test('__proto__ ayar anahtarı mevcut veriyi silmeden reddedilir', async () => {
   await fullSeed();
   const exported = await exportBackup();

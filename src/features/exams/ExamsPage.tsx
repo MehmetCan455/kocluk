@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ClipboardList, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
@@ -63,9 +63,16 @@ function sortBySubjectOrder(results: ExamResult[], subjectById: Map<string, Subj
 
 export function ExamsPage() {
   const { settings } = useAppSettings();
-  const [filter, setFilter] = useState<ExamType>('TYT');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The URL is the source of truth so saving an AYT exam can open the list on
+  // the AYT tab; a plain `/denemeler` visit still defaults to TYT.
+  const filter: ExamType = searchParams.get('tur') === 'AYT' ? 'AYT' : 'TYT';
   const [alanFilter, setAlanFilter] = useState<AlanFilter>('all');
   const [chartSubjectId, setChartSubjectId] = useState('');
+
+  function changeFilter(next: ExamType) {
+    setSearchParams(next === 'AYT' ? { tur: 'AYT' } : {}, { replace: true });
+  }
 
   const data = useLiveQuery(async () => {
     // Results and every exam are fetched once and grouped, instead of one query
@@ -169,7 +176,7 @@ export function ExamsPage() {
               key={option.id}
               type="button"
               aria-pressed={active}
-              onClick={() => setFilter(option.id)}
+              onClick={() => changeFilter(option.id)}
               className={
                 active
                   ? 'min-h-11 rounded-lg bg-[var(--accent-soft)] px-3 text-sm font-medium text-[var(--accent)]'
@@ -261,6 +268,14 @@ export function ExamsPage() {
               resolveAlan,
             );
             const delta = comparison.delta;
+            const deltaText =
+              delta === undefined
+                ? 'İlk deneme'
+                : `${delta > 0 ? '+' : ''}${formatNet(delta)}`;
+            const deltaAria =
+              delta === undefined
+                ? 'ilk deneme'
+                : `önceki denemeye göre ${deltaText} net`;
             const maxNet = Math.max(
               1,
               ...sortedResults.map((result) => Math.max(result.net, 0)),
@@ -272,7 +287,7 @@ export function ExamsPage() {
                   to={`/denemeler/${exam.id}`}
                   aria-label={`${exam.name}, ${exam.type}${
                     alan ? ` ${alan}` : ''
-                  }, ${formatExamDate(exam.date)}, toplam ${formatNet(totalNet)} net`}
+                  }, ${formatExamDate(exam.date)}, toplam ${formatNet(totalNet)} net, ${deltaAria}`}
                   className="block rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -303,9 +318,7 @@ export function ExamsPage() {
                         )}
                       >
                         <span className="sr-only">Önceki denemeye göre net farkı: </span>
-                        {delta === undefined
-                          ? 'İlk deneme'
-                          : `${delta > 0 ? '+' : ''}${formatNet(delta)}`}
+                        {deltaText}
                       </p>
                     </div>
                   </div>

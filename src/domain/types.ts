@@ -133,6 +133,33 @@ export interface Attachment {
   createdAt: string;
 }
 
+/**
+ * Manual weekly schedule row. `day` is 1–7 with Monday as 1 (ISO weekday);
+ * `startTime`/`endTime` are zero-padded HH:mm strings so lexical order matches
+ * chronological order.
+ */
+export interface ScheduleEntry {
+  id: string;
+  day: number;
+  startTime: string;
+  endTime: string;
+  title: string;
+  subjectId?: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** An uploaded schedule photo or PDF, stored as a blob like note attachments. */
+export interface ScheduleFile {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+  blob: Blob;
+  createdAt: string;
+}
+
 export type PracticeOutcome = 'correct' | 'wrong' | 'blank';
 
 export interface PracticeFilters {

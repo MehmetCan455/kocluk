@@ -211,6 +211,12 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
     '/yanlislar',
   );
   expect(screen.getByRole('link', { name: 'Test kaydı' })).toHaveAttribute('href', '/tyt');
+  const quickAdd = screen.getByRole('heading', { name: 'Hızlı ekle' }).parentElement;
+  expect(quickAdd).not.toBeNull();
+  expect(within(quickAdd as HTMLElement).getByRole('link', { name: 'Program' })).toHaveAttribute(
+    'href',
+    '/program',
+  );
 });
 
 test('en yüksek ve ortalama net son beşle sınırlı kalmadan tüm denemeleri kapsar', async () => {

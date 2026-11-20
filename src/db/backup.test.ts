@@ -17,6 +17,7 @@ import {
   getSettings,
   patchSettings,
   saveExam,
+  saveScheduleEntry,
   upsertTopicBook,
   type CurriculumSeed,
 } from '@/db/repositories';
@@ -40,6 +41,10 @@ const seed: CurriculumSeed = {
 const PHOTO_BYTES = 'fotoğraf-baytları';
 const THUMB_BYTES = 'küçük-fotoğraf-baytları';
 const PDF_BYTES = '%PDF-1.7 yedek testi';
+const SCHEDULE_IMAGE_BYTES = 'haftalık-program-görseli';
+const SCHEDULE_PDF_BYTES = '%PDF-1.7 haftalık program';
+const SCHEDULE_IMAGE_SIZE = new Blob([SCHEDULE_IMAGE_BYTES]).size;
+const SCHEDULE_PDF_SIZE = new Blob([SCHEDULE_PDF_BYTES]).size;
 
 function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
@@ -569,4 +574,117 @@ test('tüm verileri silme ayarlar dahil tüm tabloları boşaltır', async () =>
   for (const table of db.tables) {
     expect(await table.count()).toBe(0);
   }
+});
+
+test('program kaydı, görsel ve PDF yedekten kayıpsız geri yüklenir', async () => {
+  const seeded = await fullSeed();
+  const entry = await saveScheduleEntry({
+    day: 3,
+    startTime: '14:00',
+    endTime: '15:30',
+    title: 'Geometri tekrarı',
+    subjectId: seeded.subject.id,
+    note: 'Üçgenler',
+  });
+  await db.scheduleFiles.bulkAdd([
+    {
+      id: 'program-gorsel',
+      name: 'program.png',
+      mime: 'image/png',
+      size: SCHEDULE_IMAGE_SIZE,
+      blob: new Blob([SCHEDULE_IMAGE_BYTES], { type: 'image/png' }),
+      createdAt: '2026-11-18T12:00:00.000Z',
+    },
+    {
+      id: 'program-pdf',
+      name: 'haftalik.pdf',
+      mime: 'application/pdf',
+      size: SCHEDULE_PDF_SIZE,
+      blob: new Blob([SCHEDULE_PDF_BYTES], { type: 'application/pdf' }),
+      createdAt: '2026-11-18T12:01:00.000Z',
+    },
+  ]);
+
+  const exported = await exportBackup();
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(exported));
+  const data = JSON.parse((await zip.file('veri.json')!.async('string')) as string) as Record<
+    string,
+    Array<Record<string, unknown>>
+  >;
+
+  expect(data.scheduleEntries).toHaveLength(1);
+  expect(data.scheduleEntries[0]).toMatchObject({
+    id: entry.id,
+    day: 3,
+    startTime: '14:00',
+    endTime: '15:30',
+    title: 'Geometri tekrarı',
+    subjectId: seeded.subject.id,
+    note: 'Üçgenler',
+  });
+  expect(data.scheduleFiles).toHaveLength(2);
+  expect(data.scheduleFiles.find((file) => file.id === 'program-gorsel')).toMatchObject({
+    filePath: 'program/program-gorsel.png',
+  });
+  expect(data.scheduleFiles.find((file) => file.id === 'program-pdf')).toMatchObject({
+    filePath: 'program/program-pdf.pdf',
+  });
+  expect(data.scheduleFiles[0]).not.toHaveProperty('blob');
+  expect(zip.file('program/program-gorsel.png')).not.toBeNull();
+  expect(zip.file('program/program-pdf.pdf')).not.toBeNull();
+
+  await resetDb();
+  const imported = await importBackup(new File([exported], 'program.zip'));
+
+  expect(imported.counts).toMatchObject({ scheduleEntries: 1, scheduleFiles: 2 });
+  expect(await db.scheduleEntries.count()).toBe(1);
+  expect(await db.scheduleEntries.get(entry.id)).toMatchObject({
+    day: 3,
+    startTime: '14:00',
+    endTime: '15:30',
+    title: 'Geometri tekrarı',
+    subjectId: seeded.subject.id,
+    note: 'Üçgenler',
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  });
+
+  const image = await db.scheduleFiles.get('program-gorsel');
+  expect(image).toMatchObject({
+    name: 'program.png',
+    mime: 'image/png',
+    size: SCHEDULE_IMAGE_SIZE,
+  });
+  expect(await blobToText(image!.blob)).toBe(SCHEDULE_IMAGE_BYTES);
+
+  const pdf = await db.scheduleFiles.get('program-pdf');
+  expect(pdf).toMatchObject({
+    name: 'haftalik.pdf',
+    mime: 'application/pdf',
+    size: SCHEDULE_PDF_SIZE,
+  });
+  expect(await blobToText(pdf!.blob)).toBe(SCHEDULE_PDF_BYTES);
+});
+
+test('program tabloları olmayan eski yedek boş listelerle yüklenir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+
+  const old = await mutateZip(exported, async (_zip, data, manifest) => {
+    delete data.scheduleEntries;
+    delete data.scheduleFiles;
+    manifest.schemaVersion = 2;
+    manifest.counts = { ...manifest.counts, scheduleEntries: 0, scheduleFiles: 0 };
+  });
+
+  await resetDb();
+  const imported = await importBackup(new File([old], 'eski-program.zip'));
+
+  expect(imported.counts).toMatchObject({ scheduleEntries: 0, scheduleFiles: 0 });
+  expect(await db.scheduleEntries.count()).toBe(0);
+  expect(await db.scheduleFiles.count()).toBe(0);
+  // The rest of the old archive still restores normally.
+  expect(await db.photos.count()).toBe(1);
+  expect(await db.attachments.count()).toBe(1);
+  expect((await getSettings()).profileName).toBe('Ada');
 });

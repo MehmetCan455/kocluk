@@ -8,6 +8,8 @@ import type {
   Photo,
   PhotoSearch,
   PracticeSession,
+  ScheduleEntry,
+  ScheduleFile,
   Subject,
   Topic,
   TopicBook,
@@ -32,6 +34,8 @@ export class KoclukDB extends Dexie {
   notes!: Table<Note, string>;
   attachments!: Table<Attachment, string>;
   practiceSessions!: Table<PracticeSession, string>;
+  scheduleEntries!: Table<ScheduleEntry, string>;
+  scheduleFiles!: Table<ScheduleFile, string>;
 
   constructor() {
     super('kocluk');
@@ -80,6 +84,13 @@ export class KoclukDB extends Dexie {
             .bulkPut(photos.map(toPhotoSearch));
         }
       });
+
+    // v4 adds the weekly program tables. Both are new, so the upgrade is purely
+    // additive: no existing table is dropped, reindexed or rewritten.
+    this.version(4).stores({
+      scheduleEntries: 'id, day, startTime, updatedAt',
+      scheduleFiles: 'id, createdAt',
+    });
   }
 }
 

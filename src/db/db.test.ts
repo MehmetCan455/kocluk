@@ -58,6 +58,8 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db
     'photoSearch',
     'photos',
     'practiceSessions',
+    'scheduleEntries',
+    'scheduleFiles',
     'settings',
     'subjects',
     'topicBooks',
@@ -66,6 +68,12 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db
   expect(db.subjects.schema.indexes.find((index) => index.name === 'seedKey')?.unique).toBe(true);
   expect(db.topics.schema.indexes.find((index) => index.name === 'seedKey')?.unique).toBe(true);
   expect(db.photos.schema.indexes.map((index) => index.name)).not.toContain('mastered');
+  expect(db.scheduleEntries.schema.indexes.map((index) => index.name)).toEqual([
+    'day',
+    'startTime',
+    'updatedAt',
+  ]);
+  expect(db.scheduleFiles.schema.indexes.map((index) => index.name)).toEqual(['createdAt']);
 });
 
 test('varsayılan ayarları döner ve yamayı saklar', async () => {
@@ -482,7 +490,7 @@ test('resetDb temizler, seedOnboarded onboarding ayarını yazar', async () => {
   });
 });
 
-test('v2/v3 geçişi mevcut fotoğraflardan blobsuz arama projeksiyonu üretir', async () => {
+test('v2/v3 geçişi projeksiyon üretir, v4 program tablolarını ekler', async () => {
   await db.close();
   await Dexie.delete('kocluk');
 
@@ -542,4 +550,8 @@ test('v2/v3 geçişi mevcut fotoğraflardan blobsuz arama projeksiyonu üretir',
   // the migration must keep both blobs without re-encoding them.
   expect(migrated).toHaveProperty('blob');
   expect(migrated).toHaveProperty('thumbBlob');
+  // v4 is additive: the program tables exist and the old photo is untouched.
+  expect(await db.scheduleEntries.count()).toBe(0);
+  expect(await db.scheduleFiles.count()).toBe(0);
+  expect(await db.photos.count()).toBe(1);
 });

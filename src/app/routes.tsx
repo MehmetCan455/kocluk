@@ -36,6 +36,11 @@ const ExamDetailPage = lazy(() =>
 const TopicPage = lazy(() =>
   import('@/features/topics/TopicPage').then((module) => ({ default: module.TopicPage })),
 );
+const SchedulePage = lazy(() =>
+  import('@/features/schedule/SchedulePage').then((module) => ({
+    default: module.SchedulePage,
+  })),
+);
 
 function AppLoading() {
   return (
@@ -83,6 +88,8 @@ export function AppRoutes() {
 
         <Route path="/kitaplar" element={<BooksPage />} />
         <Route path="/kitaplar/:id" element={<BookDetailPage />} />
+
+        <Route path="/program" element={<SchedulePage />} />
 
         <Route path="/ayarlar" element={<SettingsPage />} />
 

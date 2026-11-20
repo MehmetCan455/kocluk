@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Archive, BookOpen, Camera, ClipboardList, Library, Plus, X } from 'lucide-react';
+import {
+  Archive,
+  BookOpen,
+  CalendarDays,
+  Camera,
+  ClipboardList,
+  Library,
+  Plus,
+  X,
+} from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
@@ -471,6 +480,12 @@ export function DashboardPage() {
               <Link to="/tyt" className={quickAddLinkClass}>
                 <BookOpen className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
                 Test kaydı
+              </Link>
+            </li>
+            <li>
+              <Link to="/program" className={quickAddLinkClass}>
+                <CalendarDays className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+                Program
               </Link>
             </li>
           </ul>

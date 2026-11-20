@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  CalendarDays,
   Camera,
   ClipboardList,
   GraduationCap,
@@ -25,6 +26,7 @@ export const NAV_ITEMS: readonly NavigationItem[] = [
 ];
 
 export const SECONDARY_NAV_ITEMS: readonly NavigationItem[] = [
+  { to: '/program', label: 'Program', icon: CalendarDays },
   { to: '/kitaplar', label: 'Kitaplar', icon: Library },
   { to: '/ayarlar', label: 'Ayarlar', icon: Settings },
 ];

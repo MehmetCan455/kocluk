@@ -15,6 +15,8 @@ import type {
   PracticeFilters,
   PracticeOutcome,
   PracticeSession,
+  ScheduleEntry,
+  ScheduleFile,
   Subject,
   Topic,
   TopicBook,
@@ -23,6 +25,7 @@ import { calculateNet } from '@/domain/calculations';
 import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
 import { compressImage } from '@/lib/image';
+import { compareHHmm, isHHmm } from '@/lib/time';
 import { matchesTokens, tokenizeTr } from '@/lib/normalize';
 import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
 import { STORAGE_QUOTA_MESSAGE, isStorageQuotaError } from '@/lib/storageError';
@@ -451,6 +454,135 @@ export async function addAttachment(topicId: string, file: File): Promise<Attach
 
 export async function deleteAttachment(id: string): Promise<void> {
   await db.attachments.delete(id);
+}
+
+export const SCHEDULE_FILE_MAX_BYTES = 20 * 1024 * 1024;
+export const SCHEDULE_FILE_SIZE_ERROR = 'Dosya boyutu 20 MB sınırını aşıyor';
+export const SCHEDULE_FILE_TYPE_ERROR = 'Yalnızca görsel veya PDF dosyası ekleyebilirsin';
+
+/** Monday-first weekly order, then start time, then a stable id tiebreaker. */
+export async function listScheduleEntries(): Promise<ScheduleEntry[]> {
+  const entries = await db.scheduleEntries.toArray();
+  return entries.sort(
+    (left, right) =>
+      left.day - right.day ||
+      compareHHmm(left.startTime, right.startTime) ||
+      compareHHmm(left.endTime, right.endTime) ||
+      left.title.localeCompare(right.title, 'tr-TR') ||
+      left.id.localeCompare(right.id),
+  );
+}
+
+export interface SaveScheduleEntryInput {
+  id?: string;
+  day: number;
+  startTime: string;
+  endTime: string;
+  title: string;
+  subjectId?: string;
+  note?: string;
+}
+
+function assertValidScheduleEntry(input: SaveScheduleEntryInput): string {
+  const title = input.title.trim();
+  if (!title) {
+    throw new Error('Program başlığı boş olamaz');
+  }
+  if (!Number.isInteger(input.day) || input.day < 1 || input.day > 7) {
+    throw new Error('Gün 1 ile 7 arasında olmalı');
+  }
+  if (!isHHmm(input.startTime)) {
+    throw new Error('Başlangıç saati SS:DD biçiminde olmalı');
+  }
+  if (!isHHmm(input.endTime)) {
+    throw new Error('Bitiş saati SS:DD biçiminde olmalı');
+  }
+  if (compareHHmm(input.endTime, input.startTime) <= 0) {
+    throw new Error('Bitiş saati başlangıçtan sonra olmalı');
+  }
+  return title;
+}
+
+/**
+ * Creates or updates a manual schedule row. An `id` that no longer exists is
+ * an error rather than a silent create, matching the exam repository.
+ */
+export async function saveScheduleEntry(input: SaveScheduleEntryInput): Promise<ScheduleEntry> {
+  const title = assertValidScheduleEntry(input);
+  const subjectId = input.subjectId?.trim() || undefined;
+  const note = input.note?.trim() || undefined;
+
+  return db.transaction('rw', db.scheduleEntries, async () => {
+    const existing = input.id ? await db.scheduleEntries.get(input.id) : undefined;
+    if (input.id && !existing) {
+      throw new Error('Program kaydı bulunamadı');
+    }
+
+    const now = new Date().toISOString();
+    const entry: ScheduleEntry = {
+      id: existing?.id ?? newId(),
+      day: input.day,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      title,
+      subjectId,
+      note,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    await db.scheduleEntries.put(entry);
+    return entry;
+  });
+}
+
+export async function deleteScheduleEntry(id: string): Promise<void> {
+  await db.scheduleEntries.delete(id);
+}
+
+/** Newest upload first, with the id keeping same-millisecond uploads stable. */
+export async function listScheduleFiles(): Promise<ScheduleFile[]> {
+  const files = await db.scheduleFiles.toArray();
+  return files.sort(
+    (left, right) =>
+      right.createdAt.localeCompare(left.createdAt) || left.id.localeCompare(right.id),
+  );
+}
+
+/**
+ * Stores a schedule photo or PDF. Photos reuse the note-image pipeline
+ * (2000 px, 0.85 JPEG); PDFs are stored byte-for-byte. The size/type guard is
+ * the final boundary for both.
+ */
+export async function addScheduleFile(file: File): Promise<ScheduleFile> {
+  if (file.size > SCHEDULE_FILE_MAX_BYTES) {
+    throw new Error(SCHEDULE_FILE_SIZE_ERROR);
+  }
+  if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+    throw new Error(SCHEDULE_FILE_TYPE_ERROR);
+  }
+
+  let blob: Blob = file;
+  let mime = file.type;
+  if (file.type.startsWith('image/')) {
+    const compressed = await compressImage(file, 2000, 0.85);
+    blob = compressed.blob;
+    mime = compressed.blob.type || 'image/jpeg';
+  }
+
+  const scheduleFile: ScheduleFile = {
+    id: newId(),
+    name: file.name.trim() || 'dosya',
+    mime,
+    size: blob.size,
+    blob,
+    createdAt: new Date().toISOString(),
+  };
+  await db.scheduleFiles.add(scheduleFile);
+  return scheduleFile;
+}
+
+export async function deleteScheduleFile(id: string): Promise<void> {
+  await db.scheduleFiles.delete(id);
 }
 
 export interface AddPhotoInput {

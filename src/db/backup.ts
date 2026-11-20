@@ -11,18 +11,22 @@ import type {
   Photo,
   PhotoSearch,
   PracticeSession,
+  ScheduleEntry,
+  ScheduleFile,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
 import { isValidDateString } from '@/lib/date';
 import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
+import { compareHHmm, isHHmm } from '@/lib/time';
 import { isStorageQuotaError, STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
 import { readBlobAsArrayBuffer } from '@/lib/zip';
 
 /**
- * Backup format version. Version 2 is the current format; version 1 backups
- * predate the blob-free `photoSearch` projection and are migrated on import.
+ * Backup format version. Version 3 adds the weekly program tables; version 2
+ * added the blob-free `photoSearch` projection, and version 1 predates it.
+ * Missing tables in older archives are read as empty lists.
  */
-export const BACKUP_SCHEMA_VERSION = 2;
+export const BACKUP_SCHEMA_VERSION = 3;
 const MIN_BACKUP_SCHEMA_VERSION = 1;
 export const INVALID_BACKUP_MESSAGE = 'Geçersiz yedek dosyası';
 const NEWER_BACKUP_MESSAGE =
@@ -262,6 +266,47 @@ const attachmentSchema = z.object({
   createdAt: z.string(),
 });
 
+const hhmmSchema = z.string().refine(isHHmm, 'Saat SS:DD biçiminde olmalı');
+
+const scheduleEntrySchema = z
+  .object({
+    id: idSchema,
+    day: z.number().int().min(1).max(7),
+    startTime: hhmmSchema,
+    endTime: hhmmSchema,
+    title: z.string().refine((value) => value.trim().length > 0, 'Başlık boş olamaz'),
+    subjectId: idSchema.optional(),
+    note: z.string().optional(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .refine((entry) => compareHHmm(entry.endTime, entry.startTime) > 0, {
+    path: ['endTime'],
+    message: 'Bitiş saati başlangıçtan sonra olmalı',
+  });
+
+const scheduleFileSchema = z
+  .object({
+    id: idSchema,
+    name: z.string(),
+    mime: z.string(),
+    size: z.number().int().nonnegative(),
+    filePath: z
+      .string()
+      .regex(/^program\/[^/\\]+$/, 'Program dosyası yolu geçersiz')
+      .refine((value) => !value.includes('..'), 'Program dosyası yolu geçersiz'),
+    createdAt: z.string(),
+  })
+  .superRefine((file, context) => {
+    if (file.filePath !== scheduleFileBackupPath(file)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['filePath'],
+        message: 'Program dosyası yolu geçersiz',
+      });
+    }
+  });
+
 const practiceFiltersSchema = z.object({
   examType: examTypeSchema.optional(),
   subjectIds: z.array(idSchema).optional(),
@@ -298,6 +343,9 @@ const backupDataSchema = z.object({
   notes: z.array(noteSchema),
   attachments: z.array(attachmentSchema),
   practiceSessions: z.array(practiceSessionSchema),
+  // Backups written before v3 simply do not have these tables.
+  scheduleEntries: z.array(scheduleEntrySchema).default([]),
+  scheduleFiles: z.array(scheduleFileSchema).default([]),
 });
 
 const manifestSchema = z.object({
@@ -330,14 +378,16 @@ interface RestoredData {
   notes: Note[];
   attachments: Attachment[];
   practiceSessions: PracticeSession[];
+  scheduleEntries: ScheduleEntry[];
+  scheduleFiles: ScheduleFile[];
 }
 
 function invalidBackup(): Error {
   return new Error(INVALID_BACKUP_MESSAGE);
 }
 
-function extensionForAttachment(attachment: Pick<Attachment, 'name' | 'mime'>): string {
-  const name = attachment.name.trim();
+function extensionForFile(file: Pick<ScheduleFile, 'name' | 'mime'>): string {
+  const name = file.name.trim();
   const dot = name.lastIndexOf('.');
   if (dot > 0 && dot < name.length - 1) {
     const extension = name.slice(dot + 1).toLowerCase();
@@ -353,11 +403,17 @@ function extensionForAttachment(attachment: Pick<Attachment, 'name' | 'mime'>): 
     'image/gif': 'gif',
     'application/pdf': 'pdf',
   };
-  return byMime[attachment.mime] ?? 'bin';
+  return byMime[file.mime] ?? 'bin';
 }
 
 function attachmentBackupPath(attachment: Pick<Attachment, 'id' | 'name' | 'mime'>): string {
-  return `ekler/${attachment.id}.${extensionForAttachment(attachment)}`;
+  return `ekler/${attachment.id}.${extensionForFile(attachment)}`;
+}
+
+export function scheduleFileBackupPath(
+  file: Pick<ScheduleFile, 'id' | 'name' | 'mime'>,
+): string {
+  return `program/${file.id}.${extensionForFile(file)}`;
 }
 
 function countTables(data: BackupData): Record<string, number> {
@@ -375,6 +431,8 @@ function countTables(data: BackupData): Record<string, number> {
     notes: data.notes.length,
     attachments: data.attachments.length,
     practiceSessions: data.practiceSessions.length,
+    scheduleEntries: data.scheduleEntries.length,
+    scheduleFiles: data.scheduleFiles.length,
   };
 }
 
@@ -385,6 +443,8 @@ function migrateBackupData(data: BackupData, fromVersion: number): BackupData {
     // migration needed is accepting the missing table.
     return { ...data, photoSearch: data.photoSearch ?? [] };
   }
+  // v3's schedule tables are optional in the schema and default to empty, so
+  // an older archive needs no row-level migration.
   return data;
 }
 
@@ -429,6 +489,8 @@ function assertUniqueBackupKeys(data: BackupData): void {
   assertUnique('notes.topicId', data.notes.map((row) => row.topicId));
   assertUnique('attachments.id', data.attachments.map((row) => row.id));
   assertUnique('practiceSessions.id', data.practiceSessions.map((row) => row.id));
+  assertUnique('scheduleEntries.id', data.scheduleEntries.map((row) => row.id));
+  assertUnique('scheduleFiles.id', data.scheduleFiles.map((row) => row.id));
 }
 
 async function readJson(zip: JSZip, path: string): Promise<unknown> {
@@ -456,6 +518,11 @@ function assertArchiveBlobs(zip: JSZip, data: BackupData): void {
   for (const attachment of data.attachments) {
     if (!zip.file(attachment.blobPath)) {
       missing.push(attachment.blobPath);
+    }
+  }
+  for (const file of data.scheduleFiles) {
+    if (!zip.file(file.filePath)) {
+      missing.push(file.filePath);
     }
   }
   if (missing.length > 0) {
@@ -571,6 +638,26 @@ async function restoreAttachments(
   return restored;
 }
 
+async function restoreScheduleFiles(
+  zip: JSZip,
+  files: z.infer<typeof scheduleFileSchema>[],
+): Promise<ScheduleFile[]> {
+  const restored: ScheduleFile[] = [];
+  for (const file of files) {
+    const bytes = await readBinary(zip, file.filePath);
+    const blob = new Blob([bytes], { type: file.mime || 'application/octet-stream' });
+    restored.push({
+      id: file.id,
+      name: file.name,
+      mime: file.mime || blob.type,
+      size: blob.size,
+      blob,
+      createdAt: file.createdAt,
+    });
+  }
+  return restored;
+}
+
 /**
  * Validates a backup without replacing anything. The settings panel uses this
  * for the summary shown before the destructive confirmation.
@@ -588,9 +675,10 @@ export async function readBackupSummary(file: File): Promise<BackupSummary> {
 export async function importBackup(file: File): Promise<ImportBackupResult> {
   const { zip, manifest, data } = await readArchive(file);
 
-  const [photos, attachments] = await Promise.all([
+  const [photos, attachments, scheduleFiles] = await Promise.all([
     restorePhotos(zip, data.photos),
     restoreAttachments(zip, data.attachments),
+    restoreScheduleFiles(zip, data.scheduleFiles),
   ]);
   const notes = data.notes.map((note) => {
     const contentHtml = sanitizeHtml(note.contentHtml);
@@ -627,6 +715,8 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
     notes,
     attachments,
     practiceSessions: data.practiceSessions as PracticeSession[],
+    scheduleEntries: data.scheduleEntries,
+    scheduleFiles,
   };
   const counts = countTables(data);
 
@@ -645,6 +735,8 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
       await db.notes.bulkPut(restored.notes);
       await db.attachments.bulkPut(restored.attachments);
       await db.practiceSessions.bulkPut(restored.practiceSessions);
+      await db.scheduleEntries.bulkPut(restored.scheduleEntries);
+      await db.scheduleFiles.bulkPut(restored.scheduleFiles);
       // patchSettings intentionally skips undefined values. Delete the row so
       // a restored device never shows a backup date it did not create.
       await db.settings.delete('lastBackupAt');
@@ -719,6 +811,8 @@ export async function exportBackup(
     notes: await db.notes.toArray(),
     attachments: await db.attachments.toArray(),
     practiceSessions: await db.practiceSessions.toArray(),
+    scheduleEntries: await db.scheduleEntries.toArray(),
+    scheduleFiles: await db.scheduleFiles.toArray(),
   }));
 
   const {
@@ -734,6 +828,8 @@ export async function exportBackup(
     notes,
     attachments,
     practiceSessions,
+    scheduleEntries,
+    scheduleFiles,
   } = snapshot;
 
   const serializedPhotos = photos.map(({ blob, thumbBlob, ...photo }) => ({
@@ -743,6 +839,10 @@ export async function exportBackup(
   const serializedAttachments = attachments.map(({ blob, ...attachment }) => ({
     ...attachment,
     blobPath: attachmentBackupPath(attachment),
+  }));
+  const serializedScheduleFiles = scheduleFiles.map(({ blob, ...file }) => ({
+    ...file,
+    filePath: scheduleFileBackupPath(file),
   }));
   const data = {
     settings,
@@ -757,6 +857,8 @@ export async function exportBackup(
     notes,
     attachments: serializedAttachments,
     practiceSessions,
+    scheduleEntries,
+    scheduleFiles: serializedScheduleFiles,
   };
   const counts: Record<string, number> = {
     settings: settings.length,
@@ -771,6 +873,8 @@ export async function exportBackup(
     notes: notes.length,
     attachments: attachments.length,
     practiceSessions: practiceSessions.length,
+    scheduleEntries: scheduleEntries.length,
+    scheduleFiles: scheduleFiles.length,
   };
   const exportedAt = new Date().toISOString();
   const manifest: BackupManifest = {
@@ -781,7 +885,8 @@ export async function exportBackup(
   };
 
   const zip = new JSZip();
-  const totalFiles = photos.length * 2 + attachments.length + 2;
+  const totalFiles =
+    photos.length * 2 + attachments.length + scheduleFiles.length + 2;
   let written = 0;
   const advance = () => {
     written += 1;
@@ -809,6 +914,10 @@ export async function exportBackup(
   }
   for (const attachment of attachments) {
     await addBlob(zip, attachmentBackupPath(attachment), attachment.blob);
+    advance();
+  }
+  for (const file of scheduleFiles) {
+    await addBlob(zip, scheduleFileBackupPath(file), file.blob);
     advance();
   }
 

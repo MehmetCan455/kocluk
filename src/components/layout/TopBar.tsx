@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
-import { GraduationCap, Library, Search, Settings } from 'lucide-react';
+import { CalendarDays, GraduationCap, Library, Search, Settings } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 
 function iconLinkClass({ isActive }: { isActive: boolean }): string {
@@ -33,6 +33,9 @@ export function TopBar({ onSearch }: TopBarProps) {
         >
           <Search className="h-5 w-5" aria-hidden="true" />
         </button>
+        <NavLink to="/program" aria-label="Program" className={iconLinkClass}>
+          <CalendarDays className="h-5 w-5" aria-hidden="true" />
+        </NavLink>
         <NavLink to="/kitaplar" aria-label="Kitaplar" className={iconLinkClass}>
           <Library className="h-5 w-5" aria-hidden="true" />
         </NavLink>

@@ -210,6 +210,19 @@ export function DashboardPage() {
     totalNet: sumNet(resultsByExam.get(exam.id) ?? []),
   }));
 
+  // All exams, not just the recent five: highest total and mean total net.
+  const examTotalNets = data.exams.map((exam) =>
+    sumNet(resultsByExam.get(exam.id) ?? []),
+  );
+  const highestNet =
+    examTotalNets.length > 0
+      ? examTotalNets.reduce((highest, net) => Math.max(highest, net), examTotalNets[0])
+      : null;
+  const averageNet =
+    examTotalNets.length > 0
+      ? examTotalNets.reduce((sum, net) => sum + net, 0) / examTotalNets.length
+      : null;
+
   const chartSeries: NetSeries = tailSeries(
     buildNetSeries(data.exams, data.results, chartType),
     DASHBOARD_CHART_POINTS,
@@ -261,6 +274,38 @@ export function DashboardPage() {
         />
         <StatCard label="TYT ilerlemesi" progress={tytProgress} extra="TYT dersleri" />
         <StatCard label="AYT ilerlemesi" progress={aytProgress} extra="AYT dersleri" />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card role="group" aria-label="En yüksek net" className="space-y-1">
+          <h2 className="text-sm font-medium text-muted">En yüksek net</h2>
+          {highestNet === null ? (
+            <p className="text-sm text-muted">Henüz deneme yok</p>
+          ) : (
+            <>
+              <p className="text-2xl font-semibold tabular-nums text-[var(--accent)]">
+                {formatNet(highestNet)}
+              </p>
+              <p className="text-xs text-muted">Tüm denemeler içinden</p>
+            </>
+          )}
+        </Card>
+
+        <Card role="group" aria-label="Ortalama net" className="space-y-1">
+          <h2 className="text-sm font-medium text-muted">Ortalama net</h2>
+          {averageNet === null ? (
+            <p className="text-sm text-muted">Henüz deneme yok</p>
+          ) : (
+            <>
+              <p className="text-2xl font-semibold tabular-nums text-[var(--accent)]">
+                {formatNet(averageNet)}
+              </p>
+              <p className="text-xs text-muted">
+                {data.exams.length} denemenin ortalaması
+              </p>
+            </>
+          )}
+        </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

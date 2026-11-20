@@ -1,4 +1,8 @@
-import { ALAN_SUBJECT_SEED_KEYS, computeHiddenSubjects } from './alanSubjects';
+import {
+  ALAN_SUBJECT_SEED_KEYS,
+  computeHiddenSubjects,
+  manualHiddenSubjects,
+} from './alanSubjects';
 import { CURRICULUM } from './curriculum';
 import type { AytAlan, Subject } from '@/domain/types';
 
@@ -58,4 +62,16 @@ test('tümü seçiminde hiçbir ders gizlenmez ve TYT dersleri hiç gizlenmez', 
   for (const alan of ['sayisal', 'ea', 'sozel'] as const) {
     expect(hiddenSeedKeys(alan).some((seedKey) => seedKey.startsWith('tyt-'))).toBe(false);
   }
+});
+
+test('elle gizlemeler alan otomatik gizlemelerinden ayrılır', () => {
+  const autoHidden = computeHiddenSubjects('sozel', subjects);
+  const stored = [...autoHidden, 'id-ayt-edebiyat'];
+
+  // AYT ekranları kendi branşını seçebildiği için yalnızca elle gizlenen kalır.
+  expect([...manualHiddenSubjects(stored, 'sozel', 'AYT', subjects)]).toEqual([
+    'id-ayt-edebiyat',
+  ]);
+  // TYT'de otomatik gizleme yoktur; tüm kayıtlı gizlemeler geçerlidir.
+  expect([...manualHiddenSubjects(stored, 'sozel', 'TYT', subjects)]).toEqual(stored);
 });

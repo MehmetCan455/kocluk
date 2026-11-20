@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Field } from '@/components/ui/Field';
-import { computeHiddenSubjects } from '@/data/alanSubjects';
+import { manualHiddenSubjects } from '@/data/alanSubjects';
 import { getExam, listExamResults, listSubjects, saveExam } from '@/db/repositories';
 import { calculateNet } from '@/domain/calculations';
 import type { AytAlan, ExamType, Subject } from '@/domain/types';
@@ -272,13 +272,13 @@ export function ExamFormPage() {
 
   // `hiddenSubjects` mixes the study-branch auto-hides with manual hides. The
   // exam form follows the branch selected on the exam itself, but still hides
-  // subjects the user unchecked by hand. Auto-derived hides are the difference
-  // between the stored hidden list and what the current study alan hides.
-  const autoHiddenIds = new Set(
-    examType === 'AYT' ? computeHiddenSubjects(settings.aytAlan, subjects) : [],
-  );
-  const hiddenIds = new Set(
-    settings.hiddenSubjects.filter((subjectId) => !autoHiddenIds.has(subjectId)),
+  // subjects the user unchecked by hand. `manualHiddenSubjects` subtracts the
+  // auto-derived hides so they do not leak into the exam's own branch.
+  const hiddenIds = manualHiddenSubjects(
+    settings.hiddenSubjects,
+    settings.aytAlan,
+    examType,
+    subjects,
   );
   const subjectBySeed = new Map(subjects.map((subject) => [subject.seedKey, subject]));
   const storedById = new Map(initialResults.map((result) => [result.subjectId, result]));

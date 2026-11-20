@@ -185,8 +185,14 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
 
   expect(screen.getByRole('img', { name: 'TYT net trend grafiği' })).toBeInTheDocument();
   expect(screen.getByText('Net trendi')).toBeInTheDocument();
-  expect(screen.getByText(/1 Eyl: 10,00 net/)).toBeInTheDocument();
-  expect(screen.getByText(/17 Kas: 45,50 net/)).toBeInTheDocument();
+  expect(screen.getByText(/Eylül TYT · 1 Eyl: 10,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/3D TYT 5 · 17 Kas: 45,50 net/)).toBeInTheDocument();
+
+  const highestCard = screen.getByRole('group', { name: 'En yüksek net' });
+  expect(within(highestCard).getByText('45,50')).toBeInTheDocument();
+  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
+  expect(within(averageCard).getByText('22,17')).toBeInTheDocument();
+  expect(within(averageCard).getByText('3 denemenin ortalaması')).toBeInTheDocument();
 
   const latestLink = screen.getByRole('link', { name: /3D TYT 5/ });
   expect(latestLink).toHaveAttribute('href', `/denemeler/${seed.exams[0].id}`);
@@ -205,6 +211,41 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
     '/yanlislar',
   );
   expect(screen.getByRole('link', { name: 'Test kaydı' })).toHaveAttribute('href', '/tyt');
+});
+
+test('en yüksek ve ortalama net son beşle sınırlı kalmadan tüm denemeleri kapsar', async () => {
+  const seed = await seedDashboardData();
+  // Üç eski deneme ekle; en yüksek net yapan deneme son beşin dışında kalır.
+  await saveExam({
+    type: 'TYT',
+    name: 'Ağustos Düşük',
+    date: '2026-08-02',
+    results: [{ subjectId: seed.turkce, correct: 5, wrong: 0, blank: 0 }],
+  });
+  await saveExam({
+    type: 'TYT',
+    name: 'Ağustos Düşük 2',
+    date: '2026-08-01',
+    results: [{ subjectId: seed.turkce, correct: 5, wrong: 0, blank: 0 }],
+  });
+  await saveExam({
+    type: 'TYT',
+    name: 'Temmuz Yüksek',
+    date: '2026-07-01',
+    results: [
+      { subjectId: seed.turkce, correct: 40, wrong: 0, blank: 0 },
+      { subjectId: seed.tytMatematik, correct: 30, wrong: 0, blank: 0 },
+    ],
+  });
+
+  renderApp('/');
+
+  const highestCard = await screen.findByRole('group', { name: 'En yüksek net' });
+  expect(within(highestCard).getByText('70,00')).toBeInTheDocument();
+  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
+  // (45,5 + 11 + 10 + 5 + 5 + 70) / 6 = 24,4166...
+  expect(within(averageCard).getByText('24,42')).toBeInTheDocument();
+  expect(within(averageCard).getByText('6 denemenin ortalaması')).toBeInTheDocument();
 });
 
 test('gizlenen dersler genel ve AYT yüzdelerine katılmaz', async () => {
@@ -243,9 +284,20 @@ test.each(['', 'bozuk', '2026-02-31'])(
 test('veri yokken bölümler boş durum gösterir', async () => {
   renderApp('/');
 
-  expect(await screen.findByText('Henüz deneme yok')).toBeInTheDocument();
+  expect((await screen.findAllByText('Henüz deneme yok')).length).toBeGreaterThan(0);
   expect(screen.getByText('Henüz kitap yok')).toBeInTheDocument();
   expect(screen.getByText('Henüz deneme kaydı yok')).toBeInTheDocument();
+  expect(
+    within(screen.getByRole('group', { name: 'En yüksek net' })).getByText(
+      'Henüz deneme yok',
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(screen.getByRole('group', { name: 'Ortalama net' })).getByText(
+      'Henüz deneme yok',
+    ),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   expect(screen.getByRole('progressbar', { name: 'Genel ilerleme' })).toHaveAttribute(
     'aria-valuenow',
     '0',

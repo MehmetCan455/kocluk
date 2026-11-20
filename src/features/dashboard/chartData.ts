@@ -11,9 +11,26 @@ const labelFormatter = new Intl.DateTimeFormat('tr-TR', {
   month: 'short',
 });
 
+/**
+ * One plotted exam. `improved` is relative to the previous point **of the
+ * displayed series**, so trimming a series recalculates it and the first point
+ * is always accent-coloured (never gold).
+ */
+export interface NetSeriesPoint {
+  examId: string;
+  /** Deneme adı; aynı gün yapılan denemeleri tooltip'te ayırır. */
+  examName: string;
+  /** Stored `YYYY-MM-DD` date. */
+  date: string;
+  /** Short tr-TR axis label, e.g. "17 Kas". */
+  label: string;
+  net: number;
+  /** True when this net is higher than the previous displayed point's net. */
+  improved: boolean;
+}
+
 export interface NetSeries {
-  labels: string[];
-  values: number[];
+  points: NetSeriesPoint[];
 }
 
 export interface ExamComparison {
@@ -72,6 +89,28 @@ function selectExams(
     .slice(-limit);
 }
 
+/** Builds points in ascending order and marks each one against its predecessor. */
+function toSeries(
+  exams: Exam[],
+  netForExam: (examId: string) => number,
+): NetSeries {
+  let previousNet: number | undefined;
+  const points = exams.map((exam): NetSeriesPoint => {
+    const net = netForExam(exam.id);
+    const point: NetSeriesPoint = {
+      examId: exam.id,
+      examName: exam.name,
+      date: exam.date,
+      label: formatLabel(exam.date),
+      net,
+      improved: previousNet !== undefined && net > previousNet,
+    };
+    previousNet = net;
+    return point;
+  });
+  return { points };
+}
+
 function sumNetByExam(results: ExamResult[]): Map<string, number> {
   const netByExam = new Map<string, number>();
   for (const result of results) {
@@ -96,11 +135,7 @@ export function buildNetSeries(
 ): NetSeries {
   const netByExam = sumNetByExam(results);
   const points = selectExams(exams, type, alan, MAX_CHART_POINTS, resolveAlan);
-
-  return {
-    labels: points.map((exam) => formatLabel(exam.date)),
-    values: points.map((exam) => netByExam.get(exam.id) ?? 0),
-  };
+  return toSeries(points, (examId) => netByExam.get(examId) ?? 0);
 }
 
 /**
@@ -123,11 +158,7 @@ export function buildSubjectNetSeries(
     }
   }
   const points = selectExams(exams, type, alan, MAX_CHART_POINTS, resolveAlan);
-
-  return {
-    labels: points.map((exam) => formatLabel(exam.date)),
-    values: points.map((exam) => netByExam.get(exam.id) ?? 0),
-  };
+  return toSeries(points, (examId) => netByExam.get(examId) ?? 0);
 }
 
 /**
@@ -172,10 +203,17 @@ export function buildExamComparison(
   };
 }
 
-/** Trims a series to its newest `count` points for compact charts. */
+/**
+ * Trims a series to its newest `count` points for compact charts. Improvement
+ * flags are recalculated for the trimmed window: the first visible point must
+ * be accent even when the hidden predecessor was lower.
+ */
 export function tailSeries(series: NetSeries, count: number): NetSeries {
+  const points = series.points.slice(-count);
   return {
-    labels: series.labels.slice(-count),
-    values: series.values.slice(-count),
+    points: points.map((point, index) => ({
+      ...point,
+      improved: index > 0 && point.net > points[index - 1].net,
+    })),
   };
 }

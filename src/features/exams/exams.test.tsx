@@ -936,27 +936,29 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
   expect(await screen.findByRole('heading', { level: 1, name: 'Denemeler' })).toBeInTheDocument();
   expect(await screen.findByRole('img', { name: 'TYT net trend grafiği' })).toBeInTheDocument();
   expect(screen.getByText('Net trendi')).toBeInTheDocument();
-  expect(await screen.findByText(/1 Kas: 10,00 net/)).toBeInTheDocument();
-  expect(screen.queryByText(/3 Kas: 7,00 net/)).not.toBeInTheDocument();
+  expect(await screen.findByText(/TYT Denemesi · 1 Kas: 10,00 net/)).toBeInTheDocument();
+  expect(screen.queryByText(/Genel AYT · 3 Kas: 7,00 net/)).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'AYT' }));
   expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
-  expect(await screen.findByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
-  expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+  expect(await screen.findByText(/Sayısal AYT · 2 Kas: 11,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/Genel AYT · 3 Kas: 7,00 net/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Genel' })).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Sayısal' }));
-  await waitFor(() => expect(screen.queryByText(/3 Kas: 7,00 net/)).not.toBeInTheDocument());
-  expect(screen.getByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByText(/Genel AYT · 3 Kas: 7,00 net/)).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText(/Sayısal AYT · 2 Kas: 11,00 net/)).toBeInTheDocument();
 
   // The old exam has no stored branch; its results imply Eşit Ağırlık.
   await userEvent.click(screen.getByRole('button', { name: 'Eşit Ağırlık' }));
-  expect(await screen.findByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
-  expect(screen.queryByText(/2 Kas: 11,00 net/)).not.toBeInTheDocument();
+  expect(await screen.findByText(/Genel AYT · 3 Kas: 7,00 net/)).toBeInTheDocument();
+  expect(screen.queryByText(/Sayısal AYT · 2 Kas: 11,00 net/)).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Tüm alanlar' }));
-  expect(await screen.findByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
-  expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+  expect(await screen.findByText(/Sayısal AYT · 2 Kas: 11,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/Genel AYT · 3 Kas: 7,00 net/)).toBeInTheDocument();
 
   const chartSelect = screen.getByLabelText('Grafik dersi');
   await userEvent.selectOptions(chartSelect, aytMatematik);
@@ -965,11 +967,40 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
     await screen.findByRole('img', { name: 'AYT Matematik net trend grafiği' }),
   ).toBeInTheDocument();
   expect(screen.getByText('Matematik net trendi')).toBeInTheDocument();
-  expect(screen.getByText(/2 Kas: 11,00 net/)).toBeInTheDocument();
-  expect(screen.getByText(/3 Kas: 7,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/Sayısal AYT · 2 Kas: 11,00 net/)).toBeInTheDocument();
+  expect(screen.getByText(/Genel AYT · 3 Kas: 7,00 net/)).toBeInTheDocument();
 
   await userEvent.selectOptions(chartSelect, '');
   expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
+});
+
+test('grafik dersi elle gizlenenleri saklar, çalışma alanının otomatik gizlemelerini gösterir', async () => {
+  const allSubjects = await listSubjects();
+  const aytMatematik = await subjectIdByKey('ayt-matematik');
+  const aytEdebiyat = await subjectIdByKey('ayt-edebiyat');
+  await saveExam({
+    type: 'AYT',
+    name: 'Sayısal AYT',
+    date: '2026-11-02',
+    alan: 'sayisal',
+    results: [{ subjectId: aytMatematik, correct: 10, wrong: 0, blank: 0 }],
+  });
+  await patchSettings({
+    aytAlan: 'sozel',
+    hiddenSubjects: [...computeHiddenSubjects('sozel', allSubjects), aytEdebiyat],
+  });
+
+  renderApp('/denemeler?tur=AYT');
+
+  expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
+  const chartSelect = screen.getByLabelText('Grafik dersi');
+  // Sözel çalışma alanı matematiği otomatik gizler; Sayısal denemesi için
+  // grafikte seçilebilir kalır. Elle gizlenen edebiyat ise görünmez.
+  expect(within(chartSelect).getByRole('option', { name: 'Matematik' })).toBeInTheDocument();
+  expect(within(chartSelect).getByRole('option', { name: 'Fizik' })).toBeInTheDocument();
+  expect(
+    within(chartSelect).queryByRole('option', { name: 'Edebiyat' }),
+  ).not.toBeInTheDocument();
 });
 
 test('deneme detayı önceki denemeye göre net farkını gösterir', async () => {

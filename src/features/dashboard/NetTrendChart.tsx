@@ -13,13 +13,37 @@ import { Line } from 'react-chartjs-2';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { hexToRgb } from '@/app/theme';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { formatExamDate } from '@/features/exams/examFormat';
 import { formatNet } from '@/lib/format';
-import type { NetSeries } from './chartData';
+import type { NetSeries, NetSeriesPoint } from './chartData';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
 const GRID_COLOR = '#232A36';
 const TICK_COLOR = '#98A2B3';
+
+/** A point that beats the previous one is gold; everything else is accent. */
+export const IMPROVED_POINT_COLOR = '#FACC15';
+
+/** First point is never gold because it has no previous point to improve on. */
+export function seriesPointColors(
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'improved'>>,
+  accent: string,
+): string[] {
+  return points.map((point, index) =>
+    index > 0 && point.improved ? IMPROVED_POINT_COLOR : accent,
+  );
+}
+
+/** Tooltip title: the exam name keeps same-day exams distinguishable. */
+export function netTooltipTitle(point: NetSeriesPoint): string {
+  return point.examName;
+}
+
+/** Tooltip body: date and net, e.g. "17 Kasım 2026 · 45,50 net". */
+export function netTooltipLabel(point: NetSeriesPoint): string {
+  return `${formatExamDate(point.date)} · ${formatNet(point.net)} net`;
+}
 
 export interface NetTrendChartProps {
   series: NetSeries;
@@ -43,18 +67,22 @@ export function NetTrendChart({
   const accent = settings.accent;
   const rgb = hexToRgb(accent);
   const fillColor = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)` : 'rgba(59, 130, 246, 0.1)';
+  const points = series.points;
 
-  const data = useMemo(
-    () => ({
-      labels: series.labels,
+  const data = useMemo(() => {
+    const pointColors = seriesPointColors(points, accent);
+    return {
+      labels: points.map((point) => point.label),
       datasets: [
         {
           label: title,
-          data: series.values,
+          data: points.map((point) => point.net),
           borderColor: accent,
           backgroundColor: fillColor,
-          pointBackgroundColor: accent,
-          pointBorderColor: accent,
+          pointBackgroundColor: pointColors,
+          pointBorderColor: pointColors,
+          pointHoverBackgroundColor: pointColors,
+          pointHoverBorderColor: pointColors,
           borderWidth: 2,
           pointRadius: 3,
           pointHoverRadius: 5,
@@ -62,9 +90,8 @@ export function NetTrendChart({
           tension: 0.25,
         },
       ],
-    }),
-    [accent, fillColor, series.labels, series.values, title],
-  );
+    };
+  }, [accent, fillColor, points, title]);
 
   const options = useMemo<ChartOptions<'line'>>(
     () => ({
@@ -84,7 +111,16 @@ export function NetTrendChart({
           displayColors: false,
           padding: 10,
           callbacks: {
-            label: (context) => `Net ${formatNet(context.parsed.y ?? 0)}`,
+            title: (items) => {
+              const point = items[0] ? points[items[0].dataIndex] : undefined;
+              return point ? netTooltipTitle(point) : '';
+            },
+            label: (context) => {
+              const point = points[context.dataIndex];
+              return point
+                ? netTooltipLabel(point)
+                : `Net ${formatNet(context.parsed.y ?? 0)}`;
+            },
           },
         },
       },
@@ -112,11 +148,11 @@ export function NetTrendChart({
         },
       },
     }),
-    [],
+    [points],
   );
 
-  const summary = series.labels
-    .map((label, index) => `${label}: ${formatNet(series.values[index] ?? 0)} net`)
+  const summary = points
+    .map((point) => `${point.examName} · ${point.label}: ${formatNet(point.net)} net`)
     .join(' · ');
 
   return (
@@ -131,7 +167,7 @@ export function NetTrendChart({
         {headerAction}
       </header>
 
-      {series.values.length === 0 ? (
+      {points.length === 0 ? (
         <EmptyState title={emptyMessage} />
       ) : (
         <figure className="space-y-2">

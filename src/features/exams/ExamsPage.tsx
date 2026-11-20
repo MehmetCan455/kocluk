@@ -6,6 +6,7 @@ import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/components/ui/cn';
+import { manualHiddenSubjects } from '@/data/alanSubjects';
 import { listAllExamResults, listExams, listSubjects } from '@/db/repositories';
 import type { AytAlan, Exam, ExamResult, ExamType, Subject } from '@/domain/types';
 import {
@@ -123,9 +124,17 @@ export function ExamsPage() {
 
   const visibleRows = data.rows.filter((row) => row.exam.type === filter);
   const chartType: ExamType = filter;
-  const hidden = new Set(settings.hiddenSubjects);
+  // Same visibility as the exam form: manual hides only, so subjects hidden
+  // automatically by the study alan stay selectable for an AYT branch that
+  // includes them.
+  const hiddenIds = manualHiddenSubjects(
+    settings.hiddenSubjects,
+    settings.aytAlan,
+    chartType,
+    data.subjects,
+  );
   const chartSubjects = data.subjects.filter(
-    (subject) => subject.exam === chartType && !hidden.has(subject.id),
+    (subject) => subject.exam === chartType && !hiddenIds.has(subject.id),
   );
   const selectedSubject = chartSubjects.find((subject) => subject.id === chartSubjectId);
   const chartSeries = selectedSubject

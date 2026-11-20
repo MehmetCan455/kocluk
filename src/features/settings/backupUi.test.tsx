@@ -133,8 +133,8 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
   expect(screen.getByText(/1 fotoğraf/)).toBeInTheDocument();
   expect(screen.getByText(/1 not/)).toBeInTheDocument();
   expect(screen.getByText(/1 test oturumu/)).toBeInTheDocument();
-  expect(screen.getByText(/1 program kaydı/)).toBeInTheDocument();
-  expect(screen.getByText(/1 program dosyası/)).toBeInTheDocument();
+  expect(screen.getByText(/1 eski çizelge kaydı/)).toBeInTheDocument();
+  expect(screen.getByText(/1 eski çizelge dosyası/)).toBeInTheDocument();
   expect(screen.getByText(/1 çizelge tablosu/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Mevcut verileri değiştir' }));

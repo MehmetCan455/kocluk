@@ -28,8 +28,8 @@ const pluralCounts = [
   { key: 'photos', singular: 'fotoğraf' },
   { key: 'notes', singular: 'not' },
   { key: 'practiceSessions', singular: 'test oturumu' },
-  { key: 'scheduleEntries', singular: 'program kaydı' },
-  { key: 'scheduleFiles', singular: 'program dosyası' },
+  { key: 'scheduleEntries', singular: 'eski çizelge kaydı' },
+  { key: 'scheduleFiles', singular: 'eski çizelge dosyası' },
   { key: 'scheduleTables', singular: 'çizelge tablosu' },
 ] as const;
 

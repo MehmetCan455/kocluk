@@ -15,24 +15,27 @@ const MODE_OPTIONS: ReadonlyArray<{ value: ScheduleMode; label: string }> = [
 export function SchedulePage() {
   const { settings, updateSettings } = useAppSettings();
   const [modeError, setModeError] = useState<string | null>(null);
+  const mode = settings.scheduleMode;
 
   // Separate queries: saving the table must not re-read the file blobs, and
   // the wrapper object distinguishes "still loading" from "no saved table".
+  // Files (and their blobs) are only read in upload mode.
   const tableQuery = useLiveQuery(
     async () => ({ table: await getScheduleTable() }),
     [],
   );
-  const files = useLiveQuery(() => listScheduleFiles(), []);
+  const files = useLiveQuery(
+    async () => (mode === 'upload' ? listScheduleFiles() : []),
+    [mode],
+  );
 
-  if (!tableQuery || !files) {
+  if (!tableQuery) {
     return (
       <p role="status" className="py-16 text-center text-sm text-muted">
         Çizelge yükleniyor…
       </p>
     );
   }
-
-  const mode = settings.scheduleMode;
 
   async function changeMode(next: ScheduleMode): Promise<void> {
     if (next === settings.scheduleMode) {
@@ -92,11 +95,24 @@ export function SchedulePage() {
         </p>
       ) : null}
 
-      {mode === 'manual' ? (
+      {/*
+       * Keep the editor mounted while the upload archive is visible so an
+       * unsaved draft survives mode switches. It is hidden from layout and the
+       * accessibility tree in upload mode; autosave also runs while hidden.
+       */}
+      <div hidden={mode !== 'manual'}>
         <ScheduleTableEditor initialTable={tableQuery.table} />
-      ) : (
-        <ScheduleFileList files={files} />
-      )}
+      </div>
+
+      {mode === 'upload' ? (
+        files ? (
+          <ScheduleFileList files={files} />
+        ) : (
+          <p role="status" className="py-8 text-center text-sm text-muted">
+            Dosyalar yükleniyor…
+          </p>
+        )
+      ) : null}
     </section>
   );
 }

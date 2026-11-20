@@ -14,11 +14,3 @@ export const SCHEDULE_DAYS: readonly ScheduleDay[] = [
   { day: 6, label: 'Cumartesi', short: 'Cmt' },
   { day: 7, label: 'Pazar', short: 'Paz' },
 ];
-
-export function scheduleDayLabel(day: number): string {
-  return SCHEDULE_DAYS.find((item) => item.day === day)?.label ?? `${day}. gün`;
-}
-
-export function formatScheduleTime(startTime: string, endTime: string): string {
-  return `${startTime}–${endTime}`;
-}

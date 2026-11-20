@@ -28,10 +28,10 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   await table.getByLabel('Toplam satırı Pazartesi').fill('10 saat');
   await table.getByLabel('Genel toplam').fill('10 saat');
   await page.getByLabel('Haftanın notu').fill('E2E hafta notu');
-  await expect(page.getByText('Kaydedilmemiş değişiklikler')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Kaydet', exact: true }).click();
-  await expect(page.getByText('Kaydedildi', { exact: true })).toBeVisible();
+  // The table autosaves shortly after the last edit.
+  await expect(page.getByText('Kaydedildi', { exact: true })).toBeVisible({
+    timeout: 5_000,
+  });
 
   // Upload mode still keeps the photo/PDF archive.
   await page.getByRole('button', { name: 'Fotoğraf/PDF', exact: true }).click();

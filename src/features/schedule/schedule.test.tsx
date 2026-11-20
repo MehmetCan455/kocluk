@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
+import { db } from '@/db/db';
 import {
   SCHEDULE_FILE_MAX_BYTES,
   getScheduleTable,
@@ -137,6 +138,85 @@ test('elle tablo doldurulur, kaydedilir ve yeniden açınca korunur', async () =
   expect(within(reloaded).getByLabelText('Genel toplam')).toHaveValue('10 saat');
   expect(screen.getByLabelText('Haftanın notu')).toHaveValue('Türev tekrarı');
   expect(screen.getByText('Kaydedildi')).toBeInTheDocument();
+});
+
+test('elle tablo kısa bir gecikmeyle otomatik kaydedilir', async () => {
+  await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+
+  await userEvent.type(within(table).getByLabelText('1. satır ders'), 'Fizik');
+  expect(await screen.findByText('Kaydedildi', {}, { timeout: 3000 })).toBeInTheDocument();
+
+  const stored = await getScheduleTable();
+  expect(stored?.rows[0].subject).toBe('Fizik');
+});
+
+test('otomatik kaydetme başarısız olursa taslak korunur ve hata gösterilir', async () => {
+  await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  const put = vi
+    .spyOn(db.scheduleTables, 'put')
+    .mockRejectedValueOnce(new Error('Disk dolu'));
+
+  try {
+    await userEvent.type(
+      within(table).getByLabelText('1. satır ders'),
+      'Biyoloji',
+    );
+    expect(
+      await screen.findByText('Kaydedilmedi', {}, { timeout: 3000 }),
+    ).toBeInTheDocument();
+    expect(within(table).getByLabelText('1. satır ders')).toHaveValue('Biyoloji');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Disk dolu');
+  } finally {
+    put.mockRestore();
+  }
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  expect(
+    await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
+  ).toBeInTheDocument();
+  expect((await getScheduleTable())?.rows[0].subject).toBe('Biyoloji');
+});
+
+test('mod değişiminde kaydedilmemiş taslak korunur', async () => {
+  await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+
+  await userEvent.type(
+    within(table).getByLabelText('1. satır ders'),
+    'Geometri',
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Fotoğraf/PDF' }));
+  expect(await screen.findByText('Henüz çizelge dosyası yok')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Elle tablo' }));
+  const returned = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  expect(within(returned).getByLabelText('1. satır ders')).toHaveValue('Geometri');
+});
+
+test('rotadan ayrılırken elle tablo taslağı boşaltılır', async () => {
+  await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  await userEvent.type(within(table).getByLabelText('1. satır ders'), 'Kimya');
+
+  await userEvent.click(screen.getByRole('link', { name: 'Ana Sayfa' }));
+  await waitFor(
+    async () => {
+      expect((await getScheduleTable())?.rows[0].subject).toBe('Kimya');
+    },
+    { timeout: 3000 },
+  );
 });
 
 test('mod seçimi kalıcıdır; yükleme ve elle tablo arasında geçilir', async () => {

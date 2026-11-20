@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
+import type { PointStyle } from 'chart.js';
 import { expect, test, vi } from 'vitest';
 import type { Exam, ExamResult } from '@/domain/types';
+import chartSource from './NetTrendChart.tsx?raw';
 import {
   buildNetSeries,
   tailSeries,
@@ -18,6 +20,7 @@ import {
   RECORD_POINT_HOVER_RADIUS,
   RECORD_POINT_RADIUS,
   RECORD_POINT_STYLE,
+  createStarPointStyle,
   netTooltipLabel,
   netTooltipTitle,
   NetTrendChart,
@@ -92,7 +95,7 @@ interface CapturedLineProps {
       pointBorderWidth: number[];
       pointHoverBorderColor: string[];
       pointHoverBorderWidth: number[];
-      pointStyle: string[];
+      pointStyle: PointStyle[];
       pointRadius: number[];
       pointHoverRadius: number[];
     }>;
@@ -128,7 +131,9 @@ test('ilk nokta rekor işaretliyse altın yıldız kalır', () => {
     RECORD_POINT_COLOR,
   ]);
   expect(seriesPointColors([], ACCENT)).toEqual([]);
-  expect(seriesPointStyles([point({ record: true })])).toEqual([RECORD_POINT_STYLE]);
+  expect(seriesPointStyles([point({ record: true })])[0]).toBeInstanceOf(
+    HTMLCanvasElement,
+  );
   expect(seriesPointRadii([point({ record: true })])).toEqual([RECORD_POINT_RADIUS]);
   expect(seriesPointBorderColors([point({ record: true })], ACCENT)).toEqual([
     RECORD_POINT_BORDER_COLOR,
@@ -144,11 +149,10 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; koyu kenar ve boy
     point({ net: 30, record: true }),
     point({ net: 25, record: false }),
   ];
-  expect(seriesPointStyles(points)).toEqual([
-    POINT_STYLE,
-    RECORD_POINT_STYLE,
-    POINT_STYLE,
-  ]);
+  const styles = seriesPointStyles(points);
+  expect(styles[0]).toBe(POINT_STYLE);
+  expect(styles[1]).toBeInstanceOf(HTMLCanvasElement);
+  expect(styles[2]).toBe(POINT_STYLE);
   expect(POINT_STYLE).toBe('circle');
   expect(RECORD_POINT_STYLE).toBe('star');
   expect(seriesPointRadii(points)).toEqual([
@@ -182,6 +186,23 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; koyu kenar ve boy
   expect(RECORD_POINT_RADIUS).toBeGreaterThan(POINT_RADIUS);
 });
 
+test('canvas 2D bağlamı yoksa yıldız stili string yedeğe düşer', () => {
+  const getContext = vi
+    .spyOn(HTMLCanvasElement.prototype, 'getContext')
+    .mockImplementation(
+      (() => null) as typeof HTMLCanvasElement.prototype.getContext,
+    );
+  try {
+    expect(createStarPointStyle()).toBe(RECORD_POINT_STYLE);
+  } finally {
+    getContext.mockRestore();
+  }
+});
+
+test('PointElement prototipi yamalanmaz', () => {
+  expect(chartSource).not.toContain('PointElement.prototype.draw');
+});
+
 test('kırpılmış dashboard serisinde pencere başındaki rekor altın yıldız kalır', () => {
   const nets = [10, 20, 30, 15, 12, 11, 9, 8, 7, 6];
   const exams = nets.map((_, index) =>
@@ -208,7 +229,7 @@ test('kırpılmış dashboard serisinde pencere başındaki rekor altın yıldı
   expect(dataset.pointBackgroundColor[0]).toBe(RECORD_POINT_COLOR);
   expect(dataset.pointBorderColor[0]).toBe(RECORD_POINT_BORDER_COLOR);
   expect(dataset.pointBorderWidth[0]).toBe(RECORD_POINT_BORDER_WIDTH);
-  expect(dataset.pointStyle[0]).toBe('star');
+  expect(dataset.pointStyle[0]).toBeInstanceOf(HTMLCanvasElement);
   expect(dataset.pointRadius[0]).toBe(RECORD_POINT_RADIUS);
   expect(dataset.pointHoverRadius[0]).toBe(RECORD_POINT_HOVER_RADIUS);
 });
@@ -264,7 +285,8 @@ test('grafik bileşeni nokta renklerini, şekillerini ve tooltip callbacklerini 
     POINT_BORDER_WIDTH,
     RECORD_POINT_BORDER_WIDTH,
   ]);
-  expect(props.data.datasets[0].pointStyle).toEqual(['circle', 'star']);
+  expect(props.data.datasets[0].pointStyle[0]).toBe('circle');
+  expect(props.data.datasets[0].pointStyle[1]).toBeInstanceOf(HTMLCanvasElement);
   expect(props.data.datasets[0].pointRadius).toEqual([
     POINT_RADIUS,
     RECORD_POINT_RADIUS,

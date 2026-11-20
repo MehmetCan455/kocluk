@@ -304,8 +304,8 @@ const scheduleFileSchema = z
     size: z.number().int().nonnegative(),
     filePath: z
       .string()
-      .regex(/^program\/[^/\\]+$/, 'Program dosyası yolu geçersiz')
-      .refine((value) => !value.includes('..'), 'Program dosyası yolu geçersiz'),
+      .regex(/^program\/[^/\\]+$/, 'Çizelge dosyası yolu geçersiz')
+      .refine((value) => !value.includes('..'), 'Çizelge dosyası yolu geçersiz'),
     createdAt: z.string(),
   })
   .superRefine((file, context) => {
@@ -313,7 +313,7 @@ const scheduleFileSchema = z
       context.addIssue({
         code: 'custom',
         path: ['filePath'],
-        message: 'Program dosyası yolu geçersiz',
+        message: 'Çizelge dosyası yolu geçersiz',
       });
     }
   });

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -64,6 +64,9 @@ const headCellClass =
 
 const bodyCellClass = 'border-b border-r border-line p-1 align-middle';
 
+/** Short enough to feel automatic, long enough not to save every keystroke. */
+const AUTOSAVE_DELAY_MS = 800;
+
 export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) {
   const noteId = useId();
   // Build the starting draft once: two draftFrom calls would generate
@@ -80,17 +83,128 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
   const serialized = JSON.stringify(draft);
   const dirty = serialized !== savedSnapshot;
 
+  const draftRef = useRef(draft);
+  const dirtyRef = useRef(dirty);
+  const savingRef = useRef(false);
+  const pendingDraftRef = useRef<Draft | null>(null);
+  const failedSnapshotRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+
   useEffect(() => {
-    if (!dirty) {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
+  const persistDraft = useCallback(async (captured: Draft): Promise<boolean> => {
+    if (savingRef.current) {
+      pendingDraftRef.current = captured;
+      return false;
+    }
+
+    const capturedKey = JSON.stringify(captured);
+    savingRef.current = true;
+    if (mountedRef.current) {
+      setSaving(true);
+      setError(null);
+    }
+
+    try {
+      const stored = await saveScheduleTable({
+        rows: captured.rows,
+        totals: captured.totals,
+        note: captured.note,
+      });
+      const next = draftFrom(stored);
+      failedSnapshotRef.current = null;
+      if (mountedRef.current) {
+        setDraft((current) =>
+          JSON.stringify(current) === capturedKey ? next : current,
+        );
+        setSavedSnapshot(JSON.stringify(next));
+        setHasSaved(true);
+      }
+      return true;
+    } catch (caught: unknown) {
+      console.error('Çizelge kaydedilemedi', caught);
+      failedSnapshotRef.current = capturedKey;
+      if (mountedRef.current) {
+        setError(
+          caught instanceof Error && caught.message
+            ? caught.message
+            : 'Çizelge kaydedilemedi. Lütfen tekrar dene.',
+        );
+      }
+      return false;
+    } finally {
+      savingRef.current = false;
+      if (mountedRef.current) {
+        setSaving(false);
+      }
+      const pending = pendingDraftRef.current;
+      pendingDraftRef.current = null;
+      if (pending) {
+        void persistDraft(pending);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (dirty) {
+      const warn = (event: BeforeUnloadEvent) => {
+        event.preventDefault();
+        event.returnValue = '';
+      };
+      window.addEventListener('beforeunload', warn);
+      return () => window.removeEventListener('beforeunload', warn);
+    }
+  }, [dirty]);
+
+  // Debounced autosave. A failed snapshot is not retried until the user edits
+  // again, so a quota error does not create a retry loop.
+  useEffect(() => {
+    if (
+      !dirty ||
+      saving ||
+      serialized === failedSnapshotRef.current
+    ) {
       return;
     }
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
+    const timer = window.setTimeout(() => {
+      void persistDraft(draftRef.current);
+    }, AUTOSAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [dirty, saving, serialized, persistDraft]);
+
+  // Best effort flush for route changes, tab close and backgrounding.
+  useEffect(() => {
+    const flush = () => {
+      if (dirtyRef.current) {
+        void persistDraft(draftRef.current);
+      }
     };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flush();
+      }
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      flush();
+    };
+  }, [persistDraft]);
 
   function updateSubject(rowId: string, subject: string): void {
     setDraft((current) => ({
@@ -158,38 +272,19 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
     if (saving || !dirty) {
       return;
     }
-    setSaving(true);
-    setError(null);
-    try {
-      const stored = await saveScheduleTable({
-        rows: draft.rows,
-        totals: draft.totals,
-        note: draft.note,
-      });
-      const next = draftFrom(stored);
-      setDraft(next);
-      setSavedSnapshot(JSON.stringify(next));
-      setHasSaved(true);
-    } catch (caught: unknown) {
-      console.error('Çizelge kaydedilemedi', caught);
-      setError(
-        caught instanceof Error && caught.message
-          ? caught.message
-          : 'Çizelge kaydedilemedi. Lütfen tekrar dene.',
-      );
-    } finally {
-      setSaving(false);
-    }
+    await persistDraft(draftRef.current);
   }
 
   const atMaxRows = draft.rows.length >= SCHEDULE_TABLE_MAX_ROWS;
   const statusText = saving
     ? 'Kaydediliyor…'
-    : dirty
-      ? 'Kaydedilmemiş değişiklikler'
-      : hasSaved
-        ? 'Kaydedildi'
-        : 'Henüz kaydedilmedi';
+    : error
+      ? 'Kaydedilmedi'
+      : dirty
+        ? 'Kaydedilmemiş değişiklikler'
+        : hasSaved
+          ? 'Kaydedildi'
+          : 'Henüz kaydedilmedi';
 
   return (
     <Card className="space-y-4">
@@ -378,7 +473,13 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
           aria-live="polite"
           className={cn(
             'text-sm',
-            dirty ? 'text-warning' : hasSaved ? 'text-success' : 'text-muted',
+            error
+              ? 'text-danger'
+              : dirty
+                ? 'text-warning'
+                : hasSaved
+                  ? 'text-success'
+                  : 'text-muted',
           )}
         >
           {statusText}

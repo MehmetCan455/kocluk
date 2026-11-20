@@ -7,7 +7,6 @@ import {
   LineElement,
   PointElement,
   Tooltip,
-  type ChartArea,
   type ChartOptions,
   type PointStyle,
 } from 'chart.js';
@@ -19,19 +18,41 @@ import { formatExamDate } from '@/features/exams/examFormat';
 import { formatNet } from '@/lib/format';
 import type { NetSeries, NetSeriesPoint } from './chartData';
 
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
+
+const GRID_COLOR = '#232A36';
+const TICK_COLOR = '#98A2B3';
+
+/** An all-time net record is gold; everything else is accent. */
+export const RECORD_POINT_COLOR = '#FACC15';
+/** The near-black outline keeps the gold star readable on the dark chart. */
+export const RECORD_POINT_BORDER_COLOR = '#0A0A0C';
+
+export const POINT_STYLE: PointStyle = 'circle';
+/** Fallback when a canvas context is unavailable (for example during SSR). */
+export const RECORD_POINT_STYLE: PointStyle = 'star';
+
+/** Stars need a little more room than the plain circles. */
+export const POINT_RADIUS = 3;
+export const RECORD_POINT_RADIUS = 7;
+export const POINT_HOVER_RADIUS = 5;
+export const RECORD_POINT_HOVER_RADIUS = 9;
+
+export const POINT_BORDER_WIDTH = 1;
+export const RECORD_POINT_BORDER_WIDTH = 1.5;
+
 /** Draws a filled, classic five-point star centred on `(x, y)`. */
 function drawClassicStar(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   radius: number,
-  rotation: number,
-  fill: CanvasRenderingContext2D['fillStyle'],
-  stroke: CanvasRenderingContext2D['strokeStyle'],
+  fill: string,
+  stroke: string,
   borderWidth: number,
 ): void {
   const innerRadius = radius * 0.42;
-  const startAngle = -Math.PI / 2 + (rotation * Math.PI) / 180;
+  const startAngle = -Math.PI / 2;
   ctx.beginPath();
   for (let index = 0; index < 10; index += 1) {
     const currentRadius = index % 2 === 0 ? radius : innerRadius;
@@ -56,65 +77,47 @@ function drawClassicStar(
   }
 }
 
-/**
- * Chart.js' built-in `star` point style is an unfilled eight-spoke sparkle, not
- * a classic five-point star. Patching only the `star` style keeps the normal
- * `point*` option resolution, colours and hover radius (`pointHoverRadius` is
- * resolved into `options.radius` before drawing).
- */
-let starPointRendererInstalled = false;
-function installClassicStarPointRenderer(): void {
-  if (starPointRendererInstalled) {
-    return;
-  }
-  starPointRendererInstalled = true;
+const STAR_POINT_CANVAS_SIZE =
+  Math.ceil((RECORD_POINT_RADIUS + RECORD_POINT_BORDER_WIDTH) * 2) + 2;
+let cachedStarPointStyle: PointStyle | null = null;
 
-  const originalDraw = PointElement.prototype.draw;
-  PointElement.prototype.draw = function draw(
-    this: PointElement,
-    ctx: CanvasRenderingContext2D,
-    area: ChartArea,
-  ): void {
-    const options = this.options;
-    if (options.pointStyle === 'star' && !this.skip && options.radius >= 0.1) {
-      drawClassicStar(
-        ctx,
-        this.x,
-        this.y,
-        options.radius,
-        options.rotation,
-        options.backgroundColor,
-        options.borderColor,
-        options.borderWidth,
-      );
-      return;
-    }
-    originalDraw.call(this, ctx, area);
-  };
+/**
+ * A small offscreen canvas with the classic gold star. Chart.js draws image
+ * point styles without a canvas-wide prototype patch, so normal circles and
+ * other charts keep their own drawing path. Falls back to the built-in `star`
+ * string when no 2D context exists.
+ */
+export function createStarPointStyle(): PointStyle {
+  if (typeof document === 'undefined') {
+    return RECORD_POINT_STYLE;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = STAR_POINT_CANVAS_SIZE;
+  canvas.height = STAR_POINT_CANVAS_SIZE;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return RECORD_POINT_STYLE;
+  }
+
+  const center = STAR_POINT_CANVAS_SIZE / 2;
+  drawClassicStar(
+    ctx,
+    center,
+    center,
+    RECORD_POINT_RADIUS,
+    RECORD_POINT_COLOR,
+    RECORD_POINT_BORDER_COLOR,
+    RECORD_POINT_BORDER_WIDTH,
+  );
+  return canvas;
 }
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
-installClassicStarPointRenderer();
-
-const GRID_COLOR = '#232A36';
-const TICK_COLOR = '#98A2B3';
-
-/** An all-time net record is gold; everything else is accent. */
-export const RECORD_POINT_COLOR = '#FACC15';
-/** The near-black outline keeps the gold star readable on the dark chart. */
-export const RECORD_POINT_BORDER_COLOR = '#0A0A0C';
-
-export const POINT_STYLE: PointStyle = 'circle';
-export const RECORD_POINT_STYLE: PointStyle = 'star';
-
-/** Stars need a little more room than the plain circles. */
-export const POINT_RADIUS = 3;
-export const RECORD_POINT_RADIUS = 7;
-export const POINT_HOVER_RADIUS = 5;
-export const RECORD_POINT_HOVER_RADIUS = 9;
-
-export const POINT_BORDER_WIDTH = 1;
-export const RECORD_POINT_BORDER_WIDTH = 1.5;
+function recordPointStyle(): PointStyle {
+  if (cachedStarPointStyle === null) {
+    cachedStarPointStyle = createStarPointStyle();
+  }
+  return cachedStarPointStyle;
+}
 
 /**
  * Trust `point.record`: `toSeries` computes it over the full history, and a
@@ -131,7 +134,7 @@ export function seriesPointColors(
 export function seriesPointStyles(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): PointStyle[] {
-  return points.map((point) => (point.record ? RECORD_POINT_STYLE : POINT_STYLE));
+  return points.map((point) => (point.record ? recordPointStyle() : POINT_STYLE));
 }
 
 export function seriesPointRadii(

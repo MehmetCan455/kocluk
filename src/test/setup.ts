@@ -1,5 +1,8 @@
 import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom/vitest';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 
 /**
  * jsdom has no canvas implementation. Chart.js only needs a 2D context that
@@ -178,3 +181,104 @@ Object.defineProperty(URL, 'revokeObjectURL', {
   writable: true,
   value: () => undefined,
 });
+
+/**
+ * fake-indexeddb uses the Node structured clone algorithm, which treats jsdom
+ * Blob/File wrappers as opaque objects. Real IndexedDB preserves their bytes,
+ * and backup round-trip tests need that behavior. The clone below only replaces
+ * the algorithm fake-indexeddb calls; Dexie and IndexedDB stay real.
+ */
+interface JsdomBlobImpl {
+  _bytes?: Uint8Array;
+}
+
+const { implForWrapper } = require('jsdom/lib/generated/idl/utils.js') as {
+  implForWrapper(value: object): JsdomBlobImpl | null;
+};
+const nativeStructuredClone = globalThis.structuredClone;
+
+function copyBytes(value: ArrayBufferView): ArrayBuffer {
+  const copy = new Uint8Array(value.byteLength);
+  copy.set(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+  return copy.buffer;
+}
+
+function cloneForIndexedDb<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  if (seen.has(value)) {
+    return seen.get(value) as T;
+  }
+
+  if (value instanceof Blob) {
+    const bytes = implForWrapper(value)?._bytes;
+    if (!bytes) {
+      return nativeStructuredClone(value);
+    }
+    const copied = copyBytes(bytes);
+    if (value instanceof File) {
+      return new File([copied], value.name, {
+        type: value.type,
+        lastModified: value.lastModified,
+      }) as T;
+    }
+    return new Blob([copied], { type: value.type }) as T;
+  }
+  if (value instanceof Date) {
+    return new Date(value.getTime()) as T;
+  }
+  if (value instanceof ArrayBuffer) {
+    return value.slice(0) as T;
+  }
+  if (ArrayBuffer.isView(value)) {
+    const copied = copyBytes(value);
+    if (value instanceof DataView) {
+      return new DataView(copied) as T;
+    }
+    const TypedArray = value.constructor as new (buffer: ArrayBuffer) => ArrayBufferView;
+    return new TypedArray(copied) as T;
+  }
+  if (Array.isArray(value)) {
+    const clone: unknown[] = [];
+    seen.set(value, clone);
+    for (const item of value) {
+      clone.push(cloneForIndexedDb(item, seen));
+    }
+    return clone as T;
+  }
+  if (value instanceof Map) {
+    const clone = new Map();
+    seen.set(value, clone);
+    for (const [key, item] of value) {
+      clone.set(cloneForIndexedDb(key, seen), cloneForIndexedDb(item, seen));
+    }
+    return clone as T;
+  }
+  if (value instanceof Set) {
+    const clone = new Set();
+    seen.set(value, clone);
+    for (const item of value) {
+      clone.add(cloneForIndexedDb(item, seen));
+    }
+    return clone as T;
+  }
+  if (value instanceof RegExp) {
+    return new RegExp(value.source, value.flags) as T;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype === Object.prototype || prototype === null) {
+    const clone: Record<string, unknown> = {};
+    seen.set(value, clone);
+    for (const [key, item] of Object.entries(value)) {
+      clone[key] = cloneForIndexedDb(item, seen);
+    }
+    return clone as T;
+  }
+
+  return nativeStructuredClone(value);
+}
+
+globalThis.structuredClone = ((value: unknown) =>
+  cloneForIndexedDb(value)) as typeof structuredClone;

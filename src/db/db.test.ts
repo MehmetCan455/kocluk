@@ -533,8 +533,8 @@ test('v2 geçişi mevcut fotoğraflardan blobsuz arama projeksiyonu üretir', as
     mastered: true,
     practiceCount: 3,
   });
-  // fake-indexeddb returns blobs as opaque objects in jsdom; the fields still
-  // have to survive the migration, the image bytes are not re-encoded.
+  // The test structured-clone shim preserves Blob bytes, matching a browser;
+  // the migration must keep both blobs without re-encoding them.
   expect(migrated).toHaveProperty('blob');
   expect(migrated).toHaveProperty('thumbBlob');
 });

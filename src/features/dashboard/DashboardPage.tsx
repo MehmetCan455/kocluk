@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Camera, ClipboardList, Library, Plus } from 'lucide-react';
+import { Archive, BookOpen, Camera, ClipboardList, Library, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { RingProgress } from '@/components/ui/RingProgress';
+import { db } from '@/db/db';
 import {
   listAllExamResults,
   listAllTopicBooks,
@@ -73,6 +74,7 @@ interface DashboardData {
   books: Book[];
   exams: Exam[];
   results: ExamResult[];
+  photosCount: number;
 }
 
 interface BookCardRow {
@@ -113,15 +115,17 @@ export function DashboardPage() {
 
   const data = useLiveQuery(async (): Promise<DashboardData> => {
     // One read per table: no per-book or per-exam query on the dashboard.
-    const [subjects, topics, topicBooks, books, exams, results] = await Promise.all([
-      listSubjects(),
-      listAllTopics(),
-      listAllTopicBooks(),
-      listBooks(),
-      listExams(),
-      listAllExamResults(),
-    ]);
-    return { subjects, topics, topicBooks, books, exams, results };
+    const [subjects, topics, topicBooks, books, exams, results, photosCount] =
+      await Promise.all([
+        listSubjects(),
+        listAllTopics(),
+        listAllTopicBooks(),
+        listBooks(),
+        listExams(),
+        listAllExamResults(),
+        db.photos.count(),
+      ]);
+    return { subjects, topics, topicBooks, books, exams, results, photosCount };
   }, []);
 
   if (!data) {
@@ -206,6 +210,19 @@ export function DashboardPage() {
         ? `YKS'ye ${remainingDays} gün`
         : 'YKS tarihi geçti';
   const todayLabel = todayFormatter.format(new Date());
+  const lastBackupTime = settings.lastBackupAt
+    ? Date.parse(settings.lastBackupAt)
+    : Number.NaN;
+  const lastBackupOld =
+    !Number.isFinite(lastBackupTime) ||
+    Date.now() - lastBackupTime >= 30 * 24 * 60 * 60 * 1000;
+  const manyPhotos = data.photosCount >= 100;
+  const showBackupReminder = lastBackupOld || manyPhotos;
+  const backupReminderReason = manyPhotos
+    ? `${data.photosCount} fotoğraf birikti; yedek almak için iyi bir zaman.`
+    : settings.lastBackupAt
+      ? 'Son yedeğinin üzerinden 30 günden fazla geçti.'
+      : 'Henüz yedek almadın; veriler yalnızca bu cihazda.';
 
   return (
     <section className="space-y-6">
@@ -391,8 +408,27 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      {/* Task 15 mounts the backup reminder banner here. */}
-      <div id="backup-reminder" />
+      {showBackupReminder ? (
+        <aside
+          id="backup-reminder"
+          aria-label="Yedek hatırlatıcısı"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-raised/60 px-4 py-3"
+        >
+          <div className="flex min-w-0 items-start gap-2.5">
+            <Archive className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden="true" />
+            <p className="text-sm text-muted">
+              <span className="font-medium text-fg">Yedeğini almayı unutma.</span>{' '}
+              {backupReminderReason}
+            </p>
+          </div>
+          <Link
+            to="/ayarlar"
+            className="inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-semibold text-[var(--accent)]"
+          >
+            Yedek al
+          </Link>
+        </aside>
+      ) : null}
     </section>
   );
 }

@@ -17,6 +17,7 @@ import { applyAccent } from './theme';
 interface SettingsContextValue {
   settings: AppSettings;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
+  refreshSettings: () => Promise<void>;
   loading: boolean;
 }
 
@@ -90,9 +91,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshSettings = useCallback(async () => {
+    const loaded = await getSettings();
+    pendingUpdates.current = {};
+    setSettings(loaded);
+  }, []);
+
   const value = useMemo(
-    () => ({ settings, updateSettings, loading }),
-    [settings, updateSettings, loading],
+    () => ({ settings, updateSettings, refreshSettings, loading }),
+    [settings, updateSettings, refreshSettings, loading],
   );
 
   return (

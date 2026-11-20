@@ -40,6 +40,17 @@ export function AppShell({ children }: AppShellProps) {
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 
   useEffect(() => {
+    // Chrome grants persistence silently and iOS may ignore it, so this is a
+    // best-effort request; the Settings panel shows the resulting status.
+    const storage = navigator.storage;
+    if (typeof storage?.persist === 'function') {
+      void storage.persist().catch((error: unknown) => {
+        console.error('Kalıcı depolama istenemedi', error);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();

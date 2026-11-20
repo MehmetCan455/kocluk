@@ -3,6 +3,8 @@ import { Card } from '@/components/ui/Card';
 import { Field } from '@/components/ui/Field';
 import type { AytAlan } from '@/domain/types';
 import { AccentPicker } from './AccentPicker';
+import { BackupPanel } from './BackupPanel';
+import { StoragePanel } from './StoragePanel';
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
   day: 'numeric',
@@ -120,6 +122,9 @@ export function SettingsPage() {
         </div>
         <AccentPicker />
       </Card>
+
+      <BackupPanel />
+      <StoragePanel />
     </div>
   );
 }

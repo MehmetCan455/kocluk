@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db, type SettingsRow } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import type {
+  AppSettings,
   Attachment,
   Note,
   Photo,
@@ -50,9 +51,58 @@ const exportedAtSchema = z
   .min(1)
   .refine((value) => !Number.isNaN(Date.parse(value)), 'Geçersiz tarih');
 
-const settingsSchema = z.object({
+const settingsRowSchema = z.object({
   key: z.string().min(1),
   value: z.unknown(),
+});
+
+const SETTING_VALUE_SCHEMAS = {
+  profileName: z.string(),
+  accent: z.string(),
+  examDate: z.string(),
+  examName: z.string(),
+  onboardingDone: z.boolean(),
+  lastBackupAt: z.string(),
+  schemaVersion: z.number().int().nonnegative(),
+  seedVersion: z.number().int().nonnegative(),
+  aytAlan: aytAlanSchema,
+  hiddenSubjects: z.array(z.string()),
+} satisfies Record<keyof AppSettings, z.ZodType>;
+
+type SettingKey = keyof typeof SETTING_VALUE_SCHEMAS;
+
+const DANGEROUS_SETTING_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+const settingsSchema = z.array(settingsRowSchema).superRefine((rows, context) => {
+  for (const [index, row] of rows.entries()) {
+    if (DANGEROUS_SETTING_KEYS.has(row.key)) {
+      context.addIssue({
+        code: 'custom',
+        path: [index, 'key'],
+        message: 'Ayar anahtarı kullanılamaz',
+      });
+      continue;
+    }
+
+    const valueSchema = Object.prototype.hasOwnProperty.call(SETTING_VALUE_SCHEMAS, row.key)
+      ? SETTING_VALUE_SCHEMAS[row.key as SettingKey]
+      : undefined;
+    if (!valueSchema) {
+      context.addIssue({
+        code: 'custom',
+        path: [index, 'key'],
+        message: 'Bilinmeyen ayar anahtarı',
+      });
+      continue;
+    }
+    if (!valueSchema.safeParse(row.value).success) {
+      context.addIssue({
+        code: 'custom',
+        path: [index, 'value'],
+        message: 'Ayar değeri geçersiz',
+      });
+    }
+  }
 });
 
 const subjectSchema = z.object({
@@ -209,7 +259,7 @@ const practiceSessionSchema = z.object({
 });
 
 const backupDataSchema = z.object({
-  settings: z.array(settingsSchema),
+  settings: settingsSchema,
   subjects: z.array(subjectSchema),
   topics: z.array(topicSchema),
   books: z.array(bookSchema),
@@ -312,6 +362,49 @@ function migrateBackupData(data: BackupData, fromVersion: number): BackupData {
   return data;
 }
 
+function assertUnique(label: string, values: Iterable<string>): void {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) {
+      throw new Error(`${INVALID_BACKUP_MESSAGE}: ${label} tekrar ediyor.`);
+    }
+    seen.add(value);
+  }
+}
+
+function compositeKey(...values: string[]): string {
+  return JSON.stringify(values);
+}
+
+function assertUniqueBackupKeys(data: BackupData): void {
+  assertUnique('settings.key', data.settings.map((row) => row.key));
+  assertUnique('subjects.id', data.subjects.map((row) => row.id));
+  assertUnique('subjects.seedKey', data.subjects.map((row) => row.seedKey));
+  assertUnique('topics.id', data.topics.map((row) => row.id));
+  assertUnique(
+    'topics.seedKey',
+    data.topics
+      .map((row) => row.seedKey)
+      .filter((value): value is string => value !== undefined),
+  );
+  assertUnique('books.id', data.books.map((row) => row.id));
+  assertUnique('topicBooks.id', data.topicBooks.map((row) => row.id));
+  assertUnique(
+    'topicBooks.(topicId, bookId)',
+    data.topicBooks.map((row) => compositeKey(row.topicId, row.bookId)),
+  );
+  assertUnique('exams.id', data.exams.map((row) => row.id));
+  assertUnique('examResults.id', data.examResults.map((row) => row.id));
+  assertUnique(
+    'examResults.(examId, subjectId)',
+    data.examResults.map((row) => compositeKey(row.examId, row.subjectId)),
+  );
+  assertUnique('photos.id', data.photos.map((row) => row.id));
+  assertUnique('notes.topicId', data.notes.map((row) => row.topicId));
+  assertUnique('attachments.id', data.attachments.map((row) => row.id));
+  assertUnique('practiceSessions.id', data.practiceSessions.map((row) => row.id));
+}
+
 async function readJson(zip: JSZip, path: string): Promise<unknown> {
   const entry = zip.file(path);
   if (!entry) {
@@ -350,10 +443,13 @@ async function readArchive(file: File): Promise<Archive> {
     throw invalidBackup();
   }
 
+  const data = migrateBackupData(dataResult.data, manifest.schemaVersion);
+  assertUniqueBackupKeys(data);
+
   return {
     zip,
     manifest,
-    data: migrateBackupData(dataResult.data, manifest.schemaVersion),
+    data,
   };
 }
 

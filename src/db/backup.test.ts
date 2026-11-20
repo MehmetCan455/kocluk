@@ -330,7 +330,7 @@ test('geri yükleme lastBackupAt satırını siler', async () => {
   expect((await getSettings()).lastBackupAt).toBeUndefined();
 });
 
-test('işlem sırasında oluşan hata eski veriyi geri getirir', async () => {
+test('yinelenen seedKey mevcut veriyi değiştirmeden reddedilir', async () => {
   await fullSeed();
   const exported = await exportBackup();
   await patchSettings({ profileName: 'Korunacak Profil' });
@@ -342,13 +342,11 @@ test('işlem sırasında oluşan hata eski veriyi geri getirir', async () => {
 
   const invalid = await mutateZip(exported, async (_zip, data) => {
     const subjects = data.subjects as Array<Record<string, unknown>>;
-    // A unique `seedKey` is enforced by IndexedDB; the bulk write fails after
-    // the transaction has already cleared the current rows.
     data.subjects = [subjects[0], { ...subjects[0], id: 'ikinci-ders' }];
   });
 
   await expect(importBackup(new File([invalid], 'cakisan.zip'))).rejects.toThrow(
-    'Mevcut veriler değiştirilmedi',
+    /Geçersiz yedek dosyası.*subjects\.seedKey/,
   );
 
   expect((await getSettings()).profileName).toBe('Korunacak Profil');
@@ -371,6 +369,95 @@ test('geçersiz veri dosyası mevcut veriyi silmez', async () => {
   );
   expect((await getSettings()).profileName).toBe('Korunacak Profil');
   expect(await db.photos.count()).toBe(1);
+});
+
+test('geçersiz profileName mevcut veriyi silmeden reddedilir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const settings = data.settings as Array<{ key: string; value: unknown }>;
+    settings.find((row) => row.key === 'profileName')!.value = 42;
+  });
+
+  await expect(importBackup(new File([invalid], 'bozuk.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.photos.count()).toBe(1);
+});
+
+test('geçersiz hiddenSubjects mevcut veriyi silmeden reddedilir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const settings = data.settings as Array<{ key: string; value: unknown }>;
+    settings.push({ key: 'hiddenSubjects', value: 42 });
+  });
+
+  await expect(importBackup(new File([invalid], 'bozuk.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.photos.count()).toBe(1);
+});
+
+test('__proto__ ayar anahtarı mevcut veriyi silmeden reddedilir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const settings = data.settings as Array<{ key: string; value: unknown }>;
+    settings.push({ key: '__proto__', value: { polluted: true } });
+  });
+
+  await expect(importBackup(new File([invalid], 'bozuk.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.photos.count()).toBe(1);
+});
+
+test('yinelenen fotoğraf kimliği geri yüklemeden ve özetten önce reddedilir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const photos = data.photos as Array<Record<string, unknown>>;
+    data.photos = [photos[0], { ...photos[0], note: 'Kopya' }];
+  });
+
+  await expect(readBackupSummary(new File([invalid], 'ozet.zip'))).rejects.toThrow(
+    /Geçersiz yedek dosyası.*photos\.id/,
+  );
+  await expect(importBackup(new File([invalid], 'cakisan.zip'))).rejects.toThrow(
+    /Geçersiz yedek dosyası.*photos\.id/,
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.photos.count()).toBe(1);
+});
+
+test('yinelenen topicBook doğal anahtarı mevcut veriyi silmeden reddedilir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+  const before = await db.topicBooks.count();
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const topicBooks = data.topicBooks as Array<Record<string, unknown>>;
+    data.topicBooks = [topicBooks[0], { ...topicBooks[0], id: 'tb-kopya' }];
+  });
+
+  await expect(importBackup(new File([invalid], 'cakisan.zip'))).rejects.toThrow(
+    /Geçersiz yedek dosyası.*topicBooks/,
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.topicBooks.count()).toBe(before);
 });
 
 test('tüm verileri silme ayarlar dahil tüm tabloları boşaltır', async () => {

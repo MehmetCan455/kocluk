@@ -13,7 +13,6 @@ import {
   buildExamComparison,
   buildNetSeries,
   buildSubjectNetSeries,
-  MAX_CHART_POINTS,
 } from '@/features/dashboard/chartData';
 import { NetTrendChart } from '@/features/dashboard/NetTrendChart';
 import { formatNet } from '@/lib/format';
@@ -165,7 +164,9 @@ export function ExamsPage() {
         filter === 'AYT' && alanFilter !== 'all' ? alanFilter : undefined,
         resolveAlan,
       );
-  const chartTitle = selectedSubject ? `${selectedSubject.name} net trendi` : 'Net trendi';
+  const chartTitle = selectedSubject
+    ? `${selectedSubject.name} başarı grafiği`
+    : 'Deneme başarı grafiği';
   const chartAriaLabel = selectedSubject
     ? `${chartType} ${selectedSubject.name} net trend grafiği`
     : `${chartType} net trend grafiği`;
@@ -215,7 +216,7 @@ export function ExamsPage() {
           <NetTrendChart
             series={chartSeries}
             title={chartTitle}
-            description={`Son ${MAX_CHART_POINTS} ${chartType} denemesi`}
+            description={`${chartSeries.points.length} ${chartType} denemesi`}
             ariaLabel={chartAriaLabel}
             headerAction={
               <div className="flex flex-wrap items-start gap-2">

@@ -8,6 +8,7 @@ import {
   PointElement,
   Tooltip,
   type ChartOptions,
+  type PointStyle,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { useAppSettings } from '@/app/SettingsProvider';
@@ -22,16 +23,50 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, 
 const GRID_COLOR = '#232A36';
 const TICK_COLOR = '#98A2B3';
 
-/** A point that beats the previous one is gold; everything else is accent. */
-export const IMPROVED_POINT_COLOR = '#FACC15';
+/** An all-time net record is gold; everything else is accent. */
+export const RECORD_POINT_COLOR = '#FACC15';
 
-/** First point is never gold because it has no previous point to improve on. */
+export const POINT_STYLE: PointStyle = 'circle';
+export const RECORD_POINT_STYLE: PointStyle = 'star';
+
+/** Stars need a little more room than the plain circles. */
+export const POINT_RADIUS = 3;
+export const RECORD_POINT_RADIUS = 5;
+export const POINT_HOVER_RADIUS = 5;
+export const RECORD_POINT_HOVER_RADIUS = 7;
+
+/** First point is never gold because it has no earlier point to beat. */
 export function seriesPointColors(
-  points: ReadonlyArray<Pick<NetSeriesPoint, 'improved'>>,
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
   accent: string,
 ): string[] {
   return points.map((point, index) =>
-    index > 0 && point.improved ? IMPROVED_POINT_COLOR : accent,
+    index > 0 && point.record ? RECORD_POINT_COLOR : accent,
+  );
+}
+
+/** Record points are stars so the highlight survives colour-blind viewing. */
+export function seriesPointStyles(
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
+): PointStyle[] {
+  return points.map((point, index) =>
+    index > 0 && point.record ? RECORD_POINT_STYLE : POINT_STYLE,
+  );
+}
+
+export function seriesPointRadii(
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
+): number[] {
+  return points.map((point, index) =>
+    index > 0 && point.record ? RECORD_POINT_RADIUS : POINT_RADIUS,
+  );
+}
+
+export function seriesPointHoverRadii(
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
+): number[] {
+  return points.map((point, index) =>
+    index > 0 && point.record ? RECORD_POINT_HOVER_RADIUS : POINT_HOVER_RADIUS,
   );
 }
 
@@ -56,7 +91,7 @@ export interface NetTrendChartProps {
 
 export function NetTrendChart({
   series,
-  title = 'Net trendi',
+  title = 'Deneme başarı grafiği',
   description,
   emptyMessage = 'Henüz deneme yok',
   ariaLabel,
@@ -71,6 +106,9 @@ export function NetTrendChart({
 
   const data = useMemo(() => {
     const pointColors = seriesPointColors(points, accent);
+    const pointStyles = seriesPointStyles(points);
+    const pointRadii = seriesPointRadii(points);
+    const pointHoverRadii = seriesPointHoverRadii(points);
     return {
       labels: points.map((point) => point.label),
       datasets: [
@@ -83,9 +121,10 @@ export function NetTrendChart({
           pointBorderColor: pointColors,
           pointHoverBackgroundColor: pointColors,
           pointHoverBorderColor: pointColors,
+          pointStyle: pointStyles,
+          pointRadius: pointRadii,
+          pointHoverRadius: pointHoverRadii,
           borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 5,
           fill: true,
           tension: 0.25,
         },

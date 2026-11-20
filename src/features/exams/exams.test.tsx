@@ -935,7 +935,7 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
 
   expect(await screen.findByRole('heading', { level: 1, name: 'Denemeler' })).toBeInTheDocument();
   expect(await screen.findByRole('img', { name: 'TYT net trend grafiği' })).toBeInTheDocument();
-  expect(screen.getByText('Net trendi')).toBeInTheDocument();
+  expect(screen.getByText('Deneme başarı grafiği')).toBeInTheDocument();
   expect(await screen.findByText(/TYT Denemesi · 1 Kas: 10,00 net/)).toBeInTheDocument();
   expect(screen.queryByText(/Genel AYT · 3 Kas: 7,00 net/)).not.toBeInTheDocument();
 
@@ -966,12 +966,37 @@ test('net trend grafiği tür ve AYT alan filtresine göre güncellenir', async 
   expect(
     await screen.findByRole('img', { name: 'AYT Matematik net trend grafiği' }),
   ).toBeInTheDocument();
-  expect(screen.getByText('Matematik net trendi')).toBeInTheDocument();
+  expect(screen.getByText('Matematik başarı grafiği')).toBeInTheDocument();
   expect(screen.getByText(/Sayısal AYT · 2 Kas: 11,00 net/)).toBeInTheDocument();
   expect(screen.getByText(/Genel AYT · 3 Kas: 7,00 net/)).toBeInTheDocument();
 
   await userEvent.selectOptions(chartSelect, '');
   expect(await screen.findByRole('img', { name: 'AYT net trend grafiği' })).toBeInTheDocument();
+});
+
+test('grafik son 10 sınırı olmadan seçili türdeki tüm denemeleri gösterir', async () => {
+  const turkce = await subjectIdByKey('tyt-turkce');
+
+  for (let index = 1; index <= 12; index += 1) {
+    const day = String(index).padStart(2, '0');
+    await insertExam({
+      name: `Eylül Denemesi ${index}`,
+      date: `2026-09-${day}`,
+      results: [{ subjectId: turkce, correct: index, wrong: 0, blank: 0 }],
+    });
+  }
+
+  renderApp('/denemeler');
+
+  expect(await screen.findByText('Deneme başarı grafiği')).toBeInTheDocument();
+  // Son 10 ile sınırlı olsaydı ilk iki deneme grafik özetinde olmayacaktı.
+  expect(
+    await screen.findByText(/Eylül Denemesi 1 · 1 Eyl: 1,00 net/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/Eylül Denemesi 12 · 12 Eyl: 12,00 net/),
+  ).toBeInTheDocument();
+  expect(screen.getByText('12 TYT denemesi')).toBeInTheDocument();
 });
 
 test('grafik dersi elle gizlenenleri saklar, çalışma alanının otomatik gizlemelerini gösterir', async () => {

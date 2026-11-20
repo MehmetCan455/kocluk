@@ -51,7 +51,7 @@ const TYT_RESULTS: ExamResult[] = [
   result('r4', 'tyt-kasim', 39),
 ];
 
-test('denemeleri tarihe göre sıralar; ad, tarih, net ve gelişim bilgisini taşır', () => {
+test('denemeleri tarihe göre sıralar; ad, tarih, net ve rekor bilgisini taşır', () => {
   expect(buildNetSeries(TYT_EXAMS, TYT_RESULTS, 'TYT').points).toEqual([
     {
       examId: 'tyt-eylul',
@@ -59,7 +59,7 @@ test('denemeleri tarihe göre sıralar; ad, tarih, net ve gelişim bilgisini ta�
       date: '2026-09-01',
       label: '1 Eyl',
       net: 45.5,
-      improved: false,
+      record: false,
     },
     {
       examId: 'tyt-ekim',
@@ -67,7 +67,7 @@ test('denemeleri tarihe göre sıralar; ad, tarih, net ve gelişim bilgisini ta�
       date: '2026-10-10',
       label: '10 Eki',
       net: 10,
-      improved: false,
+      record: false,
     },
     {
       examId: 'tyt-kasim',
@@ -75,12 +75,12 @@ test('denemeleri tarihe göre sıralar; ad, tarih, net ve gelişim bilgisini ta�
       date: '2026-11-17',
       label: '17 Kas',
       net: 39,
-      improved: true,
+      record: false,
     },
   ]);
 });
 
-test('ilk nokta her zaman gelişmedi sayılır, eşit net de gelişme değildir', () => {
+test('ilk nokta rekor değildir, eşit net rekor sayılmaz, yeni zirve rekor sayılır', () => {
   const exams = [
     exam('tyt-1', 'TYT', '2026-09-01'),
     exam('tyt-2', 'TYT', '2026-09-02'),
@@ -95,7 +95,7 @@ test('ilk nokta her zaman gelişmedi sayılır, eşit net de gelişme değildir'
   ];
 
   expect(
-    buildNetSeries(exams, results, 'TYT').points.map((point) => point.improved),
+    buildNetSeries(exams, results, 'TYT').points.map((point) => point.record),
   ).toEqual([false, false, true, false]);
 });
 
@@ -124,7 +124,7 @@ test('aynı gün denemeleri ada göre ayrılır', () => {
   expect(points.map((point) => point.net)).toEqual([20, 25]);
 });
 
-test('son 10 denemeyi tarih sırasıyla alır', () => {
+test('son 10 denemeyle sınırlanmadan tüm denemeleri tarih sırasıyla alır', () => {
   const exams: Exam[] = [];
   const results: ExamResult[] = [];
   for (let index = 1; index <= 12; index += 1) {
@@ -136,21 +136,25 @@ test('son 10 denemeyi tarih sırasıyla alır', () => {
 
   const series = buildNetSeries(exams, results, 'TYT');
 
-  expect(series.points).toHaveLength(10);
+  expect(series.points).toHaveLength(12);
   expect(series.points[0]).toMatchObject({
-    examId: 'tyt-3',
-    label: '3 Eyl',
-    net: 3,
-    improved: false,
+    examId: 'tyt-1',
+    label: '1 Eyl',
+    net: 1,
+    record: false,
   });
-  expect(series.points[9]).toMatchObject({
+  expect(series.points[11]).toMatchObject({
     examId: 'tyt-12',
     label: '12 Eyl',
     net: 12,
-    improved: true,
+    record: true,
   });
   expect(series.points.map((point) => point.net)).toEqual([
-    3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+  ]);
+  // Her yeni zirve rekor; ilk nokta değil.
+  expect(series.points.map((point) => point.record)).toEqual([
+    false, true, true, true, true, true, true, true, true, true, true, true,
   ]);
 });
 
@@ -173,7 +177,7 @@ test('yalnızca istenen türdeki denemeleri ve sonuçlarını kullanır', () => 
       date: '2026-11-18',
       label: '18 Kas',
       net: 30,
-      improved: false,
+      record: false,
     },
   ]);
   expect(buildNetSeries(exams, results, 'TYT').points.map((point) => point.label)).toEqual([
@@ -246,7 +250,7 @@ test('ders bazında net serisi yalnızca o dersin sonuçlarını kullanır', () 
   const tytPoints = buildSubjectNetSeries(exams, results, 'TYT', 'matematik').points;
   expect(tytPoints.map((point) => point.label)).toEqual(['1 Eyl', '2 Eyl', '3 Eyl']);
   expect(tytPoints.map((point) => point.net)).toEqual([16, 0, 0]);
-  expect(tytPoints.map((point) => point.improved)).toEqual([false, false, false]);
+  expect(tytPoints.map((point) => point.record)).toEqual([false, false, false]);
   expect(tytPoints[0]).toMatchObject({
     examId: 'tyt-1',
     examName: 'tyt-1',
@@ -263,20 +267,50 @@ test('ders bazında net serisi yalnızca o dersin sonuçlarını kullanır', () 
   ).toEqual([]);
 });
 
-test('tailSeries görünen pencereye göre gelişim bayrağını yeniden hesaplar', () => {
+test('tailSeries rekor bayrağını görünen pencereye göre yeniden hesaplamaz', () => {
   const series: NetSeries = {
     points: [
-      { examId: 'a', examName: 'A', date: '2026-09-01', label: '1 Eyl', net: 5, improved: false },
-      { examId: 'b', examName: 'B', date: '2026-09-02', label: '2 Eyl', net: 10, improved: true },
-      { examId: 'c', examName: 'C', date: '2026-09-03', label: '3 Eyl', net: 7, improved: false },
-      { examId: 'd', examName: 'D', date: '2026-09-04', label: '4 Eyl', net: 8, improved: true },
+      { examId: 'a', examName: 'A', date: '2026-09-01', label: '1 Eyl', net: 5, record: false },
+      { examId: 'b', examName: 'B', date: '2026-09-02', label: '2 Eyl', net: 10, record: true },
+      { examId: 'c', examName: 'C', date: '2026-09-03', label: '3 Eyl', net: 7, record: false },
+      { examId: 'd', examName: 'D', date: '2026-09-04', label: '4 Eyl', net: 8, record: false },
     ],
   };
 
-  const trimmed = tailSeries(series, 3);
-  expect(trimmed.points.map((point) => point.examId)).toEqual(['b', 'c', 'd']);
-  expect(trimmed.points.map((point) => point.improved)).toEqual([false, false, true]);
-  expect(trimmed.points.map((point) => point.net)).toEqual([10, 7, 8]);
+  const trimmed = tailSeries(series, 2);
+  expect(trimmed.points.map((point) => point.examId)).toEqual(['c', 'd']);
+  // 8 > 7 olsa da 8, tüm geçmişteki 10 rekorunu kırmadığı için rekor değil.
+  expect(trimmed.points.map((point) => point.record)).toEqual([false, false]);
+  expect(trimmed.points.map((point) => point.net)).toEqual([7, 8]);
+
+  // Pencere erken bir rekoru da dışarıda bıraksa sonraki noktalar rekor olmaz.
+  const wider = tailSeries(series, 3);
+  expect(wider.points.map((point) => point.record)).toEqual([true, false, false]);
+});
+
+test('dashboard penceresi rekorları tüm geçmişe göre korur', () => {
+  const exams: Exam[] = [];
+  const results: ExamResult[] = [];
+  // Rekor üçüncü denemede (50); son sekiz nokta hep onun altında.
+  const nets = [10, 20, 50, 15, 12, 11, 9, 20, 18, 16, 14, 13];
+  nets.forEach((net, index) => {
+    const day = String(index + 1).padStart(2, '0');
+    const id = `tyt-${index + 1}`;
+    exams.push(exam(id, 'TYT', `2026-09-${day}`));
+    results.push(result(`r-${index + 1}`, id, net));
+  });
+
+  const full = buildNetSeries(exams, results, 'TYT');
+  expect(full.points.map((point) => point.record)).toEqual([
+    false, true, true, false, false, false, false, false, false, false, false, false,
+  ]);
+
+  const windowed = tailSeries(full, 8);
+  // Pencere içinde 20, hemen önceki 9'dan yüksek olsa da tüm geçmişteki 50
+  // rekorunu kırmadığı için yıldız olmamalı.
+  expect(windowed.points.map((point) => point.record)).toEqual(
+    new Array(8).fill(false),
+  );
 });
 
 test('deneme karşılaştırması aynı tür ve alandaki bir önceki denemeyi bulur', () => {

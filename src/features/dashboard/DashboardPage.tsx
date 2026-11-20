@@ -93,6 +93,35 @@ interface BookCardRow {
   progress: ReturnType<typeof calculateProgress>;
 }
 
+interface NetStats {
+  count: number;
+  highest: number;
+  average: number;
+}
+
+/**
+ * Highest and average total net for one exam type. Only exams with at least
+ * one result row count; an exam created without results is not a 0-net exam.
+ */
+function netStatsFor(
+  exams: ReadonlyArray<Exam>,
+  resultsByExam: ReadonlyMap<string, ExamResult[]>,
+  type: ExamType,
+): NetStats | null {
+  const totals = exams
+    .filter((exam) => exam.type === type)
+    .map((exam) => resultsByExam.get(exam.id) ?? [])
+    .filter((results) => results.length > 0)
+    .map((results) => sumNet(results));
+
+  if (totals.length === 0) {
+    return null;
+  }
+  const highest = totals.reduce((best, net) => Math.max(best, net), totals[0]);
+  const average = totals.reduce((sum, net) => sum + net, 0) / totals.length;
+  return { count: totals.length, highest, average };
+}
+
 const quickAddLinkClass =
   'flex min-h-11 items-center gap-3 rounded-xl border border-line bg-raised/60 px-3 py-2 text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]';
 
@@ -221,21 +250,12 @@ export function DashboardPage() {
 
   // Only exams that actually have a result row count towards the net cards. A
   // newly created exam with no subjects entered has a total of 0, but it is not
-  // a 0-net exam and must not drag the average down.
-  const examsWithResults = data.exams.filter(
-    (exam) => (resultsByExam.get(exam.id)?.length ?? 0) > 0,
-  );
-  const examTotalNets = examsWithResults.map((exam) =>
-    sumNet(resultsByExam.get(exam.id) ?? []),
-  );
-  const highestNet =
-    examTotalNets.length > 0
-      ? examTotalNets.reduce((highest, net) => Math.max(highest, net), examTotalNets[0])
-      : null;
-  const averageNet =
-    examTotalNets.length > 0
-      ? examTotalNets.reduce((sum, net) => sum + net, 0) / examTotalNets.length
-      : null;
+  // a 0-net exam and must not drag the average down. TYT and AYT are never
+  // mixed: each type has its own highest and average.
+  const netStatsByType: ReadonlyArray<{ type: ExamType; stats: NetStats | null }> = [
+    { type: 'TYT', stats: netStatsFor(data.exams, resultsByExam, 'TYT') },
+    { type: 'AYT', stats: netStatsFor(data.exams, resultsByExam, 'AYT') },
+  ];
 
   const chartSeries: NetSeries = tailSeries(
     buildNetSeries(data.exams, data.results, chartType),
@@ -291,35 +311,37 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Card role="group" aria-label="En yüksek net" className="space-y-1">
-          <h2 className="text-sm font-medium text-muted">En yüksek net</h2>
-          {highestNet === null ? (
-            <p className="text-sm text-muted">Henüz deneme yok</p>
-          ) : (
-            <>
-              <p className="text-2xl font-semibold tabular-nums text-[var(--accent)]">
-                {formatNet(highestNet)}
-              </p>
-              <p className="text-xs text-muted">Tüm denemeler içinden</p>
-            </>
-          )}
-        </Card>
-
-        <Card role="group" aria-label="Ortalama net" className="space-y-1">
-          <h2 className="text-sm font-medium text-muted">Ortalama net</h2>
-          {averageNet === null ? (
-            <p className="text-sm text-muted">Henüz deneme yok</p>
-          ) : (
-            <>
-              <p className="text-2xl font-semibold tabular-nums text-[var(--accent)]">
-                {formatNet(averageNet)}
-              </p>
-              <p className="text-xs text-muted">
-                {examsWithResults.length} denemenin ortalaması
-              </p>
-            </>
-          )}
-        </Card>
+        {netStatsByType.map(({ type, stats }) => (
+          <Card
+            key={type}
+            role="group"
+            aria-label={`${type} netleri`}
+            className="space-y-2"
+          >
+            <h2 className="text-sm font-medium text-muted">{type}</h2>
+            {stats === null ? (
+              <p className="text-sm text-muted">Henüz {type} denemesi yok</p>
+            ) : (
+              <>
+                <dl className="space-y-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-sm text-muted">En yüksek</dt>
+                    <dd className="text-xl font-semibold tabular-nums text-[var(--accent)]">
+                      {formatNet(stats.highest)}
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-sm text-muted">Ortalama</dt>
+                    <dd className="text-xl font-semibold tabular-nums text-[var(--accent)]">
+                      {formatNet(stats.average)}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="text-xs text-muted">{stats.count} deneme</p>
+              </>
+            )}
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -377,7 +399,6 @@ export function DashboardPage() {
         <Card>
           <NetTrendChart
             series={chartSeries}
-            title="Net trendi"
             description={`Son ${DASHBOARD_CHART_POINTS} ${chartType} denemesi`}
             ariaLabel={`${chartType} net trend grafiği`}
             headerAction={

@@ -1,12 +1,18 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
 import type { NetSeries, NetSeriesPoint } from './chartData';
 import {
-  IMPROVED_POINT_COLOR,
+  POINT_RADIUS,
+  POINT_STYLE,
+  RECORD_POINT_COLOR,
+  RECORD_POINT_RADIUS,
+  RECORD_POINT_STYLE,
   netTooltipLabel,
   netTooltipTitle,
   NetTrendChart,
   seriesPointColors,
+  seriesPointRadii,
+  seriesPointStyles,
 } from './NetTrendChart';
 
 const ACCENT = '#3B82F6';
@@ -33,7 +39,7 @@ function point(overrides: Partial<NetSeriesPoint> = {}): NetSeriesPoint {
     date: '2026-11-17',
     label: '17 Kas',
     net: 45.5,
-    improved: false,
+    record: false,
     ...overrides,
   };
 }
@@ -46,6 +52,9 @@ interface CapturedLineProps {
       data: number[];
       pointBackgroundColor: string[];
       pointBorderColor: string[];
+      pointStyle: string[];
+      pointRadius: number[];
+      pointHoverRadius: number[];
     }>;
   };
   options: {
@@ -60,23 +69,46 @@ interface CapturedLineProps {
   };
 }
 
-test('gelişen nokta altın, diğerleri accent renginde', () => {
+test('rekor nokta altın, diğerleri accent renginde', () => {
   expect(
     seriesPointColors(
       [
-        point({ net: 20, improved: false }),
-        point({ net: 30, improved: true }),
-        point({ net: 25, improved: false }),
+        point({ net: 20, record: false }),
+        point({ net: 30, record: true }),
+        point({ net: 25, record: false }),
       ],
       ACCENT,
     ),
-  ).toEqual([ACCENT, IMPROVED_POINT_COLOR, ACCENT]);
-  expect(IMPROVED_POINT_COLOR).toBe('#FACC15');
+  ).toEqual([ACCENT, RECORD_POINT_COLOR, ACCENT]);
+  expect(RECORD_POINT_COLOR).toBe('#FACC15');
 });
 
-test('ilk nokta veride gelişmiş işaretli olsa bile accent kalır', () => {
-  expect(seriesPointColors([point({ improved: true })], ACCENT)).toEqual([ACCENT]);
+test('ilk nokta veride rekor işaretli olsa bile accent ve daire kalır', () => {
+  expect(seriesPointColors([point({ record: true })], ACCENT)).toEqual([ACCENT]);
   expect(seriesPointColors([], ACCENT)).toEqual([]);
+  expect(seriesPointStyles([point({ record: true })])).toEqual([POINT_STYLE]);
+  expect(seriesPointRadii([point({ record: true })])).toEqual([POINT_RADIUS]);
+});
+
+test('rekor noktalar yıldız, diğerleri daire; yıldız biraz daha büyük', () => {
+  const points = [
+    point({ net: 20, record: false }),
+    point({ net: 30, record: true }),
+    point({ net: 25, record: false }),
+  ];
+  expect(seriesPointStyles(points)).toEqual([
+    POINT_STYLE,
+    RECORD_POINT_STYLE,
+    POINT_STYLE,
+  ]);
+  expect(POINT_STYLE).toBe('circle');
+  expect(RECORD_POINT_STYLE).toBe('star');
+  expect(seriesPointRadii(points)).toEqual([
+    POINT_RADIUS,
+    RECORD_POINT_RADIUS,
+    POINT_RADIUS,
+  ]);
+  expect(RECORD_POINT_RADIUS).toBeGreaterThan(POINT_RADIUS);
 });
 
 test('tooltip deneme adı, tarih ve neti gösterir', () => {
@@ -87,22 +119,24 @@ test('tooltip deneme adı, tarih ve neti gösterir', () => {
   );
 });
 
-test('grafik bileşeni nokta renklerini ve tooltip callbacklerini Chart.js verisine aktarır', () => {
+test('grafik bileşeni nokta renklerini, şekillerini ve tooltip callbacklerini Chart.js verisine aktarır', () => {
   const series: NetSeries = {
     points: [
-      point({ examId: 'sabah', examName: 'Sabah Denemesi', net: 20, improved: false }),
+      point({ examId: 'sabah', examName: 'Sabah Denemesi', net: 20, record: false }),
       point({
         examId: 'aksam',
         examName: 'Akşam Denemesi',
         date: '2026-11-18',
         label: '18 Kas',
         net: 30,
-        improved: true,
+        record: true,
       }),
     ],
   };
 
   render(<NetTrendChart series={series} ariaLabel="Test net grafiği" />);
+
+  expect(screen.getByRole('heading', { name: 'Deneme başarı grafiği' })).toBeInTheDocument();
 
   const props = captured.lineProps as CapturedLineProps;
   expect(props.data.labels).toEqual(['17 Kas', '18 Kas']);
@@ -110,12 +144,18 @@ test('grafik bileşeni nokta renklerini ve tooltip callbacklerini Chart.js veris
   expect(props.data.datasets[0].data).toEqual([20, 30]);
   expect(props.data.datasets[0].pointBackgroundColor).toEqual([
     ACCENT,
-    IMPROVED_POINT_COLOR,
+    RECORD_POINT_COLOR,
   ]);
   expect(props.data.datasets[0].pointBorderColor).toEqual([
     ACCENT,
-    IMPROVED_POINT_COLOR,
+    RECORD_POINT_COLOR,
   ]);
+  expect(props.data.datasets[0].pointStyle).toEqual(['circle', 'star']);
+  expect(props.data.datasets[0].pointRadius).toEqual([
+    POINT_RADIUS,
+    RECORD_POINT_RADIUS,
+  ]);
+  expect(props.data.datasets[0].pointHoverRadius).toEqual([5, 7]);
 
   const { title, label } = props.options.plugins.tooltip.callbacks;
   expect(title([{ dataIndex: 0 }])).toBe('Sabah Denemesi');

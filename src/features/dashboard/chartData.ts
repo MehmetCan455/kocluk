@@ -1,8 +1,5 @@
 import type { AytAlan, Exam, ExamResult, ExamType } from '@/domain/types';
 
-/** Number of points kept in the exams page trend chart. */
-export const MAX_CHART_POINTS = 10;
-
 /** Dashboard chart shows a shorter window so it fits above the fold. */
 export const DASHBOARD_CHART_POINTS = 8;
 
@@ -12,9 +9,9 @@ const labelFormatter = new Intl.DateTimeFormat('tr-TR', {
 });
 
 /**
- * One plotted exam. `improved` is relative to the previous point **of the
- * displayed series**, so trimming a series recalculates it and the first point
- * is always accent-coloured (never gold).
+ * One plotted exam. `record` is an all-time fact: it is true only when the net
+ * is strictly higher than every earlier point of the full matching history.
+ * The first point is never a record, and equal nets are not records.
  */
 export interface NetSeriesPoint {
   examId: string;
@@ -25,8 +22,8 @@ export interface NetSeriesPoint {
   /** Short tr-TR axis label, e.g. "17 Kas". */
   label: string;
   net: number;
-  /** True when this net is higher than the previous displayed point's net. */
-  improved: boolean;
+  /** True when this net sets a new all-time high for the series. */
+  record: boolean;
 }
 
 export interface NetSeries {
@@ -71,42 +68,40 @@ function compareExams(left: Exam, right: Exam): number {
 }
 
 /**
- * Filters exams by type/alan and returns the most recent `limit` points in
- * ascending order, which is what every chart needs. `resolveAlan` lets legacy
- * exams participate in a concrete branch instead of the Genel bucket.
+ * Filters exams by type/alan and returns every matching exam in ascending
+ * order, which is what every chart needs. `resolveAlan` lets legacy exams
+ * participate in a concrete branch instead of the Genel bucket.
  */
 function selectExams(
   exams: Exam[],
   type: ExamType,
   alan?: AytAlan,
-  limit = MAX_CHART_POINTS,
   resolveAlan: AlanResolver = alanOf,
 ): Exam[] {
   return exams
     .filter((exam) => exam.type === type)
     .filter((exam) => type !== 'AYT' || alan === undefined || resolveAlan(exam) === alan)
-    .sort(compareExams)
-    .slice(-limit);
+    .sort(compareExams);
 }
 
-/** Builds points in ascending order and marks each one against its predecessor. */
+/** Builds points in ascending order and marks each all-time net record. */
 function toSeries(
   exams: Exam[],
   netForExam: (examId: string) => number,
 ): NetSeries {
-  let previousNet: number | undefined;
+  let highestNet: number | undefined;
   const points = exams.map((exam): NetSeriesPoint => {
     const net = netForExam(exam.id);
-    const point: NetSeriesPoint = {
+    const record = highestNet !== undefined && net > highestNet;
+    highestNet = highestNet === undefined ? net : Math.max(highestNet, net);
+    return {
       examId: exam.id,
       examName: exam.name,
       date: exam.date,
       label: formatLabel(exam.date),
       net,
-      improved: previousNet !== undefined && net > previousNet,
+      record,
     };
-    previousNet = net;
-    return point;
   });
   return { points };
 }
@@ -123,8 +118,8 @@ function sumNetByExam(results: ExamResult[]): Map<string, number> {
  * Builds an ascending total-net trend for one exam type. An omitted `alan`
  * keeps every AYT exam. A concrete `alan` is matched through `resolveAlan`,
  * which defaults to the stored value (missing alan = legacy Genel); callers
- * that know the subjects can infer legacy branches from results. Only the most
- * recent `MAX_CHART_POINTS` exams are returned.
+ * that know the subjects can infer legacy branches from results. Every
+ * matching exam is returned; the dashboard trims with `tailSeries`.
  */
 export function buildNetSeries(
   exams: Exam[],
@@ -134,14 +129,14 @@ export function buildNetSeries(
   resolveAlan: AlanResolver = alanOf,
 ): NetSeries {
   const netByExam = sumNetByExam(results);
-  const points = selectExams(exams, type, alan, MAX_CHART_POINTS, resolveAlan);
+  const points = selectExams(exams, type, alan, resolveAlan);
   return toSeries(points, (examId) => netByExam.get(examId) ?? 0);
 }
 
 /**
  * Per-subject net trend. An exam without a result for the subject contributes
  * `0`, matching the total series' "not entered" convention and keeping the two
- * charts aligned on the same date labels.
+ * charts aligned on the same date labels. Every matching exam is returned.
  */
 export function buildSubjectNetSeries(
   exams: Exam[],
@@ -157,7 +152,7 @@ export function buildSubjectNetSeries(
       netByExam.set(result.examId, (netByExam.get(result.examId) ?? 0) + result.net);
     }
   }
-  const points = selectExams(exams, type, alan, MAX_CHART_POINTS, resolveAlan);
+  const points = selectExams(exams, type, alan, resolveAlan);
   return toSeries(points, (examId) => netByExam.get(examId) ?? 0);
 }
 
@@ -204,16 +199,10 @@ export function buildExamComparison(
 }
 
 /**
- * Trims a series to its newest `count` points for compact charts. Improvement
- * flags are recalculated for the trimmed window: the first visible point must
- * be accent even when the hidden predecessor was lower.
+ * Trims a series to its newest `count` points for compact charts. Record flags
+ * are preserved as-is: an all-time record stays a record even when the earlier
+ * points that it beat are no longer visible.
  */
 export function tailSeries(series: NetSeries, count: number): NetSeries {
-  const points = series.points.slice(-count);
-  return {
-    points: points.map((point, index) => ({
-      ...point,
-      improved: index > 0 && point.net > points[index - 1].net,
-    })),
-  };
+  return { points: series.points.slice(-count) };
 }

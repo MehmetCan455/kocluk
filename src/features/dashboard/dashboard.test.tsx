@@ -184,15 +184,17 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
   expect(screen.queryByText('Eski Kitap')).not.toBeInTheDocument();
 
   expect(screen.getByRole('img', { name: 'TYT net trend grafiği' })).toBeInTheDocument();
-  expect(screen.getByText('Net trendi')).toBeInTheDocument();
+  expect(screen.getByText('Deneme başarı grafiği')).toBeInTheDocument();
   expect(screen.getByText(/Eylül TYT · 1 Eyl: 10,00 net/)).toBeInTheDocument();
   expect(screen.getByText(/3D TYT 5 · 17 Kas: 45,50 net/)).toBeInTheDocument();
 
-  const highestCard = screen.getByRole('group', { name: 'En yüksek net' });
-  expect(within(highestCard).getByText('45,50')).toBeInTheDocument();
-  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
-  expect(within(averageCard).getByText('22,17')).toBeInTheDocument();
-  expect(within(averageCard).getByText('3 denemenin ortalaması')).toBeInTheDocument();
+  const tytCard = screen.getByRole('group', { name: 'TYT netleri' });
+  expect(within(tytCard).getByText('45,50')).toBeInTheDocument();
+  expect(within(tytCard).getByText('27,75')).toBeInTheDocument();
+  expect(within(tytCard).getByText('2 deneme')).toBeInTheDocument();
+  const aytCard = screen.getByRole('group', { name: 'AYT netleri' });
+  expect(within(aytCard).getAllByText('11,00')).toHaveLength(2);
+  expect(within(aytCard).getByText('1 deneme')).toBeInTheDocument();
 
   const latestLink = screen.getByRole('link', { name: /3D TYT 5/ });
   expect(latestLink).toHaveAttribute('href', `/denemeler/${seed.exams[0].id}`);
@@ -219,7 +221,7 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
   );
 });
 
-test('en yüksek ve ortalama net son beşle sınırlı kalmadan tüm denemeleri kapsar', async () => {
+test('en yüksek ve ortalama net son beşle sınırlı kalmadan tür bazında tüm denemeleri kapsar', async () => {
   const seed = await seedDashboardData();
   // Üç eski deneme ekle; en yüksek net yapan deneme son beşin dışında kalır.
   await saveExam({
@@ -246,12 +248,16 @@ test('en yüksek ve ortalama net son beşle sınırlı kalmadan tüm denemeleri 
 
   renderApp('/');
 
-  const highestCard = await screen.findByRole('group', { name: 'En yüksek net' });
-  expect(within(highestCard).getByText('70,00')).toBeInTheDocument();
-  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
-  // (45,5 + 11 + 10 + 5 + 5 + 70) / 6 = 24,4166...
-  expect(within(averageCard).getByText('24,42')).toBeInTheDocument();
-  expect(within(averageCard).getByText('6 denemenin ortalaması')).toBeInTheDocument();
+  const tytCard = await screen.findByRole('group', { name: 'TYT netleri' });
+  expect(within(tytCard).getByText('70,00')).toBeInTheDocument();
+  // (45,5 + 10 + 5 + 5 + 70) / 5 = 27,10
+  expect(within(tytCard).getByText('27,10')).toBeInTheDocument();
+  expect(within(tytCard).getByText('5 deneme')).toBeInTheDocument();
+
+  // TYT denemeleri AYT ortalamasına karışmaz.
+  const aytCard = screen.getByRole('group', { name: 'AYT netleri' });
+  expect(within(aytCard).getAllByText('11,00')).toHaveLength(2);
+  expect(within(aytCard).getByText('1 deneme')).toBeInTheDocument();
 });
 
 test('sonucu girilmemiş deneme en yüksek ve ortalama nete katılmaz', async () => {
@@ -265,16 +271,15 @@ test('sonucu girilmemiş deneme en yüksek ve ortalama nete katılmaz', async ()
 
   renderApp('/');
 
-  const highestCard = await screen.findByRole('group', { name: 'En yüksek net' });
-  expect(within(highestCard).getByText('45,50')).toBeInTheDocument();
-  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
-  expect(within(averageCard).getByText('22,17')).toBeInTheDocument();
-  expect(within(averageCard).getByText('3 denemenin ortalaması')).toBeInTheDocument();
+  const tytCard = await screen.findByRole('group', { name: 'TYT netleri' });
+  expect(within(tytCard).getByText('45,50')).toBeInTheDocument();
+  expect(within(tytCard).getByText('27,75')).toBeInTheDocument();
+  expect(within(tytCard).getByText('2 deneme')).toBeInTheDocument();
   // Son denemeler listesinde boş deneme görünse de net kartları 0,00'a düşmez.
-  expect(within(averageCard).queryByText('0,00')).not.toBeInTheDocument();
+  expect(within(tytCard).queryByText('0,00')).not.toBeInTheDocument();
 });
 
-test('yalnızca sonucu olmayan deneme varsa net kartları boş durum gösterir', async () => {
+test('yalnızca sonucu olmayan deneme varsa TYT ve AYT kartları ayrı boş durum gösterir', async () => {
   await saveExam({
     type: 'TYT',
     name: 'Boş Deneme',
@@ -284,13 +289,32 @@ test('yalnızca sonucu olmayan deneme varsa net kartları boş durum gösterir',
 
   renderApp('/');
 
-  const highestCard = await screen.findByRole('group', { name: 'En yüksek net' });
-  const averageCard = screen.getByRole('group', { name: 'Ortalama net' });
-  expect(within(highestCard).getByText('Henüz deneme yok')).toBeInTheDocument();
-  expect(within(averageCard).getByText('Henüz deneme yok')).toBeInTheDocument();
-  expect(within(highestCard).queryByText('0,00')).not.toBeInTheDocument();
-  expect(within(averageCard).queryByText('0,00')).not.toBeInTheDocument();
+  const tytCard = await screen.findByRole('group', { name: 'TYT netleri' });
+  const aytCard = screen.getByRole('group', { name: 'AYT netleri' });
+  expect(within(tytCard).getByText('Henüz TYT denemesi yok')).toBeInTheDocument();
+  expect(within(aytCard).getByText('Henüz AYT denemesi yok')).toBeInTheDocument();
+  expect(within(tytCard).queryByText('0,00')).not.toBeInTheDocument();
+  expect(within(aytCard).queryByText('0,00')).not.toBeInTheDocument();
   expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+});
+
+test('yalnızca AYT denemesi varsa TYT kartı boş kalır', async () => {
+  const aytMatematik = await subjectId('ayt-matematik');
+  await saveExam({
+    type: 'AYT',
+    name: 'Tek AYT',
+    date: '2026-11-18',
+    alan: 'sayisal',
+    results: [{ subjectId: aytMatematik, correct: 20, wrong: 5, blank: 0 }],
+  });
+
+  renderApp('/');
+
+  const tytCard = await screen.findByRole('group', { name: 'TYT netleri' });
+  const aytCard = screen.getByRole('group', { name: 'AYT netleri' });
+  expect(within(tytCard).getByText('Henüz TYT denemesi yok')).toBeInTheDocument();
+  expect(within(aytCard).getAllByText('18,75')).toHaveLength(2);
+  expect(within(aytCard).getByText('1 deneme')).toBeInTheDocument();
 });
 
 test('gizlenen dersler genel ve AYT yüzdelerine katılmaz', async () => {
@@ -333,13 +357,13 @@ test('veri yokken bölümler boş durum gösterir', async () => {
   expect(screen.getByText('Henüz kitap yok')).toBeInTheDocument();
   expect(screen.getByText('Henüz deneme kaydı yok')).toBeInTheDocument();
   expect(
-    within(screen.getByRole('group', { name: 'En yüksek net' })).getByText(
-      'Henüz deneme yok',
+    within(screen.getByRole('group', { name: 'TYT netleri' })).getByText(
+      'Henüz TYT denemesi yok',
     ),
   ).toBeInTheDocument();
   expect(
-    within(screen.getByRole('group', { name: 'Ortalama net' })).getByText(
-      'Henüz deneme yok',
+    within(screen.getByRole('group', { name: 'AYT netleri' })).getByText(
+      'Henüz AYT denemesi yok',
     ),
   ).toBeInTheDocument();
   expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();

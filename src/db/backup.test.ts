@@ -14,6 +14,7 @@ import { toPhotoSearch } from '@/db/photoSearch';
 import {
   createBook,
   createPracticeSession,
+  getScheduleTable,
   getSettings,
   patchSettings,
   saveExam,
@@ -705,6 +706,72 @@ test('program kaydı, görsel ve PDF yedekten kayıpsız geri yüklenir', async 
     size: SCHEDULE_PDF_SIZE,
   });
   expect(await blobToText(pdf!.blob)).toBe(SCHEDULE_PDF_BYTES);
+});
+
+test('done içermeyen eski çizelge yedeği yedi false ile yüklenir', async () => {
+  await fullSeed();
+  const source = createEmptyScheduleTable();
+  await saveScheduleTable({
+    rows: source.rows.map((row, index) =>
+      index === 0
+        ? {
+            ...row,
+            subject: 'Geometri',
+            days: ['1 saat', '20 soru', '', '', '', '', ''],
+            done: [true, true, false, false, false, false, false],
+            total: '1 saat',
+          }
+        : row,
+    ),
+    totals: {
+      ...source.totals,
+      days: ['1 saat', '', '', '', '', '', ''],
+      total: '1 saat',
+    },
+    note: 'Eski yedek',
+  });
+
+  const exported = await exportBackup();
+  const legacy = await mutateZip(exported, async (_zip, data) => {
+    const tables = data.scheduleTables as Array<{
+      rows: Array<Record<string, unknown>>;
+    }>;
+    // Guard the mutation: the current archive must carry the ticks we strip.
+    expect(tables[0].rows[0].done).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    for (const row of tables[0].rows) {
+      delete row.done;
+    }
+  });
+
+  await resetDb();
+  await importBackup(new File([legacy], 'eski-tikler.zip'));
+
+  const allFalse = [false, false, false, false, false, false, false];
+  // The import itself must materialize the missing tuple, not only the read path.
+  const stored = await db.scheduleTables.get('main');
+  expect(stored?.rows).toHaveLength(5);
+  expect(stored?.rows.map((row) => row.done)).toEqual(
+    Array.from({ length: 5 }, () => allFalse),
+  );
+
+  const loaded = await getScheduleTable();
+  expect(loaded?.rows).toHaveLength(5);
+  expect(loaded?.rows.map((row) => row.done)).toEqual(
+    Array.from({ length: 5 }, () => allFalse),
+  );
+  expect(loaded?.rows[0]).toMatchObject({
+    subject: 'Geometri',
+    days: ['1 saat', '20 soru', '', '', '', '', ''],
+    total: '1 saat',
+  });
 });
 
 test('program tabloları ve elle çizelge olmayan eski yedek boş yüklenir', async () => {

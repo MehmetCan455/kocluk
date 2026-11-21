@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ClipboardList } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
@@ -8,11 +8,19 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Field } from '@/components/ui/Field';
+import { cn } from '@/components/ui/cn';
 import { manualHiddenSubjects } from '@/data/alanSubjects';
 import { getExam, listExamResults, listSubjects, saveExam } from '@/db/repositories';
 import { calculateNet } from '@/domain/calculations';
-import type { AytAlan, ExamType, Subject } from '@/domain/types';
+import type {
+  AytAlan,
+  BranchExamKey,
+  ExamKind,
+  ExamType,
+  Subject,
+} from '@/domain/types';
 import { formatNet } from '@/lib/format';
+import { branchesFor, getBranchExam, isBranchExam } from './branchConfig';
 import {
   getExamSubjectConfig,
   geometrySeedKey,
@@ -112,6 +120,56 @@ function todayIsoDate(): string {
 
 const ALAN_OPTIONS = ['sayisal', 'ea', 'sozel'] as const;
 
+interface FormPrefill {
+  kind: ExamKind;
+  type: ExamType;
+  alan: AytAlan | '';
+  branch: BranchExamKey | '';
+}
+
+/**
+ * The exams page links here with the branch tab's current filters. Invalid or
+ * mismatched combinations are ignored rather than rendering a broken form.
+ */
+function readFormPrefill(searchParams: URLSearchParams): FormPrefill {
+  const type: ExamType = searchParams.get('tur') === 'AYT' ? 'AYT' : 'TYT';
+  const alanParam = searchParams.get('alan');
+  const alan: AytAlan | '' =
+    type === 'AYT' &&
+    (alanParam === 'sayisal' || alanParam === 'ea' || alanParam === 'sozel')
+      ? alanParam
+      : '';
+  const branchConfig = getBranchExam(searchParams.get('branch') ?? '');
+  const branch: BranchExamKey | '' =
+    branchConfig &&
+    branchConfig.type === type &&
+    (type === 'TYT' || branchConfig.alan === alan)
+      ? branchConfig.key
+      : '';
+
+  return {
+    kind: searchParams.get('brans') === '1' ? 'branch' : 'full',
+    type,
+    alan,
+    branch,
+  };
+}
+
+function branchFits(
+  branch: BranchExamKey | '',
+  type: ExamType,
+  alan: AytAlan | '',
+): boolean {
+  if (!branch) {
+    return false;
+  }
+  const config = getBranchExam(branch);
+  if (!config || config.type !== type) {
+    return false;
+  }
+  return type === 'TYT' || (isAytBranch(alan) && config.alan === alan);
+}
+
 function mergeGeometryCounts(
   results: StoredResult[],
   examType: ExamType,
@@ -147,22 +205,29 @@ export function ExamFormPage() {
   const { id } = useParams();
   const editing = id !== undefined;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { settings } = useAppSettings();
   const formTitle = editing ? 'Denemeyi düzenle' : 'Yeni deneme';
+  // Query prefill only matters for a new exam; an edit loads the stored record.
+  const prefill = editing ? null : readFormPrefill(searchParams);
 
   const nameId = useId();
   const dateId = useId();
   const typeId = useId();
+  const kindLabelId = useId();
   const alanId = useId();
+  const branchId = useId();
   const noteId = useId();
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing'>(
     editing ? 'loading' : 'ready',
   );
-  const [examType, setExamType] = useState<ExamType>('TYT');
+  const [kind, setKind] = useState<ExamKind>(prefill?.kind ?? 'full');
+  const [branch, setBranch] = useState<BranchExamKey | ''>(prefill?.branch ?? '');
+  const [examType, setExamType] = useState<ExamType>(prefill?.type ?? 'TYT');
   const [name, setName] = useState('');
   const [date, setDate] = useState(todayIsoDate);
-  const [alan, setAlan] = useState<AytAlan | ''>('');
+  const [alan, setAlan] = useState<AytAlan | ''>(prefill?.alan ?? '');
   const [note, setNote] = useState('');
   const [values, setValues] = useState<Record<string, Counts>>({});
   const [initialResults, setInitialResults] = useState<StoredResult[]>([]);
@@ -204,13 +269,16 @@ export function ExamFormPage() {
 
         // In combined mode an old separate geometry result is folded into the
         // maths row, so editing does not count the 10 geometry questions twice.
-        if (settings.geometryMode === 'combined') {
+        // Branch exams never carry subject rows, so this is full-exam only.
+        if (!isBranchExam(exam) && settings.geometryMode === 'combined') {
           Object.assign(
             loadedValues,
             mergeGeometryCounts(results, exam.type, allSubjects),
           );
         }
 
+        setKind(isBranchExam(exam) ? 'branch' : 'full');
+        setBranch(exam.branch ?? '');
         setExamType(exam.type);
         setName(exam.name);
         setDate(exam.date);
@@ -314,6 +382,20 @@ export function ExamFormPage() {
   });
   const entryIds = new Set(entryRows.map((row) => row.subject.id));
 
+  // A branch exam ignores the subject list entirely: one row keyed by the
+  // branch catalogue key, so the saved result can use `subjectId === branch`.
+  const branchMode = kind === 'branch';
+  const branchConfig =
+    branchMode && branchFits(branch, examType, alan)
+      ? getBranchExam(branch)
+      : undefined;
+  const branchCounts = branchConfig
+    ? values[branchConfig.key] ?? EMPTY_COUNTS
+    : EMPTY_COUNTS;
+  const branchParsed = branchConfig
+    ? parseCounts(branchCounts, branchConfig.questionCount)
+    : null;
+
   // Subjects outside the selected branch, or without a configured question
   // count, keep their stored result untouched. This is what makes switching
   // geometry mode or AYT branch non-destructive.
@@ -345,7 +427,9 @@ export function ExamFormPage() {
     (result) => !knownSubjectIds.has(result.subjectId),
   );
 
-  const hasRowErrors = entryRows.some((row) => row.parsed.error !== null);
+  const hasRowErrors = branchMode
+    ? Boolean(branchParsed?.error)
+    : entryRows.some((row) => row.parsed.error !== null);
   const entryNet = entryRows.reduce(
     (sum, row) => sum + (row.parsed.entered && !row.parsed.error ? (row.parsed.net ?? 0) : 0),
     0,
@@ -358,7 +442,12 @@ export function ExamFormPage() {
     (sum, result) => sum + calculateNet(result.correct, result.wrong),
     0,
   );
-  const totalPreview = entryNet + preservedNet + hiddenNet;
+  const totalPreview =
+    branchMode && branchParsed
+      ? branchParsed.entered && !branchParsed.error
+        ? (branchParsed.net ?? 0)
+        : 0
+      : entryNet + preservedNet + hiddenNet;
 
   const trimmedName = name.trim();
   const nameError = name !== '' && trimmedName === '' ? 'Deneme adı boş olamaz' : null;
@@ -366,13 +455,16 @@ export function ExamFormPage() {
     date !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(date) ? 'Geçerli bir tarih seç' : null;
   const alanError = examType === 'AYT' && alan === '' ? 'AYT alanı seç' : null;
   const awaitingAlan = examType === 'AYT' && alan === '';
+  const branchError =
+    branchMode && !awaitingAlan && branchConfig === undefined ? 'Branş seç' : null;
   const canSave =
     !saving &&
     trimmedName !== '' &&
     date !== '' &&
     dateError === null &&
     !hasRowErrors &&
-    !awaitingAlan;
+    !awaitingAlan &&
+    (!branchMode || branchConfig !== undefined);
 
   function updateCount(subjectId: string, field: keyof Counts, value: string) {
     setValues((current) => ({
@@ -382,6 +474,27 @@ export function ExamFormPage() {
         [field]: value,
       },
     }));
+  }
+
+  function changeKind(next: ExamKind) {
+    if (editing) {
+      return;
+    }
+    setKind(next);
+  }
+
+  function changeExamType(next: ExamType) {
+    setExamType(next);
+    if (!branchFits(branch, next, alan)) {
+      setBranch('');
+    }
+  }
+
+  function changeAlan(next: AytAlan | '') {
+    setAlan(next);
+    if (!branchFits(branch, examType, next)) {
+      setBranch('');
+    }
   }
 
   function handleCancel() {
@@ -415,6 +528,20 @@ export function ExamFormPage() {
         ...hiddenResults.map((result) => ({ ...result })),
         ...orphanResults.map((result) => ({ ...result })),
       ];
+      const branchResults =
+        branchConfig &&
+        branchParsed?.entered &&
+        !branchParsed.error &&
+        branchParsed.blank !== null
+          ? [
+              {
+                subjectId: branchConfig.key,
+                correct: branchParsed.correct,
+                wrong: branchParsed.wrong,
+                blank: branchParsed.blank,
+              },
+            ]
+          : [];
 
       const saved = await saveExam({
         id: editing && id ? id : undefined,
@@ -422,17 +549,17 @@ export function ExamFormPage() {
         name: trimmedName,
         date,
         alan: examType === 'AYT' && isAytBranch(alan) ? alan : undefined,
+        kind,
+        branch: branchConfig?.key,
         note,
-        results: [...entryResults, ...untouchedResults],
+        results: branchMode ? branchResults : [...entryResults, ...untouchedResults],
       });
 
-      navigate(
-        editing
-          ? `/denemeler/${saved.id}`
-          : examType === 'AYT'
-            ? '/denemeler?tur=AYT'
-            : '/denemeler',
-      );
+      if (editing || branchMode) {
+        navigate(`/denemeler/${saved.id}`);
+      } else {
+        navigate(examType === 'AYT' ? '/denemeler?tur=AYT' : '/denemeler');
+      }
     } catch (caught: unknown) {
       console.error('Deneme kaydedilemedi', caught);
       setError(
@@ -451,13 +578,56 @@ export function ExamFormPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{formTitle}</h1>
         <p className="text-sm text-muted">
-          Ders bazında doğru ve yanlış sayılarını gir; boş sorular ve netler otomatik
-          hesaplanır.
+          {kind === 'branch'
+            ? 'Seçtiğin branşın doğru ve yanlış sayılarını gir; boş sorular ve net otomatik hesaplanır.'
+            : 'Ders bazında doğru ve yanlış sayılarını gir; boş sorular ve netler otomatik hesaplanır.'}
         </p>
       </header>
 
       <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
         <Card className="space-y-4">
+          <div role="group" aria-labelledby={kindLabelId} className="space-y-2">
+            <p id={kindLabelId} className="text-sm font-medium text-fg">
+              Deneme biçimi
+            </p>
+            <div className="flex w-fit flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
+              <button
+                type="button"
+                aria-pressed={kind === 'full'}
+                disabled={editing}
+                onClick={() => changeKind('full')}
+                className={cn(
+                  'min-h-11 rounded-lg px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                  kind === 'full'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                    : 'text-muted hover:text-fg',
+                )}
+              >
+                Tam deneme
+              </button>
+              <button
+                type="button"
+                aria-pressed={kind === 'branch'}
+                disabled={editing}
+                onClick={() => changeKind('branch')}
+                className={cn(
+                  'min-h-11 rounded-lg px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                  kind === 'branch'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                    : 'text-muted hover:text-fg',
+                )}
+              >
+                Branş denemesi
+              </button>
+            </div>
+            {editing ? (
+              <p className="text-xs text-muted">
+                Deneme biçimi sonradan değiştirilemez; farklı biçim için yeni deneme
+                oluşturun.
+              </p>
+            ) : null}
+          </div>
+
           <Field label="Deneme adı" htmlFor={nameId} error={nameError ?? undefined}>
             <input
               id={nameId}
@@ -486,7 +656,7 @@ export function ExamFormPage() {
               <select
                 id={typeId}
                 value={examType}
-                onChange={(event) => setExamType(event.target.value as ExamType)}
+                onChange={(event) => changeExamType(event.target.value as ExamType)}
                 disabled={editing}
                 aria-describedby={editing ? `${typeId}-hint` : undefined}
                 className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
@@ -515,16 +685,21 @@ export function ExamFormPage() {
               label="AYT alanı"
               htmlFor={alanId}
               error={alanError ?? undefined}
-              hint="Ders listesi seçilen alana göre belirlenir."
+              hint={
+                kind === 'branch'
+                  ? 'Branş seçenekleri alana göre belirlenir.'
+                  : 'Ders listesi seçilen alana göre belirlenir.'
+              }
             >
               <select
                 id={alanId}
                 value={alan}
-                onChange={(event) => setAlan(event.target.value as AytAlan | '')}
+                onChange={(event) => changeAlan(event.target.value as AytAlan | '')}
+                disabled={editing && kind === 'branch'}
                 aria-required="true"
                 aria-invalid={alanError ? true : undefined}
                 aria-describedby={alanError ? `${alanId}-error` : `${alanId}-hint`}
-                className={inputClass}
+                className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 <option value="">Alan seç</option>
                 {ALAN_OPTIONS.map((option) => (
@@ -535,15 +710,44 @@ export function ExamFormPage() {
               </select>
             </Field>
           ) : null}
+
+          {kind === 'branch' ? (
+            <Field label="Branş" htmlFor={branchId} error={branchError ?? undefined}>
+              <select
+                id={branchId}
+                value={branchConfig?.key ?? ''}
+                onChange={(event) =>
+                  setBranch(event.target.value as BranchExamKey | '')
+                }
+                disabled={editing}
+                aria-required="true"
+                aria-invalid={branchError ? true : undefined}
+                aria-describedby={branchError ? `${branchId}-error` : undefined}
+                className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                <option value="">Branş seç</option>
+                {branchesFor(examType, isAytBranch(alan) ? alan : undefined).map(
+                  (option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </Field>
+          ) : null}
         </Card>
 
         <Card className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Ders sonuçları</h2>
+              <h2 className="text-lg font-semibold">
+                {branchMode ? 'Branş sonucu' : 'Ders sonuçları'}
+              </h2>
               <p className="text-xs text-muted">
-                Boş sorular, dersin soru sayısından doğru ve yanlış çıkarılarak bulunur.
-                Boş bırakılan satırlar toplama katılmaz.
+                {branchMode
+                  ? 'Boş sorular, branşın soru sayısından doğru ve yanlış çıkarılarak bulunur.'
+                  : 'Boş sorular, dersin soru sayısından doğru ve yanlış çıkarılarak bulunur. Boş bırakılan satırlar toplama katılmaz.'}
               </p>
             </div>
             <div className="text-right">
@@ -556,165 +760,278 @@ export function ExamFormPage() {
             </div>
           </div>
 
-          {entryRows.length > 0 ? (
-            <div className={ROW_GRID}>
-              <span className="text-xs font-medium uppercase tracking-wide text-muted">
-                Ders
-              </span>
-              <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
-                D
-              </span>
-              <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
-                Y
-              </span>
-              <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
-                B
-              </span>
-              <span className="text-right text-xs font-medium uppercase tracking-wide text-muted">
-                Net
-              </span>
-            </div>
-          ) : null}
-
-          {geometryConsumed ? (
-            <div className="space-y-2 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-3">
-              <p className="text-sm font-semibold text-[var(--accent)]">
-                Ayrı Geometri sonucu birleştirilecek
-              </p>
-              <p id="geometri-birlesme-bilgi" className="text-sm">
-                Bu deneme eski ayrı Geometri kaydı içeriyor. Kaydedince Matematik 40
-                olarak birleştirilecek; net korunur, ayrı Geometri kaydı kaldırılır.
-              </p>
-            </div>
-          ) : null}
-
-          <ul className="divide-y divide-line">
-            {entryRows.map(({ subject, questionCount, counts, parsed }) => {
-              const errorId = `sonuc-${subject.id}-error`;
-              return (
-                <li
-                  key={subject.id}
-                  role="group"
-                  aria-label={subject.name}
-                  className="py-2"
-                >
-                  <div className={ROW_GRID}>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{subject.name}</p>
-                      <p className="text-xs tabular-nums text-muted">
-                        {questionCount} soru
-                      </p>
-                    </div>
-                    <input
-                      type="number"
-                      min={0}
-                      max={questionCount}
-                      step={1}
-                      inputMode="numeric"
-                      value={counts.correct}
-                      onChange={(event) =>
-                        updateCount(subject.id, 'correct', event.target.value)
-                      }
-                      aria-label={`${subject.name} doğru`}
-                      aria-invalid={parsed.error ? true : undefined}
-                      aria-describedby={parsed.error ? errorId : undefined}
-                      placeholder="0"
-                      className={countInputClass}
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      max={questionCount}
-                      step={1}
-                      inputMode="numeric"
-                      value={counts.wrong}
-                      onChange={(event) =>
-                        updateCount(subject.id, 'wrong', event.target.value)
-                      }
-                      aria-label={`${subject.name} yanlış`}
-                      aria-invalid={parsed.error ? true : undefined}
-                      aria-describedby={parsed.error ? errorId : undefined}
-                      placeholder="0"
-                      className={countInputClass}
-                    />
-                    <span className="text-center text-sm tabular-nums text-muted">
-                      <span className="sr-only">Boş: </span>
-                      {parsed.blank ?? '—'}
-                    </span>
-                    <span className="text-right text-sm font-semibold tabular-nums">
-                      {parsed.entered && !parsed.error && parsed.net !== null
-                        ? formatNet(parsed.net)
-                        : '—'}
-                    </span>
-                  </div>
-                  {parsed.error ? (
-                    <p id={errorId} role="alert" className="mt-1 text-xs text-danger">
-                      {parsed.error}
-                    </p>
-                  ) : null}
-                </li>
-              );
-            })}
-
-            {preservedRows.map(({ subject, result }) => (
-              <li key={subject.id} className="py-2">
+          {branchMode ? (
+            branchConfig && branchParsed ? (
+              <>
                 <div className={ROW_GRID}>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{subject.name}</p>
-                    <p className="text-xs text-muted">
-                      {configSeedKeys.has(subject.seedKey)
-                        ? 'Soru sayısı tanımlı değil · eski sonuç korunuyor'
-                        : 'Bu alanda girilmiyor · eski sonuç korunuyor'}
-                    </p>
-                  </div>
-                  <span className="text-center text-sm tabular-nums">{result.correct}</span>
-                  <span className="text-center text-sm tabular-nums">{result.wrong}</span>
-                  <span className="text-center text-sm tabular-nums text-muted">
-                    {result.blank}
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                    Branş
                   </span>
-                  <span className="text-right text-sm font-semibold tabular-nums">
-                    {formatNet(calculateNet(result.correct, result.wrong))}
+                  <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
+                    D
+                  </span>
+                  <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
+                    Y
+                  </span>
+                  <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
+                    B
+                  </span>
+                  <span className="text-right text-xs font-medium uppercase tracking-wide text-muted">
+                    Net
                   </span>
                 </div>
-              </li>
-            ))}
-          </ul>
+                <ul className="divide-y divide-line">
+                  <li
+                    role="group"
+                    aria-label={branchConfig.label}
+                    className="py-2"
+                  >
+                    <div className={ROW_GRID}>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {branchConfig.label}
+                        </p>
+                        <p className="text-xs tabular-nums text-muted">
+                          {branchConfig.questionCount} soru
+                        </p>
+                      </div>
+                      <input
+                        type="number"
+                        min={0}
+                        max={branchConfig.questionCount}
+                        step={1}
+                        inputMode="numeric"
+                        value={branchCounts.correct}
+                        onChange={(event) =>
+                          updateCount(branchConfig.key, 'correct', event.target.value)
+                        }
+                        aria-label={`${branchConfig.label} doğru`}
+                        aria-invalid={branchParsed.error ? true : undefined}
+                        aria-describedby={
+                          branchParsed.error
+                            ? `sonuc-${branchConfig.key}-error`
+                            : undefined
+                        }
+                        placeholder="0"
+                        className={countInputClass}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={branchConfig.questionCount}
+                        step={1}
+                        inputMode="numeric"
+                        value={branchCounts.wrong}
+                        onChange={(event) =>
+                          updateCount(branchConfig.key, 'wrong', event.target.value)
+                        }
+                        aria-label={`${branchConfig.label} yanlış`}
+                        aria-invalid={branchParsed.error ? true : undefined}
+                        aria-describedby={
+                          branchParsed.error
+                            ? `sonuc-${branchConfig.key}-error`
+                            : undefined
+                        }
+                        placeholder="0"
+                        className={countInputClass}
+                      />
+                      <span className="text-center text-sm tabular-nums text-muted">
+                        <span className="sr-only">Boş: </span>
+                        {branchParsed.blank ?? '—'}
+                      </span>
+                      <span className="text-right text-sm font-semibold tabular-nums">
+                        {branchParsed.entered && !branchParsed.error &&
+                        branchParsed.net !== null
+                          ? formatNet(branchParsed.net)
+                          : '—'}
+                      </span>
+                    </div>
+                    {branchParsed.error ? (
+                      <p
+                        id={`sonuc-${branchConfig.key}-error`}
+                        role="alert"
+                        className="mt-1 text-xs text-danger"
+                      >
+                        {branchParsed.error}
+                      </p>
+                    ) : null}
+                  </li>
+                </ul>
+              </>
+            ) : (
+              <p className="text-sm text-muted">
+                {awaitingAlan
+                  ? 'Branş seçenekleri için önce AYT alanını seç.'
+                  : 'Sonuç girmek için önce branşı seç.'}
+              </p>
+            )
+          ) : (
+            <>
+              {entryRows.length > 0 ? (
+                <div className={ROW_GRID}>
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                    Ders
+                  </span>
+                  <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
+                    D
+                  </span>
+                  <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
+                    Y
+                  </span>
+                  <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
+                    B
+                  </span>
+                  <span className="text-right text-xs font-medium uppercase tracking-wide text-muted">
+                    Net
+                  </span>
+                </div>
+              ) : null}
 
-          {awaitingAlan ? (
-            <p className="text-sm text-muted">
-              Dersleri görmek için önce AYT alanını seç.
-            </p>
-          ) : null}
+              {geometryConsumed ? (
+                <div className="space-y-2 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-3">
+                  <p className="text-sm font-semibold text-[var(--accent)]">
+                    Ayrı Geometri sonucu birleştirilecek
+                  </p>
+                  <p id="geometri-birlesme-bilgi" className="text-sm">
+                    Bu deneme eski ayrı Geometri kaydı içeriyor. Kaydedince Matematik 40
+                    olarak birleştirilecek; net korunur, ayrı Geometri kaydı kaldırılır.
+                  </p>
+                </div>
+              ) : null}
 
-          {!awaitingAlan && entryRows.length === 0 && preservedRows.length === 0 ? (
-            <p className="text-sm text-muted">
-              Görünür ders yok. Bu alandaki dersler{' '}
-              <Link
-                to="/ayarlar"
-                className="font-medium text-[var(--accent)] underline underline-offset-2"
-              >
-                Ayarlar &gt; Ders görünürlüğü
-              </Link>{' '}
-              bölümünde elle gizlenmiş olabilir; devam etmek için oradan açabilirsin.
-            </p>
-          ) : null}
+              <ul className="divide-y divide-line">
+                {entryRows.map(({ subject, questionCount, counts, parsed }) => {
+                  const errorId = `sonuc-${subject.id}-error`;
+                  return (
+                    <li
+                      key={subject.id}
+                      role="group"
+                      aria-label={subject.name}
+                      className="py-2"
+                    >
+                      <div className={ROW_GRID}>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{subject.name}</p>
+                          <p className="text-xs tabular-nums text-muted">
+                            {questionCount} soru
+                          </p>
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          max={questionCount}
+                          step={1}
+                          inputMode="numeric"
+                          value={counts.correct}
+                          onChange={(event) =>
+                            updateCount(subject.id, 'correct', event.target.value)
+                          }
+                          aria-label={`${subject.name} doğru`}
+                          aria-invalid={parsed.error ? true : undefined}
+                          aria-describedby={parsed.error ? errorId : undefined}
+                          placeholder="0"
+                          className={countInputClass}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={questionCount}
+                          step={1}
+                          inputMode="numeric"
+                          value={counts.wrong}
+                          onChange={(event) =>
+                            updateCount(subject.id, 'wrong', event.target.value)
+                          }
+                          aria-label={`${subject.name} yanlış`}
+                          aria-invalid={parsed.error ? true : undefined}
+                          aria-describedby={parsed.error ? errorId : undefined}
+                          placeholder="0"
+                          className={countInputClass}
+                        />
+                        <span className="text-center text-sm tabular-nums text-muted">
+                          <span className="sr-only">Boş: </span>
+                          {parsed.blank ?? '—'}
+                        </span>
+                        <span className="text-right text-sm font-semibold tabular-nums">
+                          {parsed.entered && !parsed.error && parsed.net !== null
+                            ? formatNet(parsed.net)
+                            : '—'}
+                        </span>
+                      </div>
+                      {parsed.error ? (
+                        <p id={errorId} role="alert" className="mt-1 text-xs text-danger">
+                          {parsed.error}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+
+                {preservedRows.map(({ subject, result }) => (
+                  <li key={subject.id} className="py-2">
+                    <div className={ROW_GRID}>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{subject.name}</p>
+                        <p className="text-xs text-muted">
+                          {configSeedKeys.has(subject.seedKey)
+                            ? 'Soru sayısı tanımlı değil · eski sonuç korunuyor'
+                            : 'Bu alanda girilmiyor · eski sonuç korunuyor'}
+                        </p>
+                      </div>
+                      <span className="text-center text-sm tabular-nums">
+                        {result.correct}
+                      </span>
+                      <span className="text-center text-sm tabular-nums">
+                        {result.wrong}
+                      </span>
+                      <span className="text-center text-sm tabular-nums text-muted">
+                        {result.blank}
+                      </span>
+                      <span className="text-right text-sm font-semibold tabular-nums">
+                        {formatNet(calculateNet(result.correct, result.wrong))}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {awaitingAlan ? (
+                <p className="text-sm text-muted">
+                  Dersleri görmek için önce AYT alanını seç.
+                </p>
+              ) : null}
+
+              {!awaitingAlan && entryRows.length === 0 && preservedRows.length === 0 ? (
+                <p className="text-sm text-muted">
+                  Görünür ders yok. Bu alandaki dersler{' '}
+                  <Link
+                    to="/ayarlar"
+                    className="font-medium text-[var(--accent)] underline underline-offset-2"
+                  >
+                    Ayarlar &gt; Ders görünürlüğü
+                  </Link>{' '}
+                  bölümünde elle gizlenmiş olabilir; devam etmek için oradan açabilirsin.
+                </p>
+              ) : null}
+
+              {preservedRows.length > 0 ? (
+                <p className="text-xs text-muted">
+                  Bu denemede girilmeyen {preservedRows.length} dersin eski sonucu olduğu
+                  gibi korunacak.
+                </p>
+              ) : null}
+
+              {hiddenResults.length > 0 ? (
+                <p className="text-xs text-muted">
+                  Gizlenen {hiddenResults.length} dersin mevcut sonucu korunacak.
+                </p>
+              ) : null}
+            </>
+          )}
 
           {hasRowErrors ? (
             <p role="alert" className="text-sm text-danger">
               D ve Y alanlarını kontrol et; kaydetmek için satır hatalarını düzelt.
-            </p>
-          ) : null}
-
-          {preservedRows.length > 0 ? (
-            <p className="text-xs text-muted">
-              Bu denemede girilmeyen {preservedRows.length} dersin eski sonucu olduğu gibi
-              korunacak.
-            </p>
-          ) : null}
-
-          {hiddenResults.length > 0 ? (
-            <p className="text-xs text-muted">
-              Gizlenen {hiddenResults.length} dersin mevcut sonucu korunacak.
             </p>
           ) : null}
         </Card>

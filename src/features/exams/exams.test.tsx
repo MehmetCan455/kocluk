@@ -1144,6 +1144,58 @@ test('eski alansız AYT denemesi çıkarılan alanla karşılaştırılır', asy
   expect(screen.getByText('Eski AYT')).toBeInTheDocument();
 });
 
+test('TYT branş denemesi tek satırla kaydedilir', async () => {
+  renderApp('/denemeler/yeni?brans=1&tur=TYT&branch=tyt-sosyal');
+  await userEvent.type(await screen.findByLabelText('Deneme adı'), 'TYT Sosyal 1');
+  await userEvent.type(screen.getByLabelText('Sosyal doğru'), '15');
+  await userEvent.type(screen.getByLabelText('Sosyal yanlış'), '3');
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'TYT Sosyal 1' }),
+  ).toBeInTheDocument();
+  const exams = await listExams('TYT');
+  expect(exams).toHaveLength(1);
+  expect(exams[0]).toMatchObject({ kind: 'branch', branch: 'tyt-sosyal' });
+  const results = await listExamResults(exams[0].id);
+  expect(results).toMatchObject([{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3 }]);
+});
+
+test('AYT branş denemesi alanına göre branş seçenekleri sunar', async () => {
+  renderApp('/denemeler/yeni?brans=1&tur=AYT&alan=sayisal');
+  await userEvent.type(await screen.findByLabelText('Deneme adı'), 'AYT Fen 1');
+  const branch = screen.getByLabelText('Branş');
+  expect(branch).toHaveDisplayValue('Branş seç');
+  await userEvent.selectOptions(branch, 'ayt-sayisal-fen');
+  await userEvent.type(screen.getByLabelText('Fen doğru'), '30');
+  await userEvent.type(screen.getByLabelText('Fen yanlış'), '6');
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+
+  const exams = await listExams('AYT');
+  expect(exams[0]).toMatchObject({
+    kind: 'branch',
+    branch: 'ayt-sayisal-fen',
+    alan: 'sayisal',
+  });
+});
+
+test('branş denemesi düzenlemede tür/alan/branş kilitlidir', async () => {
+  const saved = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Düzenlenecek',
+    date: '2026-11-20',
+    results: [{ subjectId: 'tyt-sosyal', correct: 10, wrong: 2, blank: 8 }],
+  });
+  renderApp(`/denemeler/${saved.id}/duzenle`);
+
+  expect(await screen.findByRole('button', { name: 'Branş denemesi' })).toBeDisabled();
+  expect(screen.getByLabelText('Deneme türü')).toBeDisabled();
+  expect(screen.getByLabelText('Branş')).toBeDisabled();
+  expect(screen.getByLabelText('Sosyal doğru')).toHaveValue(10);
+});
+
 test('Sayısal kartı önceki deneme olarak EA denemesini saymaz ve farkı adında taşır', async () => {
   const aytMatematik = await subjectIdByKey('ayt-matematik');
   await saveExam({

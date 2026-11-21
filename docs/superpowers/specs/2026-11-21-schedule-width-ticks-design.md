@@ -101,6 +101,9 @@ göstermez; kullanıcı hücre bazında işaretleme istedi.
   eşiğini korur; tik kaldırılınca eski görünüme döner.
 - Tik değişikliği taslağı kirli yapar ve mevcut otomatik kaydetmeyle kaydedilir.
 - Erişilebilir ad: `1. satır Pazartesi tamamlandı`; `aria-label` ile.
+- “Satır ekle” düğmesinin solunda “Tüm tikleri kaldır” düğmesi bulunur. Tek
+  tıkla bütün gün tiklerini `false` yapar; hiç tik yokken devre dışıdır ve
+  değişiklik mevcut otomatik kaydetmeye dahildir.
 
 ### 6.3 Yedekleme ve doğrulama
 
@@ -123,6 +126,8 @@ göstermez; kullanıcı hücre bazında işaretleme istedi.
   - 390 px’te tek gün düzeni ve gün seçici korunur.
   - Bir gün hücresine tik atılınca arka plan yeşil tonu alır, yazı soluklaşır;
     yeniden yüklenince tik korunur.
+  - “Tüm tikleri kaldır” tek tıkla bütün tikleri siler; tik yokken düğme
+    devre dışıdır.
 - Mevcut 330 birim ve 15 E2E testi geçmeye devam eder; yeni testler eklenir.
 
 ## 8. Önizleme ve teslim

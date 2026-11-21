@@ -616,3 +616,116 @@ text; 390/360 keep the one-day layout.
 
 Report commands/results, show the screenshots, and wait for approval before
 any push.
+
+## Ek Görev: Tüm Tikleri Kaldır
+
+**Files:**
+- Modify: `src/features/schedule/ScheduleTableEditor.tsx`
+- Test: `src/features/schedule/schedule.test.tsx`
+
+**Interfaces:**
+- Consumes: `ScheduleTableRow.done`, `emptyScheduleTableDoneCells`.
+- Produces: no exported API change; a “Tüm tikleri kaldır” button left of
+  “Satır ekle”.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `src/features/schedule/schedule.test.tsx`:
+
+```tsx
+test('tüm tikleri tek düğmeyle kaldırır', async () => {
+  await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  const clear = screen.getByRole('button', { name: 'Tüm tikleri kaldır' });
+  expect(clear).toBeDisabled();
+
+  await userEvent.click(
+    within(table).getByRole('checkbox', {
+      name: '1. satır Pazartesi tamamlandı',
+    }),
+  );
+  await userEvent.click(
+    within(table).getByRole('checkbox', {
+      name: '2. satır Salı tamamlandı',
+    }),
+  );
+  expect(clear).toBeEnabled();
+
+  await userEvent.click(clear);
+
+  const boxes = within(table).getAllByRole('checkbox');
+  expect(boxes.every((box) => !(box as HTMLInputElement).checked)).toBe(true);
+  expect(clear).toBeDisabled();
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm run test:run -- src/features/schedule/schedule.test.tsx`
+
+Expected: FAIL — no button named “Tüm tikleri kaldır”.
+
+- [ ] **Step 3: Implement the button**
+
+In `ScheduleTableEditor.tsx`:
+
+- import `Eraser` from `lucide-react` (keep the existing `Plus`, `Trash2`);
+- import `emptyScheduleTableDoneCells` from `@/domain/scheduleTable`;
+- add `const hasDone = draft.rows.some((row) => row.done.some(Boolean));`;
+- add:
+
+```ts
+function clearDone(): void {
+  setDraft((current) => ({
+    ...current,
+    rows: current.rows.map((row) => ({
+      ...row,
+      done: emptyScheduleTableDoneCells(),
+    })),
+  }));
+}
+```
+
+- replace the single “Satır ekle” button in the header with a wrapping group:
+
+```tsx
+<div className="flex flex-wrap items-center gap-2">
+  <Button
+    variant="secondary"
+    onClick={clearDone}
+    disabled={!hasDone}
+    aria-label="Tüm tikleri kaldır"
+  >
+    <Eraser className="h-4 w-4" aria-hidden="true" />
+    Tüm tikleri kaldır
+  </Button>
+  <Button
+    variant="secondary"
+    onClick={addRow}
+    disabled={atMaxRows}
+    aria-label="Satır ekle"
+  >
+    <Plus className="h-4 w-4" aria-hidden="true" />
+    Satır ekle
+  </Button>
+</div>
+```
+
+- [ ] **Step 4: Run the focused tests**
+
+Run: `npm run test:run -- src/features/schedule/schedule.test.tsx`
+
+Expected: PASS.
+
+- [ ] **Step 5: Typecheck and commit**
+
+Run: `npm run typecheck`
+
+Expected: exit code 0.
+
+```bash
+git add src/features/schedule/ScheduleTableEditor.tsx src/features/schedule/schedule.test.tsx
+git commit -m "feat: clear all schedule ticks at once"
+```

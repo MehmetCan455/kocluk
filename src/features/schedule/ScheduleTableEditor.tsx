@@ -60,7 +60,7 @@ export interface ScheduleTableEditorProps {
 const headCellClass =
   'border-b border-r border-line bg-raised px-2 py-2 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted';
 
-const bodyCellClass = 'border-b border-r border-line p-1 align-top';
+const bodyCellClass = 'border-b border-r border-line p-0.5 align-top';
 
 /** Short enough to feel automatic, long enough not to save every keystroke. */
 const AUTOSAVE_DELAY_MS = 800;
@@ -310,13 +310,13 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
       <div
         role="group"
         aria-label="Çizelge günü"
-        className="grid grid-cols-7 gap-1 min-[720px]:hidden"
+        className="grid grid-cols-7 gap-1 min-[768px]:hidden"
       >
         {SCHEDULE_DAYS.map((day, dayIndex) => (
           <button
             key={day.day}
             type="button"
-            aria-label={day.label}
+            aria-label={`${day.short} ${day.label}`}
             aria-pressed={dayIndex === selectedDay}
             onClick={() => setSelectedDay(dayIndex)}
             className={cn(
@@ -340,10 +340,10 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
             <tr>
               <th
                 scope="col"
-                className={cn(headCellClass, 'w-[36%] min-[720px]:w-[20%]')}
+                className={cn(headCellClass, 'w-[45%] min-[768px]:w-[20%]')}
               >
-                <span className="min-[720px]:hidden">DERS</span>
-                <span className="hidden min-[720px]:inline">DERSLER / TARİH</span>
+                <span className="min-[768px]:hidden">DERS</span>
+                <span className="hidden min-[768px]:inline">DERSLER / TARİH</span>
               </th>
               {SCHEDULE_DAYS.map((day, dayIndex) => (
                 <th
@@ -352,21 +352,21 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                   aria-label={day.label}
                   className={cn(
                     headCellClass,
-                    'w-[42%] min-[720px]:w-[9.6%]',
-                    dayIndex !== selectedDay && 'hidden min-[720px]:table-cell',
+                    'w-[33%] min-[768px]:w-[9.6%]',
+                    dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
                   )}
                 >
-                  <span className="min-[720px]:hidden">{day.label}</span>
-                  <span className="hidden min-[720px]:inline">{day.short}</span>
+                  <span className="min-[768px]:hidden">{day.label}</span>
+                  <span className="hidden min-[768px]:inline">{day.short}</span>
                 </th>
               ))}
               <th
                 scope="col"
                 aria-label="Toplam süre/soru"
-                className={cn(headCellClass, 'w-[22%] min-[720px]:w-[12.8%]')}
+                className={cn(headCellClass, 'w-[22%] min-[768px]:w-[12.8%]')}
               >
-                <span className="min-[720px]:hidden">TOPLAM</span>
-                <span className="hidden min-[720px]:inline">TOPLAM SÜRE/SORU</span>
+                <span className="min-[768px]:hidden">TOPLAM</span>
+                <span className="hidden min-[768px]:inline">TOPLAM SÜRE/SORU</span>
               </th>
             </tr>
           </thead>
@@ -398,7 +398,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                     key={`${row.id}-${dayIndex}`}
                     className={cn(
                       bodyCellClass,
-                      dayIndex !== selectedDay && 'hidden min-[720px]:table-cell',
+                      dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
                     )}
                   >
                     <AutoGrowTextarea
@@ -428,8 +428,8 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                 scope="row"
                 className={cn(headCellClass, 'border-b-0 bg-raised')}
               >
-                <span className="min-[720px]:hidden">TOPLAM</span>
-                <span className="hidden min-[720px]:inline">
+                <span className="min-[768px]:hidden">TOPLAM</span>
+                <span className="hidden min-[768px]:inline">
                   {draft.totals.label || SCHEDULE_TABLE_TOTAL_LABEL}
                 </span>
               </th>
@@ -439,7 +439,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                   className={cn(
                     bodyCellClass,
                     'border-b-0',
-                    dayIndex !== selectedDay && 'hidden min-[720px]:table-cell',
+                    dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
                   )}
                 >
                   <AutoGrowTextarea

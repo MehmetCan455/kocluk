@@ -300,8 +300,8 @@ test('program görselini büyütür, PDF bağlantısını açar ve dosyaları si
 test('gün seçicisi seçili günü değiştirir', async () => {
   await openSchedule();
 
-  const pazartesi = screen.getByRole('button', { name: 'Pazartesi' });
-  const sali = screen.getByRole('button', { name: 'Salı' });
+  const pazartesi = screen.getByRole('button', { name: 'Pzt Pazartesi' });
+  const sali = screen.getByRole('button', { name: 'Sal Salı' });
   expect(pazartesi).toHaveAttribute('aria-pressed', 'true');
   expect(sali).toHaveAttribute('aria-pressed', 'false');
 

@@ -108,13 +108,23 @@ test('390 px çizelgede tek gün görünür ve gün değiştirilir', async ({ pa
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
   await expectOnlyDayColumn(table, 'Pazartesi');
 
-  await page.getByRole('button', { name: 'Salı', exact: true }).click();
+  await page.getByRole('button', { name: 'Salı' }).click();
   await expectOnlyDayColumn(table, 'Salı');
 
-  const height = await table
-    .getByLabel('1. satır Salı')
-    .evaluate((field) => field.clientHeight);
-  expect(height).toBeGreaterThan(40);
+  // Text written before a day switch must survive a hide/reveal cycle and the
+  // revealed field must autosize without an inner scrollbar.
+  const cell = table.getByLabel('1. satır Salı');
+  await cell.fill('X'.repeat(120));
+  await page.getByRole('button', { name: 'Pazartesi' }).click();
+  await page.getByRole('button', { name: 'Salı' }).click();
+
+  await expect
+    .poll(async () => cell.evaluate((field) => field.clientHeight))
+    .toBeGreaterThan(44);
+  const revealOverflow = await cell.evaluate(
+    (field) => field.scrollHeight - field.clientHeight,
+  );
+  expect(revealOverflow).toBeLessThanOrEqual(1);
 });
 
 test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', async ({ page }) => {
@@ -136,13 +146,13 @@ test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', asyn
   expect(pageOverflow).toBeLessThanOrEqual(1);
 
   const row = table.locator('tbody tr').first();
-  const before = await row.boundingBox();
+  const before = await row.evaluate((el) => el.getBoundingClientRect().height);
   const cell = table.getByLabel('1. satır Pazartesi');
   await cell.fill('X'.repeat(120));
 
   await expect
-    .poll(async () => (await row.boundingBox())?.height ?? 0)
-    .toBeGreaterThan(before?.height ?? 0);
+    .poll(async () => row.evaluate((el) => el.getBoundingClientRect().height))
+    .toBeGreaterThan(before);
 
   await expectDaysWithinWidth(table, 768);
 
@@ -152,4 +162,9 @@ test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', asyn
   }));
   expect(cellOverflow.vertical).toBeLessThanOrEqual(1);
   expect(cellOverflow.horizontal).toBeLessThanOrEqual(1);
+
+  const overflowAfterFill = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflowAfterFill).toBeLessThanOrEqual(1);
 });

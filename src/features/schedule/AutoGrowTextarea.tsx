@@ -11,7 +11,7 @@ export interface AutoGrowTextareaProps {
 }
 
 const baseClass =
-  'block min-h-11 w-full min-w-0 resize-none overflow-hidden rounded-lg border border-transparent bg-transparent px-2 py-2 text-sm leading-5 text-fg placeholder:text-muted transition-colors hover:border-line focus:border-[var(--accent)] focus:bg-canvas [overflow-wrap:anywhere]';
+  'block min-h-11 w-full min-w-0 resize-none overflow-hidden rounded-lg border border-transparent bg-transparent px-1 py-2 text-sm leading-5 text-fg placeholder:text-muted transition-colors hover:border-line focus:border-[var(--accent)] focus:bg-canvas [overflow-wrap:anywhere]';
 
 /**
  * Fits the field to its content. A hidden cell reports a zero scrollHeight,
@@ -72,7 +72,7 @@ export function AutoGrowTextarea({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={(event) => {
-        if (event.key === 'Enter') {
+        if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
           event.preventDefault();
           event.currentTarget.blur();
         }

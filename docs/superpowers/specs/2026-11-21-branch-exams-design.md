@@ -210,7 +210,7 @@ branch: z.string().optional(),
   bilinen bir anahtar ve `type`/`alan` ile eşleşmiş olmalıdır; aksi hâlde
   yedek “Geçersiz yedek dosyası” ile reddedilir.
 - Bilinmeyen bir `branch` anahtarı yalnızca elle/bozuk veride görülürse etiket
-  “Branş”e düşer; yedek doğrulaması bunu kabul etmez.
+  “Bilinmeyen branş”e düşer; yedek doğrulaması bunu kabul etmez.
 
 ## 8. Deneme formu
 

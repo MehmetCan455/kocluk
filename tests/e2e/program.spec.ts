@@ -23,7 +23,9 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   await expect(table).toBeVisible();
   await table.getByLabel('1. satır ders').fill('Matematik');
   await table.getByLabel('1. satır Pazartesi').fill('2 saat');
+  await page.getByRole('button', { name: 'Salı', exact: true }).click();
   await table.getByLabel('1. satır Salı').fill('40 soru');
+  await page.getByRole('button', { name: 'Pazartesi', exact: true }).click();
   await table.getByLabel('1. satır toplam').fill('2 saat');
   await table.getByLabel('Toplam satırı Pazartesi').fill('10 saat');
   await table.getByLabel('Genel toplam').fill('10 saat');
@@ -76,5 +78,7 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   });
   await expect(reloadedTable.getByLabel('1. satır ders')).toHaveValue('Matematik');
   await expect(reloadedTable.getByLabel('1. satır Pazartesi')).toHaveValue('2 saat');
+  await page.getByRole('button', { name: 'Salı', exact: true }).click();
+  await expect(reloadedTable.getByLabel('1. satır Salı')).toHaveValue('40 soru');
   await expect(page.getByLabel('Haftanın notu')).toHaveValue('E2E hafta notu');
 });

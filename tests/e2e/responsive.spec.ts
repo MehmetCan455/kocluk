@@ -65,3 +65,59 @@ test('1440 px masaüstünde yan menü görünür ve yatay kaydırma olmaz', asyn
   );
   expect(overflow).toBeLessThanOrEqual(1);
 });
+
+test('390 px çizelgede tek gün görünür ve gün değiştirilir', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await completeOnboarding(page, TEST_NAME, 'Tümü');
+  await page.goto('./#/program');
+
+  const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
+  await expect(table.getByRole('columnheader', { name: 'Pazartesi' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Salı' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Salı', exact: true }).click();
+  await expect(table.getByRole('columnheader', { name: 'Salı' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Pazartesi' })).toHaveCount(0);
+
+  const height = await table
+    .getByLabel('1. satır Salı')
+    .evaluate((field) => field.clientHeight);
+  expect(height).toBeGreaterThan(40);
+});
+
+test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await completeOnboarding(page, TEST_NAME, 'Tümü');
+  await page.goto('./#/program');
+
+  const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
+  await expect(
+    table.getByRole('columnheader', { name: 'Pazar', exact: true }),
+  ).toBeVisible();
+
+  const tableOverflow = await table.evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  );
+  expect(tableOverflow).toBeLessThanOrEqual(1);
+
+  const pageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(pageOverflow).toBeLessThanOrEqual(1);
+
+  const row = table.locator('tbody tr').first();
+  const before = await row.boundingBox();
+  const cell = table.getByLabel('1. satır Pazartesi');
+  await cell.fill('X'.repeat(120));
+
+  await expect
+    .poll(async () => (await row.boundingBox())?.height ?? 0)
+    .toBeGreaterThan(before?.height ?? 0);
+
+  const cellOverflow = await cell.evaluate((element) => ({
+    vertical: element.scrollHeight - element.clientHeight,
+    horizontal: element.scrollWidth - element.clientWidth,
+  }));
+  expect(cellOverflow.vertical).toBeLessThanOrEqual(1);
+  expect(cellOverflow.horizontal).toBeLessThanOrEqual(1);
+});

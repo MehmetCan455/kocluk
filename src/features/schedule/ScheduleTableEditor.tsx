@@ -21,6 +21,7 @@ import type {
   ScheduleTableTotals,
 } from '@/domain/types';
 import { SCHEDULE_DAYS } from './scheduleDays';
+import { AutoGrowTextarea } from './AutoGrowTextarea';
 
 interface Draft {
   rows: ScheduleTableRow[];
@@ -56,13 +57,10 @@ export interface ScheduleTableEditorProps {
   initialTable?: ScheduleTable;
 }
 
-const cellInputClass =
-  'h-11 w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 text-sm text-fg placeholder:text-muted transition-colors hover:border-line focus:border-[var(--accent)] focus:bg-canvas';
-
 const headCellClass =
   'border-b border-r border-line bg-raised px-2 py-2 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted';
 
-const bodyCellClass = 'border-b border-r border-line p-1 align-middle';
+const bodyCellClass = 'border-b border-r border-line p-1 align-top';
 
 /** Short enough to feel automatic, long enough not to save every keystroke. */
 const AUTOSAVE_DELAY_MS = 800;
@@ -346,17 +344,14 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                     'sticky left-0 z-10 bg-surface',
                   )}
                 >
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
+                  <div className="flex items-start gap-1">
+                    <AutoGrowTextarea
                       value={row.subject}
-                      onChange={(event) =>
-                        updateSubject(row.id, event.target.value)
-                      }
-                      aria-label={`${index + 1}. satır ders`}
+                      onChange={(value) => updateSubject(row.id, value)}
+                      label={`${index + 1}. satır ders`}
                       placeholder="Ders / etkinlik"
                       maxLength={SCHEDULE_TABLE_SUBJECT_MAX_LENGTH}
-                      className={cn(cellInputClass, 'flex-1')}
+                      className="flex-1"
                     />
                     <button
                       type="button"
@@ -370,28 +365,22 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                 </td>
                 {row.days.map((value, dayIndex) => (
                   <td key={`${row.id}-${dayIndex}`} className={bodyCellClass}>
-                    <input
-                      type="text"
+                    <AutoGrowTextarea
                       value={value}
-                      onChange={(event) =>
-                        updateRowDay(row.id, dayIndex, event.target.value)
+                      onChange={(next) =>
+                        updateRowDay(row.id, dayIndex, next)
                       }
-                      aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
+                      label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
                       maxLength={SCHEDULE_TABLE_CELL_MAX_LENGTH}
-                      className={cellInputClass}
                     />
                   </td>
                 ))}
                 <td className={bodyCellClass}>
-                  <input
-                    type="text"
+                  <AutoGrowTextarea
                     value={row.total}
-                    onChange={(event) =>
-                      updateRowTotal(row.id, event.target.value)
-                    }
-                    aria-label={`${index + 1}. satır toplam`}
+                    onChange={(next) => updateRowTotal(row.id, next)}
+                    label={`${index + 1}. satır toplam`}
                     maxLength={SCHEDULE_TABLE_TOTAL_MAX_LENGTH}
-                    className={cellInputClass}
                   />
                 </td>
               </tr>
@@ -413,26 +402,22 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                   key={`toplam-${dayIndex}`}
                   className={cn(bodyCellClass, 'border-b-0')}
                 >
-                  <input
-                    type="text"
+                  <AutoGrowTextarea
                     value={value}
-                    onChange={(event) =>
-                      updateTotalDay(dayIndex, event.target.value)
-                    }
-                    aria-label={`Toplam satırı ${SCHEDULE_DAYS[dayIndex].label}`}
+                    onChange={(next) => updateTotalDay(dayIndex, next)}
+                    label={`Toplam satırı ${SCHEDULE_DAYS[dayIndex].label}`}
                     maxLength={SCHEDULE_TABLE_CELL_MAX_LENGTH}
-                    className={cn(cellInputClass, 'font-medium')}
+                    className="font-medium"
                   />
                 </td>
               ))}
               <td className={cn(bodyCellClass, 'border-b-0')}>
-                <input
-                  type="text"
+                <AutoGrowTextarea
                   value={draft.totals.total}
-                  onChange={(event) => updateTotal(event.target.value)}
-                  aria-label="Genel toplam"
+                  onChange={(next) => updateTotal(next)}
+                  label="Genel toplam"
                   maxLength={SCHEDULE_TABLE_TOTAL_MAX_LENGTH}
-                  className={cn(cellInputClass, 'font-medium')}
+                  className="font-medium"
                 />
               </td>
             </tr>

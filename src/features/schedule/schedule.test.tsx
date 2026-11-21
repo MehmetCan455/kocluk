@@ -80,6 +80,7 @@ test('elle tablo beş boş satırla açılır, satır eklenip silinir', async ()
     name: 'Haftalık ders çalışma tablosu',
   });
   expect(within(table).getAllByLabelText(/^\d+\. satır ders$/)).toHaveLength(5);
+  expect(within(table).getByLabelText('1. satır ders').tagName).toBe('TEXTAREA');
   expect(within(table).getByText('DERSLER / TARİH')).toBeInTheDocument();
   expect(within(table).getAllByText('TOPLAM SÜRE/SORU')).toHaveLength(2);
   expect(screen.getByLabelText('Haftanın notu')).toBeInTheDocument();

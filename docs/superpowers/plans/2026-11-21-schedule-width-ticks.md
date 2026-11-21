@@ -276,7 +276,7 @@ test('gün tiki hücreyi yeşile çevirir ve yeniden açınca korunur', async ()
 
   expect(tick).toBeChecked();
   expect(tick.closest('td')).toHaveClass('bg-success/10');
-  expect(within(table).getByLabelText('1. satır Pazartesi')).toHaveClass('opacity-60');
+  expect(within(table).getByLabelText('1. satır Pazartesi')).toHaveClass('text-muted', 'opacity-80');
 
   expect(
     await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
@@ -293,7 +293,7 @@ test('gün tiki hücreyi yeşile çevirir ve yeniden açınca korunur', async ()
       name: '1. satır Pazartesi tamamlandı',
     }),
   ).toBeChecked();
-  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveClass('opacity-60');
+  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveClass('text-muted', 'opacity-80');
 });
 ```
 
@@ -349,7 +349,7 @@ function updateRowDone(rowId: string, dayIndex: number, done: boolean): void {
   onChange={(next) => updateRowDay(row.id, dayIndex, next)}
   label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
   maxLength={SCHEDULE_TABLE_CELL_MAX_LENGTH}
-  className={row.done[dayIndex] ? 'text-muted opacity-60' : undefined}
+  className={row.done[dayIndex] ? 'text-muted opacity-80' : undefined}
 />
 ```
 
@@ -404,7 +404,7 @@ className={cn(
 In `ScheduleTableEditor.tsx`:
 
 - table wrapper: `className="overflow-x-auto rounded-xl border border-line"` (replace `overflow-hidden`);
-- table: `className="w-full table-fixed border-collapse text-sm min-[768px]:min-w-[1160px]"`;
+- table: `className="w-full table-fixed border-collapse text-sm min-[768px]:min-w-[1160px] min-[1440px]:min-w-0"`;
 - subject `<th>`: `cn(headCellClass, 'sticky left-0 z-20 w-[45%] min-[768px]:w-[18%]')`;
 - day `<th>`: `'w-[33%] min-[768px]:w-[10.4%]'`;
 - total `<th>`: `'w-[22%] min-[768px]:w-[9.2%]'`;
@@ -480,6 +480,9 @@ expect(mondayWidth).toBeGreaterThanOrEqual(110);
 ```
 
 - keep `pageOverflow <= 1` and the post-fill page-overflow re-check;
+- after scrolling the wrapper to its maximum, assert the sticky subject header
+  (`DERSLER / TARİH`) stays within 2 px of the wrapper's left edge, and the
+  first-row subject input is still visible;
 - rename the test to
   `'768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşağı büyür'`.
 
@@ -498,10 +501,17 @@ test('1440 px çizelgede tablo genişler ve sayfa taşmaz', async ({ page }) => 
   });
   await expectSevenDayTable(table);
 
-  const width = await table.evaluate(
-    (element) => element.getBoundingClientRect().width,
-  );
-  expect(width).toBeGreaterThanOrEqual(1160);
+  const mainWidth = await page
+    .locator('main')
+    .evaluate((element) => element.getBoundingClientRect().width);
+  expect(mainWidth).toBeGreaterThan(1100);
+
+  const fit = await table.evaluate((element) => ({
+    table: element.getBoundingClientRect().width,
+    wrapper: element.parentElement?.clientWidth ?? 0,
+  }));
+  expect(fit.table).toBeGreaterThanOrEqual(fit.wrapper - 1);
+  expect(fit.table).toBeGreaterThanOrEqual(1000);
 
   const dayWidth = await table
     .getByRole('columnheader', { name: 'Pazartesi', exact: true })

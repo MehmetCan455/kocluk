@@ -76,6 +76,8 @@ göstermez; kullanıcı hücre bazında işaretleme istedi.
 - ≥768 px: tablo `min-w-[1160px] w-full table-fixed`; sütunlar %18 / %10,4 /
   %9,2. Kart sarmalayıcısı `overflow-x-auto`; yatay kaydırma yalnızca kart
   içinde olur.
+- ≥1440 px: `min-width` kaldırılır (`min-[1440px]:min-w-0`); tablo kart
+  genişliğini doldurur ve yatay kaydırma olmaz. Gün hücresi ~113 px kalır.
 - `<768 px`: mevcut 45/33/22 oranları ve tek gün düzeni korunur; tabloda
   `min-width` yok, sayfa taşmaz.
 - Çizelge sayfasındaki `<main>` sınırı kaldırılır: `AppShell`, `/program`
@@ -95,7 +97,8 @@ göstermez; kullanıcı hücre bazında işaretleme istedi.
   (`h-5 w-5`, `accent-[var(--color-success)]`), altında tam genişlikte metin
   alanı. Tik, metin alanının genişliğini azaltmaz.
 - İşaretli hücrede `<td>` arka planı `bg-success/10`, metin alanı
-  `text-muted opacity-60` olur. Tik kaldırılınca eski görünüme döner.
+  `text-muted opacity-80` olur. `opacity-80`, 14 px metinde 4,5:1 kontrast
+  eşiğini korur; tik kaldırılınca eski görünüme döner.
 - Tik değişikliği taslağı kirli yapar ve mevcut otomatik kaydetmeyle kaydedilir.
 - Erişilebilir ad: `1. satır Pazartesi tamamlandı`; `aria-label` ile.
 
@@ -114,7 +117,9 @@ göstermez; kullanıcı hücre bazında işaretleme istedi.
 - E2E:
   - 768 px’te tablo kart içinde yatay kaydırılabilir, gün hücresi ~120 px,
     sayfa gövdesi taşmaz.
-  - 1440 px’te tablo daha geniş; yatay kaydırma yok.
+  - 1440 px’te tablo kartı doldurur; yatay kaydırma yok, toplam sütunu
+    görünür.
+  - 768 px’te yatay kaydırmadan sonra ders sütunu solda sabit kalır.
   - 390 px’te tek gün düzeni ve gün seçici korunur.
   - Bir gün hücresine tik atılınca arka plan yeşil tonu alır, yazı soluklaşır;
     yeniden yüklenince tik korunur.

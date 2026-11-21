@@ -93,6 +93,7 @@ test('subject varyantı 18 px, ortalı ve ferah metin kullanır', () => {
     'text-lg',
     'text-center',
     'py-3',
+    'font-semibold',
   );
 });
 ```
@@ -196,7 +197,7 @@ In `AutoGrowTextarea.tsx`:
 ```ts
 const variantClass =
   variant === 'subject'
-    ? 'py-3 text-center text-lg leading-7'
+    ? 'py-3 text-center text-lg leading-7 font-semibold'
     : 'py-2 text-left text-sm leading-5';
 ```
 
@@ -208,6 +209,10 @@ In `ScheduleTableEditor.tsx`:
 
 - import `CheckSquare` from `lucide-react`;
 - add `const [tickMode, setTickMode] = useState(false);`
+- use a `subjectCellClass` of
+  `'border-b border-r border-line p-0.5 align-middle'` for the subject `<td>`
+  (not `bodyCellClass`, whose `align-top` would conflict), and change its inner
+  wrapper to `flex items-center gap-1`;
 - pass `variant="subject"` to the subject `<AutoGrowTextarea>`; keep `className="flex-1"`;
 - in the header button group, add before “Tüm tikleri kaldır”:
 

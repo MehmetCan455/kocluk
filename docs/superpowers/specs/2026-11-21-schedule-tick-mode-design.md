@@ -90,13 +90,15 @@ Hangi günün yapıldığını göstermez; kullanıcı hücre bazında işaretle
 
 ### 6.3 Ders sütunu
 
-- En soldaki ders/etkinlik alanı `text-lg` (14 → 18 px) ve yatayda
-  `text-center` olur.
+- En soldaki ders/etkinlik alanı `text-lg` (14 → 18 px), `font-semibold` ve
+  yatayda `text-center` olur.
 - Dikey ortalama için `AutoGrowTextarea` bileşenine `variant` prop’u eklenir:
   `cell` (varsayılan: `text-sm py-2 text-left`) ve `subject`
-  (`text-lg py-3 text-center`). Ders hücresi `variant="subject"` kullanır;
-  gün ve toplam hücreleri `cell` kalır.
-- Silme düğmesi sağda ve üstte kalır; metin alanı `flex-1`.
+  (`text-lg py-3 text-center font-semibold`). Ders hücresi
+  `variant="subject"` kullanır; gün ve toplam hücreleri `cell` kalır.
+- Ders `<td>`’si `align-middle`, iç sarmalayıcı `items-center` kullanır;
+  böylece gün hücresi satırı uzattığında ders metni dikeyde ortada kalır.
+- Silme düğmesi sağda ve dikeyde ortada kalır; metin alanı `flex-1`.
 
 ### 6.4 Veri ve kayıt
 
@@ -113,7 +115,8 @@ Hangi günün yapıldığını göstermez; kullanıcı hücre bazında işaretle
   - Mod kapatılınca metin alanı geri gelir ve değer korunur.
   - “Tüm tikleri kaldır” tik modunda atılan tikleri tek tıkla temizler.
   - Yeniden açılışta tikli hücre yeşil/soluk görünür.
-  - Ders sütunu 18 px ve ortalanmış; gün/toplam hücreleri 14 px kalır.
+  - Ders sütunu 18 px, kalın ve ortalanmış; gün/toplam hücreleri 14 px kalır.
+  - Gün hücresi satırı uzattığında ders metni dikeyde ortada kalır (önizleme).
 - E2E:
   - 390 px’te tik modu aç → hücreye dokun → kaydet → yenile → hücre
     `data-done="true"` ve yeşil/soluk.

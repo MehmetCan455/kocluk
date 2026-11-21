@@ -39,7 +39,7 @@ export interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const { pathname } = useLocation();
-  const isWidePage = pathname === '/program';
+  const isWidePage = pathname.replace(/\/+$/, '') === '/program';
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [searchOpen, setSearchOpen] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(false);

@@ -23,6 +23,7 @@ import {
   SCHEDULE_TABLE_NOTE_MAX_LENGTH,
   SCHEDULE_TABLE_SUBJECT_MAX_LENGTH,
   SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
+  emptyScheduleTableDoneCells,
 } from '@/domain/scheduleTable';
 import { isValidDateString } from '@/lib/date';
 import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
@@ -333,9 +334,16 @@ const scheduleTableRowSchema = z.object({
   subject: z.string().max(SCHEDULE_TABLE_SUBJECT_MAX_LENGTH),
   days: scheduleDayCellsSchema,
   done: z
-    .array(z.boolean())
-    .length(7)
-    .default([false, false, false, false, false, false, false]),
+    .tuple([
+      z.boolean(),
+      z.boolean(),
+      z.boolean(),
+      z.boolean(),
+      z.boolean(),
+      z.boolean(),
+      z.boolean(),
+    ])
+    .default(emptyScheduleTableDoneCells()),
   total: z.string().max(SCHEDULE_TABLE_TOTAL_MAX_LENGTH),
 });
 

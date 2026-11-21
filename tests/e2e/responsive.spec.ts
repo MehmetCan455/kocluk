@@ -154,6 +154,35 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
   );
   expect(scrolledLeft).toBeGreaterThan(0);
 
+  // The subject column must stay pinned to the left edge while the days scroll.
+  const sticky = await table.evaluate((element) => {
+    const wrapper = element.parentElement;
+    if (!wrapper) throw new Error('Kaydırma kapsayıcısı bulunamadı');
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const headerRect = element
+      .querySelector('thead th')
+      ?.getBoundingClientRect();
+    const subjectRect = element
+      .querySelector('tbody tr textarea')
+      ?.getBoundingClientRect();
+    return {
+      headerOffset: headerRect ? headerRect.left - wrapperRect.left : Number.NaN,
+      subjectInside:
+        subjectRect !== undefined &&
+        subjectRect.width > 0 &&
+        subjectRect.left >= wrapperRect.left - 2 &&
+        subjectRect.right <= wrapperRect.right + 2,
+    };
+  });
+  await expect(table.locator('thead th').first()).toContainText('DERSLER / TARİH');
+  expect(Math.abs(sticky.headerOffset)).toBeLessThanOrEqual(2);
+  expect(sticky.subjectInside).toBe(true);
+
+  await table.evaluate((element, scrollLeft) => {
+    const wrapper = element.parentElement;
+    if (wrapper) wrapper.scrollLeft = scrollLeft;
+  }, originalScrollLeft);
+
   const mondayWidth = await table
     .getByRole('columnheader', { name: 'Pazartesi', exact: true })
     .evaluate((element) => element.getBoundingClientRect().width);
@@ -193,7 +222,7 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
   }, originalScrollLeft);
 });
 
-test('1440 px çizelgede tablo genişler ve sayfa taşmaz', async ({ page }) => {
+test('1440 px çizelgede tablo kartı doldurur ve toplam sütunu görünür', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await completeOnboarding(page, TEST_NAME, 'Tümü');
   await page.goto('./#/program');
@@ -203,10 +232,37 @@ test('1440 px çizelgede tablo genişler ve sayfa taşmaz', async ({ page }) => 
   });
   await expectSevenDayTable(table);
 
-  const width = await table.evaluate(
-    (element) => element.getBoundingClientRect().width,
-  );
-  expect(width).toBeGreaterThanOrEqual(1160);
+  const totalHeader = table.getByRole('columnheader', {
+    name: 'Toplam süre/soru',
+  });
+  await expect(totalHeader).toBeVisible();
+
+  const layout = await table.evaluate((element) => {
+    const wrapper = element.parentElement;
+    const main = document.getElementById('icerik');
+    const total = element.querySelector('th[aria-label="Toplam süre/soru"]');
+    const wrapperRect = wrapper?.getBoundingClientRect();
+    const totalRect = total?.getBoundingClientRect();
+    return {
+      tableWidth: element.getBoundingClientRect().width,
+      wrapperWidth: wrapper?.clientWidth ?? 0,
+      wrapperScrollWidth: wrapper?.scrollWidth ?? 0,
+      mainWidth: main?.getBoundingClientRect().width ?? 0,
+      totalRight: totalRect?.right ?? Number.NaN,
+      wrapperRight: wrapperRect?.right ?? Number.NaN,
+    };
+  });
+
+  // The card fills the wide main element, so both are wider than max-w-5xl.
+  expect(layout.mainWidth).toBeGreaterThan(1100);
+  expect(layout.tableWidth).toBeGreaterThanOrEqual(1000);
+
+  // No in-card overflow: the table fits inside the scroll container.
+  expect(layout.tableWidth).toBeGreaterThanOrEqual(layout.wrapperWidth - 1);
+  expect(layout.wrapperScrollWidth).toBeLessThanOrEqual(layout.wrapperWidth + 1);
+
+  // The total column is inside the visible card area.
+  expect(layout.totalRight).toBeLessThanOrEqual(layout.wrapperRight + 1);
 
   const dayWidth = await table
     .getByRole('columnheader', { name: 'Pazartesi', exact: true })

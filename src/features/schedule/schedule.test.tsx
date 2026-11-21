@@ -311,23 +311,44 @@ test('gün seçicisi seçili günü değiştirir', async () => {
   expect(pazartesi).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('gün tiki hücreyi yeşile çevirir ve yeniden açınca korunur', async () => {
+test('gün tiki hücreyi yeşile çevirir, geri alınır ve yeniden açınca korunur', async () => {
   const view = await openSchedule();
   const table = await screen.findByRole('table', {
     name: 'Haftalık ders çalışma tablosu',
   });
 
+  expect(within(table).getAllByRole('checkbox')).toHaveLength(35);
+
   const tick = within(table).getByRole('checkbox', {
     name: '1. satır Pazartesi tamamlandı',
   });
   expect(tick).not.toBeChecked();
+  expect(tick.closest('label')).toHaveClass('h-11', 'w-11');
 
   await userEvent.click(tick);
 
   expect(tick).toBeChecked();
   expect(tick.closest('td')).toHaveClass('bg-success/10');
-  expect(within(table).getByLabelText('1. satır Pazartesi')).toHaveClass('opacity-60');
+  expect(within(table).getByLabelText('1. satır Pazartesi')).toHaveClass(
+    'text-muted',
+    'opacity-80',
+  );
 
+  await userEvent.click(tick);
+
+  expect(tick).not.toBeChecked();
+  expect(tick.closest('td')).not.toHaveClass('bg-success/10');
+  expect(within(table).getByLabelText('1. satır Pazartesi')).not.toHaveClass(
+    'text-muted',
+  );
+  expect(within(table).getByLabelText('1. satır Pazartesi')).not.toHaveClass(
+    'opacity-80',
+  );
+
+  // Check it one more time so the persisted state can be verified after reload.
+  await userEvent.click(tick);
+  expect(tick).toBeChecked();
+  expect(await screen.findByText('Kaydedilmemiş değişiklikler')).toBeInTheDocument();
   expect(
     await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
   ).toBeInTheDocument();
@@ -343,7 +364,10 @@ test('gün tiki hücreyi yeşile çevirir ve yeniden açınca korunur', async ()
       name: '1. satır Pazartesi tamamlandı',
     }),
   ).toBeChecked();
-  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveClass('opacity-60');
+  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveClass(
+    'text-muted',
+    'opacity-80',
+  );
 });
 
 test('20 MB üzerindeki çizelge dosyasını yüklemez', async () => {

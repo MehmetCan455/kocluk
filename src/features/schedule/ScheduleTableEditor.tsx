@@ -34,13 +34,17 @@ function cloneDays(days: ScheduleTableDayCells): ScheduleTableDayCells {
   return [...days] as ScheduleTableDayCells;
 }
 
+function cloneDone(done: ScheduleTableDoneCells): ScheduleTableDoneCells {
+  return [...done] as ScheduleTableDoneCells;
+}
+
 function draftFrom(table?: ScheduleTable): Draft {
   const source = table ?? createEmptyScheduleTable();
   return {
     rows: source.rows.map((row) => ({
       ...row,
       days: cloneDays(row.days),
-      done: [...row.done] as ScheduleTableDoneCells,
+      done: cloneDone(row.done),
     })),
     totals: { ...source.totals, days: cloneDays(source.totals.days) },
     note: source.note,
@@ -238,7 +242,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
         if (row.id !== rowId) {
           return row;
         }
-        const next = [...row.done] as ScheduleTableDoneCells;
+        const next = cloneDone(row.done);
         next[dayIndex] = done;
         return { ...row, done: next };
       }),
@@ -353,7 +357,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
       <div className="overflow-x-auto rounded-xl border border-line">
         <table
           aria-label="Haftalık ders çalışma tablosu"
-          className="w-full table-fixed border-collapse text-sm min-[768px]:min-w-[1160px]"
+          className="w-full table-fixed border-collapse text-sm min-[768px]:min-w-[1160px] min-[1440px]:min-w-0"
         >
           <thead>
             <tr>
@@ -441,7 +445,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                       }
                       label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
                       maxLength={SCHEDULE_TABLE_CELL_MAX_LENGTH}
-                      className={row.done[dayIndex] ? 'text-muted opacity-60' : undefined}
+                      className={row.done[dayIndex] ? 'text-muted opacity-80' : undefined}
                     />
                   </td>
                 ))}

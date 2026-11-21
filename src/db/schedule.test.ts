@@ -384,16 +384,39 @@ test('gün tiklerini kaydeder ve eski kayıtta varsayılan false okur', async ()
   ]);
   expect((await getScheduleTable())?.rows[0].done).toEqual(saved.rows[0].done);
 
+  const malformedRows = [
+    {
+      id: 'eski-satir',
+      subject: 'Eski',
+      days: ['', '', '', '', '', '', ''],
+      total: '',
+    },
+    {
+      id: 'uzun-done',
+      subject: 'Sekiz tik',
+      days: ['', '', '', '', '', '', ''],
+      done: [true, true, true, true, true, true, true, true],
+      total: '',
+    },
+    {
+      id: 'bos-done',
+      subject: 'Tiksiz',
+      days: ['', '', '', '', '', '', ''],
+      done: null,
+      total: '',
+    },
+    {
+      id: 'karisik-done',
+      subject: 'Karışık tik',
+      days: ['', '', '', '', '', '', ''],
+      done: ['true', 1, true, false, false, false, false],
+      total: '',
+    },
+  ] as unknown as ScheduleTableRow[];
+
   await db.scheduleTables.put({
     id: 'main',
-    rows: [
-      {
-        id: 'eski-satir',
-        subject: 'Eski',
-        days: ['', '', '', '', '', '', ''],
-        total: '',
-      } as ScheduleTableRow,
-    ],
+    rows: malformedRows,
     totals: {
       label: 'TOPLAM SÜRE/SORU',
       days: ['', '', '', '', '', '', ''],
@@ -404,10 +427,14 @@ test('gün tiklerini kaydeder ve eski kayıtta varsayılan false okur', async ()
   });
 
   const loaded = await getScheduleTable();
-  expect(loaded?.rows[0].done).toEqual([
+  const falseCells = emptyScheduleTableDoneCells();
+  expect(loaded?.rows[0].done).toEqual(falseCells);
+  expect(loaded?.rows[1].done).toEqual(falseCells);
+  expect(loaded?.rows[2].done).toEqual(falseCells);
+  expect(loaded?.rows[3].done).toEqual([
     false,
     false,
-    false,
+    true,
     false,
     false,
     false,

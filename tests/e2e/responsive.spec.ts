@@ -22,16 +22,11 @@ async function expectOnlyDayColumn(table: Locator, selectedDay: (typeof DAYS)[nu
   }
 }
 
-async function expectDaysWithinWidth(table: Locator, width: number) {
+async function expectSevenDayTable(table: Locator) {
   for (const day of DAYS) {
-    const header = table.getByRole('columnheader', { name: day, exact: true });
-    await expect(header).toBeVisible();
-    const box = await header.boundingBox();
-    if (!box) throw new Error(`${day} sütun başlığının konumu alınamadı`);
-    expect(
-      box.x + box.width,
-      `${day} sütununun sağ kenarı ${width} px görünümünü aşıyor`,
-    ).toBeLessThanOrEqual(width + 1);
+    await expect(
+      table.getByRole('columnheader', { name: day, exact: true }),
+    ).toBeVisible();
   }
 }
 
@@ -113,7 +108,7 @@ test('390 px çizelgede tek gün görünür ve gün değiştirilir', async ({ pa
 
   // Text written before a day switch must survive a hide/reveal cycle and the
   // revealed field must autosize without an inner scrollbar.
-  const cell = table.getByLabel('1. satır Salı');
+  const cell = table.getByLabel('1. satır Salı', { exact: true });
   await cell.fill('X'.repeat(120));
   await page.getByRole('button', { name: 'Pazartesi' }).click();
   await page.getByRole('button', { name: 'Salı' }).click();
@@ -127,18 +122,24 @@ test('390 px çizelgede tek gün görünür ve gün değiştirilir', async ({ pa
   expect(revealOverflow).toBeLessThanOrEqual(1);
 });
 
-test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', async ({ page }) => {
+test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşağı büyür', async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await completeOnboarding(page, TEST_NAME, 'Tümü');
   await page.goto('./#/program');
 
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
-  await expectDaysWithinWidth(table, 768);
+  await expectSevenDayTable(table);
 
-  const tableOverflow = await table.evaluate(
-    (element) => element.scrollWidth - element.clientWidth,
-  );
-  expect(tableOverflow).toBeLessThanOrEqual(1);
+  const scroll = await table.evaluate((element) => ({
+    table: element.scrollWidth,
+    wrapper: element.parentElement?.clientWidth ?? 0,
+  }));
+  expect(scroll.table).toBeGreaterThan(scroll.wrapper);
+
+  const mondayWidth = await table
+    .getByRole('columnheader', { name: 'Pazartesi', exact: true })
+    .evaluate((element) => element.getBoundingClientRect().width);
+  expect(mondayWidth).toBeGreaterThanOrEqual(110);
 
   const pageOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -147,14 +148,14 @@ test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', asyn
 
   const row = table.locator('tbody tr').first();
   const before = await row.evaluate((el) => el.getBoundingClientRect().height);
-  const cell = table.getByLabel('1. satır Pazartesi');
+  const cell = table.getByLabel('1. satır Pazartesi', { exact: true });
   await cell.fill('X'.repeat(120));
 
   await expect
     .poll(async () => row.evaluate((el) => el.getBoundingClientRect().height))
     .toBeGreaterThan(before);
 
-  await expectDaysWithinWidth(table, 768);
+  await expectSevenDayTable(table);
 
   const cellOverflow = await cell.evaluate((element) => ({
     vertical: element.scrollHeight - element.clientHeight,
@@ -167,4 +168,30 @@ test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', asyn
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflowAfterFill).toBeLessThanOrEqual(1);
+});
+
+test('1440 px çizelgede tablo genişler ve sayfa taşmaz', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await completeOnboarding(page, TEST_NAME, 'Tümü');
+  await page.goto('./#/program');
+
+  const table = page.getByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  await expectSevenDayTable(table);
+
+  const width = await table.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  expect(width).toBeGreaterThanOrEqual(1160);
+
+  const dayWidth = await table
+    .getByRole('columnheader', { name: 'Pazartesi', exact: true })
+    .evaluate((element) => element.getBoundingClientRect().width);
+  expect(dayWidth).toBeGreaterThanOrEqual(110);
+
+  const pageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(pageOverflow).toBeLessThanOrEqual(1);
 });

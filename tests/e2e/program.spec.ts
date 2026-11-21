@@ -22,15 +22,18 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   // Manual table is the default mode.
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
   await expect(table).toBeVisible();
-  await table.getByLabel('1. satır ders').fill('Matematik');
-  await table.getByLabel('1. satır Pazartesi').fill('2 saat');
+  await table.getByLabel('1. satır ders', { exact: true }).fill('Matematik');
+  await table.getByLabel('1. satır Pazartesi', { exact: true }).fill('2 saat');
   await page.getByRole('button', { name: 'Salı' }).click();
-  await table.getByLabel('1. satır Salı').fill('40 soru');
+  await table.getByLabel('1. satır Salı', { exact: true }).fill('40 soru');
   await page.getByRole('button', { name: 'Pazartesi' }).click();
   await table.getByLabel('1. satır toplam').fill('2 saat');
   await table.getByLabel('Toplam satırı Pazartesi').fill('10 saat');
   await table.getByLabel('Genel toplam').fill('10 saat');
   await page.getByLabel('Haftanın notu').fill('E2E hafta notu');
+  await page
+    .getByRole('checkbox', { name: '1. satır Pazartesi tamamlandı' })
+    .check();
   // The table autosaves shortly after the last edit.
   await expect(page.getByText('Kaydedildi', { exact: true })).toBeVisible({
     timeout: 5_000,
@@ -77,9 +80,19 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   const reloadedTable = page.getByRole('table', {
     name: 'Haftalık ders çalışma tablosu',
   });
-  await expect(reloadedTable.getByLabel('1. satır ders')).toHaveValue('Matematik');
-  await expect(reloadedTable.getByLabel('1. satır Pazartesi')).toHaveValue('2 saat');
+  await expect(reloadedTable.getByLabel('1. satır ders', { exact: true })).toHaveValue('Matematik');
+  await expect(
+    reloadedTable.getByLabel('1. satır Pazartesi', { exact: true }),
+  ).toHaveValue('2 saat');
   await page.getByRole('button', { name: 'Salı' }).click();
-  await expect(reloadedTable.getByLabel('1. satır Salı')).toHaveValue('40 soru');
+  await expect(
+    reloadedTable.getByLabel('1. satır Salı', { exact: true }),
+  ).toHaveValue('40 soru');
   await expect(page.getByLabel('Haftanın notu')).toHaveValue('E2E hafta notu');
+  await page.getByRole('button', { name: 'Pazartesi' }).click();
+  await expect(
+    reloadedTable.getByRole('checkbox', {
+      name: '1. satır Pazartesi tamamlandı',
+    }),
+  ).toBeChecked();
 });

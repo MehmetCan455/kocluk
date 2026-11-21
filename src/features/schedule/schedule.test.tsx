@@ -318,14 +318,27 @@ test('tik modu hücreyi tikler, geri alır ve yeniden açınca korunur', async (
   });
   const mode = screen.getByRole('button', { name: 'Tik modu' });
   expect(mode).toHaveAttribute('aria-pressed', 'false');
+  expect(
+    screen.queryByText('Kutulara dokunarak tik at veya kaldır.'),
+  ).not.toBeInTheDocument();
+  expect(within(table).queryAllByRole('checkbox')).toHaveLength(0);
+
+  await userEvent.type(
+    within(table).getByLabelText('1. satır Pazartesi'),
+    '2 saat',
+  );
 
   await userEvent.click(mode);
   expect(mode).toHaveAttribute('aria-pressed', 'true');
+  expect(
+    screen.getByText('Kutulara dokunarak tik at veya kaldır.'),
+  ).toBeInTheDocument();
 
   const cell = within(table).getByRole('button', {
-    name: '1. satır Pazartesi',
+    name: /^1\. satır Pazartesi/,
   });
   expect(cell).toHaveAttribute('aria-pressed', 'false');
+  expect(cell).toHaveAttribute('aria-label', '1. satır Pazartesi: 2 saat');
 
   await userEvent.click(cell);
   expect(cell).toHaveAttribute('aria-pressed', 'true');
@@ -344,6 +357,20 @@ test('tik modu hücreyi tikler, geri alır ve yeniden açınca korunur', async (
     await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
   ).toBeInTheDocument();
 
+  // Leaving tick mode brings the textarea back with the text intact and the
+  // done state still exposed to assistive tech.
+  await userEvent.click(mode);
+  expect(mode).toHaveAttribute('aria-pressed', 'false');
+  expect(
+    screen.queryByText('Kutulara dokunarak tik at veya kaldır.'),
+  ).not.toBeInTheDocument();
+  const textarea = within(table).getByLabelText('1. satır Pazartesi');
+  expect(textarea).toHaveValue('2 saat');
+  expect(textarea.closest('td')).toHaveAttribute('data-done', 'true');
+  expect(
+    within(textarea.closest('td') as HTMLElement).getByText('Tamamlandı'),
+  ).toHaveClass('sr-only');
+
   view.unmount();
   await openSchedule();
 
@@ -355,8 +382,12 @@ test('tik modu hücreyi tikler, geri alır ve yeniden açınca korunur', async (
     'false',
   );
   const reloadedCell = within(reloaded).getByLabelText('1. satır Pazartesi');
+  expect(reloadedCell).toHaveValue('2 saat');
   expect(reloadedCell.closest('td')).toHaveAttribute('data-done', 'true');
   expect(reloadedCell).toHaveClass('text-muted', 'opacity-80');
+  expect(
+    within(reloadedCell.closest('td') as HTMLElement).getByText('Tamamlandı'),
+  ).toHaveClass('sr-only');
 });
 
 test('tüm tikleri tek düğmeyle kaldırır', async () => {

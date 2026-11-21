@@ -463,10 +463,13 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                       dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
                     )}
                   >
+                    {!tickMode && row.done[dayIndex] ? (
+                      <span className="sr-only">Tamamlandı</span>
+                    ) : null}
                     {tickMode ? (
                       <button
                         type="button"
-                        aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
+                        aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}${value ? `: ${value}` : ''}`}
                         aria-pressed={row.done[dayIndex]}
                         onClick={() =>
                           updateRowDone(row.id, dayIndex, !row.done[dayIndex])

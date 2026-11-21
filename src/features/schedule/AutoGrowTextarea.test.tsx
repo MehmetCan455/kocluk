@@ -82,3 +82,18 @@ test('subject varyantı 18 px, ortalı ve ferah metin kullanır', () => {
     'py-3',
   );
 });
+
+test('varsayılan cell varyantı 14 px ve sola dayalı metin kullanır', () => {
+  render(
+    <AutoGrowTextarea
+      value="2 saat"
+      onChange={() => {}}
+      label="1. satır Pazartesi"
+      maxLength={120}
+    />,
+  );
+
+  const field = screen.getByLabelText('1. satır Pazartesi');
+  expect(field).toHaveClass('text-sm', 'text-left', 'py-2');
+  expect(field).not.toHaveClass('text-lg');
+});

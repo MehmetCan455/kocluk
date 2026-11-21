@@ -33,7 +33,7 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   await page.getByLabel('Haftanın notu').fill('E2E hafta notu');
   await page.getByRole('button', { name: 'Tik modu' }).click();
   await page
-    .getByRole('button', { name: '1. satır Pazartesi', exact: true })
+    .getByRole('button', { name: /^1\. satır Pazartesi/ })
     .click();
   await page.getByRole('button', { name: 'Tik modu' }).click();
   // The table autosaves shortly after the last edit.
@@ -96,9 +96,12 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
     'aria-pressed',
     'false',
   );
-  await expect(
-    reloadedTable
-      .getByLabel('1. satır Pazartesi', { exact: true })
-      .locator('..'),
-  ).toHaveAttribute('data-done', 'true');
+  const reloadedCell = reloadedTable.getByLabel('1. satır Pazartesi', {
+    exact: true,
+  });
+  await expect(reloadedCell).toHaveValue('2 saat');
+  await expect(reloadedCell.locator('..')).toHaveAttribute(
+    'data-done',
+    'true',
+  );
 });

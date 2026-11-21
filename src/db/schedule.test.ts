@@ -19,7 +19,9 @@ import {
   SCHEDULE_TABLE_NOTE_MAX_LENGTH,
   createEmptyScheduleRow,
   createEmptyScheduleTable,
+  emptyScheduleTableDoneCells,
 } from '@/domain/scheduleTable';
+import type { ScheduleTableRow } from '@/domain/types';
 import { compressImage } from '@/lib/image';
 import { seedOnboarded } from '@/test/fixtures';
 
@@ -312,6 +314,7 @@ test('elle çizelgeyi tek main kaydı olarak kaydeder ve yeniden okur', async ()
         id: 'tek-satir',
         subject: 'Fizik',
         days: ['', '', '', '', '', '', ''],
+        done: emptyScheduleTableDoneCells(),
         total: '',
       },
     ],
@@ -357,4 +360,57 @@ test('elle çizelge doğrulamaları Türkçe hata verir', async () => {
   );
 
   expect(await getScheduleTable()).toBeUndefined();
+});
+
+test('gün tiklerini kaydeder ve eski kayıtta varsayılan false okur', async () => {
+  const empty = createEmptyScheduleTable();
+  empty.rows[0].done[0] = true;
+  empty.rows[0].done[3] = true;
+
+  const saved = await saveScheduleTable({
+    rows: empty.rows,
+    totals: empty.totals,
+    note: '',
+  });
+
+  expect(saved.rows[0].done).toEqual([
+    true,
+    false,
+    false,
+    true,
+    false,
+    false,
+    false,
+  ]);
+  expect((await getScheduleTable())?.rows[0].done).toEqual(saved.rows[0].done);
+
+  await db.scheduleTables.put({
+    id: 'main',
+    rows: [
+      {
+        id: 'eski-satir',
+        subject: 'Eski',
+        days: ['', '', '', '', '', '', ''],
+        total: '',
+      } as ScheduleTableRow,
+    ],
+    totals: {
+      label: 'TOPLAM SÜRE/SORU',
+      days: ['', '', '', '', '', '', ''],
+      total: '',
+    },
+    note: '',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  });
+
+  const loaded = await getScheduleTable();
+  expect(loaded?.rows[0].done).toEqual([
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+  ]);
 });

@@ -19,6 +19,7 @@ import type {
   ScheduleFile,
   ScheduleTable,
   ScheduleTableDayCells,
+  ScheduleTableDoneCells,
   ScheduleTableRow,
   ScheduleTableTotals,
   Subject,
@@ -35,6 +36,7 @@ import {
   SCHEDULE_TABLE_TOTAL_LABEL,
   SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
   emptyScheduleTableDays,
+  emptyScheduleTableDoneCells,
 } from '@/domain/scheduleTable';
 import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
@@ -637,6 +639,17 @@ function parseScheduleDays(value: unknown, label: string): ScheduleTableDayCells
   ) as ScheduleTableDayCells;
 }
 
+/**
+ * Legacy records and backups predate the tick marks, so anything that is not a
+ * seven-item array reads as "nothing done" instead of failing the read.
+ */
+function parseScheduleDone(value: unknown): ScheduleTableDoneCells {
+  if (!Array.isArray(value) || value.length !== 7) {
+    return emptyScheduleTableDoneCells();
+  }
+  return value.map((cell) => cell === true) as ScheduleTableDoneCells;
+}
+
 function parseScheduleRows(value: unknown): ScheduleTableRow[] {
   if (!Array.isArray(value)) {
     throw new Error('Çizelge satırları geçersiz');
@@ -668,6 +681,7 @@ function parseScheduleRows(value: unknown): ScheduleTableRow[] {
         SCHEDULE_TABLE_SUBJECT_MAX_LENGTH,
       ),
       days: parseScheduleDays(candidate.days, 'Ders satırı'),
+      done: parseScheduleDone(candidate.done),
       total: assertScheduleText(
         candidate.total ?? '',
         'Ders toplamı',
@@ -703,7 +717,14 @@ function parseScheduleTotals(value: unknown): ScheduleTableTotals {
 }
 
 export async function getScheduleTable(): Promise<ScheduleTable | undefined> {
-  return db.scheduleTables.get(SCHEDULE_TABLE_ID);
+  const table = await db.scheduleTables.get(SCHEDULE_TABLE_ID);
+  if (!table) {
+    return undefined;
+  }
+  return {
+    ...table,
+    rows: table.rows.map((row) => ({ ...row, done: parseScheduleDone(row.done) })),
+  };
 }
 
 /**

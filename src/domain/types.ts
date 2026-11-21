@@ -174,10 +174,22 @@ export type ScheduleTableDayCells = [
   string,
 ];
 
+/** Seven day-completion flags, Monday first, matching the day cells. */
+export type ScheduleTableDoneCells = [
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+];
+
 export interface ScheduleTableRow {
   id: string;
   subject: string;
   days: ScheduleTableDayCells;
+  done: ScheduleTableDoneCells;
   total: string;
 }
 

@@ -1,5 +1,10 @@
 import { newId } from '@/lib/id';
-import type { ScheduleTable, ScheduleTableDayCells, ScheduleTableRow } from './types';
+import type {
+  ScheduleTable,
+  ScheduleTableDayCells,
+  ScheduleTableDoneCells,
+  ScheduleTableRow,
+} from './types';
 
 /** The manual table is stored as a single Dexie record. */
 export const SCHEDULE_TABLE_ID = 'main';
@@ -15,11 +20,16 @@ export function emptyScheduleTableDays(): ScheduleTableDayCells {
   return ['', '', '', '', '', '', ''];
 }
 
+export function emptyScheduleTableDoneCells(): ScheduleTableDoneCells {
+  return [false, false, false, false, false, false, false];
+}
+
 export function createEmptyScheduleRow(): ScheduleTableRow {
   return {
     id: newId(),
     subject: '',
     days: emptyScheduleTableDays(),
+    done: emptyScheduleTableDoneCells(),
     total: '',
   };
 }

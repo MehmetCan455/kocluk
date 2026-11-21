@@ -332,6 +332,10 @@ const scheduleTableRowSchema = z.object({
   id: idSchema,
   subject: z.string().max(SCHEDULE_TABLE_SUBJECT_MAX_LENGTH),
   days: scheduleDayCellsSchema,
+  done: z
+    .array(z.boolean())
+    .length(7)
+    .default([false, false, false, false, false, false, false]),
   total: z.string().max(SCHEDULE_TABLE_TOTAL_MAX_LENGTH),
 });
 

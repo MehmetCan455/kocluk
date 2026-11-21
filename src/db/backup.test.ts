@@ -596,6 +596,7 @@ test('program kaydı, görsel ve PDF yedekten kayıpsız geri yüklenir', async 
             ...row,
             subject: 'Matematik',
             days: ['2 saat', '40 soru', '', '', '', '', ''],
+            done: [true, false, false, false, false, false, true],
             total: '2 saat',
           }
         : row,
@@ -664,6 +665,7 @@ test('program kaydı, görsel ve PDF yedekten kayıpsız geri yüklenir', async 
   expect(serializedRows[0]).toMatchObject({
     subject: 'Matematik',
     days: ['2 saat', '40 soru', '', '', '', '', ''],
+    done: [true, false, false, false, false, false, true],
     total: '2 saat',
   });
 

@@ -4,8 +4,10 @@ import type {
   Attachment,
   AytAlan,
   Book,
+  BranchExamKey,
   CorrectOption,
   Exam,
+  ExamKind,
   ExamResult,
   ExamType,
   Note,
@@ -27,6 +29,7 @@ import type {
   TopicBook,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
+import { getBranchExam, type BranchExamConfig } from '@/features/exams/branchConfig';
 import {
   SCHEDULE_TABLE_CELL_MAX_LENGTH,
   SCHEDULE_TABLE_ID,
@@ -1013,6 +1016,10 @@ export interface SaveExamInput {
   name: string;
   date: string;
   alan?: AytAlan;
+  /** Missing means a full exam, matching legacy rows. */
+  kind?: ExamKind;
+  /** Required for branch exams and forbidden for full exams. */
+  branch?: BranchExamKey;
   note?: string;
   results: Array<{
     subjectId: string;
@@ -1030,6 +1037,73 @@ interface ExamResultInput {
 }
 
 const AYT_ALAN_VALUES: ReadonlySet<AytAlan> = new Set(['sayisal', 'ea', 'sozel', 'tumu']);
+const AYT_BRANCH_ALAN_VALUES: ReadonlySet<AytAlan> = new Set(['sayisal', 'ea', 'sozel']);
+
+/**
+ * Resolves the catalog row for a save. A branch exam must name a known catalog
+ * entry whose type (and, for AYT, alan) matches the form; a full exam must not
+ * carry a branch at all. A missing `kind` is a full exam so legacy callers keep
+ * working.
+ */
+function resolveExamBranch(
+  input: SaveExamInput,
+  kind: ExamKind,
+): BranchExamConfig | undefined {
+  if (kind === 'full') {
+    if (input.branch !== undefined) {
+      throw new Error('Tam denemede branş seçilemez');
+    }
+    return undefined;
+  }
+
+  if (!input.branch) {
+    throw new Error('Branş seçilmedi');
+  }
+  const config = getBranchExam(input.branch);
+  if (!config) {
+    throw new Error('Branş seçimi geçersiz');
+  }
+  if (config.type !== input.type) {
+    throw new Error('Branş deneme türüyle eşleşmiyor');
+  }
+  if (config.type === 'TYT') {
+    if (input.alan !== undefined) {
+      throw new Error('TYT branşında alan seçilemez');
+    }
+  } else if (input.alan === undefined || !AYT_BRANCH_ALAN_VALUES.has(input.alan)) {
+    throw new Error('Branş için AYT alanı seçilmeli');
+  } else if (config.alan !== input.alan) {
+    throw new Error('Branş AYT alanıyla eşleşmiyor');
+  }
+
+  return config;
+}
+
+/**
+ * A branch exam keeps exactly one result row for the branch itself and cannot
+ * exceed the ÖSYM question count of that branch. Zero-field rows were already
+ * dropped by `parseExamResults`, so empty form rows never trip these checks.
+ */
+function assertBranchResults(
+  config: BranchExamConfig,
+  results: ExamResultInput[],
+): void {
+  if (results.length > 1) {
+    throw new Error('Branş denemesinde tek sonuç satırı olabilir');
+  }
+  const [row] = results;
+  if (!row) {
+    return;
+  }
+  if (row.subjectId !== config.key) {
+    throw new Error('Branş sonucu branşla eşleşmiyor');
+  }
+  if (row.correct + row.wrong + row.blank > config.questionCount) {
+    throw new Error(
+      `Doğru, yanlış ve boş toplamı ${config.questionCount} soruyu aşıyor`,
+    );
+  }
+}
 
 function parseExamResults(rows: ExamResultInput[]): ExamResultInput[] {
   const parsed: ExamResultInput[] = [];
@@ -1085,6 +1159,14 @@ export async function getExam(id: string): Promise<Exam | undefined> {
   return db.exams.get(id);
 }
 
+/**
+ * Full mock exams only. Branch exams are single-branch rows and must stay out
+ * of the full-exam charts and lists. Legacy rows without `kind` are full.
+ */
+export async function listFullExams(type?: ExamType): Promise<Exam[]> {
+  return (await listExams(type)).filter((exam) => exam.kind !== 'branch');
+}
+
 export async function listExamResults(examId: string): Promise<ExamResult[]> {
   return db.examResults.where('examId').equals(examId).toArray();
 }
@@ -1117,7 +1199,12 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
     throw new Error('AYT alanı geçersiz');
   }
 
+  const kind = input.kind ?? 'full';
+  const branchConfig = resolveExamBranch(input, kind);
   const results = parseExamResults(input.results);
+  if (branchConfig) {
+    assertBranchResults(branchConfig, results);
+  }
   const alan = input.type === 'AYT' ? input.alan : undefined;
   const note = input.note?.trim() ?? '';
 
@@ -1133,6 +1220,8 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
       name,
       date: input.date,
       alan,
+      kind,
+      branch: branchConfig?.key,
       note,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     };

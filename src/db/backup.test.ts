@@ -14,8 +14,10 @@ import { toPhotoSearch } from '@/db/photoSearch';
 import {
   createBook,
   createPracticeSession,
+  getExam,
   getScheduleTable,
   getSettings,
+  listExamResults,
   patchSettings,
   saveExam,
   saveScheduleEntry,
@@ -806,4 +808,121 @@ test('program tabloları ve elle çizelge olmayan eski yedek boş yüklenir', as
   expect(await db.photos.count()).toBe(1);
   expect(await db.attachments.count()).toBe(1);
   expect((await getSettings()).profileName).toBe('Ada');
+});
+
+test('branş denemesi tek sonuç satırıyla yedekten geri yüklenir', async () => {
+  await fullSeed();
+  const branchExam = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'TYT Sosyal 1',
+    date: '2026-11-20',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+
+  const exported = await exportBackup();
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(exported));
+  const manifest = JSON.parse(
+    (await zip.file('manifest.json')!.async('string')) as string,
+  ) as BackupManifest;
+  const data = JSON.parse((await zip.file('veri.json')!.async('string')) as string) as Record<
+    string,
+    Array<Record<string, unknown>>
+  >;
+
+  expect(manifest.schemaVersion).toBe(BACKUP_SCHEMA_VERSION);
+  expect(data.exams).toHaveLength(2);
+  expect(data.exams.find((exam) => exam.id === branchExam.id)).toMatchObject({
+    kind: 'branch',
+    branch: 'tyt-sosyal',
+    type: 'TYT',
+  });
+
+  await resetDb();
+  const imported = await importBackup(new File([exported], 'brans.zip'));
+
+  expect(imported.counts).toMatchObject({ exams: 2, examResults: 2 });
+  expect(await getExam(branchExam.id)).toMatchObject({
+    kind: 'branch',
+    branch: 'tyt-sosyal',
+    type: 'TYT',
+    name: 'TYT Sosyal 1',
+    date: '2026-11-20',
+  });
+  const results = await listExamResults(branchExam.id);
+  expect(results).toHaveLength(1);
+  expect(results[0]).toMatchObject({
+    subjectId: 'tyt-sosyal',
+    correct: 15,
+    wrong: 3,
+    blank: 2,
+  });
+  expect(results[0].net).toBeCloseTo(14.25);
+});
+
+test('kind ve branch içermeyen v4 yedeği tam deneme olarak yükler', async () => {
+  const seeded = await fullSeed();
+  const exported = await exportBackup();
+
+  const legacy = await mutateZip(exported, async (_zip, data, manifest) => {
+    const exams = data.exams as Array<Record<string, unknown>>;
+    // Guard the mutation: the current archive must carry the fields we strip.
+    expect(exams.find((exam) => exam.id === seeded.exam.id)).toMatchObject({
+      kind: 'full',
+    });
+    for (const exam of exams) {
+      delete exam.kind;
+      delete exam.branch;
+    }
+    manifest.schemaVersion = 4;
+  });
+
+  await resetDb();
+  await importBackup(new File([legacy], 'v4-brans.zip'));
+
+  const restored = await getExam(seeded.exam.id);
+  expect(restored).toMatchObject({ name: 'Deneme 1', type: 'TYT' });
+  // The schema default materializes `kind`; no branch may leak in.
+  expect(restored?.kind).toBe('full');
+  expect(restored?.branch).toBeUndefined();
+  expect(await listExamResults(seeded.exam.id)).toHaveLength(1);
+});
+
+test('geçersiz branş bilgisi mevcut veriyi değiştirmeden reddedilir', async () => {
+  await fullSeed();
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'TYT Sosyal 1',
+    date: '2026-11-20',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+  const exported = await exportBackup();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+
+  const unknownBranch = await mutateZip(exported, async (_zip, data) => {
+    const exams = data.exams as Array<Record<string, unknown>>;
+    const branchExam = exams.find((exam) => exam.kind === 'branch');
+    expect(branchExam).toBeDefined();
+    branchExam!.branch = 'tyt-uzay';
+  });
+  await expect(importBackup(new File([unknownBranch], 'bilinmeyen-brans.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+
+  const fullWithBranch = await mutateZip(exported, async (_zip, data) => {
+    const exams = data.exams as Array<Record<string, unknown>>;
+    const fullExam = exams.find((exam) => exam.kind === 'full');
+    expect(fullExam).toBeDefined();
+    fullExam!.branch = 'tyt-sosyal';
+  });
+  await expect(importBackup(new File([fullWithBranch], 'tam-bransli.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.exams.count()).toBe(2);
+  expect(await db.examResults.count()).toBe(2);
 });

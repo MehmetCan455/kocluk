@@ -7,6 +7,7 @@ import { seedCurriculum } from '@/db/seed';
 import type {
   AppSettings,
   Attachment,
+  Exam,
   Note,
   Photo,
   PhotoSearch,
@@ -16,6 +17,7 @@ import type {
   ScheduleTable,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
+import { getBranchExam } from '@/features/exams/branchConfig';
 import {
   SCHEDULE_TABLE_CELL_MAX_LENGTH,
   SCHEDULE_TABLE_ID,
@@ -32,12 +34,13 @@ import { isStorageQuotaError, STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
 import { readBlobAsArrayBuffer } from '@/lib/zip';
 
 /**
- * Backup format version. Version 4 adds the manual schedule table; version 3
- * added the weekly program tables, version 2 the blob-free `photoSearch`
+ * Backup format version. Version 5 adds the branch exam `kind`/`branch` fields
+ * (a missing `kind` is a full exam); version 4 added the manual schedule table,
+ * version 3 the weekly program tables, version 2 the blob-free `photoSearch`
  * projection, and version 1 predates it. Missing tables in older archives are
  * read as empty lists.
  */
-export const BACKUP_SCHEMA_VERSION = 4;
+export const BACKUP_SCHEMA_VERSION = 5;
 const MIN_BACKUP_SCHEMA_VERSION = 1;
 export const INVALID_BACKUP_MESSAGE = 'Geçersiz yedek dosyası';
 const NEWER_BACKUP_MESSAGE =
@@ -76,6 +79,8 @@ const idSchema = z
   .refine((value) => !value.includes('/') && !value.includes('\\'), 'Geçersiz kimlik');
 const examTypeSchema = z.enum(['TYT', 'AYT']);
 const aytAlanSchema = z.enum(['sayisal', 'ea', 'sozel', 'tumu']);
+/** A branch exam needs a concrete AYT field; `tumu` is full-exam only. */
+const AYT_BRANCH_ALAN_VALUES: ReadonlySet<string> = new Set(['sayisal', 'ea', 'sozel']);
 const practiceOutcomeSchema = z.enum(['correct', 'wrong', 'blank']);
 const exportedAtSchema = z
   .string()
@@ -181,15 +186,78 @@ const topicBookSchema = z
     message: 'Çözülen test sayısı toplamdan fazla olamaz',
   });
 
-const examSchema = z.object({
-  id: idSchema,
-  type: examTypeSchema,
-  name: z.string(),
-  date: z.string(),
-  alan: aytAlanSchema.optional(),
-  note: z.string(),
-  createdAt: z.string(),
-});
+const examSchema = z
+  .object({
+    id: idSchema,
+    type: examTypeSchema,
+    name: z.string(),
+    date: z.string(),
+    alan: aytAlanSchema.optional(),
+    // v4 backups predate branch exams; a missing kind is a full exam.
+    kind: z.enum(['full', 'branch']).default('full'),
+    branch: z.string().optional(),
+    note: z.string(),
+    createdAt: z.string(),
+  })
+  .superRefine((exam, context) => {
+    if (exam.kind === 'full') {
+      if (exam.branch !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['branch'],
+          message: 'Tam denemede branş seçilemez',
+        });
+      }
+      return;
+    }
+
+    if (!exam.branch) {
+      context.addIssue({
+        code: 'custom',
+        path: ['branch'],
+        message: 'Branş seçilmedi',
+      });
+      return;
+    }
+    const config = getBranchExam(exam.branch);
+    if (!config) {
+      context.addIssue({
+        code: 'custom',
+        path: ['branch'],
+        message: 'Branş seçimi geçersiz',
+      });
+      return;
+    }
+    if (config.type !== exam.type) {
+      context.addIssue({
+        code: 'custom',
+        path: ['branch'],
+        message: 'Branş deneme türüyle eşleşmiyor',
+      });
+      return;
+    }
+    if (config.type === 'TYT') {
+      if (exam.alan !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['alan'],
+          message: 'TYT branşında alan seçilemez',
+        });
+      }
+    } else if (!AYT_BRANCH_ALAN_VALUES.has(exam.alan ?? 'tumu')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['alan'],
+        message: 'Branş için AYT alanı seçilmeli',
+      });
+    } else if (config.alan !== exam.alan) {
+      context.addIssue({
+        code: 'custom',
+        path: ['alan'],
+        message: 'Branş AYT alanıyla eşleşmiyor',
+      });
+    }
+  });
 
 const examResultSchema = z.object({
   id: idSchema,
@@ -439,7 +507,7 @@ interface RestoredData {
   topics: z.infer<typeof topicSchema>[];
   books: z.infer<typeof bookSchema>[];
   topicBooks: z.infer<typeof topicBookSchema>[];
-  exams: z.infer<typeof examSchema>[];
+  exams: Exam[];
   examResults: z.infer<typeof examResultSchema>[];
   photos: Photo[];
   photoSearch: PhotoSearch[];
@@ -513,8 +581,9 @@ function migrateBackupData(data: BackupData, fromVersion: number): BackupData {
     // migration needed is accepting the missing table.
     return { ...data, photoSearch: data.photoSearch ?? [] };
   }
-  // The schedule tables added in v3/v4 are optional in the schema and default
-  // to empty, so an older archive needs no row-level migration.
+  // The schedule tables added in v3/v4 and the exam `kind`/`branch` fields
+  // added in v5 default themselves in the schema, so an older archive needs no
+  // row-level migration.
   return data;
 }
 
@@ -762,11 +831,17 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
 
   // `net` is derived data: never trust a modified/stale backup value.
   // Exam dates are used for charts and sorting, so they must be real days.
-  const normalizedExams = data.exams.map((exam) => {
+  const normalizedExams: Exam[] = data.exams.map((exam) => {
     if (!isValidDateString(exam.date)) {
       throw new Error(`${INVALID_BACKUP_MESSAGE}: deneme tarihi geçersiz.`);
     }
-    return exam;
+    // The schema already proved a branch key is in the catalog; re-resolve it
+    // so the stored row carries the narrow `BranchExamKey` union.
+    const branch = exam.branch ? getBranchExam(exam.branch) : undefined;
+    return {
+      ...exam,
+      branch: branch?.key,
+    };
   });
   const normalizedExamResults = data.examResults.map((row) => ({
     ...row,

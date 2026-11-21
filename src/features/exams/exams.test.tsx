@@ -1229,3 +1229,35 @@ test('Sayısal kartı önceki deneme olarak EA denemesini saymaz ve farkı adın
   expect(within(card).getByText('+10,00')).toBeInTheDocument();
   expect(within(card).queryByText('-80,00')).not.toBeInTheDocument();
 });
+
+test('branş denemesi ayrı sekmede grafiklenir, tam deneme sekmesine girmez', async () => {
+  const turkceId = await subjectIdByKey('tyt-turkce');
+  await saveExam({
+    kind: 'full',
+    type: 'TYT',
+    name: 'Tam TYT',
+    date: '2026-11-18',
+    results: [{ subjectId: turkceId, correct: 30, wrong: 5, blank: 5 }],
+  });
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'TYT Sosyal 1',
+    date: '2026-11-19',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+
+  const view = renderApp('/denemeler');
+  expect(await screen.findByText('Tam TYT')).toBeInTheDocument();
+  expect(screen.queryByText('TYT Sosyal 1')).not.toBeInTheDocument();
+  expect(screen.getByText('1 TYT denemesi')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Branş' }));
+  expect(await screen.findByText('TYT Sosyal 1')).toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText('Branş'), 'tyt-sosyal');
+  expect(await screen.findByText('TYT Sosyal branş denemeleri')).toBeInTheDocument();
+  expect(screen.getByText('1 branş denemesi')).toBeInTheDocument();
+  expect(screen.queryByText('Tam TYT')).not.toBeInTheDocument();
+  view.unmount();
+});

@@ -331,7 +331,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
         ))}
       </div>
 
-      <div className="rounded-xl border border-line">
+      <div className="overflow-hidden rounded-xl border border-line">
         <table
           aria-label="Haftalık ders çalışma tablosu"
           className="w-full table-fixed border-collapse text-sm"

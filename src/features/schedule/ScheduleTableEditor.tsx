@@ -350,16 +350,16 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-line">
+      <div className="overflow-x-auto rounded-xl border border-line">
         <table
           aria-label="Haftalık ders çalışma tablosu"
-          className="w-full table-fixed border-collapse text-sm"
+          className="w-full table-fixed border-collapse text-sm min-[768px]:min-w-[1160px]"
         >
           <thead>
             <tr>
               <th
                 scope="col"
-                className={cn(headCellClass, 'w-[45%] min-[768px]:w-[20%]')}
+                className={cn(headCellClass, 'sticky left-0 z-20 w-[45%] min-[768px]:w-[18%]')}
               >
                 <span className="min-[768px]:hidden">DERS</span>
                 <span className="hidden min-[768px]:inline">DERSLER / TARİH</span>
@@ -371,7 +371,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                   aria-label={day.label}
                   className={cn(
                     headCellClass,
-                    'w-[33%] min-[768px]:w-[9.6%]',
+                    'w-[33%] min-[768px]:w-[10.4%]',
                     dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
                   )}
                 >
@@ -382,7 +382,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
               <th
                 scope="col"
                 aria-label="Toplam süre/soru"
-                className={cn(headCellClass, 'w-[22%] min-[768px]:w-[12.8%]')}
+                className={cn(headCellClass, 'w-[22%] min-[768px]:w-[9.2%]')}
               >
                 <span className="min-[768px]:hidden">TOPLAM</span>
                 <span className="hidden min-[768px]:inline">TOPLAM SÜRE/SORU</span>
@@ -392,7 +392,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
           <tbody>
             {draft.rows.map((row, index) => (
               <tr key={row.id}>
-                <td className={cn(bodyCellClass, 'bg-surface')}>
+                <td className={cn(bodyCellClass, 'sticky left-0 z-10 bg-surface')}>
                   <div className="flex items-start gap-1">
                     <AutoGrowTextarea
                       value={row.subject}
@@ -460,7 +460,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
             <tr>
               <th
                 scope="row"
-                className={cn(headCellClass, 'border-b-0 bg-raised')}
+                className={cn(headCellClass, 'sticky left-0 z-10 border-b-0 bg-raised')}
               >
                 <span className="min-[768px]:hidden">TOPLAM</span>
                 <span className="hidden min-[768px]:inline">

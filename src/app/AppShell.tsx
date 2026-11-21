@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Download, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
@@ -37,6 +38,8 @@ export interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const { pathname } = useLocation();
+  const isWidePage = pathname === '/program';
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [searchOpen, setSearchOpen] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(false);
@@ -77,7 +80,8 @@ export function AppShell({ children }: AppShellProps) {
           id="icerik"
           tabIndex={-1}
           className={cn(
-            'mx-auto w-full max-w-5xl px-4 sm:px-6',
+            'mx-auto w-full px-4 sm:px-6',
+            isWidePage ? 'max-w-none' : 'max-w-5xl',
             isDesktop ? 'py-8' : 'py-5 pb-28',
           )}
         >

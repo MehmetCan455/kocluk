@@ -130,11 +130,29 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
   await expectSevenDayTable(table);
 
-  const scroll = await table.evaluate((element) => ({
-    table: element.scrollWidth,
-    wrapper: element.parentElement?.clientWidth ?? 0,
-  }));
+  const scroll = await table.evaluate((element) => {
+    const wrapper = element.parentElement;
+    return {
+      table: element.scrollWidth,
+      wrapper: wrapper?.clientWidth ?? 0,
+      overflowX: wrapper ? getComputedStyle(wrapper).overflowX : '',
+    };
+  });
+  expect(scroll.wrapper).toBeGreaterThan(0);
   expect(scroll.table).toBeGreaterThan(scroll.wrapper);
+  expect(['auto', 'scroll']).toContain(scroll.overflowX);
+
+  const originalScrollLeft = await table.evaluate((element) => {
+    const wrapper = element.parentElement;
+    if (!wrapper) return 0;
+    const original = wrapper.scrollLeft;
+    wrapper.scrollLeft = wrapper.scrollWidth;
+    return original;
+  });
+  const scrolledLeft = await table.evaluate(
+    (element) => element.parentElement?.scrollLeft ?? 0,
+  );
+  expect(scrolledLeft).toBeGreaterThan(0);
 
   const mondayWidth = await table
     .getByRole('columnheader', { name: 'Pazartesi', exact: true })
@@ -168,6 +186,11 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflowAfterFill).toBeLessThanOrEqual(1);
+
+  await table.evaluate((element, scrollLeft) => {
+    const wrapper = element.parentElement;
+    if (wrapper) wrapper.scrollLeft = scrollLeft;
+  }, originalScrollLeft);
 });
 
 test('1440 px çizelgede tablo genişler ve sayfa taşmaz', async ({ page }) => {

@@ -22,6 +22,7 @@ import { buildExamComparison, type ExamComparison } from '@/features/dashboard/c
 import { formatNet } from '@/lib/format';
 import { PhotoStrip } from '@/features/photos/PhotoThumb';
 import { PhotoUpload } from '@/features/photos/PhotoUpload';
+import { getBranchExam, isBranchExam } from './branchConfig';
 import { resolveAytAlan } from './examConfig';
 import { formatAlan, formatExamDate, sumNet } from './examFormat';
 
@@ -129,10 +130,11 @@ export function ExamDetailPage() {
       };
     }
 
+    const branch = isBranchExam(exam);
     const [results, subjects, photos, exams, allResults] = await Promise.all([
       listExamResults(id),
       listSubjects(exam.type),
-      listPhotos({ examId: id }),
+      branch ? Promise.resolve<Photo[]>([]) : listPhotos({ examId: id }),
       listExams(exam.type),
       listAllExamResults(),
     ]);
@@ -159,11 +161,20 @@ export function ExamDetailPage() {
           )
         : 'tumu';
 
+    // A branch exam is compared only with exams of the same branch; a full
+    // exam never sees branch rows in its previous-exam delta.
+    const comparisonPool = branch
+      ? exams.filter(
+          (candidate) =>
+            isBranchExam(candidate) && candidate.branch === exam.branch,
+        )
+      : exams.filter((candidate) => !isBranchExam(candidate));
+
     return {
       exam,
       rows,
       photos,
-      comparison: buildExamComparison(exams, allResults, exam, resolveAlan),
+      comparison: buildExamComparison(comparisonPool, allResults, exam, resolveAlan),
       alan: exam.type === 'AYT' ? formatAlan(resolveAlan(exam)) : null,
     };
   }, [id]);
@@ -196,6 +207,9 @@ export function ExamDetailPage() {
     );
   }
 
+  const branch = isBranchExam(exam);
+  const branchConfig = branch ? getBranchExam(exam.branch ?? '') : undefined;
+  const branchLabel = branchConfig?.label ?? 'Branş';
   const totalNet = sumNet(rows.map((row) => row.result));
 
   return (
@@ -207,6 +221,7 @@ export function ExamDetailPage() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             {exam.type}
             {alan ? ` · ${alan}` : ''}
+            {branch ? ` · Branş · ${branchLabel}` : ''}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">{exam.name}</h1>
           <p className="text-sm text-muted">{formatExamDate(exam.date)}</p>
@@ -236,7 +251,9 @@ export function ExamDetailPage() {
             </p>
           ) : (
             <p className="mt-1 text-xs text-muted">
-              Karşılaştırılacak önceki {exam.type} denemesi yok.
+              {branch
+                ? 'Karşılaştırılacak önceki aynı branş denemesi yok.'
+                : `Karşılaştırılacak önceki ${exam.type} denemesi yok.`}
             </p>
           )}
         </div>
@@ -261,20 +278,28 @@ export function ExamDetailPage() {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-lg font-semibold">Ders sonuçları</h2>
+        <h2 className="mb-3 text-lg font-semibold">
+          {branch ? 'Branş sonucu' : 'Ders sonuçları'}
+        </h2>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted">Bu denemede girilmiş ders sonucu yok.</p>
+          <p className="text-sm text-muted">
+            {branch
+              ? 'Bu denemede girilmiş branş sonucu yok.'
+              : 'Bu denemede girilmiş ders sonucu yok.'}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <caption className="sr-only">Ders sonuçları</caption>
+              <caption className="sr-only">
+                {branch ? 'Branş sonucu' : 'Ders sonuçları'}
+              </caption>
               <thead>
                 <tr className="text-muted">
                   <th
                     scope="col"
                     className="pb-2 pr-2 text-left text-xs font-medium uppercase tracking-wide"
                   >
-                    Ders
+                    {branch ? 'Branş' : 'Ders'}
                   </th>
                   <th
                     scope="col"
@@ -306,7 +331,7 @@ export function ExamDetailPage() {
                 {rows.map(({ result, subject }) => (
                   <tr key={result.id}>
                     <th scope="row" className="py-3 pr-2 text-left font-medium">
-                      {subject?.name ?? 'Bilinmeyen ders'}
+                      {branch ? branchLabel : (subject?.name ?? 'Bilinmeyen ders')}
                     </th>
                     <td className="py-3 text-center tabular-nums">{result.correct}</td>
                     <td className="py-3 text-center tabular-nums">{result.wrong}</td>
@@ -329,26 +354,28 @@ export function ExamDetailPage() {
         </Card>
       ) : null}
 
-      <Card className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Yanlış fotoğrafları</h2>
-          <Button variant="secondary" size="sm" onClick={() => setUploadOpen(true)}>
-            <Camera className="h-4 w-4" aria-hidden="true" />
-            Fotoğraf ekle
-          </Button>
-        </div>
-        {photos.length === 0 ? (
-          <EmptyState
-            icon={Camera}
-            title="Henüz fotoğraf yok"
-            description="Bu denemeye bağlı yanlış fotoğraflarını buradan ekleyebilirsin."
-          />
-        ) : (
-          <PhotoStrip photos={photos} />
-        )}
-      </Card>
+      {branch ? null : (
+        <Card className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Yanlış fotoğrafları</h2>
+            <Button variant="secondary" size="sm" onClick={() => setUploadOpen(true)}>
+              <Camera className="h-4 w-4" aria-hidden="true" />
+              Fotoğraf ekle
+            </Button>
+          </div>
+          {photos.length === 0 ? (
+            <EmptyState
+              icon={Camera}
+              title="Henüz fotoğraf yok"
+              description="Bu denemeye bağlı yanlış fotoğraflarını buradan ekleyebilirsin."
+            />
+          ) : (
+            <PhotoStrip photos={photos} />
+          )}
+        </Card>
+      )}
 
-      {uploadOpen ? (
+      {!branch && uploadOpen ? (
         <Modal
           open
           title="Fotoğraf yükle"

@@ -22,7 +22,7 @@ import {
   listAllTopicBooks,
   listAllTopics,
   listBooks,
-  listExams,
+  listFullExams,
   listSubjects,
 } from '@/db/repositories';
 import { calculateProgress } from '@/domain/calculations';
@@ -171,7 +171,7 @@ export function DashboardPage() {
         listAllTopics(),
         listAllTopicBooks(),
         listBooks(),
-        listExams(),
+        listFullExams(),
         listAllExamResults(),
         lastBackupAt
           ? db.photos.where('createdAt').above(lastBackupAt).count()

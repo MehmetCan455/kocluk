@@ -318,6 +318,32 @@ test('yalnızca AYT denemesi varsa TYT kartı boş kalır', async () => {
   expect(within(aytCard).getByText('1 deneme')).toBeInTheDocument();
 });
 
+test('branş denemesi ana sayfa net kartlarını ve son denemeleri değiştirmez', async () => {
+  const turkceId = await subjectId('tyt-turkce');
+  await saveExam({
+    kind: 'full',
+    type: 'TYT',
+    name: 'Tam TYT',
+    date: '2026-11-18',
+    results: [{ subjectId: turkceId, correct: 30, wrong: 5, blank: 5 }],
+  });
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Branş Sosyal',
+    date: '2026-11-19',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+  renderApp('/');
+  // "Genel ilerleme" ve "TYT netleri" sayaçlarının ikisi de yalnızca tam
+  // denemeyi sayar; branş denemesi 2. deneme olarak eklenmez.
+  expect(await screen.findAllByText('1 deneme')).toHaveLength(2);
+  expect(screen.getByText('Tam TYT')).toBeInTheDocument();
+  expect(screen.queryByText('Branş Sosyal')).not.toBeInTheDocument();
+  expect(screen.queryByText('2 deneme')).not.toBeInTheDocument();
+});
+
 test('gizlenen dersler genel ve AYT yüzdelerine katılmaz', async () => {
   const seed = await seedDashboardData();
   await patchSettings({ hiddenSubjects: [seed.aytFizik] });

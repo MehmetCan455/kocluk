@@ -163,6 +163,28 @@ test('alansız eski AYT denemesi aramada çıkarılan alanla gösterilir', async
   expect(examResult?.subtitle).not.toContain('Genel');
 });
 
+test('branş denemesi aramada branş etiketiyle listelenir', async () => {
+  const branchExam = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Sosyal Tarama',
+    date: '2026-11-20',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+
+  const results = await searchAll('Sosyal');
+  const examResult = results.find(
+    (result) => result.kind === 'exam' && result.id === branchExam.id,
+  );
+
+  expect(examResult).toMatchObject({
+    title: 'Sosyal Tarama',
+    subtitle: 'TYT · Branş · Sosyal · 20 Kasım 2026 · 14,25 net',
+    href: `/denemeler/${branchExam.id}`,
+  });
+});
+
 test('yanlış fotoğrafları not metniyle bulunur ve galeriye bağlanır', async () => {
   const now = new Date().toISOString();
   const photoId = newId();

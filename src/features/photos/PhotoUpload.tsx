@@ -4,7 +4,7 @@ import { Camera, Images, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { addPhotos, listExams, listSubjects, listTopics } from '@/db/repositories';
+import { addPhotos, listFullExams, listSubjects, listTopics } from '@/db/repositories';
 import type { CorrectOption, ExamType, Photo } from '@/domain/types';
 import { localDateToIso, todayLocalDate } from '@/lib/date';
 import { IMAGE_TYPE_ERROR } from '@/lib/image';
@@ -91,7 +91,7 @@ export function PhotoUpload({
     [selectedSubjectId],
   );
   const exams = useLiveQuery(
-    async () => (examId ? [] : listExams(type)),
+    async () => (examId ? [] : listFullExams(type)),
     [type, examId],
   );
 

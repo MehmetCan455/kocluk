@@ -8,7 +8,7 @@ import { Field } from '@/components/ui/Field';
 import { cn } from '@/components/ui/cn';
 import {
   createPracticeSession,
-  listExams,
+  listFullExams,
   listPhotoSearch,
   listPracticeSessions,
   listSubjects,
@@ -47,7 +47,7 @@ export function PracticeWizard() {
   const [error, setError] = useState<string | null>(null);
 
   const subjects = useLiveQuery(() => listSubjects(), []);
-  const exams = useLiveQuery(() => listExams(examType), [examType]);
+  const exams = useLiveQuery(() => listFullExams(examType), [examType]);
   // Only the blob-free projection is needed to build a session; image data is
   // read one photo at a time on the session screen.
   const photos = useLiveQuery(() => listPhotoSearch(), []);

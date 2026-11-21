@@ -1348,3 +1348,19 @@ test('AYT branş sekmesi ayarlardaki alanla ve ilk branşla açılır', async ()
   );
   view.unmount();
 });
+
+test('branş denemesi detayı tek satır ve branş etiketi gösterir', async () => {
+  const saved = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'TYT Sosyal Detay',
+    date: '2026-11-20',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+  renderApp(`/denemeler/${saved.id}`);
+  expect(await screen.findByText('Branş')).toBeInTheDocument();
+  expect(screen.getByText('Sosyal')).toBeInTheDocument();
+  expect(screen.getByText('15')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Yanlış fotoğrafları' })).not.toBeInTheDocument();
+});

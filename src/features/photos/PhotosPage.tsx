@@ -10,7 +10,7 @@ import { cn } from '@/components/ui/cn';
 import { db } from '@/db/db';
 import {
   deletePhotos,
-  listExams,
+  listFullExams,
   listOpenPracticeSessions,
   listPhotos,
   listSubjects,
@@ -61,7 +61,7 @@ export function PhotosPage() {
   const [tagging, setTagging] = useState(false);
 
   const subjects = useLiveQuery(() => listSubjects(), []);
-  const exams = useLiveQuery(() => listExams(), []);
+  const exams = useLiveQuery(() => listFullExams(), []);
   const topics = useLiveQuery(
     async () => (filters.subjectId ? listTopics(filters.subjectId) : []),
     [filters.subjectId],

@@ -9,6 +9,7 @@ import {
 import type { Book, Exam, ExamType, Subject, Topic } from '@/domain/types';
 import { formatAlan, formatExamDate } from '@/features/exams/examFormat';
 import { resolveAytAlan } from '@/features/exams/examConfig';
+import { getBranchExam, isBranchExam } from '@/features/exams/branchConfig';
 import { examBasePath } from '@/features/subjects/exam';
 import { formatNet } from '@/lib/format';
 import { matchesTokens, tokenizeTr } from '@/lib/normalize';
@@ -67,10 +68,22 @@ function examSubtitle(
   totalNet: number | undefined,
   alan: ReturnType<typeof resolveAytAlan> | undefined,
 ): string {
-  const parts = [exam.type, formatExamDate(exam.date)];
+  const branch = isBranchExam(exam) ? getBranchExam(exam.branch ?? '') : undefined;
   const alanLabel = alan ? formatAlan(alan) : null;
-  if (alanLabel) {
-    parts.push(alanLabel);
+  const parts: string[] = [exam.type];
+  // Branch exams read `TYT · Branş · Sosyal · tarih · net`; full exams keep
+  // their existing `TYT · tarih · alan · net` order.
+  if (branch) {
+    if (alanLabel) {
+      parts.push(alanLabel);
+    }
+    parts.push('Branş', branch.label);
+    parts.push(formatExamDate(exam.date));
+  } else {
+    parts.push(formatExamDate(exam.date));
+    if (alanLabel) {
+      parts.push(alanLabel);
+    }
   }
   if (totalNet !== undefined) {
     parts.push(`${formatNet(totalNet)} net`);

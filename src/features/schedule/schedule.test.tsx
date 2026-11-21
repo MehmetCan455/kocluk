@@ -297,6 +297,20 @@ test('program görselini büyütür, PDF bağlantısını açar ve dosyaları si
   expect(await listScheduleFiles()).toHaveLength(1);
 });
 
+test('gün seçicisi seçili günü değiştirir', async () => {
+  await openSchedule();
+
+  const pazartesi = screen.getByRole('button', { name: 'Pazartesi' });
+  const sali = screen.getByRole('button', { name: 'Salı' });
+  expect(pazartesi).toHaveAttribute('aria-pressed', 'true');
+  expect(sali).toHaveAttribute('aria-pressed', 'false');
+
+  await userEvent.click(sali);
+
+  expect(sali).toHaveAttribute('aria-pressed', 'true');
+  expect(pazartesi).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('20 MB üzerindeki çizelge dosyasını yüklemez', async () => {
   await openSchedule();
   await switchToUpload();

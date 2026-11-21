@@ -77,6 +77,8 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
   const [hasSaved, setHasSaved] = useState(Boolean(initialTable));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Zero-based index into SCHEDULE_DAYS: narrow screens show a single day.
+  const [selectedDay, setSelectedDay] = useState(0);
 
   const serialized = JSON.stringify(draft);
   const dirty = serialized !== savedSnapshot;
@@ -305,45 +307,73 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
         </Button>
       </div>
 
-      <div className="max-w-full overflow-x-auto rounded-xl border border-line">
+      <div
+        role="group"
+        aria-label="Çizelge günü"
+        className="grid grid-cols-7 gap-1 min-[720px]:hidden"
+      >
+        {SCHEDULE_DAYS.map((day, dayIndex) => (
+          <button
+            key={day.day}
+            type="button"
+            aria-label={day.label}
+            aria-pressed={dayIndex === selectedDay}
+            onClick={() => setSelectedDay(dayIndex)}
+            className={cn(
+              'min-h-11 rounded-lg border text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
+              dayIndex === selectedDay
+                ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                : 'border-line bg-surface text-muted hover:text-fg',
+            )}
+          >
+            {day.short}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-line">
         <table
           aria-label="Haftalık ders çalışma tablosu"
-          className="w-full min-w-[920px] table-fixed border-collapse text-sm"
+          className="w-full table-fixed border-collapse text-sm"
         >
-          <colgroup>
-            <col className="w-[200px]" />
-            {SCHEDULE_DAYS.map((day) => (
-              <col key={day.day} className="w-[88px]" />
-            ))}
-            <col className="w-[104px]" />
-          </colgroup>
           <thead>
             <tr>
               <th
                 scope="col"
-                className={cn(headCellClass, 'sticky left-0 z-20 w-[200px]')}
+                className={cn(headCellClass, 'w-[36%] min-[720px]:w-[20%]')}
               >
-                DERSLER / TARİH
+                <span className="min-[720px]:hidden">DERS</span>
+                <span className="hidden min-[720px]:inline">DERSLER / TARİH</span>
               </th>
-              {SCHEDULE_DAYS.map((day) => (
-                <th key={day.day} scope="col" className={headCellClass}>
-                  {day.label}
+              {SCHEDULE_DAYS.map((day, dayIndex) => (
+                <th
+                  key={day.day}
+                  scope="col"
+                  aria-label={day.label}
+                  className={cn(
+                    headCellClass,
+                    'w-[42%] min-[720px]:w-[9.6%]',
+                    dayIndex !== selectedDay && 'hidden min-[720px]:table-cell',
+                  )}
+                >
+                  <span className="min-[720px]:hidden">{day.label}</span>
+                  <span className="hidden min-[720px]:inline">{day.short}</span>
                 </th>
               ))}
-              <th scope="col" className={headCellClass}>
-                TOPLAM SÜRE/SORU
+              <th
+                scope="col"
+                aria-label="Toplam süre/soru"
+                className={cn(headCellClass, 'w-[22%] min-[720px]:w-[12.8%]')}
+              >
+                <span className="min-[720px]:hidden">TOPLAM</span>
+                <span className="hidden min-[720px]:inline">TOPLAM SÜRE/SORU</span>
               </th>
             </tr>
           </thead>
           <tbody>
             {draft.rows.map((row, index) => (
               <tr key={row.id}>
-                <td
-                  className={cn(
-                    bodyCellClass,
-                    'sticky left-0 z-10 bg-surface',
-                  )}
-                >
+                <td className={cn(bodyCellClass, 'bg-surface')}>
                   <div className="flex items-start gap-1">
                     <AutoGrowTextarea
                       value={row.subject}
@@ -364,7 +394,13 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                   </div>
                 </td>
                 {row.days.map((value, dayIndex) => (
-                  <td key={`${row.id}-${dayIndex}`} className={bodyCellClass}>
+                  <td
+                    key={`${row.id}-${dayIndex}`}
+                    className={cn(
+                      bodyCellClass,
+                      dayIndex !== selectedDay && 'hidden min-[720px]:table-cell',
+                    )}
+                  >
                     <AutoGrowTextarea
                       value={value}
                       onChange={(next) =>
@@ -390,17 +426,21 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
             <tr>
               <th
                 scope="row"
-                className={cn(
-                  headCellClass,
-                  'sticky left-0 z-10 border-b-0 bg-raised',
-                )}
+                className={cn(headCellClass, 'border-b-0 bg-raised')}
               >
-                {draft.totals.label || SCHEDULE_TABLE_TOTAL_LABEL}
+                <span className="min-[720px]:hidden">TOPLAM</span>
+                <span className="hidden min-[720px]:inline">
+                  {draft.totals.label || SCHEDULE_TABLE_TOTAL_LABEL}
+                </span>
               </th>
               {draft.totals.days.map((value, dayIndex) => (
                 <td
                   key={`toplam-${dayIndex}`}
-                  className={cn(bodyCellClass, 'border-b-0')}
+                  className={cn(
+                    bodyCellClass,
+                    'border-b-0',
+                    dayIndex !== selectedDay && 'hidden min-[720px]:table-cell',
+                  )}
                 >
                   <AutoGrowTextarea
                     value={value}

@@ -19,6 +19,11 @@ test('branş denemesi eklenir, ayrı sekmede grafiklenir ve ana istatistiğe gir
   await expect(page.getByRole('heading', { level: 1, name: 'TYT Sosyal 1' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Branş', exact: true })).toBeVisible();
 
+  // The branch exam must survive a full reload, not just the in-memory flow.
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: 'TYT Sosyal 1' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Branş', exact: true })).toBeVisible();
+
   // The detail page's own "Denemeler" link is the breadcrumb; the bottom nav
   // carries the same accessible name, so scope the click to the page path.
   await page

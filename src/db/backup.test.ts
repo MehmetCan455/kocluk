@@ -184,6 +184,8 @@ test('yedek tüm tabloları ve blob dosyalarını kayıpsız geri yükler', asyn
   >;
 
   expect(manifest).toMatchObject({ app: 'kocluk', schemaVersion: BACKUP_SCHEMA_VERSION });
+  // The manifest version is part of the archive contract; pin the literal too.
+  expect(manifest.schemaVersion).toBe(5);
   expect(manifest.counts.photos).toBe(1);
   expect(manifest.counts.photoSearch).toBe(1);
   expect(data.photoSearch).toHaveLength(1);
@@ -926,3 +928,122 @@ test('geçersiz branş bilgisi mevcut veriyi değiştirmeden reddedilir', async 
   expect(await db.exams.count()).toBe(2);
   expect(await db.examResults.count()).toBe(2);
 });
+
+async function seedBranchExam() {
+  await fullSeed();
+  const branchExam = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'TYT Sosyal 1',
+    date: '2026-11-20',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+  return { exported: await exportBackup(), branchExam };
+}
+
+test('branş denemesindeki ikinci sonuç satırı mevcut veriyi koruyarak reddedilir', async () => {
+  const { exported, branchExam } = await seedBranchExam();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+  const before = {
+    exams: await db.exams.count(),
+    results: await db.examResults.count(),
+  };
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const results = data.examResults as Array<Record<string, unknown>>;
+    const row = results.find((result) => result.examId === branchExam.id);
+    expect(row).toBeDefined();
+    // A different subjectId keeps this past the unique (examId, subjectId)
+    // check so the branch row-count rule is what rejects the archive.
+    results.push({ ...row!, id: 'brans-ikinci-satir', subjectId: 'tyt-fen' });
+  });
+
+  await expect(readBackupSummary(new File([invalid], 'brans-ozet.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+  await expect(importBackup(new File([invalid], 'brans-iki-satir.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.exams.count()).toBe(before.exams);
+  expect(await db.examResults.count()).toBe(before.results);
+});
+
+test('branş sonucu farklı derse aitse yedek reddedilir', async () => {
+  const { exported, branchExam } = await seedBranchExam();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+  const before = await db.examResults.count();
+
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const results = data.examResults as Array<Record<string, unknown>>;
+    const row = results.find((result) => result.examId === branchExam.id);
+    expect(row).toBeDefined();
+    row!.subjectId = 'tyt-fen';
+  });
+
+  await expect(importBackup(new File([invalid], 'yanlis-brans-dersi.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.examResults.count()).toBe(before);
+});
+
+test('branş soru sayısını aşan sonuç yedeği reddedilir', async () => {
+  const { exported, branchExam } = await seedBranchExam();
+  await patchSettings({ profileName: 'Korunacak Profil' });
+  const before = await db.examResults.count();
+
+  // tyt-sosyal has 20 questions; 18 + 3 + 0 is an impossible total.
+  const invalid = await mutateZip(exported, async (_zip, data) => {
+    const results = data.examResults as Array<Record<string, unknown>>;
+    const row = results.find((result) => result.examId === branchExam.id);
+    expect(row).toBeDefined();
+    row!.correct = 18;
+    row!.wrong = 3;
+    row!.blank = 0;
+  });
+
+  await expect(importBackup(new File([invalid], 'asiri-soru.zip'))).rejects.toThrow(
+    'Geçersiz yedek dosyası',
+  );
+  expect((await getSettings()).profileName).toBe('Korunacak Profil');
+  expect(await db.examResults.count()).toBe(before);
+});
+
+test('AYT branş denemesi alanı ve sonucuyla yedekten geri yüklenir', async () => {
+  await fullSeed();
+  const branchExam = await saveExam({
+    kind: 'branch',
+    type: 'AYT',
+    alan: 'sayisal',
+    branch: 'ayt-sayisal-fen',
+    name: 'AYT Fen 3',
+    date: '2026-11-21',
+    results: [{ subjectId: 'ayt-sayisal-fen', correct: 30, wrong: 6, blank: 4 }],
+  });
+
+  const exported = await exportBackup();
+  await resetDb();
+  const imported = await importBackup(new File([exported], 'ayt-brans.zip'));
+
+  expect(imported.counts).toMatchObject({ exams: 2, examResults: 2 });
+  expect(await getExam(branchExam.id)).toMatchObject({
+    kind: 'branch',
+    type: 'AYT',
+    alan: 'sayisal',
+    branch: 'ayt-sayisal-fen',
+    name: 'AYT Fen 3',
+    date: '2026-11-21',
+  });
+  const results = await listExamResults(branchExam.id);
+  expect(results).toHaveLength(1);
+  expect(results[0]).toMatchObject({
+    subjectId: 'ayt-sayisal-fen',
+    correct: 30,
+    wrong: 6,
+    blank: 4,
+  });
+  expect(results[0].net).toBeCloseTo(28.5);
+});
+

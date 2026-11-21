@@ -633,6 +633,46 @@ function assertUniqueBackupKeys(data: BackupData): void {
   assertUnique('scheduleTables.id', data.scheduleTables.map((row) => row.id));
 }
 
+/**
+ * Branch exams keep at most one result row: the branch itself (its
+ * `subjectId` is the branch key) with counts that fit the catalog question
+ * count. The exam schema only proves the branch metadata; without this
+ * cross-table check an imported archive could create an impossible total that
+ * the branch tab and detail page would happily sum.
+ */
+function assertBranchExamResults(data: BackupData): void {
+  const resultsByExam = new Map<string, BackupData['examResults']>();
+  for (const row of data.examResults) {
+    const rows = resultsByExam.get(row.examId);
+    if (rows) {
+      rows.push(row);
+    } else {
+      resultsByExam.set(row.examId, [row]);
+    }
+  }
+
+  for (const exam of data.exams) {
+    if (exam.kind !== 'branch') {
+      continue;
+    }
+    const config = exam.branch ? getBranchExam(exam.branch) : undefined;
+    const rows = resultsByExam.get(exam.id) ?? [];
+    if (rows.length > 1) {
+      throw invalidBackup();
+    }
+    const row = rows[0];
+    if (!row) {
+      continue;
+    }
+    if (!config || row.subjectId !== exam.branch) {
+      throw invalidBackup();
+    }
+    if (row.correct + row.wrong + row.blank > config.questionCount) {
+      throw invalidBackup();
+    }
+  }
+}
+
 async function readJson(zip: JSZip, path: string): Promise<unknown> {
   const entry = zip.file(path);
   if (!entry) {
@@ -700,6 +740,7 @@ async function readArchive(file: File): Promise<Archive> {
 
   const data = migrateBackupData(dataResult.data, manifest.schemaVersion);
   assertUniqueBackupKeys(data);
+  assertBranchExamResults(data);
   assertArchiveBlobs(zip, data);
 
   return {

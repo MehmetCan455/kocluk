@@ -35,6 +35,7 @@ export const SEARCH_RESULT_LIMIT_PER_KIND = 5;
 
 const EXAM_ORDER: Record<ExamType, number> = { TYT: 0, AYT: 1 };
 const NOTE_EXCERPT_LENGTH = 90;
+const UNKNOWN_BRANCH_LABEL = 'Bilinmeyen branş';
 
 function excerpt(text: string, maxLength: number = NOTE_EXCERPT_LENGTH): string {
   const compact = text.replace(/\s+/g, ' ').trim();
@@ -68,16 +69,20 @@ function examSubtitle(
   totalNet: number | undefined,
   alan: ReturnType<typeof resolveAytAlan> | undefined,
 ): string {
-  const branch = isBranchExam(exam) ? getBranchExam(exam.branch ?? '') : undefined;
+  const branch = isBranchExam(exam);
+  const branchConfig = branch ? getBranchExam(exam.branch ?? '') : undefined;
+  const branchLabel = branch
+    ? (branchConfig?.label ?? UNKNOWN_BRANCH_LABEL)
+    : null;
   const alanLabel = alan ? formatAlan(alan) : null;
   const parts: string[] = [exam.type];
   // Branch exams read `TYT · Branş · Sosyal · tarih · net`; full exams keep
   // their existing `TYT · tarih · alan · net` order.
-  if (branch) {
+  if (branchLabel) {
     if (alanLabel) {
       parts.push(alanLabel);
     }
-    parts.push('Branş', branch.label);
+    parts.push('Branş', branchLabel);
     parts.push(formatExamDate(exam.date));
   } else {
     parts.push(formatExamDate(exam.date));

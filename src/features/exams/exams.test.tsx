@@ -1361,6 +1361,69 @@ test('branş denemesi detayı tek satır ve branş etiketi gösterir', async () 
   renderApp(`/denemeler/${saved.id}`);
   expect(await screen.findByText('Branş')).toBeInTheDocument();
   expect(screen.getByText('Sosyal')).toBeInTheDocument();
-  expect(screen.getByText('15')).toBeInTheDocument();
+  expect(screen.queryByText('Bilinmeyen ders')).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Yanlış fotoğrafları' })).not.toBeInTheDocument();
+
+  const table = screen.getByRole('table', { name: 'Branş sonucu' });
+  const row = within(table).getByRole('row', { name: /Sosyal/ });
+  expect(within(row).getByText('15')).toBeInTheDocument();
+  expect(within(row).getByText('3')).toBeInTheDocument();
+  expect(within(row).getByText('2')).toBeInTheDocument();
+  expect(within(row).getByText('14,25')).toBeInTheDocument();
+  expect(within(table).getByText('D')).toBeInTheDocument();
+  expect(within(table).getByText('Y')).toBeInTheDocument();
+  expect(within(table).getByText('B')).toBeInTheDocument();
+  expect(within(table).getByText('Net')).toBeInTheDocument();
+  expect(screen.getByText('Toplam net')).toBeInTheDocument();
+});
+
+test('branş detayı yalnız aynı branştaki, tam detay yalnız tam denemelerle karşılaştırılır', async () => {
+  const turkce = await subjectIdByKey('tyt-turkce');
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Sosyal Eski',
+    date: '2026-11-10',
+    results: [{ subjectId: 'tyt-sosyal', correct: 10, wrong: 2, blank: 8 }],
+  });
+  const full = await saveExam({
+    kind: 'full',
+    type: 'TYT',
+    name: 'Tam TYT',
+    date: '2026-11-12',
+    results: [{ subjectId: turkce, correct: 20, wrong: 0, blank: 0 }],
+  });
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-turkce',
+    name: 'Türkçe Branş',
+    date: '2026-11-15',
+    results: [{ subjectId: 'tyt-turkce', correct: 30, wrong: 0, blank: 10 }],
+  });
+  const current = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Sosyal Yeni',
+    date: '2026-11-20',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+
+  const branchView = renderApp(`/denemeler/${current.id}`);
+  expect(await screen.findByText('Önceki denemeye göre +4,75 net')).toBeInTheDocument();
+  expect(screen.getByText(/Sosyal Eski · 10 Kasım 2026/)).toBeInTheDocument();
+  expect(screen.queryByText(/Tam TYT/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Türkçe Branş/)).not.toBeInTheDocument();
+  branchView.unmount();
+
+  renderApp(`/denemeler/${full.id}`);
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Tam TYT' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Karşılaştırılacak önceki TYT denemesi yok.')).toBeInTheDocument();
+  expect(screen.queryByText(/Sosyal Eski/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Sosyal Yeni/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Türkçe Branş/)).not.toBeInTheDocument();
 });

@@ -342,6 +342,12 @@ test('branş denemesi ana sayfa net kartlarını ve son denemeleri değiştirmez
   expect(screen.getByText('Tam TYT')).toBeInTheDocument();
   expect(screen.queryByText('Branş Sosyal')).not.toBeInTheDocument();
   expect(screen.queryByText('2 deneme')).not.toBeInTheDocument();
+
+  // En yüksek ve ortalama yalnızca tam denemeden: 30 - 5/4 = 28,75.
+  // Branş denemesi 15 - 3/4 = 14,25 olsaydı ortalama değişirdi.
+  const tytCard = screen.getByRole('group', { name: 'TYT netleri' });
+  expect(within(tytCard).getAllByText('28,75')).toHaveLength(2);
+  expect(within(tytCard).queryByText('14,25')).not.toBeInTheDocument();
 });
 
 test('gizlenen dersler genel ve AYT yüzdelerine katılmaz', async () => {

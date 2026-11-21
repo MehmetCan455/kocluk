@@ -124,6 +124,35 @@ async function openUploadDialog(): Promise<HTMLElement> {
   return screen.findByRole('dialog', { name: 'Fotoğraf yükle' });
 }
 
+interface ExamChoices {
+  full: Awaited<ReturnType<typeof saveExam>>;
+  branch: Awaited<ReturnType<typeof saveExam>>;
+}
+
+/** One full and one branch TYT exam for the exam-picker exclusion tests. */
+async function seedExamChoices(): Promise<ExamChoices> {
+  const full = await saveExam({
+    kind: 'full',
+    type: 'TYT',
+    name: 'Tam Seçenek',
+    date: '2026-11-18',
+    results: [],
+  });
+  const branch = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Branş Seçenek',
+    date: '2026-11-19',
+    results: [],
+  });
+  return { full, branch };
+}
+
+function optionValues(select: HTMLElement): string[] {
+  return [...(select as HTMLSelectElement).options].map((option) => option.value);
+}
+
 interface Deferred<T> {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -748,4 +777,51 @@ test('toplu etiket değiştir ders, konu ve deneme bağlantısını günceller',
     expect(projection?.examId).toBe(exam.id);
   }
   expect(screen.queryByRole('dialog', { name: 'Etiket değiştir' })).not.toBeInTheDocument();
+});
+
+test('fotoğraf yükleme deneme seçicisi branş denemelerini göstermez', async () => {
+  const { full, branch } = await seedExamChoices();
+  const dialog = await openUploadDialog();
+  const examSelect = within(dialog).getByLabelText('Deneme');
+
+  expect(optionValues(examSelect)).toEqual(['', full.id]);
+  expect(
+    within(examSelect).getByRole('option', { name: new RegExp(full.name) }),
+  ).toBeInTheDocument();
+  expect(
+    within(examSelect).queryByRole('option', { name: new RegExp(branch.name) }),
+  ).not.toBeInTheDocument();
+});
+
+test('yanlışlar filtresi ve toplu etiket deneme listeleri branş denemelerini göstermez', async () => {
+  const { full, branch } = await seedExamChoices();
+  const { subject } = await topicByKey('tyt-mat-turev');
+  await createPhoto({ note: 'Etiketlenecek soru', subjectKey: 'tyt-mat-turev' });
+
+  renderApp('/yanlislar');
+
+  const filterSelect = await screen.findByLabelText('Deneme filtresi');
+  expect(optionValues(filterSelect)).toEqual(['', full.id]);
+  expect(
+    within(filterSelect).getByRole('option', { name: new RegExp(full.name) }),
+  ).toBeInTheDocument();
+  expect(
+    within(filterSelect).queryByRole('option', { name: new RegExp(branch.name) }),
+  ).not.toBeInTheDocument();
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Seç' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Etiketlenecek soru' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Etiket değiştir' }));
+
+  const dialog = await screen.findByRole('dialog', { name: 'Etiket değiştir' });
+  await userEvent.selectOptions(within(dialog).getByLabelText(/Ders/), subject.id);
+  const bulkSelect = within(dialog).getByLabelText('Deneme');
+
+  await waitFor(() => expect(optionValues(bulkSelect)).toEqual(['', full.id]));
+  expect(
+    within(bulkSelect).getByRole('option', { name: new RegExp(full.name) }),
+  ).toBeInTheDocument();
+  expect(
+    within(bulkSelect).queryByRole('option', { name: new RegExp(branch.name) }),
+  ).not.toBeInTheDocument();
 });

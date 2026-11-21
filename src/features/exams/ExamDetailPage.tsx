@@ -209,7 +209,7 @@ export function ExamDetailPage() {
 
   const branch = isBranchExam(exam);
   const branchConfig = branch ? getBranchExam(exam.branch ?? '') : undefined;
-  const branchLabel = branchConfig?.label ?? 'Branş';
+  const branchLabel = branchConfig?.label ?? 'Bilinmeyen branş';
   const totalNet = sumNet(rows.map((row) => row.result));
 
   return (

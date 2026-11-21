@@ -12,6 +12,7 @@ import {
   listOpenPracticeSessions,
   listPracticeSessions,
   recordPracticeAnswer,
+  saveExam,
   updatePhoto,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
@@ -595,4 +596,37 @@ test('geçmiş testler en yeni tamamlanan oturumları tarih ve skorla listeler',
     'href',
     `/yanlislar/test/${oldSession.id}`,
   );
+});
+
+test('rastgele test deneme seçicisi branş denemelerini göstermez', async () => {
+  const full = await saveExam({
+    kind: 'full',
+    type: 'TYT',
+    name: 'Tam Seçenek',
+    date: '2026-11-18',
+    results: [],
+  });
+  const branch = await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Branş Seçenek',
+    date: '2026-11-19',
+    results: [],
+  });
+
+  renderApp('/yanlislar/test');
+
+  const examSelect = await screen.findByLabelText('Deneme (isteğe bağlı)');
+  const values = [...(examSelect as HTMLSelectElement).options].map(
+    (option) => option.value,
+  );
+
+  expect(values).toEqual(['', full.id]);
+  expect(
+    within(examSelect).getByRole('option', { name: new RegExp(full.name) }),
+  ).toBeInTheDocument();
+  expect(
+    within(examSelect).queryByRole('option', { name: new RegExp(branch.name) }),
+  ).not.toBeInTheDocument();
 });

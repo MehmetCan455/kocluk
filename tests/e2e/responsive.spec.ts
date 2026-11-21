@@ -1,5 +1,39 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { completeOnboarding, TEST_NAME } from './helpers';
+
+const DAYS = [
+  'Pazartesi',
+  'Salı',
+  'Çarşamba',
+  'Perşembe',
+  'Cuma',
+  'Cumartesi',
+  'Pazar',
+] as const;
+
+async function expectOnlyDayColumn(table: Locator, selectedDay: (typeof DAYS)[number]) {
+  for (const day of DAYS) {
+    const header = table.getByRole('columnheader', { name: day, exact: true });
+    if (day === selectedDay) {
+      await expect(header).toBeVisible();
+    } else {
+      await expect(header).toHaveCount(0);
+    }
+  }
+}
+
+async function expectDaysWithinWidth(table: Locator, width: number) {
+  for (const day of DAYS) {
+    const header = table.getByRole('columnheader', { name: day, exact: true });
+    await expect(header).toBeVisible();
+    const box = await header.boundingBox();
+    if (!box) throw new Error(`${day} sütun başlığının konumu alınamadı`);
+    expect(
+      box.x + box.width,
+      `${day} sütununun sağ kenarı ${width} px görünümünü aşıyor`,
+    ).toBeLessThanOrEqual(width + 1);
+  }
+}
 
 const PAGES: ReadonlyArray<{ path: string; heading: string }> = [
   { path: './#/', heading: 'Genel Bakış' },
@@ -72,12 +106,10 @@ test('390 px çizelgede tek gün görünür ve gün değiştirilir', async ({ pa
   await page.goto('./#/program');
 
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
-  await expect(table.getByRole('columnheader', { name: 'Pazartesi' })).toBeVisible();
-  await expect(table.getByRole('columnheader', { name: 'Salı' })).toHaveCount(0);
+  await expectOnlyDayColumn(table, 'Pazartesi');
 
   await page.getByRole('button', { name: 'Salı', exact: true }).click();
-  await expect(table.getByRole('columnheader', { name: 'Salı' })).toBeVisible();
-  await expect(table.getByRole('columnheader', { name: 'Pazartesi' })).toHaveCount(0);
+  await expectOnlyDayColumn(table, 'Salı');
 
   const height = await table
     .getByLabel('1. satır Salı')
@@ -91,9 +123,7 @@ test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', asyn
   await page.goto('./#/program');
 
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
-  await expect(
-    table.getByRole('columnheader', { name: 'Pazar', exact: true }),
-  ).toBeVisible();
+  await expectDaysWithinWidth(table, 768);
 
   const tableOverflow = await table.evaluate(
     (element) => element.scrollWidth - element.clientWidth,
@@ -113,6 +143,8 @@ test('768 px çizelgede yedi gün sığar ve uzun hücre aşağı büyür', asyn
   await expect
     .poll(async () => (await row.boundingBox())?.height ?? 0)
     .toBeGreaterThan(before?.height ?? 0);
+
+  await expectDaysWithinWidth(table, 768);
 
   const cellOverflow = await cell.evaluate((element) => ({
     vertical: element.scrollHeight - element.clientHeight,

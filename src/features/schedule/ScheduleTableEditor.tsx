@@ -72,6 +72,8 @@ const headCellClass =
 
 const bodyCellClass = 'border-b border-r border-line p-0.5 align-top';
 
+const subjectCellClass = 'border-b border-r border-line p-0.5 align-middle';
+
 /** Short enough to feel automatic, long enough not to save every keystroke. */
 const AUTOSAVE_DELAY_MS = 800;
 
@@ -432,8 +434,8 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
           <tbody>
             {draft.rows.map((row, index) => (
               <tr key={row.id}>
-                <td className={cn(bodyCellClass, 'sticky left-0 z-10 bg-surface')}>
-                  <div className="flex items-start gap-1">
+                <td className={cn(subjectCellClass, 'sticky left-0 z-10 bg-surface')}>
+                  <div className="flex items-center gap-1">
                     <AutoGrowTextarea
                       value={row.subject}
                       onChange={(value) => updateSubject(row.id, value)}

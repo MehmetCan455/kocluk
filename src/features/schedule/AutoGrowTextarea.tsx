@@ -38,7 +38,7 @@ export function AutoGrowTextarea({
 
   const variantClass =
     variant === 'subject'
-      ? 'py-3 text-center text-lg leading-7'
+      ? 'py-3 text-center text-lg leading-7 font-semibold'
       : 'py-2 text-left text-sm leading-5';
 
   useLayoutEffect(() => {

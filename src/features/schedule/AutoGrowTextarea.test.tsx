@@ -80,6 +80,7 @@ test('subject varyantı 18 px, ortalı ve ferah metin kullanır', () => {
     'text-lg',
     'text-center',
     'py-3',
+    'font-semibold',
   );
 });
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Eraser, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { cn } from '@/components/ui/cn';
@@ -13,6 +13,7 @@ import {
   SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
   createEmptyScheduleRow,
   createEmptyScheduleTable,
+  emptyScheduleTableDoneCells,
 } from '@/domain/scheduleTable';
 import type {
   ScheduleTable,
@@ -291,6 +292,16 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
     }));
   }
 
+  function clearDone(): void {
+    setDraft((current) => ({
+      ...current,
+      rows: current.rows.map((row) => ({
+        ...row,
+        done: emptyScheduleTableDoneCells(),
+      })),
+    }));
+  }
+
   async function save(): Promise<void> {
     if (saving || !dirty) {
       return;
@@ -299,6 +310,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
   }
 
   const atMaxRows = draft.rows.length >= SCHEDULE_TABLE_MAX_ROWS;
+  const hasDone = draft.rows.some((row) => row.done.some(Boolean));
   const statusText = saving
     ? 'Kaydediliyor…'
     : error
@@ -319,15 +331,26 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
             otomatik hesaplanmaz; her hücreyi kendin doldurabilirsin.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={addRow}
-          disabled={atMaxRows}
-          aria-label="Satır ekle"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Satır ekle
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={clearDone}
+            disabled={!hasDone}
+            aria-label="Tüm tikleri kaldır"
+          >
+            <Eraser className="h-4 w-4" aria-hidden="true" />
+            Tüm tikleri kaldır
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={addRow}
+            disabled={atMaxRows}
+            aria-label="Satır ekle"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Satır ekle
+          </Button>
+        </div>
       </div>
 
       <div

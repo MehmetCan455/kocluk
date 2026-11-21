@@ -370,6 +370,33 @@ test('gün tiki hücreyi yeşile çevirir, geri alınır ve yeniden açınca kor
   );
 });
 
+test('tüm tikleri tek düğmeyle kaldırır', async () => {
+  await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  const clear = screen.getByRole('button', { name: 'Tüm tikleri kaldır' });
+  expect(clear).toBeDisabled();
+
+  await userEvent.click(
+    within(table).getByRole('checkbox', {
+      name: '1. satır Pazartesi tamamlandı',
+    }),
+  );
+  await userEvent.click(
+    within(table).getByRole('checkbox', {
+      name: '2. satır Salı tamamlandı',
+    }),
+  );
+  expect(clear).toBeEnabled();
+
+  await userEvent.click(clear);
+
+  const boxes = within(table).getAllByRole('checkbox');
+  expect(boxes.every((box) => !(box as HTMLInputElement).checked)).toBe(true);
+  expect(clear).toBeDisabled();
+});
+
 test('20 MB üzerindeki çizelge dosyasını yüklemez', async () => {
   await openSchedule();
   await switchToUpload();

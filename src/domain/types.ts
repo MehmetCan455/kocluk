@@ -2,6 +2,22 @@ export type ExamType = 'TYT' | 'AYT';
 
 export type AytAlan = 'sayisal' | 'ea' | 'sozel' | 'tumu';
 
+/** A full mock exam, or a single-branch mock exam. */
+export type ExamKind = 'full' | 'branch';
+
+/** The fixed branch catalog; each key maps to one row in `branchConfig.ts`. */
+export type BranchExamKey =
+  | 'tyt-turkce'
+  | 'tyt-sosyal'
+  | 'tyt-matematik'
+  | 'tyt-fen'
+  | 'ayt-sayisal-matematik'
+  | 'ayt-sayisal-fen'
+  | 'ayt-ea-matematik'
+  | 'ayt-ea-edebiyat-sosyal-1'
+  | 'ayt-sozel-edebiyat-sosyal-1'
+  | 'ayt-sozel-sosyal-2';
+
 /**
  * Geometry is a separate subject in topic/book tracking. Exam entry can merge
  * it into the maths row instead, which this setting controls.
@@ -53,6 +69,10 @@ export interface Exam {
   name: string;
   date: string;
   alan?: AytAlan;
+  /** Missing on old records, which are full exams. */
+  kind?: ExamKind;
+  /** Only present when `kind === 'branch'`. */
+  branch?: BranchExamKey;
   note: string;
   createdAt: string;
 }

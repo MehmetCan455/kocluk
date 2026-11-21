@@ -1261,3 +1261,90 @@ test('branş denemesi ayrı sekmede grafiklenir, tam deneme sekmesine girmez', a
   expect(screen.queryByText('Tam TYT')).not.toBeInTheDocument();
   view.unmount();
 });
+
+test('branş sekmesi veri bulunan ilk branşta açılır, branş değişince liste ve grafik değişir', async () => {
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Sosyal Branş 1',
+    date: '2026-11-19',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-turkce',
+    name: 'Türkçe Branş 1',
+    date: '2026-11-18',
+    results: [{ subjectId: 'tyt-turkce', correct: 30, wrong: 5, blank: 5 }],
+  });
+
+  const view = renderApp('/denemeler');
+  await userEvent.click(await screen.findByRole('button', { name: 'Branş' }));
+
+  const branchSelect = await screen.findByLabelText('Branş');
+  expect(branchSelect).toHaveValue('tyt-turkce');
+  expect(await screen.findByText('TYT Türkçe branş denemeleri')).toBeInTheDocument();
+  expect(screen.getByText('Türkçe Branş 1')).toBeInTheDocument();
+  expect(screen.queryByText('Sosyal Branş 1')).not.toBeInTheDocument();
+
+  await userEvent.selectOptions(branchSelect, 'tyt-sosyal');
+  expect(await screen.findByText('TYT Sosyal branş denemeleri')).toBeInTheDocument();
+  expect(screen.getByText('Sosyal Branş 1')).toBeInTheDocument();
+  expect(screen.queryByText('Türkçe Branş 1')).not.toBeInTheDocument();
+
+  await userEvent.selectOptions(branchSelect, 'tyt-fen');
+  expect(
+    await screen.findByText('Henüz TYT Fen branş denemesi yok'),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('Sosyal Branş 1')).not.toBeInTheDocument();
+  view.unmount();
+});
+
+test('branş denemesi kartı D/Y/B ve neti tek satırda gösterir', async () => {
+  await saveExam({
+    kind: 'branch',
+    type: 'TYT',
+    branch: 'tyt-sosyal',
+    name: 'Sosyal Kart',
+    date: '2026-11-19',
+    results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
+  });
+
+  const view = renderApp('/denemeler?tur=BRANS');
+  const card = await screen.findByRole('link', { name: /Sosyal Kart/ });
+
+  expect(within(card).getByText('Sosyal')).toBeInTheDocument();
+  expect(within(card).getByText('D')).toBeInTheDocument();
+  expect(within(card).getByText('Y')).toBeInTheDocument();
+  expect(within(card).getByText('B')).toBeInTheDocument();
+  expect(within(card).getByText('Net')).toBeInTheDocument();
+  expect(within(card).getByText('15')).toBeInTheDocument();
+  expect(within(card).getByText('3')).toBeInTheDocument();
+  expect(within(card).getByText('2')).toBeInTheDocument();
+  // Toplam net ve tek satırın neti aynı değeri taşır.
+  expect(within(card).getAllByText('14,25')).toHaveLength(2);
+  view.unmount();
+});
+
+test('AYT branş sekmesi ayarlardaki alanla ve ilk branşla açılır', async () => {
+  await patchSettings({ aytAlan: 'ea' });
+
+  const view = renderApp('/denemeler');
+  await userEvent.click(await screen.findByRole('button', { name: 'Branş' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Branş türü AYT' }));
+
+  expect(screen.getByLabelText('Branş')).toHaveValue('ayt-ea-matematik');
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Eşit Ağırlık' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    ),
+  );
+  expect(screen.getByRole('link', { name: 'Yeni deneme' })).toHaveAttribute(
+    'href',
+    '/denemeler/yeni?brans=1&tur=AYT&alan=ea&branch=ayt-ea-matematik',
+  );
+  view.unmount();
+});

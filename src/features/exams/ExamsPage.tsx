@@ -60,6 +60,12 @@ const BRANCH_ALAN_FILTERS: ReadonlyArray<{ id: AytBranch; label: string }> = [
 const newExamLinkClass =
   'inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-contrast)]';
 
+// Branch exams have exactly one result row, so the card shows a compact
+// D/Y/B/Net table instead of the per-subject proportional bars used by full
+// exams.
+const branchCountsGrid =
+  'grid grid-cols-[minmax(0,1fr)_1.75rem_1.75rem_1.75rem_3.5rem] items-center gap-2';
+
 interface ExamRow {
   exam: Exam;
   results: ExamResult[];
@@ -165,6 +171,29 @@ function ExamCard({
 
       {sortedResults.length === 0 ? (
         <p className="mt-3 text-xs text-muted">Ders sonucu girilmedi.</p>
+      ) : branch ? (
+        <div className="mt-3 space-y-1">
+          <div
+            className={`${branchCountsGrid} text-xs font-medium uppercase tracking-wide text-muted`}
+          >
+            <span />
+            <span className="text-center">D</span>
+            <span className="text-center">Y</span>
+            <span className="text-center">B</span>
+            <span className="text-right">Net</span>
+          </div>
+          {sortedResults.map((result) => (
+            <div key={result.id} className={branchCountsGrid}>
+              <span className="truncate text-xs text-muted">{branch}</span>
+              <span className="text-center text-xs tabular-nums">{result.correct}</span>
+              <span className="text-center text-xs tabular-nums">{result.wrong}</span>
+              <span className="text-center text-xs tabular-nums">{result.blank}</span>
+              <span className="text-right text-xs font-semibold tabular-nums">
+                {formatNet(result.net)}
+              </span>
+            </div>
+          ))}
+        </div>
       ) : (
         <ul className="mt-3 space-y-1.5">
           {sortedResults.map((result) => {
@@ -178,7 +207,7 @@ function ExamCard({
                 className="grid grid-cols-[minmax(0,5.5rem)_1fr_auto] items-center gap-2"
               >
                 <span className="truncate text-xs text-muted">
-                  {branch ?? resultSubjectName(result, subjectById)}
+                  {resultSubjectName(result, subjectById)}
                 </span>
                 <span className="h-1.5 overflow-hidden rounded-full bg-raised" aria-hidden="true">
                   <span

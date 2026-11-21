@@ -2,6 +2,8 @@
 
 - Tarih: 2026-11-21
 - Durum: Onaylandı (2026-11-21)
+- Revizyon: 2026-11-21 — kullanıcı önizlemesi sonrası kırılım 768 px’e çıkarıldı,
+  mobil sütunlar %45/%33/%22 yapıldı, hücre içi boşluk daraltıldı.
 - Kapsam: Elle ders çalışma çizelgesi (`/program`, `ScheduleTableEditor`)
 
 ## 1. Özet
@@ -13,10 +15,10 @@ satırlara bölünecek ve satır yüksekliği en uzun hücreye göre artacak.
 
 Aynı değişiklikte tablo duyarlı hale gelecek:
 
-- **Telefon (< 720 px):** Aynı anda yalnızca bir gün gösterilecek. Tablonun üstünde
+- **Telefon (< 768 px):** Aynı anda yalnızca bir gün gösterilecek. Tablonun üstünde
   yedi günlük bir seçici olacak; Ders, seçili gün ve Toplam sütunları ekrana
   sığacak. Günler arasında geçiş yapılabilecek.
-- **Tablet ve masaüstü (≥ 720 px):** Yedi günün tamamı tek tabloda, yatay kaydırma
+- **Tablet ve masaüstü (≥ 768 px):** Yedi günün tamamı tek tabloda, yatay kaydırma
   olmadan ekrana sığacak.
 
 ## 2. Neden
@@ -78,17 +80,19 @@ Tablet/masaüstünde sütun genişliklerini esnetmek A ile birlikte kullanılır
 - `resize-none`, `overflow-hidden`, `break-words` (`overflow-wrap: anywhere`).
 - Enter yeni satır üretmez; hücreden çıkar (kazara boşlukları önlemek için).
 - Hücreler `align-top` hizalanır; satır silme düğmesi üstte kalır.
+- Hücre içi yatay boşluk daraltılır: gövde hücresi `p-0.5`, textarea `px-1`.
+  Böylece 360 px’te ders adı, 768 px’te gün metni kelime ortasından bölünmez.
 
 ### 6.2 Duyarlı yerleşim
 
-- Kırılım noktası **720 px**. Altında tek gün, üstünde tam tablo.
+- Kırılım noktası **768 px**. Altında tek gün, üstünde tam tablo.
 - Tam tabloda `table-fixed w-full`, yüzde genişlikler: ders %20, her gün %9,6,
   toplam %12,8. `min-w` ve `overflow-x-auto` kaldırılır.
-- Telefonda yüzde genişlikler: ders %36, seçili gün %42, toplam %22.
+- Telefonda yüzde genişlikler: ders %45, seçili gün %33, toplam %22.
 - Telefonda gün seçici: yedi kısa etiketli (`Pzt`, `Sal`, …) düğme; `aria-pressed`
   ve grup etiketi “Çizelge günü”. Varsayılan seçim Pazartesi; seçim yalnızca
   bileşen durumunda tutulur, kaydedilmez.
-- Seçili olmayan gün sütunları telefonda `display:none`, 720 px üstünde görünür.
+- Seçili olmayan gün sütunları telefonda `display:none`, 768 px üstünde görünür.
   Veri tüm günler için bellekte ve veritabanında korunur.
 - Gün başlıkları kısa etiket + ekran okuyucu için tam gün adı kullanır; “Toplam”
   başlığı sığsın diye kısaltılır.

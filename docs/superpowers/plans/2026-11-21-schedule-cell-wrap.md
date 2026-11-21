@@ -4,7 +4,12 @@
 
 **Goal:** Elle ders çalışma çizelgesinde uzun hücre metinlerini sarıp satırı aşağı büyütmek; telefonda tek gün + gün seçici, tablet/masaüstünde yedi günü yatay kaydırmasız göstermek.
 
-**Architecture:** Hücrelerdeki `<input>` alanları, `scrollHeight` ve `ResizeObserver` ile kendini büyüten `<textarea>` bileşenine çevrilir. Tablo `table-fixed` + yüzde sütun genişlikleri kullanır; 720 px altında seçili olmayan gün sütunları CSS ile gizlenir, veri bellekte kalır. Seçili gün bileşen durumundadır; veri modeli ve otomatik kaydetme değişmez.
+**Architecture:** Hücrelerdeki `<input>` alanları, `scrollHeight` ve `ResizeObserver` ile kendini büyüten `<textarea>` bileşenine çevrilir. Tablo `table-fixed` + yüzde sütun genişlikleri kullanır; 768 px altında seçili olmayan gün sütunları CSS ile gizlenir, veri bellekte kalır. Seçili gün bileşen durumundadır; veri modeli ve otomatik kaydetme değişmez.
+
+**Revizyon (2026-11-21, kullanıcı onayı):** Kırılım 768 px yerine **768 px**;
+mobil sütunlar %36/%42/%22 yerine **%45/%33/%22**; gövde hücresi `p-1` yerine
+`p-0.5`, textarea `px-2` yerine `px-1`. Bu değerler aşağıdaki Task 3 metninde
+güncellenmiştir.
 
 **Tech Stack:** React 19, TypeScript, Tailwind CSS 4, Vitest + React Testing Library, Playwright.
 
@@ -26,7 +31,7 @@
 1. **Boşluksuz 120 karakterlik metin:** Gün hücresinde tek parça uzun metin yatay taşmamalı, sarmalı ve satırı büyütmeli. Test: Task 1 (yükseklik), Task 4 (E2E `'X'.repeat(120)`).
 2. **Gizli günlerin verisi:** Telefonda gün değiştirince önceki günün yazılanı kaybolmamalı ve otomatik kaydetmeye dahil olmalı. Test: Task 3 (CSS ile gizleme), Task 4 (program E2E Salı kaydı + reload).
 3. **Enter tuşu:** Hücrede Enter yeni satır/boşluk üretmemeli, odaktan çıkmalı. Test: Task 1.
-4. **720–768 px sığma:** Yedi gün ve uzun “TOPLAM SÜRE/SORU” başlığı yatay kaydırma üretmeden sığmalı. Test: Task 4.
+4. **768 px sığma:** Yedi gün ve uzun “TOPLAM SÜRE/SORU” başlığı yatay kaydırma üretmeden sığmalı; hücre metni kelime ortasından bölünmemeli. Test: Task 4.
 5. **Erişilebilir adlar:** Gizlenen gün sütunları erişilebilirlik ağacından çıkmalı; seçili günün başlığı tam gün adıyla okunmalı. Test: Task 4.
 
 ---
@@ -155,7 +160,7 @@ Create `src/features/schedule/AutoGrowTextarea.tsx` with the exported interface 
 - `useLayoutEffect` her `value` değişiminde yüksekliği ayarlar.
 - `useEffect` içinde `ResizeObserver` alanı gözler; genişlik değişince yükseklik yeniden hesaplanır.
 - Gizli hücrede `scrollHeight` 0 döner; bu durumda yüksekliğe dokunma.
-- Temel sınıflar: `block min-h-11 w-full min-w-0 resize-none overflow-hidden rounded-lg border border-transparent bg-transparent px-2 py-2 text-sm leading-5 text-fg placeholder:text-muted transition-colors hover:border-line focus:border-[var(--accent)] focus:bg-canvas [overflow-wrap:anywhere]`, ardından `className`.
+- Temel sınıflar: `block min-h-11 w-full min-w-0 resize-none overflow-hidden rounded-lg border border-transparent bg-transparent px-1 py-2 text-sm leading-5 text-fg placeholder:text-muted transition-colors hover:border-line focus:border-[var(--accent)] focus:bg-canvas [overflow-wrap:anywhere]`, ardından `className`.
 
 Yükseklik algoritması:
 
@@ -215,7 +220,7 @@ In `src/features/schedule/ScheduleTableEditor.tsx`:
 
 - Import `AutoGrowTextarea` from `./AutoGrowTextarea`.
 - Delete the `cellInputClass` constant.
-- Change `bodyCellClass` to `'border-b border-r border-line p-1 align-top'`.
+- Change `bodyCellClass` to `'border-b border-r border-line p-0.5 align-top'`.
 - Subject cell: wrapper `flex items-start gap-1`; replace the `<input>` with:
 
 ```tsx
@@ -304,7 +309,7 @@ After the header row (`Haftalık tablo` + `Satır ekle`) and before the table wr
 <div
   role="group"
   aria-label="Çizelge günü"
-  className="grid grid-cols-7 gap-1 min-[720px]:hidden"
+  className="grid grid-cols-7 gap-1 min-[768px]:hidden"
 >
   {SCHEDULE_DAYS.map((day, dayIndex) => (
     <button
@@ -333,23 +338,23 @@ In the same file:
 - Remove the entire `<colgroup>` block.
 - Remove `min-w-[920px]` from `<table>`; use `className="w-full table-fixed border-collapse text-sm"`.
 - Change the table wrapper to `className="rounded-xl border border-line"` (no `max-w-full overflow-x-auto`).
-- Subject `<th>`: `className={cn(headCellClass, 'w-[36%] min-[720px]:w-[20%]')}`; inside it show `DERS` below 720 px and `DERSLER / TARİH` at and above 720 px (two spans with `min-[720px]:hidden` / `hidden min-[720px]:inline`).
+- Subject `<th>`: `className={cn(headCellClass, 'w-[45%] min-[768px]:w-[20%]')}`; inside it show `DERS` below 768 px and `DERSLER / TARİH` at and above 768 px (two spans with `min-[768px]:hidden` / `hidden min-[768px]:inline`).
 - Each day `<th>`: add `aria-label={day.label}` and
 
 ```tsx
 className={cn(
   headCellClass,
-  'w-[42%] min-[720px]:w-[9.6%]',
-  dayIndex !== selectedDay && 'hidden min-[720px]:table-cell',
+  'w-[33%] min-[768px]:w-[9.6%]',
+  dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
 )}
 ```
 
-Inside show the full `day.label` below 720 px and `day.short` at and above 720 px (same two-span pattern).
-- Total `<th>`: `className={cn(headCellClass, 'w-[22%] min-[720px]:w-[12.8%]')}` and `aria-label="Toplam süre/soru"`; show `TOPLAM` below 720 px and `TOPLAM SÜRE/SORU` at and above 720 px.
+Inside show the full `day.label` below 768 px and `day.short` at and above 768 px (same two-span pattern).
+- Total `<th>`: `className={cn(headCellClass, 'w-[22%] min-[768px]:w-[12.8%]')}` and `aria-label="Toplam süre/soru"`; show `TOPLAM` below 768 px and `TOPLAM SÜRE/SORU` at and above 768 px.
 - Subject `<td>`: `className={cn(bodyCellClass, 'bg-surface')}` (remove `sticky left-0 z-10`).
-- Each day `<td>`: add `dayIndex !== selectedDay && 'hidden min-[720px]:table-cell'`.
-- Footer label `<th>`: `className={cn(headCellClass, 'border-b-0 bg-raised')}` (remove sticky); inside show `TOPLAM` below 720 px and `draft.totals.label || SCHEDULE_TABLE_TOTAL_LABEL` at and above 720 px.
-- Each footer day `<td>`: add `dayIndex !== selectedDay && 'hidden min-[720px]:table-cell'` alongside `border-b-0`.
+- Each day `<td>`: add `dayIndex !== selectedDay && 'hidden min-[768px]:table-cell'`.
+- Footer label `<th>`: `className={cn(headCellClass, 'border-b-0 bg-raised')}` (remove sticky); inside show `TOPLAM` below 768 px and `draft.totals.label || SCHEDULE_TABLE_TOTAL_LABEL` at and above 768 px.
+- Each footer day `<td>`: add `dayIndex !== selectedDay && 'hidden min-[768px]:table-cell'` alongside `border-b-0`.
 - Remove all remaining `sticky` classes.
 
 - [ ] **Step 4: Run unit tests and typecheck**

@@ -75,7 +75,8 @@ Hangi günün yapıldığını göstermez; kullanıcı hücre bazında işaretle
 - Mod kapalı: mevcut `AutoGrowTextarea`; tikli hücrede `text-muted opacity-80`,
   `<td>` arka planı `bg-success/10`.
 - Mod açık: metin alanı yerine hücreyi dolduran bir `<button type="button">`:
-  - `aria-label={`${index + 1}. satır ${day.label}`}`,
+  - `aria-label={`${index + 1}. satır ${day.label}${value ? `: ${value}` : ''}`}`
+    (hücre metni erişilebilir adın parçası olur),
   - `aria-pressed={row.done[dayIndex]}`,
   - `className` ile tam genişlik, `min-h-11`, solda hizalı, `whitespace-pre-wrap`,
   - boş hücrede görünmez/boş metin; hücre yine tiklenebilir,
@@ -83,6 +84,8 @@ Hangi günün yapıldığını göstermez; kullanıcı hücre bazında işaretle
 - `<td>` üzerinde `data-done={row.done[dayIndex] ? 'true' : undefined}`; testler
   ve durum gözlemi için.
 - Tikli hücrede buton metni `text-muted opacity-80`; `<td>` yeşil ton.
+- Mod kapalıyken tikli hücrede `<td>` içinde `sr-only` “Tamamlandı” metni
+  bulunur; ekran okuyucu tik durumunu duyar.
 - Mod açıkken satır silme düğmesi ve gün seçici çalışmaya devam eder.
 
 ### 6.3 Ders sütunu

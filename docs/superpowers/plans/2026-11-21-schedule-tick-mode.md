@@ -236,7 +236,7 @@ In `ScheduleTableEditor.tsx`:
 {tickMode ? (
   <button
     type="button"
-    aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
+    aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}${value ? `: ${value}` : ''}`}
     aria-pressed={row.done[dayIndex]}
     onClick={() => updateRowDone(row.id, dayIndex, !row.done[dayIndex])}
     className={cn(
@@ -255,6 +255,9 @@ In `ScheduleTableEditor.tsx`:
     className={row.done[dayIndex] ? 'text-muted opacity-80' : undefined}
   />
 )}
+{!tickMode && row.done[dayIndex] ? (
+  <span className="sr-only">Tamamlandı</span>
+) : null}
 ```
 
 - leave the subject, total and footer cells untouched.
@@ -281,7 +284,7 @@ with:
 ```ts
 await page.getByRole('button', { name: 'Tik modu' }).click();
 await page
-  .getByRole('button', { name: '1. satır Pazartesi', exact: true })
+  .getByRole('button', { name: /^1\. satır Pazartesi/ })
   .click();
 await page.getByRole('button', { name: 'Tik modu' }).click();
 ```

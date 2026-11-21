@@ -559,8 +559,9 @@ In `ExamsPage.tsx`:
 - full rows/chart: `data.rows.filter(!isBranchExam && type)`, full exam list for
   `buildNetSeries`, `buildSubjectNetSeries`, and `buildExamComparison`;
 - branch state: `branchType` (TYT/AYT), `branchAlan`
-  (`settings.aytAlan` concrete or `sayisal`), `selectedBranch`
-  (`branchesFor(branchType, branchAlan)[0]?.key ?? ''`);
+  (`settings.aytAlan` concrete or `sayisal`), `selectedBranch`: on open the
+  first branch with data, else `branchesFor(branchType, branchAlan)[0]?.key`;
+  type/alan changes reset to the first option;
 - branch tab controls: TYT/AYT sub-filter, AYT alan filter, branch select
   (`aria-label="Branş"`); when the type/alan changes reset the branch to the
   first option;

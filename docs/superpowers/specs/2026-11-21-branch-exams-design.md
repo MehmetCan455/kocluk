@@ -265,9 +265,11 @@ branch: z.string().optional(),
 - Branş sekmesindeki “Yeni deneme” bağlantısı
   `/denemeler/yeni?brans=1&tur=TYT|AYT&alan=...&branch=...` ile formu branş
   modunda ve mevcut filtreyle açar.
-- Açılış seçimleri: TYT’de `tyt-turkce`; AYT’de `settings.aytAlan` somut ise o
-  alan, değilse `sayisal`; branş, seçilen alanın ilk branşı. Kullanıcı
-  değiştirebilir.
+- Açılış seçimleri: TYT’de branşlar katalog sırasıyla; açılışta **veri bulunan
+  ilk branş**, hiçbiri yoksa `tyt-turkce`. AYT’de `settings.aytAlan` somut ise
+  o alan, değilse `sayisal`; branş, veri bulunan ilk branş, yoksa alanın ilk
+  branşı. Kullanıcı değiştirebilir; tür/alan değişince ilk katalog branşına
+  döner.
 - Ana “Yeni deneme” bağlantısı tam deneme formunu açar.
 
 ### 9.2 Branş grafiği

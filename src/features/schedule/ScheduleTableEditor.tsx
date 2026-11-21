@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Eraser, Plus, Trash2 } from 'lucide-react';
+import { CheckSquare, Eraser, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { cn } from '@/components/ui/cn';
@@ -89,6 +89,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
   const [error, setError] = useState<string | null>(null);
   // Zero-based index into SCHEDULE_DAYS: narrow screens show a single day.
   const [selectedDay, setSelectedDay] = useState(0);
+  const [tickMode, setTickMode] = useState(false);
 
   const serialized = JSON.stringify(draft);
   const dirty = serialized !== savedSnapshot;
@@ -333,6 +334,14 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
+            variant={tickMode ? 'primary' : 'secondary'}
+            aria-pressed={tickMode}
+            onClick={() => setTickMode((current) => !current)}
+          >
+            <CheckSquare className="h-4 w-4" aria-hidden="true" />
+            Tik modu
+          </Button>
+          <Button
             variant="secondary"
             onClick={clearDone}
             disabled={!hasDone}
@@ -352,6 +361,10 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
           </Button>
         </div>
       </div>
+
+      {tickMode ? (
+        <p className="text-xs text-muted">Kutulara dokunarak tik at veya kaldır.</p>
+      ) : null}
 
       <div
         role="group"
@@ -427,6 +440,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                       label={`${index + 1}. satır ders`}
                       placeholder="Ders / etkinlik"
                       maxLength={SCHEDULE_TABLE_SUBJECT_MAX_LENGTH}
+                      variant="subject"
                       className="flex-1"
                     />
                     <button
@@ -442,34 +456,41 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                 {row.days.map((value, dayIndex) => (
                   <td
                     key={`${row.id}-${dayIndex}`}
+                    data-done={row.done[dayIndex] ? 'true' : undefined}
                     className={cn(
                       bodyCellClass,
                       row.done[dayIndex] && 'bg-success/10',
                       dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
                     )}
                   >
-                    <div className="flex justify-end">
-                      <label className="grid h-11 w-11 place-items-center">
-                        <input
-                          type="checkbox"
-                          checked={row.done[dayIndex]}
-                          onChange={(event) =>
-                            updateRowDone(row.id, dayIndex, event.target.checked)
-                          }
-                          aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label} tamamlandı`}
-                          className="h-5 w-5 accent-[var(--color-success)]"
-                        />
-                      </label>
-                    </div>
-                    <AutoGrowTextarea
-                      value={value}
-                      onChange={(next) =>
-                        updateRowDay(row.id, dayIndex, next)
-                      }
-                      label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
-                      maxLength={SCHEDULE_TABLE_CELL_MAX_LENGTH}
-                      className={row.done[dayIndex] ? 'text-muted opacity-80' : undefined}
-                    />
+                    {tickMode ? (
+                      <button
+                        type="button"
+                        aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
+                        aria-pressed={row.done[dayIndex]}
+                        onClick={() =>
+                          updateRowDone(row.id, dayIndex, !row.done[dayIndex])
+                        }
+                        className={cn(
+                          'min-h-11 w-full whitespace-pre-wrap rounded-lg px-1 py-2 text-left text-sm leading-5 transition-colors [overflow-wrap:anywhere] hover:bg-raised',
+                          row.done[dayIndex]
+                            ? 'text-muted opacity-80'
+                            : 'text-fg',
+                        )}
+                      >
+                        {value || '\u00A0'}
+                      </button>
+                    ) : (
+                      <AutoGrowTextarea
+                        value={value}
+                        onChange={(next) =>
+                          updateRowDay(row.id, dayIndex, next)
+                        }
+                        label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
+                        maxLength={SCHEDULE_TABLE_CELL_MAX_LENGTH}
+                        className={row.done[dayIndex] ? 'text-muted opacity-80' : undefined}
+                      />
+                    )}
                   </td>
                 ))}
                 <td className={bodyCellClass}>

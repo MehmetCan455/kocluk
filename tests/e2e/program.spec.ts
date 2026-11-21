@@ -31,9 +31,11 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   await table.getByLabel('Toplam satırı Pazartesi').fill('10 saat');
   await table.getByLabel('Genel toplam').fill('10 saat');
   await page.getByLabel('Haftanın notu').fill('E2E hafta notu');
+  await page.getByRole('button', { name: 'Tik modu' }).click();
   await page
-    .getByRole('checkbox', { name: '1. satır Pazartesi tamamlandı' })
-    .check();
+    .getByRole('button', { name: '1. satır Pazartesi', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Tik modu' }).click();
   // The table autosaves shortly after the last edit.
   await expect(page.getByText('Kaydedildi', { exact: true })).toBeVisible({
     timeout: 5_000,
@@ -90,9 +92,13 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   ).toHaveValue('40 soru');
   await expect(page.getByLabel('Haftanın notu')).toHaveValue('E2E hafta notu');
   await page.getByRole('button', { name: 'Pazartesi' }).click();
+  await expect(page.getByRole('button', { name: 'Tik modu' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   await expect(
-    reloadedTable.getByRole('checkbox', {
-      name: '1. satır Pazartesi tamamlandı',
-    }),
-  ).toBeChecked();
+    reloadedTable
+      .getByLabel('1. satır Pazartesi', { exact: true })
+      .locator('..'),
+  ).toHaveAttribute('data-done', 'true');
 });

@@ -311,43 +311,34 @@ test('gün seçicisi seçili günü değiştirir', async () => {
   expect(pazartesi).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('gün tiki hücreyi yeşile çevirir, geri alınır ve yeniden açınca korunur', async () => {
+test('tik modu hücreyi tikler, geri alır ve yeniden açınca korunur', async () => {
   const view = await openSchedule();
   const table = await screen.findByRole('table', {
     name: 'Haftalık ders çalışma tablosu',
   });
+  const mode = screen.getByRole('button', { name: 'Tik modu' });
+  expect(mode).toHaveAttribute('aria-pressed', 'false');
 
-  expect(within(table).getAllByRole('checkbox')).toHaveLength(35);
+  await userEvent.click(mode);
+  expect(mode).toHaveAttribute('aria-pressed', 'true');
 
-  const tick = within(table).getByRole('checkbox', {
-    name: '1. satır Pazartesi tamamlandı',
+  const cell = within(table).getByRole('button', {
+    name: '1. satır Pazartesi',
   });
-  expect(tick).not.toBeChecked();
-  expect(tick.closest('label')).toHaveClass('h-11', 'w-11');
+  expect(cell).toHaveAttribute('aria-pressed', 'false');
 
-  await userEvent.click(tick);
+  await userEvent.click(cell);
+  expect(cell).toHaveAttribute('aria-pressed', 'true');
+  expect(cell.closest('td')).toHaveAttribute('data-done', 'true');
+  expect(cell.closest('td')).toHaveClass('bg-success/10');
+  expect(cell).toHaveClass('text-muted', 'opacity-80');
 
-  expect(tick).toBeChecked();
-  expect(tick.closest('td')).toHaveClass('bg-success/10');
-  expect(within(table).getByLabelText('1. satır Pazartesi')).toHaveClass(
-    'text-muted',
-    'opacity-80',
-  );
+  await userEvent.click(cell);
+  expect(cell).toHaveAttribute('aria-pressed', 'false');
+  expect(cell.closest('td')).not.toHaveAttribute('data-done');
+  expect(cell).not.toHaveClass('opacity-80');
 
-  await userEvent.click(tick);
-
-  expect(tick).not.toBeChecked();
-  expect(tick.closest('td')).not.toHaveClass('bg-success/10');
-  expect(within(table).getByLabelText('1. satır Pazartesi')).not.toHaveClass(
-    'text-muted',
-  );
-  expect(within(table).getByLabelText('1. satır Pazartesi')).not.toHaveClass(
-    'opacity-80',
-  );
-
-  // Check it one more time so the persisted state can be verified after reload.
-  await userEvent.click(tick);
-  expect(tick).toBeChecked();
+  await userEvent.click(cell);
   expect(await screen.findByText('Kaydedilmemiş değişiklikler')).toBeInTheDocument();
   expect(
     await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
@@ -359,15 +350,13 @@ test('gün tiki hücreyi yeşile çevirir, geri alınır ve yeniden açınca kor
   const reloaded = await screen.findByRole('table', {
     name: 'Haftalık ders çalışma tablosu',
   });
-  expect(
-    within(reloaded).getByRole('checkbox', {
-      name: '1. satır Pazartesi tamamlandı',
-    }),
-  ).toBeChecked();
-  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveClass(
-    'text-muted',
-    'opacity-80',
+  expect(screen.getByRole('button', { name: 'Tik modu' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
   );
+  const reloadedCell = within(reloaded).getByLabelText('1. satır Pazartesi');
+  expect(reloadedCell.closest('td')).toHaveAttribute('data-done', 'true');
+  expect(reloadedCell).toHaveClass('text-muted', 'opacity-80');
 });
 
 test('tüm tikleri tek düğmeyle kaldırır', async () => {
@@ -378,22 +367,18 @@ test('tüm tikleri tek düğmeyle kaldırır', async () => {
   const clear = screen.getByRole('button', { name: 'Tüm tikleri kaldır' });
   expect(clear).toBeDisabled();
 
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
   await userEvent.click(
-    within(table).getByRole('checkbox', {
-      name: '1. satır Pazartesi tamamlandı',
-    }),
+    within(table).getByRole('button', { name: '1. satır Pazartesi' }),
   );
   await userEvent.click(
-    within(table).getByRole('checkbox', {
-      name: '2. satır Salı tamamlandı',
-    }),
+    within(table).getByRole('button', { name: '2. satır Salı' }),
   );
   expect(clear).toBeEnabled();
 
   await userEvent.click(clear);
 
-  const boxes = within(table).getAllByRole('checkbox');
-  expect(boxes.every((box) => !(box as HTMLInputElement).checked)).toBe(true);
+  expect(within(table).queryAllByRole('button', { pressed: true })).toHaveLength(0);
   expect(clear).toBeDisabled();
 });
 

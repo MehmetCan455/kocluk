@@ -64,3 +64,21 @@ test('içerik uzadıkça yüksekliği büyür', () => {
 
   expect(field).toHaveStyle({ height: '98px' });
 });
+
+test('subject varyantı 18 px, ortalı ve ferah metin kullanır', () => {
+  render(
+    <AutoGrowTextarea
+      variant="subject"
+      value="Matematik"
+      onChange={() => {}}
+      label="1. satır ders"
+      maxLength={80}
+    />,
+  );
+
+  expect(screen.getByLabelText('1. satır ders')).toHaveClass(
+    'text-lg',
+    'text-center',
+    'py-3',
+  );
+});

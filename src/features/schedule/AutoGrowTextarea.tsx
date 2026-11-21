@@ -8,10 +8,11 @@ export interface AutoGrowTextareaProps {
   maxLength: number;
   placeholder?: string;
   className?: string;
+  variant?: 'cell' | 'subject';
 }
 
 const baseClass =
-  'block min-h-11 w-full min-w-0 resize-none overflow-hidden rounded-lg border border-transparent bg-transparent px-1 py-2 text-sm leading-5 placeholder:text-muted transition-colors hover:border-line focus:border-[var(--accent)] focus:bg-canvas [overflow-wrap:anywhere]';
+  'block min-h-11 w-full min-w-0 resize-none overflow-hidden rounded-lg border border-transparent bg-transparent px-1 placeholder:text-muted transition-colors hover:border-line focus:border-[var(--accent)] focus:bg-canvas [overflow-wrap:anywhere]';
 
 /**
  * Fits the field to its content. A hidden cell reports a zero scrollHeight,
@@ -31,8 +32,14 @@ export function AutoGrowTextarea({
   maxLength,
   placeholder,
   className,
+  variant = 'cell',
 }: AutoGrowTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  const variantClass =
+    variant === 'subject'
+      ? 'py-3 text-center text-lg leading-7'
+      : 'py-2 text-left text-sm leading-5';
 
   useLayoutEffect(() => {
     if (ref.current) {
@@ -80,7 +87,7 @@ export function AutoGrowTextarea({
       aria-label={label}
       maxLength={maxLength}
       placeholder={placeholder}
-      className={cn(baseClass, className)}
+      className={cn(baseClass, variantClass, className)}
     />
   );
 }

@@ -17,6 +17,7 @@ import {
 import type {
   ScheduleTable,
   ScheduleTableDayCells,
+  ScheduleTableDoneCells,
   ScheduleTableRow,
   ScheduleTableTotals,
 } from '@/domain/types';
@@ -36,7 +37,11 @@ function cloneDays(days: ScheduleTableDayCells): ScheduleTableDayCells {
 function draftFrom(table?: ScheduleTable): Draft {
   const source = table ?? createEmptyScheduleTable();
   return {
-    rows: source.rows.map((row) => ({ ...row, days: cloneDays(row.days) })),
+    rows: source.rows.map((row) => ({
+      ...row,
+      days: cloneDays(row.days),
+      done: [...row.done] as ScheduleTableDoneCells,
+    })),
     totals: { ...source.totals, days: cloneDays(source.totals.days) },
     note: source.note,
   };
@@ -226,6 +231,20 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
     }));
   }
 
+  function updateRowDone(rowId: string, dayIndex: number, done: boolean): void {
+    setDraft((current) => ({
+      ...current,
+      rows: current.rows.map((row) => {
+        if (row.id !== rowId) {
+          return row;
+        }
+        const next = [...row.done] as ScheduleTableDoneCells;
+        next[dayIndex] = done;
+        return { ...row, done: next };
+      }),
+    }));
+  }
+
   function updateRowTotal(rowId: string, total: string): void {
     setDraft((current) => ({
       ...current,
@@ -398,9 +417,23 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                     key={`${row.id}-${dayIndex}`}
                     className={cn(
                       bodyCellClass,
+                      row.done[dayIndex] && 'bg-success/10',
                       dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
                     )}
                   >
+                    <div className="flex justify-end">
+                      <label className="grid h-11 w-11 place-items-center">
+                        <input
+                          type="checkbox"
+                          checked={row.done[dayIndex]}
+                          onChange={(event) =>
+                            updateRowDone(row.id, dayIndex, event.target.checked)
+                          }
+                          aria-label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label} tamamlandı`}
+                          className="h-5 w-5 accent-[var(--color-success)]"
+                        />
+                      </label>
+                    </div>
                     <AutoGrowTextarea
                       value={value}
                       onChange={(next) =>
@@ -408,6 +441,7 @@ export function ScheduleTableEditor({ initialTable }: ScheduleTableEditorProps) 
                       }
                       label={`${index + 1}. satır ${SCHEDULE_DAYS[dayIndex].label}`}
                       maxLength={SCHEDULE_TABLE_CELL_MAX_LENGTH}
+                      className={row.done[dayIndex] ? 'text-muted opacity-60' : undefined}
                     />
                   </td>
                 ))}

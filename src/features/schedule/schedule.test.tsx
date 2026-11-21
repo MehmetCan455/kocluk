@@ -311,6 +311,41 @@ test('gün seçicisi seçili günü değiştirir', async () => {
   expect(pazartesi).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('gün tiki hücreyi yeşile çevirir ve yeniden açınca korunur', async () => {
+  const view = await openSchedule();
+  const table = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+
+  const tick = within(table).getByRole('checkbox', {
+    name: '1. satır Pazartesi tamamlandı',
+  });
+  expect(tick).not.toBeChecked();
+
+  await userEvent.click(tick);
+
+  expect(tick).toBeChecked();
+  expect(tick.closest('td')).toHaveClass('bg-success/10');
+  expect(within(table).getByLabelText('1. satır Pazartesi')).toHaveClass('opacity-60');
+
+  expect(
+    await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
+  ).toBeInTheDocument();
+
+  view.unmount();
+  await openSchedule();
+
+  const reloaded = await screen.findByRole('table', {
+    name: 'Haftalık ders çalışma tablosu',
+  });
+  expect(
+    within(reloaded).getByRole('checkbox', {
+      name: '1. satır Pazartesi tamamlandı',
+    }),
+  ).toBeChecked();
+  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveClass('opacity-60');
+});
+
 test('20 MB üzerindeki çizelge dosyasını yüklemez', async () => {
   await openSchedule();
   await switchToUpload();

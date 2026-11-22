@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { beforeEach, expect, test } from 'vitest';
+import { CATALOG_SEED, catalogBookId } from '@/data/catalogBooks';
 import { CURRICULUM } from '@/data/curriculum';
 import type { BackupManifest, BackupProgress } from '@/db/backup';
 import {
@@ -10,6 +11,7 @@ import {
   readBackupSummary,
 } from '@/db/backup';
 import { db } from '@/db/db';
+import { addCatalogBookToShelf, getShelfBook, setBookPage } from '@/db/bookRepositories';
 import { toPhotoSearch } from '@/db/photoSearch';
 import {
   createBook,
@@ -25,6 +27,8 @@ import {
   upsertTopicBook,
   type CurriculumSeed,
 } from '@/db/repositories';
+import { addRow, addTask, getOrCreateWeek } from '@/db/scheduleRepository';
+import { getTopicDone, setTopicDone } from '@/db/topicProgressRepository';
 import { createEmptyScheduleTable } from '@/domain/scheduleTable';
 import { resetDb, seedOnboarded } from '@/test/fixtures';
 
@@ -185,7 +189,7 @@ test('yedek tüm tabloları ve blob dosyalarını kayıpsız geri yükler', asyn
 
   expect(manifest).toMatchObject({ app: 'kocluk', schemaVersion: BACKUP_SCHEMA_VERSION });
   // The manifest version is part of the archive contract; pin the literal too.
-  expect(manifest.schemaVersion).toBe(5);
+  expect(manifest.schemaVersion).toBe(6);
   expect(manifest.counts.photos).toBe(1);
   expect(manifest.counts.photoSearch).toBe(1);
   expect(data.photoSearch).toHaveLength(1);
@@ -1045,5 +1049,189 @@ test('AYT branş denemesi alanı ve sonucuyla yedekten geri yüklenir', async ()
     blank: 4,
   });
   expect(results[0].net).toBeCloseTo(28.5);
+});
+
+const V6_TABLE_KEYS = [
+  'catalogBooks',
+  'userBooks',
+  'activityLogs',
+  'scheduleWeeks',
+  'scheduleRows',
+  'scheduleTasks',
+  'topicProgress',
+] as const;
+
+test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yüklenir', async () => {
+  const seeded = await fullSeed();
+  const createdAt = '2026-11-01T09:00:00.000Z';
+  await db.catalogBooks.add({
+    id: 'katalog-test-1',
+    title: 'TYT Matematik Soru Bankası',
+    publisher: 'Bilgi Sarmal',
+    exam: 'TYT',
+    subjectSlug: 'matematik',
+    totalPages: 400,
+    edition: '2026',
+    createdAt,
+    updatedAt: createdAt,
+  });
+  const userBook = await addCatalogBookToShelf('katalog-test-1');
+  await setBookPage(userBook.id, 40);
+  const { week } = await getOrCreateWeek('2026-11-16');
+  const row = await addRow(week.id, 'Matematik', seeded.subject.id);
+  const task = await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: 2,
+    type: 'book',
+    userBookId: userBook.id,
+    fromPage: 41,
+    toPage: 60,
+  });
+  await setTopicDone(seeded.topic.id, true);
+
+  const storedUserBook = (await db.userBooks.get(userBook.id))!;
+  const storedLog = (
+    await db.activityLogs.where('userBookId').equals(userBook.id).first()
+  )!;
+  const storedWeek = (await db.scheduleWeeks.get(week.id))!;
+  const storedRow = (await db.scheduleRows.get(row.id))!;
+  const storedTask = (await db.scheduleTasks.get(task.id))!;
+  const storedProgress = (
+    await db.topicProgress.where('topicId').equals(seeded.topic.id).first()
+  )!;
+
+  const exported = await exportBackup();
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(exported));
+  const manifest = JSON.parse(
+    (await zip.file('manifest.json')!.async('string')) as string,
+  ) as BackupManifest;
+  const data = JSON.parse((await zip.file('veri.json')!.async('string')) as string) as Record<
+    string,
+    Array<Record<string, unknown>>
+  >;
+
+  expect(manifest.schemaVersion).toBe(6);
+  expect(manifest.counts).toMatchObject({
+    catalogBooks: 1,
+    userBooks: 1,
+    activityLogs: 1,
+    scheduleWeeks: 1,
+    scheduleRows: 1,
+    scheduleTasks: 1,
+    topicProgress: 1,
+  });
+  expect(data.catalogBooks).toHaveLength(1);
+  expect(data.userBooks).toHaveLength(1);
+  expect(data.activityLogs).toHaveLength(1);
+  expect(data.scheduleWeeks).toHaveLength(1);
+  expect(data.scheduleRows).toHaveLength(1);
+  expect(data.scheduleTasks).toHaveLength(1);
+  expect(data.topicProgress).toHaveLength(1);
+  expect(data.activityLogs[0]).toMatchObject({
+    id: storedLog.id,
+    type: 'page_set',
+    userBookId: userBook.id,
+    toPage: 40,
+  });
+  expect(data.scheduleTasks[0]).toMatchObject({
+    id: task.id,
+    type: 'book',
+    dayIndex: 2,
+    fromPage: 41,
+    toPage: 60,
+  });
+  // These tables do not exist yet; the archive must not claim them.
+  expect(manifest.counts).not.toHaveProperty('syncQueue');
+  expect(manifest.counts).not.toHaveProperty('syncMeta');
+
+  await resetDb();
+  const imported = await importBackup(new File([exported], 'v6-kitaplar.zip'));
+
+  expect(imported.counts).toMatchObject({
+    catalogBooks: 1,
+    userBooks: 1,
+    activityLogs: 1,
+    scheduleWeeks: 1,
+    scheduleRows: 1,
+    scheduleTasks: 1,
+    topicProgress: 1,
+  });
+  // The import seeds missing catalog rows next to the restored custom row.
+  expect(await db.catalogBooks.count()).toBe(CATALOG_SEED.length + 1);
+  expect(await db.catalogBooks.get('katalog-test-1')).toMatchObject({
+    title: 'TYT Matematik Soru Bankası',
+    publisher: 'Bilgi Sarmal',
+    exam: 'TYT',
+    subjectSlug: 'matematik',
+    totalPages: 400,
+    edition: '2026',
+  });
+  expect(await db.userBooks.get(userBook.id)).toEqual(storedUserBook);
+  expect(await db.activityLogs.get(storedLog.id)).toEqual(storedLog);
+  expect(await db.scheduleWeeks.get(week.id)).toEqual(storedWeek);
+  expect(await db.scheduleRows.get(row.id)).toEqual(storedRow);
+  expect(await db.scheduleTasks.get(task.id)).toEqual(storedTask);
+  expect(await db.topicProgress.get(storedProgress.id)).toEqual(storedProgress);
+  expect((await getShelfBook(userBook.id))?.progress.currentPage).toBe(40);
+  expect(await getTopicDone(seeded.topic.id)).toBe(true);
+});
+
+test('içe aktarma eksik katalog tohumunu ekler ve düzenlenen satırı ezmez', async () => {
+  await fullSeed();
+  const [firstSeed] = CATALOG_SEED;
+  const seededId = catalogBookId(firstSeed.title, firstSeed.publisher, firstSeed.edition);
+  await db.catalogBooks.add({
+    id: seededId,
+    title: 'Kullanıcının Düzenlediği Kitap',
+    totalPages: 123,
+    createdAt: '2026-11-01T09:00:00.000Z',
+    updatedAt: '2026-11-02T09:00:00.000Z',
+  });
+
+  const exported = await exportBackup();
+  await resetDb();
+  await importBackup(new File([exported], 'katalog.zip'));
+
+  expect(await db.catalogBooks.count()).toBe(CATALOG_SEED.length);
+  expect(await db.catalogBooks.get(seededId)).toMatchObject({
+    title: 'Kullanıcının Düzenlediği Kitap',
+    totalPages: 123,
+  });
+});
+
+test('v6 tabloları içermeyen v5 yedeği boş listelerle yüklenir', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+
+  const legacy = await mutateZip(exported, async (_zip, data, manifest) => {
+    for (const key of V6_TABLE_KEYS) {
+      delete data[key];
+      manifest.counts[key] = 0;
+    }
+    manifest.schemaVersion = 5;
+  });
+
+  await resetDb();
+  const imported = await importBackup(new File([legacy], 'v5.zip'));
+
+  expect(imported.counts).toMatchObject({
+    catalogBooks: 0,
+    userBooks: 0,
+    activityLogs: 0,
+    scheduleWeeks: 0,
+    scheduleRows: 0,
+    scheduleTasks: 0,
+    topicProgress: 0,
+  });
+  expect(await db.userBooks.count()).toBe(0);
+  expect(await db.activityLogs.count()).toBe(0);
+  expect(await db.scheduleWeeks.count()).toBe(0);
+  expect(await db.scheduleRows.count()).toBe(0);
+  expect(await db.scheduleTasks.count()).toBe(0);
+  expect(await db.topicProgress.count()).toBe(0);
+  // Catalog seeding still repairs the missing seed rows on a legacy archive.
+  expect(await db.catalogBooks.count()).toBe(CATALOG_SEED.length);
+  expect(await db.photos.count()).toBe(1);
 });
 

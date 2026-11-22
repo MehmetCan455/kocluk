@@ -1,12 +1,15 @@
 import JSZip from 'jszip';
 import { z } from 'zod';
 import { CURRICULUM } from '@/data/curriculum';
+import { seedCatalog } from '@/db/catalogRepository';
 import { db, type SettingsRow } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import { seedCurriculum } from '@/db/seed';
 import type {
+  ActivityLog,
   AppSettings,
   Attachment,
+  CatalogBook,
   Exam,
   Note,
   Photo,
@@ -14,7 +17,12 @@ import type {
   PracticeSession,
   ScheduleEntry,
   ScheduleFile,
+  ScheduleRow,
+  ScheduleTask,
   ScheduleTable,
+  ScheduleWeek,
+  TopicProgress,
+  UserBook,
 } from '@/domain/types';
 import { calculateNet } from '@/domain/calculations';
 import { getBranchExam } from '@/features/exams/branchConfig';
@@ -34,13 +42,14 @@ import { isStorageQuotaError, STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
 import { readBlobAsArrayBuffer } from '@/lib/zip';
 
 /**
- * Backup format version. Version 5 adds the branch exam `kind`/`branch` fields
- * (a missing `kind` is a full exam); version 4 added the manual schedule table,
+ * Backup format version. Version 6 adds page-based book tracking and the dated
+ * weekly plan; version 5 added the branch exam `kind`/`branch` fields (a
+ * missing `kind` is a full exam); version 4 added the manual schedule table,
  * version 3 the weekly program tables, version 2 the blob-free `photoSearch`
  * projection, and version 1 predates it. Missing tables in older archives are
  * read as empty lists.
  */
-export const BACKUP_SCHEMA_VERSION = 5;
+export const BACKUP_SCHEMA_VERSION = 6;
 const MIN_BACKUP_SCHEMA_VERSION = 1;
 export const INVALID_BACKUP_MESSAGE = 'Geçersiz yedek dosyası';
 const NEWER_BACKUP_MESSAGE =
@@ -463,6 +472,99 @@ const practiceSessionSchema = z.object({
     .optional(),
 });
 
+const userBookStatusSchema = z.enum(['active', 'completed', 'archived']);
+const activityTypeSchema = z.enum(['book_pages', 'page_set', 'topic_review']);
+const scheduleTaskTypeSchema = z.enum(['book', 'topic', 'free']);
+
+/**
+ * Version 6 tables. Every soft-deletable row keeps its `deletedAt` tombstone
+ * so restoring a backup never resurrects data the user deleted.
+ */
+const catalogBookSchema = z.object({
+  id: idSchema,
+  ownerId: z.string().optional(),
+  title: z.string(),
+  publisher: z.string().optional(),
+  exam: examTypeSchema.optional(),
+  subjectSlug: z.string().optional(),
+  totalPages: z.number().int().nonnegative(),
+  edition: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
+const userBookSchema = z.object({
+  id: idSchema,
+  bookId: idSchema,
+  totalPagesOverride: z.number().int().nonnegative().optional(),
+  note: z.string().optional(),
+  status: userBookStatusSchema,
+  startedAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
+const activityLogSchema = z.object({
+  id: idSchema,
+  type: activityTypeSchema,
+  userBookId: idSchema.optional(),
+  topicId: idSchema.optional(),
+  fromPage: z.number().int().nonnegative().optional(),
+  toPage: z.number().int().nonnegative().optional(),
+  taskId: idSchema.optional(),
+  source: z.enum(['task', 'manual']),
+  createdAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
+const scheduleWeekSchema = z.object({
+  id: idSchema,
+  weekStart: z.string().min(1),
+  note: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
+const scheduleRowSchema = z.object({
+  id: idSchema,
+  weekId: idSchema,
+  subjectId: idSchema.optional(),
+  label: z.string(),
+  order: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
+const scheduleTaskSchema = z.object({
+  id: idSchema,
+  weekId: idSchema,
+  rowId: idSchema,
+  dayIndex: z.number().int(),
+  type: scheduleTaskTypeSchema,
+  userBookId: idSchema.optional(),
+  fromPage: z.number().int().nonnegative().optional(),
+  toPage: z.number().int().nonnegative().optional(),
+  topicId: idSchema.optional(),
+  title: z.string().optional(),
+  completedAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
+const topicProgressSchema = z.object({
+  id: idSchema,
+  topicId: idSchema,
+  done: z.boolean(),
+  doneAt: z.string().optional(),
+  updatedAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
 const backupDataSchema = z.object({
   settings: settingsSchema,
   subjects: z.array(subjectSchema),
@@ -482,6 +584,15 @@ const backupDataSchema = z.object({
   scheduleFiles: z.array(scheduleFileSchema).default([]),
   // v4 adds the single manual table; older archives read it as empty.
   scheduleTables: z.array(scheduleTableSchema).max(1).default([]),
+  // v6 adds page-based books and the dated weekly plan. A v5 archive simply
+  // does not have these tables, so it parses with empty lists.
+  catalogBooks: z.array(catalogBookSchema).default([]),
+  userBooks: z.array(userBookSchema).default([]),
+  activityLogs: z.array(activityLogSchema).default([]),
+  scheduleWeeks: z.array(scheduleWeekSchema).default([]),
+  scheduleRows: z.array(scheduleRowSchema).default([]),
+  scheduleTasks: z.array(scheduleTaskSchema).default([]),
+  topicProgress: z.array(topicProgressSchema).default([]),
 });
 
 const manifestSchema = z.object({
@@ -517,6 +628,13 @@ interface RestoredData {
   scheduleEntries: ScheduleEntry[];
   scheduleFiles: ScheduleFile[];
   scheduleTables: ScheduleTable[];
+  catalogBooks: CatalogBook[];
+  userBooks: UserBook[];
+  activityLogs: ActivityLog[];
+  scheduleWeeks: ScheduleWeek[];
+  scheduleRows: ScheduleRow[];
+  scheduleTasks: ScheduleTask[];
+  topicProgress: TopicProgress[];
 }
 
 function invalidBackup(): Error {
@@ -571,6 +689,13 @@ function countTables(data: BackupData): Record<string, number> {
     scheduleEntries: data.scheduleEntries.length,
     scheduleFiles: data.scheduleFiles.length,
     scheduleTables: data.scheduleTables.length,
+    catalogBooks: data.catalogBooks.length,
+    userBooks: data.userBooks.length,
+    activityLogs: data.activityLogs.length,
+    scheduleWeeks: data.scheduleWeeks.length,
+    scheduleRows: data.scheduleRows.length,
+    scheduleTasks: data.scheduleTasks.length,
+    topicProgress: data.topicProgress.length,
   };
 }
 
@@ -581,9 +706,10 @@ function migrateBackupData(data: BackupData, fromVersion: number): BackupData {
     // migration needed is accepting the missing table.
     return { ...data, photoSearch: data.photoSearch ?? [] };
   }
-  // The schedule tables added in v3/v4 and the exam `kind`/`branch` fields
-  // added in v5 default themselves in the schema, so an older archive needs no
-  // row-level migration.
+  // The schedule tables added in v3/v4, the exam `kind`/`branch` fields added
+  // in v5 and the page-based book/weekly plan tables added in v6 default
+  // themselves in the schema, so an older archive needs no row-level migration.
+  // Any v5→v6 row conversion is owned by a later migration task.
   return data;
 }
 
@@ -631,6 +757,17 @@ function assertUniqueBackupKeys(data: BackupData): void {
   assertUnique('scheduleEntries.id', data.scheduleEntries.map((row) => row.id));
   assertUnique('scheduleFiles.id', data.scheduleFiles.map((row) => row.id));
   assertUnique('scheduleTables.id', data.scheduleTables.map((row) => row.id));
+  assertUnique('catalogBooks.id', data.catalogBooks.map((row) => row.id));
+  assertUnique('userBooks.id', data.userBooks.map((row) => row.id));
+  // `bookId` backs a unique index, so duplicates must fail before any clear.
+  assertUnique('userBooks.bookId', data.userBooks.map((row) => row.bookId));
+  assertUnique('activityLogs.id', data.activityLogs.map((row) => row.id));
+  assertUnique('scheduleWeeks.id', data.scheduleWeeks.map((row) => row.id));
+  assertUnique('scheduleWeeks.weekStart', data.scheduleWeeks.map((row) => row.weekStart));
+  assertUnique('scheduleRows.id', data.scheduleRows.map((row) => row.id));
+  assertUnique('scheduleTasks.id', data.scheduleTasks.map((row) => row.id));
+  assertUnique('topicProgress.id', data.topicProgress.map((row) => row.id));
+  assertUnique('topicProgress.topicId', data.topicProgress.map((row) => row.topicId));
 }
 
 /**
@@ -905,6 +1042,13 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
     scheduleEntries: data.scheduleEntries,
     scheduleFiles,
     scheduleTables: data.scheduleTables as ScheduleTable[],
+    catalogBooks: data.catalogBooks as CatalogBook[],
+    userBooks: data.userBooks as UserBook[],
+    activityLogs: data.activityLogs as ActivityLog[],
+    scheduleWeeks: data.scheduleWeeks as ScheduleWeek[],
+    scheduleRows: data.scheduleRows as ScheduleRow[],
+    scheduleTasks: data.scheduleTasks as ScheduleTask[],
+    topicProgress: data.topicProgress as TopicProgress[],
   };
   const counts = countTables(data);
 
@@ -926,6 +1070,13 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
       await db.scheduleEntries.bulkPut(restored.scheduleEntries);
       await db.scheduleFiles.bulkPut(restored.scheduleFiles);
       await db.scheduleTables.bulkPut(restored.scheduleTables);
+      await db.catalogBooks.bulkPut(restored.catalogBooks);
+      await db.userBooks.bulkPut(restored.userBooks);
+      await db.activityLogs.bulkPut(restored.activityLogs);
+      await db.scheduleWeeks.bulkPut(restored.scheduleWeeks);
+      await db.scheduleRows.bulkPut(restored.scheduleRows);
+      await db.scheduleTasks.bulkPut(restored.scheduleTasks);
+      await db.topicProgress.bulkPut(restored.topicProgress);
       // patchSettings intentionally skips undefined values. Delete the row so
       // a restored device never shows a backup date it did not create.
       await db.settings.delete('lastBackupAt');
@@ -938,6 +1089,11 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
       cause: error,
     });
   }
+
+  // Catalog rows have no version marker, so seed missing starter books on
+  // every import. The seed never overwrites existing rows, including user
+  // edits and soft-deleted tombstones.
+  await seedCatalog();
 
   // A backup taken before a curriculum update would otherwise leave the app
   // with missing seed topics until the next SettingsProvider mount. The seed
@@ -1003,6 +1159,13 @@ export async function exportBackup(
     scheduleEntries: await db.scheduleEntries.toArray(),
     scheduleFiles: await db.scheduleFiles.toArray(),
     scheduleTables: await db.scheduleTables.toArray(),
+    catalogBooks: await db.catalogBooks.toArray(),
+    userBooks: await db.userBooks.toArray(),
+    activityLogs: await db.activityLogs.toArray(),
+    scheduleWeeks: await db.scheduleWeeks.toArray(),
+    scheduleRows: await db.scheduleRows.toArray(),
+    scheduleTasks: await db.scheduleTasks.toArray(),
+    topicProgress: await db.topicProgress.toArray(),
   }));
 
   const {
@@ -1021,6 +1184,13 @@ export async function exportBackup(
     scheduleEntries,
     scheduleFiles,
     scheduleTables,
+    catalogBooks,
+    userBooks,
+    activityLogs,
+    scheduleWeeks,
+    scheduleRows,
+    scheduleTasks,
+    topicProgress,
   } = snapshot;
 
   const serializedPhotos = photos.map(({ blob, thumbBlob, ...photo }) => ({
@@ -1051,6 +1221,13 @@ export async function exportBackup(
     scheduleEntries,
     scheduleFiles: serializedScheduleFiles,
     scheduleTables,
+    catalogBooks,
+    userBooks,
+    activityLogs,
+    scheduleWeeks,
+    scheduleRows,
+    scheduleTasks,
+    topicProgress,
   };
   const counts: Record<string, number> = {
     settings: settings.length,
@@ -1068,6 +1245,13 @@ export async function exportBackup(
     scheduleEntries: scheduleEntries.length,
     scheduleFiles: scheduleFiles.length,
     scheduleTables: scheduleTables.length,
+    catalogBooks: catalogBooks.length,
+    userBooks: userBooks.length,
+    activityLogs: activityLogs.length,
+    scheduleWeeks: scheduleWeeks.length,
+    scheduleRows: scheduleRows.length,
+    scheduleTasks: scheduleTasks.length,
+    topicProgress: topicProgress.length,
   };
   const exportedAt = new Date().toISOString();
   const manifest: BackupManifest = {

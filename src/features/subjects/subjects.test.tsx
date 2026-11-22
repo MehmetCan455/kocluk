@@ -366,8 +366,8 @@ test('konu sayfası sekmeleri ve boş durumları gösterir', async () => {
 
   expect(await screen.findByRole('heading', { level: 1, name: 'Türev' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Matematik' })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: 'Testler' })).toHaveAttribute('aria-selected', 'true');
-  expect(screen.getByText('Henüz test eklenmedi')).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Durum' })).toHaveAttribute('aria-selected', 'true');
+  expect(await screen.findByRole('checkbox', { name: 'Bu konuyu bitirdim' })).not.toBeChecked();
 
   await userEvent.click(screen.getByRole('tab', { name: 'Notlar' }));
   expect(await screen.findByRole('textbox', { name: 'Konu notu' })).toBeInTheDocument();

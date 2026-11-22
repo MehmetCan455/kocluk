@@ -7,16 +7,18 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { RingProgress } from '@/components/ui/RingProgress';
 import { Tabs } from '@/components/ui/Tabs';
-import { listBooks, listSubjects, listTopicBooks, listTopics } from '@/db/repositories';
-import { calculateProgress } from '@/domain/calculations';
+import { listSubjects, listTopics } from '@/db/repositories';
+import { listTopicReviews } from '@/db/topicProgressRepository';
 import type { ExamType } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
+import { useTopicProgress } from '@/lib/progress';
 import { examBasePath, examTitle } from '@/features/subjects/exam';
 import { NotesTab } from '@/features/notes/NotesTab';
 import { TopicPhotosTab } from '@/features/photos/PhotoThumb';
-import { TestsTab } from './TestsTab';
+import { LegacyTestsSection } from './LegacyTestsSection';
+import { TopicStatusTab } from './TopicStatusTab';
 
-type TopicTab = 'testler' | 'notlar' | 'yanlislar';
+type TopicTab = 'durum' | 'notlar' | 'yanlislar';
 
 export interface TopicPageProps {
   exam: ExamType;
@@ -24,12 +26,13 @@ export interface TopicPageProps {
 
 export function TopicPage({ exam }: TopicPageProps) {
   const { subjectId = '', topicId = '' } = useParams();
-  const [tab, setTab] = useState<TopicTab>('testler');
+  const [tab, setTab] = useState<TopicTab>('durum');
   const subjects = useLiveQuery(() => listSubjects(exam), [exam]);
   const topics = useLiveQuery(() => listTopics(subjectId), [subjectId]);
-  const data = useLiveQuery(async () => {
-    const [records, books] = await Promise.all([listTopicBooks(topicId), listBooks()]);
-    return { records, books, progress: calculateProgress(records) };
+  const progress = useTopicProgress(topicId);
+  const reviewCount = useLiveQuery(async () => {
+    const reviews = await listTopicReviews(topicId);
+    return reviews.length;
   }, [topicId]);
 
   if (!subjects || !topics) {
@@ -61,15 +64,13 @@ export function TopicPage({ exam }: TopicPageProps) {
     );
   }
 
-  if (!data) {
+  if (!progress || reviewCount === undefined) {
     return (
       <p role="status" className="py-16 text-center text-sm text-muted">
         Konu yükleniyor…
       </p>
     );
   }
-
-  const { progress } = data;
 
   return (
     <div className="space-y-5">
@@ -85,10 +86,11 @@ export function TopicPage({ exam }: TopicPageProps) {
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{subject.name}</p>
           <h1 className="text-2xl font-semibold tracking-tight">{topic.name}</h1>
+          <p className={progress.done ? 'text-sm font-medium text-success' : 'text-sm font-medium'}>
+            {progress.done ? 'Bitti' : 'Başlanmadı'}
+          </p>
           <p className="text-sm text-muted">
-            {progress.total === 0
-              ? 'Henüz test kaydı yok'
-              : `${progress.solved}/${progress.total} test · ${progress.remaining} test kaldı`}
+            {reviewCount === 0 ? 'Henüz tekrar yok' : `${reviewCount} tekrar`}
           </p>
         </div>
         <RingProgress value={progress.percent} size={84} label={`${topic.name} ilerlemesi`}>
@@ -101,9 +103,14 @@ export function TopicPage({ exam }: TopicPageProps) {
         onChange={(id) => setTab(id as TopicTab)}
         tabs={[
           {
-            id: 'testler',
-            label: 'Testler',
-            content: <TestsTab topicId={topic.id} records={data.records} books={data.books} />,
+            id: 'durum',
+            label: 'Durum',
+            content: (
+              <div className="space-y-6">
+                <TopicStatusTab topicId={topic.id} />
+                <LegacyTestsSection topicId={topic.id} />
+              </div>
+            ),
           },
           {
             id: 'notlar',

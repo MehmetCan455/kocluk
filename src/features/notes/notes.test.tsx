@@ -342,7 +342,7 @@ test('sekme değişince bekleyen not kaybolmaz', async () => {
   const editor = await openNotes();
 
   await userEvent.type(editor, 'Sekme değişiyor');
-  await userEvent.click(screen.getByRole('tab', { name: 'Testler' }));
+  await userEvent.click(screen.getByRole('tab', { name: 'Durum' }));
 
   await waitFor(
     async () => {

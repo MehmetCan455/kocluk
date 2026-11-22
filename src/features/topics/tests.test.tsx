@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
-import { createBook, listTopicBooks, upsertTopicBook } from '@/db/repositories';
+import { createBook, upsertTopicBook } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
+import { getTopicDone } from '@/db/topicProgressRepository';
 import type { Subject, Topic } from '@/domain/types';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -61,257 +62,119 @@ function path(subject: Subject, topic: Topic): string {
   return `/tyt/${subject.id}/${topic.id}`;
 }
 
-async function openAddDialog(): Promise<HTMLElement> {
-  await userEvent.click(await screen.findByRole('button', { name: 'Kitap / test ekle' }));
-  return screen.findByRole('dialog', { name: 'Kitap / test ekle' });
-}
-
-async function typeCounts(dialog: HTMLElement, total: string, solved: string): Promise<void> {
-  const totalInput = within(dialog).getByLabelText('Toplam test');
-  await userEvent.clear(totalInput);
-  await userEvent.type(totalInput, total);
-
-  const solvedInput = within(dialog).getByLabelText('Çözülen test');
-  await userEvent.clear(solvedInput);
-  await userEvent.type(solvedInput, solved);
-}
-
-test('kitap seçerek test ekler ve ilerlemeyi anında günceller', async () => {
+test('konu sayfası Durum sekmesini ve bitirme onayını gösterir', async () => {
   const subject = await subjectByKey('tyt-mat');
   const topic = await topicByKey('tyt-mat-turev');
-  const book = await createBook({ name: 'Türev Soru Bankası', publisher: 'Palme' });
 
   renderApp(path(subject, topic));
 
-  expect(await screen.findByText('Henüz test eklenmedi')).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Türev' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Durum' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: 'Notlar' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Yanlışlar' })).toBeInTheDocument();
+  expect(screen.queryByRole('tab', { name: 'Testler' })).not.toBeInTheDocument();
 
-  const dialog = await openAddDialog();
-  await userEvent.selectOptions(within(dialog).getByLabelText('Kitap'), book.id);
-  await typeCounts(dialog, '6', '5');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-
-  expect(await screen.findByText('5/6 test')).toBeInTheDocument();
-  expect(screen.getByText('1 test kaldı')).toBeInTheDocument();
-  expect(screen.getAllByText('%83').length).toBeGreaterThan(0);
-  expect(screen.getByRole('progressbar', { name: 'Toplam test ilerlemesi' })).toHaveAttribute(
-    'aria-valuenow',
-    '83',
-  );
-  expect(screen.getByRole('button', { name: 'Türev Soru Bankası kaydını düzenle' })).toBeInTheDocument();
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-
-  const records = await listTopicBooks(topic.id);
-  expect(records).toHaveLength(1);
-  expect(records[0]).toMatchObject({ bookId: book.id, totalTests: 6, solvedTests: 5 });
+  expect(screen.getByText('Başlanmadı')).toBeInTheDocument();
+  expect(screen.getByText('Henüz tekrar yok')).toBeInTheDocument();
+  expect(await screen.findByRole('checkbox', { name: 'Bu konuyu bitirdim' })).not.toBeChecked();
+  expect(await screen.findByText('Eski test kaydı yok')).toBeInTheDocument();
 });
 
-test('yeni kitap oluşturur, aynı adlı kitapta uyarır ama engellemez', async () => {
+test('konuyu bitirince ders sayfası 1/2 konu gösterir', async () => {
   const subject = await subjectByKey('tyt-mat');
   const topic = await topicByKey('tyt-mat-turev');
-  await createBook({ name: 'Karekök TYT' });
-
-  renderApp(path(subject, topic));
-  const dialog = await openAddDialog();
-
-  const select = within(dialog).getByLabelText('Kitap');
-  await userEvent.selectOptions(select, within(select).getByRole('option', { name: 'Yeni kitap…' }));
-
-  const nameInput = within(dialog).getByLabelText('Yeni kitap adı');
-  await userEvent.type(nameInput, 'Karekök TYT');
-  expect(
-    await screen.findByText('Bu adda bir kitap zaten var. Yine de yeni bir kitap olarak eklenecek.'),
-  ).toBeInTheDocument();
-
-  await userEvent.type(within(dialog).getByLabelText('Yayınevi'), 'Karekök');
-  await typeCounts(dialog, '8', '2');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-
-  expect(await screen.findByText('2/8 test')).toBeInTheDocument();
-
-  const records = await listTopicBooks(topic.id);
-  expect(records).toHaveLength(1);
-  const createdBook = await db.books.get(records[0].bookId);
-  expect(createdBook).toMatchObject({ name: 'Karekök TYT', publisher: 'Karekök' });
-  expect(await db.books.where('name').equals('Karekök TYT').count()).toBe(2);
-});
-
-test('test sayılarını canlı doğrular ve hatalı kaydı engeller', async () => {
-  const subject = await subjectByKey('tyt-mat');
-  const topic = await topicByKey('tyt-mat-turev');
-  await createBook({ name: 'Doğrulama Kitabı' });
-
-  renderApp(path(subject, topic));
-  const dialog = await openAddDialog();
-  const saveButton = within(dialog).getByRole('button', { name: 'Kaydet' });
-
-  expect(saveButton).toBeDisabled();
-
-  const totalInput = within(dialog).getByLabelText('Toplam test');
-  await userEvent.type(totalInput, '0');
-  expect(await within(dialog).findByText('Toplam test sayısı en az 1 olmalı')).toBeInTheDocument();
-  expect(saveButton).toBeDisabled();
-
-  await userEvent.clear(totalInput);
-  await userEvent.type(totalInput, '4');
-  const solvedInput = within(dialog).getByLabelText('Çözülen test');
-  await userEvent.clear(solvedInput);
-  await userEvent.type(solvedInput, '5');
-  expect(
-    await within(dialog).findByText('Çözülen test sayısı toplamdan fazla olamaz'),
-  ).toBeInTheDocument();
-  expect(saveButton).toBeDisabled();
-
-  await userEvent.clear(solvedInput);
-  await userEvent.type(solvedInput, '4');
-  await waitFor(() => {
-    expect(
-      within(dialog).queryByText('Çözülen test sayısı toplamdan fazla olamaz'),
-    ).not.toBeInTheDocument();
-  });
-  expect(saveButton).toBeEnabled();
-
-  await userEvent.clear(totalInput);
-  await userEvent.type(totalInput, '2.5');
-  expect(await within(dialog).findByText('Toplam test sayısı tam sayı olmalı')).toBeInTheDocument();
-  expect(saveButton).toBeDisabled();
-});
-
-test('kaydı düzenler ve ilerlemeyi günceller', async () => {
-  const subject = await subjectByKey('tyt-mat');
-  const topic = await topicByKey('tyt-mat-turev');
-  const book = await createBook({ name: 'Düzenleme Kitabı' });
-  const record = await upsertTopicBook({
-    topicId: topic.id,
-    bookId: book.id,
-    totalTests: 4,
-    solvedTests: 2,
-  });
 
   renderApp(path(subject, topic));
 
-  expect(await screen.findByText('2/4 test')).toBeInTheDocument();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Düzenleme Kitabı kaydını düzenle' }),
-  );
+  const checkbox = await screen.findByRole('checkbox', { name: 'Bu konuyu bitirdim' });
+  await userEvent.click(checkbox);
 
-  const dialog = await screen.findByRole('dialog', { name: 'Test kaydını düzenle' });
-  expect(within(dialog).getByText('Düzenleme Kitabı')).toBeInTheDocument();
-  expect(within(dialog).getByLabelText('Toplam test')).toHaveValue(4);
-  expect(within(dialog).getByLabelText('Çözülen test')).toHaveValue(2);
+  await waitFor(() => expect(checkbox).toBeChecked());
+  expect(await screen.findByText('Bitti')).toBeInTheDocument();
+  await waitFor(async () => expect(await getTopicDone(topic.id)).toBe(true));
 
-  await typeCounts(dialog, '10', '10');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+  await userEvent.click(screen.getByRole('link', { name: 'Matematik' }));
 
-  expect(await screen.findByText('10/10 test')).toBeInTheDocument();
-  expect(screen.getAllByText('%100').length).toBeGreaterThan(0);
-  expect(screen.queryByText('0 test kaldı')).not.toBeInTheDocument();
-
-  const updated = await db.topicBooks.get(record.id);
-  expect(updated).toMatchObject({ totalTests: 10, solvedTests: 10 });
+  expect(await screen.findByText('1/2 konu · 1 konu kaldı')).toBeInTheDocument();
+  expect(screen.getByText('Bitti')).toBeInTheDocument();
+  expect(screen.getByText('Başlanmadı')).toBeInTheDocument();
 });
 
-test('kaydı siler, kitabı korur', async () => {
+test('tekrar geçmişini ve tekrar sayısını gösterir', async () => {
   const subject = await subjectByKey('tyt-mat');
   const topic = await topicByKey('tyt-mat-turev');
-  const book = await createBook({ name: 'Silinen Kitap' });
-  await upsertTopicBook({ topicId: topic.id, bookId: book.id, totalTests: 6, solvedTests: 2 });
+  await db.activityLogs.bulkAdd([
+    {
+      id: 'review-1',
+      type: 'topic_review',
+      topicId: topic.id,
+      source: 'manual',
+      createdAt: '2026-11-10T09:00:00.000Z',
+    },
+    {
+      id: 'log-1',
+      type: 'book_pages',
+      userBookId: 'book-1',
+      topicId: topic.id,
+      fromPage: 1,
+      toPage: 10,
+      source: 'task',
+      createdAt: '2026-11-11T09:00:00.000Z',
+    },
+  ]);
 
   renderApp(path(subject, topic));
 
-  expect(await screen.findByText('2/6 test')).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: 'Silinen Kitap kaydını sil' }));
-
-  const dialog = await screen.findByRole('dialog', { name: 'Test kaydını sil' });
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Sil' }));
-
-  expect(await screen.findByText('Henüz test eklenmedi')).toBeInTheDocument();
-  expect(screen.queryByText('2/6 test')).not.toBeInTheDocument();
-  expect(await listTopicBooks(topic.id)).toHaveLength(0);
-  expect(await db.books.get(book.id)).toBeDefined();
+  expect(await screen.findByText('1 tekrar')).toBeInTheDocument();
+  const history = await screen.findByRole('list', { name: 'Tekrar geçmişi' });
+  expect(within(history).getAllByRole('listitem')).toHaveLength(1);
+  expect(within(history).getByText('10 Kas 2026')).toBeInTheDocument();
 });
 
-test('aynı kitap aynı konuya eklenince mevcut kayıt güncellenir', async () => {
+test('eski test kayıtlarını salt okunur arşiv olarak gösterir', async () => {
   const subject = await subjectByKey('tyt-mat');
   const topic = await topicByKey('tyt-mat-turev');
-  const book = await createBook({ name: 'Tekrar Kitabı' });
-  const existing = await upsertTopicBook({
-    topicId: topic.id,
-    bookId: book.id,
-    totalTests: 4,
-    solvedTests: 2,
-  });
-
-  renderApp(path(subject, topic));
-
-  expect(await screen.findByText('2/4 test')).toBeInTheDocument();
-  const dialog = await openAddDialog();
-  await userEvent.selectOptions(within(dialog).getByLabelText('Kitap'), book.id);
-  await typeCounts(dialog, '9', '7');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-
-  expect(await screen.findByText('7/9 test')).toBeInTheDocument();
-  const records = await listTopicBooks(topic.id);
-  expect(records).toHaveLength(1);
-  expect(records[0]).toMatchObject({ id: existing.id, totalTests: 9, solvedTests: 7 });
-});
-
-test('kitap başka konuda yeniden kullanılabilir', async () => {
-  const subject = await subjectByKey('tyt-mat');
-  const turev = await topicByKey('tyt-mat-turev');
-  const polinomlar = await topicByKey('tyt-mat-pol');
-  const book = await createBook({ name: 'Ortak Kitap' });
+  const book = await createBook({ name: 'Eski Türev Kitabı', publisher: 'Palme' });
   await upsertTopicBook({
-    topicId: turev.id,
+    topicId: topic.id,
     bookId: book.id,
-    totalTests: 10,
-    solvedTests: 4,
+    totalTests: 6,
+    solvedTests: 5,
   });
 
-  renderApp(path(subject, polinomlar));
+  renderApp(path(subject, topic));
 
-  expect(await screen.findByText('Henüz test eklenmedi')).toBeInTheDocument();
-  const dialog = await openAddDialog();
-  await userEvent.selectOptions(within(dialog).getByLabelText('Kitap'), book.id);
-  await typeCounts(dialog, '8', '3');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-
-  expect(await screen.findByText('3/8 test')).toBeInTheDocument();
-  expect(await listTopicBooks(turev.id)).toHaveLength(1);
-  expect(await listTopicBooks(polinomlar.id)).toHaveLength(1);
-  expect(await db.books.count()).toBe(1);
+  expect(
+    await screen.findByRole('heading', { name: 'Eski test kayıtları' }),
+  ).toBeInTheDocument();
+  expect(await screen.findByText('5/6 test')).toBeInTheDocument();
+  expect(screen.getByText('Eski Türev Kitabı')).toBeInTheDocument();
+  expect(screen.getByText('Palme')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /düzenle/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /sil/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Kitap / test ekle' })).not.toBeInTheDocument();
 });
 
-test('kitap adı boşken kaydetmeyi engeller', async () => {
+test('Notlar ve Yanlışlar sekmeleri açılır', async () => {
   const subject = await subjectByKey('tyt-mat');
   const topic = await topicByKey('tyt-mat-turev');
 
   renderApp(path(subject, topic));
-  const dialog = await openAddDialog();
 
-  expect(within(dialog).getByLabelText('Yeni kitap adı')).toHaveValue('');
-  await typeCounts(dialog, '5', '1');
-  expect(within(dialog).getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+  await userEvent.click(await screen.findByRole('tab', { name: 'Notlar' }));
+  expect(await screen.findByRole('textbox', { name: 'Konu notu' })).toBeInTheDocument();
+  expect(screen.getByText('Henüz dosya eklenmedi.')).toBeInTheDocument();
 
-  await userEvent.type(within(dialog).getByLabelText('Yeni kitap adı'), '   ');
-  expect(within(dialog).getByRole('button', { name: 'Kaydet' })).toBeDisabled();
-  expect(await within(dialog).findByText('Kitap adı boş olamaz')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('tab', { name: 'Yanlışlar' }));
+  expect(await screen.findByText('Henüz yanlış fotoğrafı yok')).toBeInTheDocument();
 });
 
-test('konu ilerlemesi test kaydıyla birlikte güncellenir', async () => {
+test('konu bulunamazsa derslere dön bağlantısı gösterir', async () => {
   const subject = await subjectByKey('tyt-mat');
-  const topic = await topicByKey('tyt-mat-turev');
-  const book = await createBook({ name: 'İlerleme Kitabı' });
 
-  renderApp(path(subject, topic));
+  renderApp(`/tyt/${subject.id}/olmayan-konu`);
 
-  const dialog = await openAddDialog();
-  await userEvent.selectOptions(within(dialog).getByLabelText('Kitap'), book.id);
-  await typeCounts(dialog, '4', '2');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-
-  expect(await screen.findByText('2/4 test · 2 test kaldı')).toBeInTheDocument();
-  expect(screen.getByRole('progressbar', { name: 'Türev ilerlemesi' })).toHaveAttribute(
-    'aria-valuenow',
-    '50',
-  );
+  expect(await screen.findByText('Konu bulunamadı')).toBeInTheDocument();
+  expect(screen.getByText('Bu konu silinmiş ya da taşınmış olabilir.')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Derslere dön' })).toBeInTheDocument();
 });

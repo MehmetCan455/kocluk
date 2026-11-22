@@ -1178,7 +1178,7 @@ test('geçmiş haftada işaretsiz görev kırmızı, tamamlanan görev yeşil g�
   expect(taskChip('Bitirilen görev').className).toContain('text-success');
 });
 
-test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve kompakt ekleme sunar', async () => {
+test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu hücrede ekleme sunmaz', async () => {
   const { weekId, rowId } = await seedPlanRow();
   const shelfBook = await seedBilgiSarmalBook();
   await addTask({
@@ -1231,47 +1231,27 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve komp
     'min-[768px]:absolute',
   );
 
-  // Görevli hücrede büyük kesikli kutu yok; yalnızca kompakt + var.
-  const compactAdd = screen.getByRole('button', {
-    name: 'Matematik Pazartesi görev ekle',
-  });
-  expect(compactAdd).toHaveClass(
-    'absolute',
-    'h-11',
-    'w-11',
-    'opacity-0',
-    'group-hover/cell:opacity-100',
-    'max-[767px]:opacity-100',
-  );
-  expect(compactAdd).not.toHaveClass('border-dashed');
-  const mondayCell = compactAdd.closest('td');
+  // Dolu hücrede ne büyük kesikli kutu ne de kompakt + vardır; hücre başına
+  // tek görev kuralı yeni ikinci görev eklemeyi engeller.
+  expect(
+    screen.queryByRole('button', { name: 'Matematik Pazartesi görev ekle' }),
+  ).not.toBeInTheDocument();
+  const mondayCell = taskChip('TYT Matematik Soru Bankası').closest('td');
   if (!(mondayCell instanceof HTMLElement)) {
     throw new Error('Pazartesi hücresi bulunamadı');
   }
   expect(mondayCell.querySelector('.border-dashed')).toBeNull();
   expect(mondayCell.querySelectorAll('[data-status]')).toHaveLength(1);
+  expect(mondayCell.querySelectorAll('button[aria-label*="görev ekle"]')).toHaveLength(0);
 
-  // Boş hücrede büyük kesikli + kalır.
+  // Boş hücrede büyük kesikli + kalır ve yedi günün yalnızca altısında görünür.
   const emptyAdd = screen.getByRole('button', {
     name: 'Matematik Salı görev ekle',
   });
   expect(emptyAdd).toHaveClass('w-full', 'border-dashed');
-
-  await userEvent.click(compactAdd);
-  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
-  await userEvent.click(
-    within(dialog).getByRole('button', { name: 'Serbest görev' }),
-  );
-  await userEvent.type(within(dialog).getByLabelText('Görev adı'), 'İkinci görev');
-  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-
   expect(
-    await screen.findByText('İkinci görev', { selector: '[data-line="title"]' }),
-  ).toBeInTheDocument();
-  await waitFor(() => {
-    expect(mondayCell.querySelectorAll('[data-status]')).toHaveLength(2);
-  });
-  expect(mondayCell.querySelector('.border-dashed')).toBeNull();
+    screen.getAllByRole('button', { name: /Matematik .* görev ekle/ }),
+  ).toHaveLength(6);
 });
 
 test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur', async () => {

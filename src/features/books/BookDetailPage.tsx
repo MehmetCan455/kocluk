@@ -165,8 +165,10 @@ interface PageRangeFormProps {
 }
 
 function PageRangeForm({ row }: PageRangeFormProps) {
+  const formTitleId = useId();
   const fromId = useId();
   const toId = useId();
+  const rangeHintId = useId();
   const noPagesId = useId();
   const { progress, totalPages, userBook } = row;
   const nextPage = totalPages > 0 ? Math.min(progress.currentPage + 1, totalPages) : 1;
@@ -220,7 +222,9 @@ function PageRangeForm({ row }: PageRangeFormProps) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Sayfa aralığı ekle</h2>
+      <h2 id={formTitleId} className="text-lg font-semibold">
+        Sayfa aralığı ekle
+      </h2>
 
       {hasTotalPages ? null : (
         <p
@@ -232,67 +236,80 @@ function PageRangeForm({ row }: PageRangeFormProps) {
       )}
 
       <form
+        aria-labelledby={formTitleId}
         onSubmit={(event) => void handleSubmit(event)}
-        className="flex flex-wrap items-end gap-3"
+        className="space-y-3 rounded-2xl border border-line bg-surface p-4"
       >
-        <Field
-          label="Başlangıç sayfası"
-          htmlFor={fromId}
-          hint={hasTotalPages ? `1 ile ${totalPages} arasında` : undefined}
-          error={rangeError ?? undefined}
-          className="w-full sm:max-w-48"
-        >
-          <input
-            id={fromId}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={hasTotalPages ? totalPages : undefined}
-            step={1}
-            value={fromPage}
-            onChange={(event) => setFromPage(event.target.value)}
-            disabled={!hasTotalPages}
-            aria-invalid={rangeError ? true : undefined}
-            aria-describedby={
-              rangeError
-                ? `${fromId}-error`
-                : hasTotalPages
-                  ? `${fromId}-hint`
-                  : noPagesId
-            }
-            className={inputClass}
-          />
-        </Field>
-        <Field
-          label="Bitiş sayfası"
-          htmlFor={toId}
-          hint={hasTotalPages ? `1 ile ${totalPages} arasında` : undefined}
-          className="w-full sm:max-w-48"
-        >
-          <input
-            id={toId}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={hasTotalPages ? totalPages : undefined}
-            step={1}
-            value={toPage}
-            onChange={(event) => setToPage(event.target.value)}
-            disabled={!hasTotalPages}
-            aria-invalid={rangeError ? true : undefined}
-            aria-describedby={
-              rangeError
-                ? `${fromId}-error`
-                : hasTotalPages
-                  ? `${toId}-hint`
-                  : noPagesId
-            }
-            className={inputClass}
-          />
-        </Field>
-        <Button type="submit" disabled={!canSubmit}>
-          {saving ? 'Ekleniyor…' : 'Sayfa aralığı ekle'}
-        </Button>
+        <p className="text-sm text-muted">
+          Okuduğun sayfaları aralık olarak gir; atlanan sayfalar sayılmaz.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Başlangıç sayfası"
+            htmlFor={fromId}
+            error={rangeError ?? undefined}
+          >
+            <input
+              id={fromId}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={hasTotalPages ? totalPages : undefined}
+              step={1}
+              value={fromPage}
+              onChange={(event) => setFromPage(event.target.value)}
+              disabled={!hasTotalPages}
+              aria-invalid={rangeError ? true : undefined}
+              aria-describedby={
+                rangeError
+                  ? `${fromId}-error`
+                  : hasTotalPages
+                    ? rangeHintId
+                    : noPagesId
+              }
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Bitiş sayfası" htmlFor={toId}>
+            <input
+              id={toId}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={hasTotalPages ? totalPages : undefined}
+              step={1}
+              value={toPage}
+              onChange={(event) => setToPage(event.target.value)}
+              disabled={!hasTotalPages}
+              aria-invalid={rangeError ? true : undefined}
+              aria-describedby={
+                rangeError
+                  ? `${fromId}-error`
+                  : hasTotalPages
+                    ? rangeHintId
+                    : noPagesId
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+
+        {hasTotalPages ? (
+          <p id={rangeHintId} className="text-xs text-muted">
+            Sayfalar 1 ile {totalPages} arasında olmalı.
+          </p>
+        ) : null}
+
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            disabled={!canSubmit}
+            className="w-full sm:w-auto"
+          >
+            {saving ? 'Ekleniyor…' : 'Aralığı ekle'}
+          </Button>
+        </div>
       </form>
 
       {error ? (

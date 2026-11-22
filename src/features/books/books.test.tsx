@@ -343,13 +343,33 @@ test('kitap detayı sayfa aralığı eklemeyi ve geçmişten silmeyi gösterir',
     screen.getByRole('progressbar', { name: 'TYT Matematik Soru Bankası ilerlemesi' }),
   ).toHaveAttribute('aria-valuenow', '0');
 
+  const pageForm = screen.getByRole('form', { name: 'Sayfa aralığı ekle' });
+  expect(pageForm).toHaveClass(
+    'rounded-2xl',
+    'border',
+    'border-line',
+    'bg-surface',
+    'p-4',
+  );
+  expect(
+    within(pageForm).getByText(
+      'Okuduğun sayfaları aralık olarak gir; atlanan sayfalar sayılmaz.',
+    ),
+  ).toBeInTheDocument();
+  // The total-page hint is shared, not repeated under both inputs.
+  expect(within(pageForm).getAllByText(/1 ile 400 arasında/)).toHaveLength(1);
+  const addButton = within(pageForm).getByRole('button', {
+    name: 'Aralığı ekle',
+  });
+  expect(addButton).toHaveClass('w-full', 'sm:w-auto');
+
   const fromInput = screen.getByLabelText('Başlangıç sayfası');
   const toInput = screen.getByLabelText('Bitiş sayfası');
   await userEvent.clear(fromInput);
   await userEvent.type(fromInput, '1');
   await userEvent.clear(toInput);
   await userEvent.type(toInput, '220');
-  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
+  await userEvent.click(addButton);
 
   expect(await screen.findByText('220/400 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('%55')).toBeInTheDocument();
@@ -361,7 +381,7 @@ test('kitap detayı sayfa aralığı eklemeyi ve geçmişten silmeyi gösterir',
   await userEvent.type(nextFrom, '221');
   await userEvent.clear(nextTo);
   await userEvent.type(nextTo, '300');
-  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Aralığı ekle' }));
 
   expect(await screen.findByText('300/400 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('%75')).toBeInTheDocument();
@@ -413,7 +433,7 @@ test('480 sayfalık kitapta 250–255 altı sayfa sayılır, 1–250 birleşimi 
   await userEvent.type(fromInput, '250');
   await userEvent.clear(toInput);
   await userEvent.type(toInput, '255');
-  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Aralığı ekle' }));
 
   expect(await screen.findByText('6/480 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('%1')).toBeInTheDocument();
@@ -426,7 +446,7 @@ test('480 sayfalık kitapta 250–255 altı sayfa sayılır, 1–250 birleşimi 
   await userEvent.type(nextFrom, '1');
   await userEvent.clear(nextTo);
   await userEvent.type(nextTo, '250');
-  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Aralığı ekle' }));
 
   expect(await screen.findByText('255/480 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('%53')).toBeInTheDocument();
@@ -630,7 +650,7 @@ test('toplam sayfası olmayan kitapta sayfa aralığı ekleme kapalıdır', asyn
   ).toBeInTheDocument();
   expect(screen.getByLabelText('Başlangıç sayfası')).toBeDisabled();
   expect(screen.getByLabelText('Bitiş sayfası')).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Sayfa aralığı ekle' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Aralığı ekle' })).toBeDisabled();
   expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 });
 

@@ -159,7 +159,7 @@ test('yedek indirir, dosya adını üretir ve son yedek tarihini gösterir', asy
   await waitFor(() => expect(saveAs).toHaveBeenCalledTimes(1));
   const [blob, fileName] = vi.mocked(saveAs).mock.calls[0];
   expect(blob).toBeInstanceOf(Blob);
-  expect(fileName).toMatch(/^kocluk-yedek-\d{4}-\d{2}-\d{2}-\d{4}\.zip$/);
+  expect(fileName).toMatch(/^zirve-akademi-yedek-\d{4}-\d{2}-\d{2}-\d{4}\.zip$/);
   expect((await getSettings()).lastBackupAt).toBeTruthy();
   await waitFor(() => {
     expect(screen.getByText(/Son yedek:/)).not.toHaveTextContent('Henüz yedek alınmadı');

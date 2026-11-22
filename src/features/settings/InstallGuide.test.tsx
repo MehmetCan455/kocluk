@@ -12,6 +12,9 @@ test('kurulum adımlarını platformlara göre gösterir', () => {
   render(<InstallGuide />);
 
   expect(screen.getByRole('heading', { name: 'Uygulamayı kur' })).toBeInTheDocument();
+  expect(
+    screen.getByText(/Zirve Akademi’yi ana ekranına ekle/),
+  ).toBeInTheDocument();
   expect(screen.getByText('iPhone / iPad (Safari)')).toBeInTheDocument();
   expect(screen.getByText('Android (Chrome)')).toBeInTheDocument();
   expect(screen.getByText('Bilgisayar (Chrome / Edge)')).toBeInTheDocument();
@@ -43,7 +46,7 @@ test('navigator.share varsa onu kullanır', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Uygulama linkini paylaş' }));
 
   expect(share).toHaveBeenCalledWith(
-    expect.objectContaining({ title: 'Koçluk — YKS Takip', url: expect.stringContaining('http') }),
+    expect.objectContaining({ title: 'Zirve Akademi — YKS Takip', url: expect.stringContaining('http') }),
   );
   expect(await screen.findByText('Bağlantı paylaşıldı.')).toBeInTheDocument();
 });

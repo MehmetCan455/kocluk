@@ -81,7 +81,7 @@ export function WeeklyPlanTable({
         <div className="min-w-0 space-y-1">
           <h2 className="text-lg font-semibold">Haftalık plan</h2>
           <p className="text-xs text-muted">
-            Satırlara ders veya serbest bir etiket yaz; her hücreye görev ekle.
+            Satırlara ders veya serbest bir etiket yaz; her hücreye bir görev ekle.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -266,22 +266,7 @@ export function WeeklyPlanTable({
                             >
                               <Plus className="h-4 w-4" aria-hidden="true" />
                             </button>
-                          ) : (
-                            <button
-                              type="button"
-                              aria-label={addLabel}
-                              onClick={() => onAddTask(row, day.day)}
-                              disabled={disabled || row.id === undefined}
-                              title={
-                                row.id === undefined
-                                  ? 'Görev eklemek için önce satırı kaydet.'
-                                  : 'Görev ekle'
-                              }
-                              className="pointer-events-none absolute right-0 top-0 z-10 grid h-11 w-11 place-items-center rounded-lg border border-line bg-surface/90 text-muted opacity-0 shadow-sm transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/cell:pointer-events-auto group-hover/cell:opacity-100 group-focus-within/cell:pointer-events-auto group-focus-within/cell:opacity-100 max-[767px]:pointer-events-auto max-[767px]:static max-[767px]:order-first max-[767px]:mb-1 max-[767px]:self-end max-[767px]:opacity-100 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
-                            >
-                              <Plus className="h-4 w-4" aria-hidden="true" />
-                            </button>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     );

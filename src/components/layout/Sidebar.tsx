@@ -32,13 +32,13 @@ export interface SidebarProps {
 export function Sidebar({ onSearch }: SidebarProps) {
   const { settings } = useAppSettings();
   const profileName = settings.profileName.trim();
-  const initial = profileName ? profileName.charAt(0).toLocaleUpperCase('tr-TR') : 'K';
+  const initial = profileName ? profileName.charAt(0).toLocaleUpperCase('tr-TR') : 'Z';
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-line bg-surface">
       <div className="flex h-16 shrink-0 items-center gap-2 border-b border-line px-5">
         <GraduationCap className="h-6 w-6 text-[var(--accent)]" aria-hidden="true" />
-        <span className="text-lg font-semibold tracking-tight">Koçluk</span>
+        <span className="text-lg font-semibold tracking-tight">Zirve Akademi</span>
       </div>
 
       <nav aria-label="Ana menü" className="flex-1 overflow-y-auto p-3">

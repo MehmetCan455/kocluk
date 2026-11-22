@@ -20,7 +20,7 @@ export function TopBar({ onSearch }: TopBarProps) {
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line bg-canvas/90 px-4 backdrop-blur">
       <Link to="/" className="flex min-h-11 items-center gap-2 rounded-xl pr-2">
         <GraduationCap className="h-6 w-6 text-[var(--accent)]" aria-hidden="true" />
-        <span className="text-lg font-semibold tracking-tight">Koçluk</span>
+        <span className="text-lg font-semibold tracking-tight">Zirve Akademi</span>
       </Link>
 
       <div className="flex items-center gap-1">

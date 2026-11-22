@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
         // ICO fallback needs to be added explicitly.
         includeAssets: ['favicon.ico'],
         manifest: {
-          name: 'Koçluk — YKS Takip',
-          short_name: 'Koçluk',
+          name: 'Zirve Akademi — YKS Takip',
+          short_name: 'Zirve Akademi',
           description:
             'YKS hazırlığını kitaplar, testler, denemeler, notlar ve yanlış fotoğraflarıyla tek cihazda takip et.',
           lang: 'tr',

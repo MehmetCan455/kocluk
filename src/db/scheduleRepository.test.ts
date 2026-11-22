@@ -193,6 +193,52 @@ test('gün indeksi 1 ile 7 arasında olmalı', async () => {
   expect(await db.scheduleTasks.count()).toBe(0);
 });
 
+test('aynı hücreye ikinci etkin görev eklenemez, silinen görev yeri boşaltır', async () => {
+  const { weekId, rowId } = await seedWeekAndRow();
+  const first = await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'free',
+    title: 'İlk görev',
+  });
+
+  await expect(
+    addTask({
+      weekId,
+      rowId,
+      dayIndex: 1,
+      type: 'free',
+      title: 'İkinci görev',
+    }),
+  ).rejects.toThrow('Bu güne zaten bir görev eklenmiş.');
+  expect(await db.scheduleTasks.count()).toBe(1);
+
+  // Farklı gün ayrı hücredir.
+  const tuesday = await addTask({
+    weekId,
+    rowId,
+    dayIndex: 2,
+    type: 'free',
+    title: 'Salı görevi',
+  });
+  expect(tuesday.dayIndex).toBe(2);
+
+  // Silinen görev hücreyi yeniden boşaltır.
+  await deleteTask(first.id);
+  const replacement = await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Yeni pazartesi',
+  });
+  expect(replacement).toMatchObject({ dayIndex: 1, title: 'Yeni pazartesi' });
+  expect(
+    (await db.scheduleTasks.toArray()).filter((task) => !task.deletedAt),
+  ).toHaveLength(2);
+});
+
 test('konu ve serbest görev alanları doğrulanır', async () => {
   const { weekId, rowId } = await seedWeekAndRow();
 
@@ -552,6 +598,74 @@ test('hedefte silinen kopya satır yeni görevler için yeniden canlandırılır
   expect(await listTasksForDay(NEXT_WEEK_START, 2)).toContainEqual(newTask);
 });
 
+test('hafta kopyası eski çoklu görevli hücreden yalnızca ilk görevi taşır', async () => {
+  const source = await getOrCreateWeek(WEEK_START);
+  const row = await addRow(source.week.id, 'Matematik');
+  function legacyTask(
+    id: string,
+    title: string,
+    createdAt: string,
+  ): ScheduleTask {
+    return {
+      id,
+      weekId: source.week.id,
+      rowId: row.id,
+      dayIndex: 1,
+      type: 'free',
+      title,
+      createdAt,
+      updatedAt: createdAt,
+    };
+  }
+  // Eski veride aynı hücrede birden çok görev olabilir; addTask artık izin
+  // vermediği için doğrudan tabloya yazılır.
+  await db.scheduleTasks.bulkAdd([
+    legacyTask('legacy-early', 'Eski ilk görev', '2026-11-01T09:00:00.000Z'),
+    legacyTask('legacy-late', 'Eski ikinci görev', '2026-11-01T10:00:00.000Z'),
+  ]);
+
+  await copyWeek(WEEK_START, NEXT_WEEK_START);
+
+  const target = await getOrCreateWeek(NEXT_WEEK_START);
+  expect(target.tasks).toHaveLength(1);
+  expect(target.tasks[0].title).toBe('Eski ilk görev');
+  expect(target.tasks[0].id).toBe(
+    deterministicId(COPY_NAMESPACE, `${target.week.id}:legacy-early`),
+  );
+  expect(
+    await db.scheduleTasks.where('weekId').equals(target.week.id).count(),
+  ).toBe(1);
+});
+
+test('hedefte dolu hücreye kopya ikinci görev eklemez', async () => {
+  const source = await getOrCreateWeek(WEEK_START);
+  const sourceRow = await addRow(source.week.id, 'Matematik');
+  const first = await addTask({
+    weekId: source.week.id,
+    rowId: sourceRow.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'İlk görev',
+  });
+
+  await copyWeek(WEEK_START, NEXT_WEEK_START);
+
+  // Kaynak hücredeki görev değişse de hedefteki dolu hücre korunur.
+  await deleteTask(first.id);
+  await addTask({
+    weekId: source.week.id,
+    rowId: sourceRow.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Yeni görev',
+  });
+  await copyWeek(WEEK_START, NEXT_WEEK_START);
+
+  const target = await getOrCreateWeek(NEXT_WEEK_START);
+  expect(target.tasks).toHaveLength(1);
+  expect(target.tasks[0].title).toBe('İlk görev');
+});
+
 test('görev silme kaydı korur, satır silme görevleri tombstone eder', async () => {
   const userBookId = await seedShelfBook(400);
   const { weekId, rowId: seedRowId } = await seedWeekAndRow();
@@ -616,13 +730,19 @@ test('gün görevleri yalnızca o günün etkin görevlerini döndürür', async
     type: 'free',
     title: 'Pazartesi bir',
   });
-  const mondayTwo = await addTask({
+  // Eski veride aynı hücrede iki görev bulunabilir; repo tekrar eklemeyi
+  // engellediği için ikincisi doğrudan tabloya yazılır.
+  const mondayTwo: ScheduleTask = {
+    id: 'legacy-monday-two',
     weekId,
     rowId,
     dayIndex: 1,
     type: 'free',
     title: 'Pazartesi iki',
-  });
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+  await db.scheduleTasks.add(mondayTwo);
   const tuesday: ScheduleTask = await addTask({
     weekId,
     rowId,

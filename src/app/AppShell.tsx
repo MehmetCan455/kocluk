@@ -99,7 +99,7 @@ export function AppShell({ children }: AppShellProps) {
         >
           <p className="flex min-w-0 items-center gap-2 text-sm">
             <Download className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden="true" />
-            Koçluk’u ana ekranına ekle.
+            Zirve Akademi’yi ana ekranına ekle.
           </p>
           <div className="flex shrink-0 items-center gap-1">
             <button

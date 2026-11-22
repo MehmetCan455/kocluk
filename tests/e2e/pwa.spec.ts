@@ -28,8 +28,8 @@ test('manifest kurulabilir ve uygulama ilk yüklemeden sonra çevrimdışı aç�
     };
   });
 
-  expect(manifest.name).toBe('Koçluk — YKS Takip');
-  expect(manifest.short_name).toBe('Koçluk');
+  expect(manifest.name).toBe('Zirve Akademi — YKS Takip');
+  expect(manifest.short_name).toBe('Zirve Akademi');
   expect(manifest.display).toBe('standalone');
   expect(manifest.theme_color).toBe('#07080A');
   expect(manifest.start_url).toBe('./');

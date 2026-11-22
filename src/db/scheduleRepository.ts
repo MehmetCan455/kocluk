@@ -315,6 +315,17 @@ export async function addTask(
     db.topics,
     async () => {
       validateDayIndex(input.dayIndex);
+      const existing = (
+        await db.scheduleTasks.where('weekId').equals(input.weekId).toArray()
+      ).filter(
+        (task) =>
+          !task.deletedAt &&
+          task.rowId === input.rowId &&
+          task.dayIndex === input.dayIndex,
+      );
+      if (existing.length > 0) {
+        throw new Error('Bu güne zaten bir görev eklenmiş.');
+      }
       const fields = await validateTaskFields(input);
       const now = new Date().toISOString();
       const task: ScheduleTask = {
@@ -646,9 +657,11 @@ export async function copyWeek(
           await db.scheduleRows.where('weekId').equals(source.id).toArray()
         ).filter((row) => !row.deletedAt),
       );
-      const tasks = (
-        await db.scheduleTasks.where('weekId').equals(source.id).toArray()
-      ).filter((task) => !task.deletedAt);
+      const tasks = sortTasks(
+        (
+          await db.scheduleTasks.where('weekId').equals(source.id).toArray()
+        ).filter((task) => !task.deletedAt),
+      );
 
       const rowIdBySource = new Map<string, string>();
       const rowsToAdd: ScheduleRow[] = [];
@@ -695,15 +708,37 @@ export async function copyWeek(
       }
 
       const tasksToAdd: ScheduleTask[] = [];
+      // Eski veride bir hücrede birden çok görev olabilir. Kopya her satır/gün
+      // için en fazla bir görev taşır; ilk kayıt (sortTasks sırası) kazanır.
+      const sourceSlots = new Set<string>();
+      // Hedefte dolu bir hücreye kopya eklenmez; tekrar kopyalama var olan
+      // görevi çoğaltmaz.
+      const occupiedSlots = new Set(
+        (
+          await db.scheduleTasks.where('weekId').equals(target.id).toArray()
+        )
+          .filter((task) => !task.deletedAt)
+          .map((task) => `${task.rowId}:${task.dayIndex}`),
+      );
       for (const task of tasks) {
         const rowId = rowIdBySource.get(task.rowId);
         if (!rowId) {
+          continue;
+        }
+        const sourceSlot = `${task.rowId}:${task.dayIndex}`;
+        if (sourceSlots.has(sourceSlot)) {
+          continue;
+        }
+        sourceSlots.add(sourceSlot);
+        const slot = `${rowId}:${task.dayIndex}`;
+        if (occupiedSlots.has(slot)) {
           continue;
         }
         const id = copiedId(target.id, task.id);
         if (await db.scheduleTasks.get(id)) {
           continue;
         }
+        occupiedSlots.add(slot);
         const copy: ScheduleTask = {
           id,
           weekId: target.id,

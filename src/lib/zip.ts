@@ -6,7 +6,7 @@ function pad(value: number, length = 2): string {
 
 /** Local-time file name used by the download button. */
 export function backupFileName(date = new Date()): string {
-  return `kocluk-yedek-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+  return `zirve-akademi-yedek-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
     date.getDate(),
   )}-${pad(date.getHours())}${pad(date.getMinutes())}.zip`;
 }

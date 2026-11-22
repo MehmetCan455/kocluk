@@ -10,5 +10,5 @@ beforeEach(async () => {
 test('uygulama kabuğunu ve ana sayfayı gösterir', async () => {
   renderApp('/');
   expect(await screen.findByRole('heading', { level: 1, name: 'Genel Bakış' })).toBeInTheDocument();
-  expect(screen.getAllByText('Koçluk').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('Zirve Akademi').length).toBeGreaterThan(0);
 });

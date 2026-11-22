@@ -13,7 +13,7 @@ test('yedek indirilir, veriler silinir ve yedekten geri yüklenir', async ({ pag
   const download = await downloadPromise;
   const backupPath = await download.path();
   expect(backupPath).toBeTruthy();
-  expect(download.suggestedFilename()).toMatch(/^kocluk-yedek-\d{4}-\d{2}-\d{2}-\d{4}\.zip$/);
+  expect(download.suggestedFilename()).toMatch(/^zirve-akademi-yedek-\d{4}-\d{2}-\d{2}-\d{4}\.zip$/);
 
   await page.getByRole('button', { name: 'Tüm verileri sil' }).click();
   await page.getByRole('button', { name: 'Devam et' }).click();

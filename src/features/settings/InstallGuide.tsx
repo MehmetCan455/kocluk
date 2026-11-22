@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 
 type ShareFeedback = { tone: 'success' | 'error'; message: string } | null;
 
-const SHARE_TITLE = 'Koçluk — YKS Takip';
+const SHARE_TITLE = 'Zirve Akademi — YKS Takip';
 
 function appUrl(): string {
   const base = import.meta.env.BASE_URL || '/';
@@ -59,7 +59,7 @@ export function InstallGuide() {
     const url = appUrl();
     const shareData = {
       title: SHARE_TITLE,
-      text: 'YKS takibi için Koçluk uygulaması',
+      text: 'YKS takibi için Zirve Akademi uygulaması',
       url,
     };
 
@@ -96,7 +96,7 @@ export function InstallGuide() {
   async function install() {
     const outcome = await promptInstall();
     if (outcome === 'accepted') {
-      setFeedback({ tone: 'success', message: 'Koçluk cihazına kuruluyor.' });
+      setFeedback({ tone: 'success', message: 'Zirve Akademi cihazına kuruluyor.' });
     } else if (outcome === 'unavailable') {
       setFeedback({
         tone: 'error',
@@ -112,8 +112,8 @@ export function InstallGuide() {
         <div className="space-y-1">
           <h2 className="text-base font-semibold">Uygulamayı kur</h2>
           <p className="text-sm text-muted">
-            Koçluk’u ana ekranına ekle; tam ekran açılır ve ilk yüklemeden sonra çevrimdışı
-            çalışır. Verilerin yalnızca bu cihazda kalır.
+            Zirve Akademi’yi ana ekranına ekle; tam ekran açılır ve ilk yüklemeden
+            sonra çevrimdışı çalışır. Verilerin yalnızca bu cihazda kalır.
           </p>
         </div>
       </div>

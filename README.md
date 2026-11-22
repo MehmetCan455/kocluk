@@ -1,4 +1,4 @@
-# Koçluk — YKS Takip
+# Zirve Akademi — YKS Takip
 
 YKS hazırlığı için yerel çalışan (local-first) bir takip uygulaması. Kitaplarını
 sayfa bazında katalogdan rafına ekler, okuduğun sayfaları ve kitap yüzdesini takip eder;

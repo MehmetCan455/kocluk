@@ -25,6 +25,7 @@ import type { ScheduleTask } from '@/domain/types';
 import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
 import { ScheduleTaskModal } from './ScheduleTaskModal';
+import { todayScheduleDayIndex } from './scheduleDays';
 import { WeeklyPlanTable, type WeeklyPlanRow } from './WeeklyPlanTable';
 import { WeekSummary } from './WeekSummary';
 
@@ -54,6 +55,10 @@ interface TaskEditorTarget {
   dayIndex: number;
   task?: ScheduleTask;
 }
+
+type PlanDeleteTarget =
+  | { kind: 'task'; task: ScheduleTask }
+  | { kind: 'row'; key: string; label: string };
 
 function requestedWeekStart(value: string | null): string {
   if (value !== null && isValidDateString(value)) {
@@ -86,8 +91,9 @@ export function WeeklyPlan() {
   const weekParam = searchParams.get('week');
 
   const [weekStart, setWeekStart] = useState(() => requestedWeekStart(weekParam));
-  // Lives above the table so switching weeks keeps the selected mobile day.
-  const [selectedDay, setSelectedDay] = useState(0);
+  // Zero-based visual index, not the stored ISO day. Lives above the table so
+  // switching weeks keeps the selected mobile day; first open shows today.
+  const [selectedDay, setSelectedDay] = useState(() => todayScheduleDayIndex());
   const [weekData, setWeekData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -101,6 +107,9 @@ export function WeeklyPlan() {
   const [taskError, setTaskError] = useState<string | null>(null);
   const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PlanDeleteTarget | null>(null);
+  const [deletingTarget, setDeletingTarget] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [note, setNote] = useState('');
   const [savedNote, setSavedNote] = useState('');
@@ -620,14 +629,7 @@ export function WeeklyPlan() {
     }
 
     if (row.id !== undefined) {
-      try {
-        await deleteScheduleRow(row.id);
-      } catch (caught: unknown) {
-        setSaveError(
-          messageFor(caught, 'Satır silinemedi. Lütfen tekrar dene.'),
-        );
-        return;
-      }
+      await deleteScheduleRow(row.id);
     }
 
     const forWeekId = weekIdRef.current;
@@ -658,15 +660,49 @@ export function WeeklyPlan() {
     }
   }
 
-  async function handleDeleteTask(task: ScheduleTask): Promise<void> {
+  function requestDeleteTask(task: ScheduleTask): void {
     setTaskError(null);
+    setDeleteError(null);
+    setDeleteTarget({ kind: 'task', task });
+  }
+
+  function requestDeleteRow(key: string): void {
+    const row = rowsRef.current.find((item) => item.key === key);
+    setSaveError(null);
+    setDeleteError(null);
+    setDeleteTarget({
+      kind: 'row',
+      key,
+      label: row?.label.trim() || 'Bu',
+    });
+  }
+
+  async function confirmDelete(): Promise<void> {
+    if (!deleteTarget || deletingTarget) {
+      return;
+    }
+
+    setDeletingTarget(true);
+    setDeleteError(null);
     try {
-      await deleteScheduleTask(task.id);
-      await refreshTasks();
+      if (deleteTarget.kind === 'task') {
+        await deleteScheduleTask(deleteTarget.task.id);
+        await refreshTasks();
+      } else {
+        await removeRow(deleteTarget.key);
+      }
+      setDeleteTarget(null);
     } catch (caught: unknown) {
-      setTaskError(
-        messageFor(caught, 'Görev silinemedi. Lütfen tekrar dene.'),
+      setDeleteError(
+        messageFor(
+          caught,
+          deleteTarget.kind === 'task'
+            ? 'Görev silinemedi. Lütfen tekrar dene.'
+            : 'Satır silinemedi. Lütfen tekrar dene.',
+        ),
       );
+    } finally {
+      setDeletingTarget(false);
     }
   }
 
@@ -687,7 +723,7 @@ export function WeeklyPlan() {
   }
 
   function requestCopy(): void {
-    if (tasksRef.current.length > 0) {
+    if (rowsRef.current.length > 0 || tasksRef.current.length > 0) {
       setCopyConfirmOpen(true);
       return;
     }
@@ -769,7 +805,7 @@ export function WeeklyPlan() {
             onSelectDay={setSelectedDay}
             onAddRow={addDraftRow}
             onRenameRow={renameDraftRow}
-            onDeleteRow={(key) => void removeRow(key)}
+            onDeleteRow={requestDeleteRow}
             taskLabel={taskLabel}
             onAddTask={(row, dayIndex) => {
               if (!weekData || row.id === undefined) {
@@ -785,7 +821,7 @@ export function WeeklyPlan() {
                 task,
               })
             }
-            onDeleteTask={(task) => void handleDeleteTask(task)}
+            onDeleteTask={requestDeleteTask}
           />
 
           {taskError ? (
@@ -880,12 +916,72 @@ export function WeeklyPlan() {
           }
         >
           <p className="text-sm">
-            Bu haftada zaten görevler var. Kopyalama yalnızca eksik satır ve
-            görevleri ekler; var olan görevler çoğaltılmaz.
+            Bu haftada zaten satır veya görev var. Kopyalama yalnızca eksik satır
+            ve görevleri ekler; var olan görevler çoğaltılmaz.
           </p>
           <p className="text-sm text-muted">
             Kopyalanan görevler tamamlanmamış olarak gelir.
           </p>
+        </Modal>
+      ) : null}
+
+      {deleteTarget ? (
+        <Modal
+          open
+          title={deleteTarget.kind === 'task' ? 'Görevi sil' : 'Satırı sil'}
+          onClose={() => {
+            if (!deletingTarget) {
+              setDeleteTarget(null);
+            }
+          }}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deletingTarget}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => void confirmDelete()}
+                disabled={deletingTarget}
+              >
+                {deletingTarget ? 'Siliniyor…' : 'Sil'}
+              </Button>
+            </>
+          }
+        >
+          {deleteTarget.kind === 'task' ? (
+            <>
+              <p className="text-sm">
+                <span className="font-semibold">
+                  {taskLabel(deleteTarget.task)}
+                </span>{' '}
+                plan görevinden kaldırılacak.
+              </p>
+              <p className="text-sm text-muted">
+                Kitap veya konu ilerlemesi silinmez. İlerlemeyi geri almak için
+                görevi silmeden önce tiki kaldır.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm">
+                <span className="font-semibold">{deleteTarget.label}</span>{' '}
+                satırı ve içindeki tüm görevler plandan kaldırılacak.
+              </p>
+              <p className="text-sm text-muted">
+                Kitap ve konu ilerlemesi korunur.
+              </p>
+            </>
+          )}
+          {deleteError ? (
+            <p role="alert" className="text-sm text-danger">
+              {deleteError}
+            </p>
+          ) : null}
         </Modal>
       ) : null}
     </div>

@@ -14,3 +14,8 @@ export const SCHEDULE_DAYS: readonly ScheduleDay[] = [
   { day: 6, label: 'Cumartesi', short: 'Cmt' },
   { day: 7, label: 'Pazar', short: 'Paz' },
 ];
+
+/** Zero-based index into `SCHEDULE_DAYS` for the device's current day. */
+export function todayScheduleDayIndex(now: Date = new Date()): number {
+  return (now.getDay() + 6) % 7;
+}

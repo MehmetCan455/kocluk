@@ -27,7 +27,8 @@ export interface WeeklyPlanTableProps {
   onRenameRow: (key: string, label: string) => void;
   onDeleteRow: (key: string) => void;
   taskLabel: (task: ScheduleTask) => string;
-  onAddTask: (row: WeeklyPlanRow, dayIndex: number) => void;
+  /** Receives the ISO day (1 = Monday … 7 = Sunday), not the visual index. */
+  onAddTask: (row: WeeklyPlanRow, day: number) => void;
   onToggleTask: (task: ScheduleTask, done: boolean) => void;
   onEditTask: (task: ScheduleTask) => void;
   onDeleteTask: (task: ScheduleTask) => void;
@@ -183,8 +184,10 @@ export function WeeklyPlanTable({
                     </div>
                   </td>
                   {SCHEDULE_DAYS.map((day, dayIndex) => {
+                    // `selectedDay` is a visual index into SCHEDULE_DAYS; stored
+                    // tasks always use the ISO day number (`day.day`).
                     const cellTasks = tasks.filter(
-                      (task) => task.rowId === row.id && task.dayIndex === dayIndex,
+                      (task) => task.rowId === row.id && task.dayIndex === day.day,
                     );
                     return (
                       <td
@@ -210,7 +213,7 @@ export function WeeklyPlanTable({
                           <button
                             type="button"
                             aria-label={`${cellName(row, rowIndex)} ${day.label} görev ekle`}
-                            onClick={() => onAddTask(row, dayIndex)}
+                            onClick={() => onAddTask(row, day.day)}
                             disabled={disabled || row.id === undefined}
                             title={
                               row.id === undefined

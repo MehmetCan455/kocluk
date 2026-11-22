@@ -237,6 +237,13 @@ function invalidPageNumber(value: number | undefined): boolean {
   return value !== undefined && !Number.isInteger(value);
 }
 
+/** The stored plan uses ISO weekdays (Monday = 1 … Sunday = 7). */
+function validateDayIndex(dayIndex: number): void {
+  if (!Number.isInteger(dayIndex) || dayIndex < 1 || dayIndex > 7) {
+    throw new Error('Gün 1 ile 7 arasında olmalı.');
+  }
+}
+
 /**
  * Validates and normalizes the type-specific fields. Blank page inputs must
  * arrive as `undefined`, never `NaN`.
@@ -305,6 +312,7 @@ export async function addTask(
     db.catalogBooks,
     db.topics,
     async () => {
+      validateDayIndex(input.dayIndex);
       const fields = await validateTaskFields(input);
       const now = new Date().toISOString();
       const task: ScheduleTask = {
@@ -435,6 +443,7 @@ export async function updateTask(
         throw new Error('Görev bulunamadı');
       }
 
+      validateDayIndex(input.dayIndex);
       const fields = await validateTaskFields(input);
       const now = new Date().toISOString();
       const next: ScheduleTask = {
@@ -592,7 +601,26 @@ export async function copyWeek(
       for (const row of rows) {
         const id = copiedId(target.id, row.id);
         rowIdBySource.set(row.id, id);
-        if (await db.scheduleRows.get(id)) {
+        const existing = await db.scheduleRows.get(id);
+        if (existing) {
+          // A copied row the user later deleted in the target week must be
+          // revived before its new tasks arrive; otherwise they would be
+          // inserted under a tombstoned row and disappear from the plan.
+          if (existing.deletedAt) {
+            const revived: ScheduleRow = {
+              ...existing,
+              label: row.label,
+              order: row.order,
+              updatedAt: now,
+            };
+            if (row.subjectId !== undefined) {
+              revived.subjectId = row.subjectId;
+            } else {
+              delete revived.subjectId;
+            }
+            delete revived.deletedAt;
+            await db.scheduleRows.put(revived);
+          }
           continue;
         }
         const copy: ScheduleRow = {
@@ -709,7 +737,14 @@ export async function listTasksForDay(
   );
 
   return tasks
-    .filter((task) => !task.deletedAt && task.dayIndex === dayIndex)
+    .filter(
+      (task) =>
+        !task.deletedAt &&
+        task.dayIndex === dayIndex &&
+        // Defensive: a task whose row was tombstoned (including rows left
+        // behind by an old copy bug) must not appear in today's plan.
+        rowOrder.has(task.rowId),
+    )
     .sort(
       (left, right) =>
         (rowOrder.get(left.rowId) ?? Number.MAX_SAFE_INTEGER) -

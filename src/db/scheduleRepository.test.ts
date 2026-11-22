@@ -177,6 +177,21 @@ test('kitap görevi sayfa aralığını ve kitabı doğrular', async () => {
   expect(task.completedAt).toBeUndefined();
 });
 
+test('gün indeksi 1 ile 7 arasında olmalı', async () => {
+  const { weekId, rowId } = await seedWeekAndRow();
+
+  await expect(
+    addTask({ weekId, rowId, dayIndex: 0, type: 'free', title: 'Pazartesi' }),
+  ).rejects.toThrow('Gün 1 ile 7 arasında olmalı.');
+  await expect(
+    addTask({ weekId, rowId, dayIndex: 8, type: 'free', title: 'Taşan gün' }),
+  ).rejects.toThrow('Gün 1 ile 7 arasında olmalı.');
+  await expect(
+    addTask({ weekId, rowId, dayIndex: 2.5, type: 'free', title: 'Kesirli gün' }),
+  ).rejects.toThrow('Gün 1 ile 7 arasında olmalı.');
+  expect(await db.scheduleTasks.count()).toBe(0);
+});
+
 test('konu ve serbest görev alanları doğrulanır', async () => {
   const { weekId, rowId } = await seedWeekAndRow();
 
@@ -499,6 +514,43 @@ test('hafta kopyası tamamlanma ve kayıtları taşımaz, tekrar kopya çoğaltm
   expect(await db.activityLogs.count()).toBe(logCount);
 });
 
+test('hedefte silinen kopya satır yeni görevler için yeniden canlandırılır', async () => {
+  const source = await getOrCreateWeek(WEEK_START);
+  const sourceRow = await addRow(source.week.id, 'Matematik');
+  await addTask({
+    weekId: source.week.id,
+    rowId: sourceRow.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'İlk görev',
+  });
+
+  await copyWeek(WEEK_START, NEXT_WEEK_START);
+  const target = await getOrCreateWeek(NEXT_WEEK_START);
+  const copiedRowId = deterministicId(
+    COPY_NAMESPACE,
+    `${target.week.id}:${sourceRow.id}`,
+  );
+  await deleteRow(copiedRowId);
+  expect((await db.scheduleRows.get(copiedRowId))?.deletedAt).toBeDefined();
+
+  await addTask({
+    weekId: source.week.id,
+    rowId: sourceRow.id,
+    dayIndex: 2,
+    type: 'free',
+    title: 'Sonradan eklenen görev',
+  });
+  await copyWeek(WEEK_START, NEXT_WEEK_START);
+
+  expect((await db.scheduleRows.get(copiedRowId))?.deletedAt).toBeUndefined();
+  const after = await getWeek(NEXT_WEEK_START);
+  expect(after?.rows.map((row) => row.id)).toContain(copiedRowId);
+  const newTask = after?.tasks.find((task) => task.title === 'Sonradan eklenen görev');
+  expect(newTask?.rowId).toBe(copiedRowId);
+  expect(await listTasksForDay(NEXT_WEEK_START, 2)).toContainEqual(newTask);
+});
+
 test('görev silme kaydı korur, satır silme görevleri tombstone eder', async () => {
   const userBookId = await seedShelfBook(400);
   const { weekId, rowId: seedRowId } = await seedWeekAndRow();
@@ -587,4 +639,17 @@ test('gün görevleri yalnızca o günün etkin görevlerini döndürür', async
   ]);
   expect(await listTasksForDay(WEEK_START, 7)).toEqual([]);
   expect(await listTasksForDay('2026-11-30', 1)).toEqual([]);
+
+  // A task pointing at a missing/tombstoned row never reaches the dashboard.
+  await db.scheduleTasks.add({
+    id: 'orphan-task',
+    weekId,
+    rowId: 'silinmis-satir',
+    dayIndex: 7,
+    type: 'free',
+    title: 'Yetim görev',
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  });
+  expect(await listTasksForDay(WEEK_START, 7)).toEqual([]);
 });

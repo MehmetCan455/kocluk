@@ -72,7 +72,12 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
     timeout: 5_000,
   });
 
-  // A saved row can carry a free-form task; ticking it must persist too.
+  // The mobile planner opens on today; switch to Monday explicitly before
+  // adding the task so the flow does not depend on the run's weekday.
+  await page
+    .getByRole('group', { name: 'Çizelge günü' })
+    .getByRole('button', { name: 'Pzt Pazartesi' })
+    .click();
   await page
     .getByRole('button', { name: 'Matematik Pazartesi görev ekle' })
     .click();
@@ -96,6 +101,11 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
   ).toBeVisible();
   await expect(page.getByText(expectedWeekLabel, { exact: true })).toBeVisible();
   await expect(page.getByLabel('1. satır', { exact: true })).toHaveValue('Matematik');
+  // The planner reopens on today; switch back to Monday for the saved chip.
+  await page
+    .getByRole('group', { name: 'Çizelge günü' })
+    .getByRole('button', { name: 'Pzt Pazartesi' })
+    .click();
   await expect(
     page.getByRole('checkbox', { name: 'E2E görev görevini tamamla' }),
   ).toBeChecked();

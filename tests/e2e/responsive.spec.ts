@@ -130,6 +130,8 @@ test('390 px çizelgede tek gün görünür, gün değiştirilir ve satır etike
   await openProgram(page);
 
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
+  // The planner opens on today; the test pins Monday before asserting columns.
+  await selectDay(page, 'Pazartesi');
   await expectOnlyDayColumn(table, 'Pazartesi');
 
   await selectDay(page, 'Salı');

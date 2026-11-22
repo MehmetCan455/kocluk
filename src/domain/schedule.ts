@@ -50,6 +50,9 @@ export function validateTaskPages(
   if (from === undefined || to === undefined) {
     return 'Başlangıç ve bitiş sayfası gerekli.';
   }
+  if (!Number.isInteger(from) || !Number.isInteger(to)) {
+    return 'Sayfa numaraları tam sayı olmalı.';
+  }
   if (from <= 0 || to <= 0) {
     return 'Sayfa numaraları 1 veya daha büyük olmalı.';
   }

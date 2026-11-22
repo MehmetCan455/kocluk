@@ -69,6 +69,12 @@ test('sıfır veya negatif sayfa numarasını reddeder', () => {
   expect(validateTaskPages(-5, 20, 100)).toBe('Sayfa numaraları 1 veya daha büyük olmalı.');
 });
 
+test('ondalık ve NaN sayfa numarasını sessizce kırpmadan reddeder', () => {
+  expect(validateTaskPages(10.5, 20, 100)).toBe('Sayfa numaraları tam sayı olmalı.');
+  expect(validateTaskPages(10, 20.2, 100)).toBe('Sayfa numaraları tam sayı olmalı.');
+  expect(validateTaskPages(Number.NaN, 20, 100)).toBe('Sayfa numaraları tam sayı olmalı.');
+});
+
 test('ters sayfa aralığını reddeder', () => {
   expect(validateTaskPages(20, 10, 100)).toBe('Başlangıç sayfası bitiş sayfasından büyük olamaz.');
 });

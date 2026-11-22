@@ -25,7 +25,10 @@ import {
   toggleTask,
 } from '@/db/scheduleRepository';
 import { getTopicDone, listTopicReviews } from '@/db/topicProgressRepository';
-import { SCHEDULE_DAYS } from '@/features/schedule/scheduleDays';
+import {
+  SCHEDULE_DAYS,
+  todayScheduleDayIndex,
+} from '@/features/schedule/scheduleDays';
 import { dayLabel, shiftWeek, weekLabel, weekStartOf } from '@/domain/schedule';
 import type { Subject, Topic } from '@/domain/types';
 import { compressImage } from '@/lib/image';
@@ -196,10 +199,20 @@ test('program geçerli haftayı, yedi gün sütununu ve boş planı gösterir', 
 
   const dayTabs = screen.getByRole('group', { name: 'Çizelge günü' });
   expect(within(dayTabs).getAllByRole('button')).toHaveLength(7);
-  const sali = within(dayTabs).getByRole('button', { name: 'Sal Salı' });
-  expect(sali).toHaveAttribute('aria-pressed', 'false');
-  await userEvent.click(sali);
-  expect(sali).toHaveAttribute('aria-pressed', 'true');
+  // The mobile day selector opens on today, not Monday.
+  const today = SCHEDULE_DAYS[todayScheduleDayIndex()];
+  expect(
+    within(dayTabs).getByRole('button', {
+      name: `${today.short} ${today.label}`,
+    }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  const otherDay = SCHEDULE_DAYS.find((day) => day.day !== today.day)!;
+  const otherButton = within(dayTabs).getByRole('button', {
+    name: `${otherDay.short} ${otherDay.label}`,
+  });
+  expect(otherButton).toHaveAttribute('aria-pressed', 'false');
+  await userEvent.click(otherButton);
+  expect(otherButton).toHaveAttribute('aria-pressed', 'true');
 
   expect(screen.getByLabelText('Haftanın notu')).toBeInTheDocument();
   expect(screen.getByText('Henüz kaydedilmedi')).toBeInTheDocument();
@@ -286,6 +299,22 @@ test('satır eklenir, adlandırılır, silinir ve yeniden açınca korunur', asy
   );
 
   await userEvent.click(screen.getByRole('button', { name: '2. satırı sil' }));
+  let deleteDialog = await screen.findByRole('dialog', { name: 'Satırı sil' });
+  expect(deleteDialog).toHaveTextContent('içindeki tüm görevler');
+  await userEvent.click(
+    within(deleteDialog).getByRole('button', { name: 'Vazgeç' }),
+  );
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Satırı sil' })).not.toBeInTheDocument();
+  });
+  expect((await getWeek(current))?.rows.map((row) => row.label)).toEqual([
+    'Matematik',
+    'Fizik',
+  ]);
+
+  await userEvent.click(screen.getByRole('button', { name: '2. satırı sil' }));
+  deleteDialog = await screen.findByRole('dialog', { name: 'Satırı sil' });
+  await userEvent.click(within(deleteDialog).getByRole('button', { name: 'Sil' }));
   await waitFor(
     async () => {
       expect((await getWeek(current))?.rows.map((row) => row.label)).toEqual([
@@ -492,6 +521,9 @@ test('eski çizelge salt okunur gösterilir ve yeni haftalık plan çalışır',
   expect(within(legacy).getByText('40 soru')).toBeVisible();
   expect(within(legacy).getByText('3 saat')).toBeVisible();
   expect(
+    within(details).getByText('Eski çizelgenin notu'),
+  ).toBeVisible();
+  expect(
     within(details).getByText('Eski haftanın değerlendirmesi'),
   ).toBeVisible();
 
@@ -658,6 +690,38 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
     name: /s\. 210–220 görevini plana aç/,
   });
   expect(planLink).toHaveAttribute('href', `/program?week=${weekStart}`);
+  // Week/day context and completion state stay in the accessible name.
+  expect(planLink).toHaveAccessibleName(new RegExp(weekLabel(weekStart)));
+  expect(planLink).toHaveAccessibleName(/Tamamlandı/);
+  expect(planLink).toHaveTextContent(dayLabel(weekStart, 3));
+});
+
+test('ondalık sayfa girişi kırpılmadan reddedilir', async () => {
+  await seedPlanRow();
+  const shelfBook = await seedBilgiSarmalBook();
+  await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Cuma görev ekle' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await within(dialog).findByRole('option', { name: /Bilgi Sarmal/ });
+  await userEvent.selectOptions(
+    within(dialog).getByLabelText('Kitap'),
+    shelfBook.userBook.id,
+  );
+  await userEvent.type(
+    within(dialog).getByLabelText('Başlangıç sayfası'),
+    '210.5',
+  );
+  await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '220');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    'tam sayı olmalı',
+  );
+  expect(await db.scheduleTasks.count()).toBe(0);
 });
 
 test('konu tekrarı görevi tiklenince tekrar kaydı oluşturur ama konuyu bitirmez', async () => {
@@ -689,7 +753,7 @@ test('konu tekrarı görevi tiklenince tekrar kaydı oluşturur ama konuyu bitir
   view.unmount();
   renderApp(`/tyt/${subject.id}/${topic.id}`);
   expect(await screen.findByText('1 tekrar')).toBeInTheDocument();
-  expect(screen.getByText('Başlanmadı')).toBeInTheDocument();
+  expect(screen.getByText('Devam ediyor')).toBeInTheDocument();
 });
 
 test('geçen haftadan kopyala görevleri tamamlanmadan kopyalar ve çoğaltmaz', async () => {
@@ -744,6 +808,58 @@ test('geçen haftadan kopyala görevleri tamamlanmadan kopyalar ve çoğaltmaz',
   expect((await getWeek(current))?.tasks).toHaveLength(2);
 });
 
+test('arayüzden eklenen görev ISO gün indeksiyle saklanır ve bugünün planında görünür', async () => {
+  const { weekId } = await seedPlanRow();
+  const today = ((new Date().getDay() + 6) % 7) + 1;
+  const day = SCHEDULE_DAYS.find((item) => item.day === today);
+  if (!day) {
+    throw new Error('Bugünün çizelge günü bulunamadı');
+  }
+
+  const view = await openSchedule();
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: `Matematik ${day.label} görev ekle` }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Serbest görev' }),
+  );
+  await userEvent.type(
+    within(dialog).getByLabelText('Görev adı'),
+    'Bugünün görevi',
+  );
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  await waitFor(async () => {
+    const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].dayIndex).toBeGreaterThanOrEqual(1);
+    expect(tasks[0].dayIndex).toBeLessThanOrEqual(7);
+    expect(tasks[0].dayIndex).toBe(today);
+  });
+
+  const chipCheckbox = screen.getByRole('checkbox', {
+    name: 'Bugünün görevi görevini tamamla',
+  });
+  // The tick label and the icon buttons keep the 44px touch target rule.
+  expect(chipCheckbox.closest('label')).toHaveClass('min-h-11', 'min-w-11');
+  expect(
+    screen.getByRole('button', { name: 'Bugünün görevi görevini düzenle' }),
+  ).toHaveClass('h-11', 'w-11');
+  expect(
+    screen.getByRole('button', { name: 'Bugünün görevi görevini sil' }),
+  ).toHaveClass('h-11', 'w-11');
+
+  view.unmount();
+  renderApp('/');
+  expect(
+    await screen.findByRole('checkbox', {
+      name: 'Bugünün görevi görevini tamamla',
+    }),
+  ).toBeInTheDocument();
+});
+
 test('serbest görev eklenir, düzenlenir ve silinir', async () => {
   await seedPlanRow();
   await openSchedule();
@@ -780,8 +896,68 @@ test('serbest görev eklenir, düzenlenir ve silinir', async () => {
       name: 'Deneme analizi görevini sil',
     }),
   );
+  const deleteDialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
+  expect(deleteDialog).toHaveTextContent('tiki kaldır');
+  await userEvent.click(within(deleteDialog).getByRole('button', { name: 'Sil' }));
   await waitFor(() => {
     expect(screen.queryByText('Deneme analizi')).not.toBeInTheDocument();
   });
   expect((await getWeek(currentWeekStart()))?.tasks).toEqual([]);
+});
+
+test('hedef haftada satır varsa kopyalama onay ister', async () => {
+  const current = currentWeekStart();
+  const target = await getOrCreateWeek(current);
+  await addRow(target.week.id, 'Mevcut satır');
+  const source = await getOrCreateWeek(shiftWeek(current, -1));
+  const sourceRow = await addRow(source.week.id, 'Kaynak satır');
+  await addTask({
+    weekId: source.week.id,
+    rowId: sourceRow.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Kaynak görev',
+  });
+
+  await openSchedule();
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Geçen haftadan kopyala' }),
+  );
+
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Geçen haftadan kopyala',
+  });
+  expect(dialog).toHaveTextContent('satır veya görev');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Vazgeç' }));
+
+  expect((await getWeek(current))?.rows.map((row) => row.label)).toEqual([
+    'Mevcut satır',
+  ]);
+  expect((await getWeek(current))?.tasks).toEqual([]);
+});
+
+test('görev silme onayı vazgeçilince görev korunur', async () => {
+  const { weekStart, weekId, rowId } = await seedPlanRow();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Kalacak görev',
+  });
+
+  await openSchedule(`/program?week=${weekStart}`);
+  await screen.findByText('Kalacak görev');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Kalacak görev görevini sil' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Vazgeç' }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Görevi sil' })).not.toBeInTheDocument();
+  });
+  expect(screen.getByText('Kalacak görev')).toBeInTheDocument();
+  expect((await getWeek(weekStart))?.tasks).toHaveLength(1);
 });

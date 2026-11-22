@@ -139,7 +139,7 @@ export function LegacyScheduleTable() {
           {table.note ? (
             <div className="space-y-1">
               <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                Haftanın notu
+                Eski çizelgenin notu
               </h3>
               <p className="whitespace-pre-wrap text-sm">{table.note}</p>
             </div>

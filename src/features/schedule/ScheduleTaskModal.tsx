@@ -23,16 +23,17 @@ const TASK_TYPES: ReadonlyArray<{ value: ScheduleTaskType; label: string }> = [
 ];
 
 /**
- * Blank number inputs are `undefined`, never `NaN`; the repository validates
- * the range and reports its Turkish message.
+ * Blank number inputs are `undefined`, never `NaN`. `Number` keeps decimals
+ * intact so the repository can reject them explicitly instead of `parseInt`
+ * silently truncating 12.5 to 12.
  */
 function parsePageInput(value: string): number | undefined {
   const trimmed = value.trim();
   if (trimmed === '') {
     return undefined;
   }
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isNaN(parsed) ? undefined : parsed;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export interface ScheduleTaskModalProps {
@@ -241,7 +242,9 @@ export function ScheduleTaskModal({
                   type="number"
                   inputMode="numeric"
                   min={1}
-                  step={1}
+                  // The repository rejects decimals with a Turkish message;
+                  // `step={1}` would let the browser block submit silently.
+                  step="any"
                   value={fromPage}
                   onChange={(event) => setFromPage(event.target.value)}
                   disabled={loading}
@@ -254,7 +257,7 @@ export function ScheduleTaskModal({
                   type="number"
                   inputMode="numeric"
                   min={1}
-                  step={1}
+                  step="any"
                   value={toPage}
                   onChange={(event) => setToPage(event.target.value)}
                   disabled={loading}

@@ -21,6 +21,8 @@ export function TaskChip({
   disabled = false,
 }: TaskChipProps) {
   const done = Boolean(task.completedAt);
+  const actionClass =
+    'grid h-11 w-11 shrink-0 place-items-center rounded-md text-muted transition-colors disabled:pointer-events-none disabled:opacity-50';
 
   return (
     <div
@@ -31,25 +33,26 @@ export function TaskChip({
           : 'border-line bg-raised text-fg',
       )}
     >
-      <input
-        type="checkbox"
-        checked={done}
-        onChange={(event) => onToggle(event.target.checked)}
-        disabled={disabled}
-        aria-label={`${label} görevini tamamla`}
-        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
-      />
-      <span
-        className={cn('min-w-0 flex-1 break-words', done && 'line-through')}
-      >
-        {label}
-      </span>
+      {/* Checkbox and label share one >=44px hit area. */}
+      <label className="flex min-h-11 min-w-11 flex-1 cursor-pointer items-start gap-1.5 py-1">
+        <input
+          type="checkbox"
+          checked={done}
+          onChange={(event) => onToggle(event.target.checked)}
+          disabled={disabled}
+          aria-label={`${label} görevini tamamla`}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+        />
+        <span className={cn('min-w-0 break-words', done && 'line-through')}>
+          {label}
+        </span>
+      </label>
       <button
         type="button"
         aria-label={`${label} görevini düzenle`}
         onClick={onEdit}
         disabled={disabled}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-surface hover:text-fg disabled:pointer-events-none disabled:opacity-50"
+        className={cn(actionClass, 'hover:bg-surface hover:text-fg')}
       >
         <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
@@ -58,7 +61,7 @@ export function TaskChip({
         aria-label={`${label} görevini sil`}
         onClick={onDelete}
         disabled={disabled}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-surface hover:text-danger disabled:pointer-events-none disabled:opacity-50"
+        className={cn(actionClass, 'hover:bg-surface hover:text-danger')}
       >
         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
       </button>

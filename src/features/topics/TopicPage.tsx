@@ -86,8 +86,20 @@ export function TopicPage({ exam }: TopicPageProps) {
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{subject.name}</p>
           <h1 className="text-2xl font-semibold tracking-tight">{topic.name}</h1>
-          <p className={progress.done ? 'text-sm font-medium text-success' : 'text-sm font-medium'}>
-            {progress.done ? 'Bitti' : 'Başlanmadı'}
+          <p
+            className={
+              progress.done
+                ? 'text-sm font-medium text-success'
+                : progress.started
+                  ? 'text-sm font-medium text-[var(--accent)]'
+                  : 'text-sm font-medium text-muted'
+            }
+          >
+            {progress.done
+              ? 'Bitti'
+              : progress.started
+                ? 'Devam ediyor'
+                : 'Başlanmadı'}
           </p>
           <p className="text-sm text-muted">
             {reviewCount === 0 ? 'Henüz tekrar yok' : `${reviewCount} tekrar`}

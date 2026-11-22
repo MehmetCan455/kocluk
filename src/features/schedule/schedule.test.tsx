@@ -7,6 +7,7 @@ import {
   SCHEDULE_FILE_MAX_BYTES,
   getSettings,
   listScheduleFiles,
+  saveScheduleTable,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
 import { listCatalogBooks, seedCatalog } from '@/db/catalogRepository';
@@ -152,6 +153,21 @@ async function switchToUpload(): Promise<void> {
   expect(await screen.findByText('Henüz çizelge dosyası yok')).toBeInTheDocument();
 }
 
+async function seedLegacyTable(): Promise<void> {
+  await saveScheduleTable({
+    rows: [
+      {
+        id: 'eski-matematik',
+        subject: 'Matematik',
+        days: ['2 saat', '40 soru', '', '', '', '', ''],
+        done: [true, false, false, false, false, false, false],
+        total: '3 saat',
+      },
+    ],
+    note: 'Eski haftanın değerlendirmesi',
+  });
+}
+
 interface FakeSizeFile extends File {
   size: number;
 }
@@ -187,6 +203,7 @@ test('program geçerli haftayı, yedi gün sütununu ve boş planı gösterir', 
 
   expect(screen.getByLabelText('Haftanın notu')).toBeInTheDocument();
   expect(screen.getByText('Henüz kaydedilmedi')).toBeInTheDocument();
+  expect(screen.queryByText('Eski çizelge')).not.toBeInTheDocument();
 });
 
 test('adresteki hafta parametresi açılış haftasını belirler', async () => {
@@ -441,6 +458,58 @@ test('mod seçimi kalıcıdır; yükleme ve elle plan arasında geçilir', async
   await userEvent.click(screen.getByRole('button', { name: 'Elle tablo' }));
   expect(await findPlanTable()).toBeInTheDocument();
   expect((await getSettings()).scheduleMode).toBe('manual');
+});
+
+test('eski çizelge salt okunur gösterilir ve yeni haftalık plan çalışır', async () => {
+  await seedLegacyTable();
+  await openSchedule();
+
+  const plan = await findPlanTable();
+  expect(
+    await within(plan).findByText('Bu hafta için henüz satır yok'),
+  ).toBeInTheDocument();
+
+  const summary = await screen.findByText('Eski çizelge');
+  const details = summary.closest('details');
+  if (!(details instanceof HTMLElement)) {
+    throw new Error('Eski çizelge bir details öğesi içinde değil');
+  }
+  await userEvent.click(summary);
+
+  const legacy = await screen.findByRole('table', {
+    name: 'Eski çizelge tablosu',
+  });
+  for (const day of SCHEDULE_DAYS) {
+    expect(
+      within(legacy).getByRole('columnheader', { name: day.label }),
+    ).toBeInTheDocument();
+  }
+  expect(within(legacy).getAllByRole('columnheader')).toHaveLength(9);
+
+  const doneCell = within(legacy).getByText('2 saat');
+  expect(doneCell).toBeVisible();
+  expect(doneCell.closest('td')).toHaveAttribute('data-done', 'true');
+  expect(within(legacy).getByText('40 soru')).toBeVisible();
+  expect(within(legacy).getByText('3 saat')).toBeVisible();
+  expect(
+    within(details).getByText('Eski haftanın değerlendirmesi'),
+  ).toBeVisible();
+
+  expect(within(details).queryAllByRole('textbox')).toHaveLength(0);
+  expect(within(details).queryAllByRole('button')).toHaveLength(0);
+  expect(within(details).queryByText('Kaydet')).not.toBeInTheDocument();
+});
+
+test('eski çizelge yükleme modunda gösterilmez', async () => {
+  await seedLegacyTable();
+  await openSchedule();
+  expect(await screen.findByText('Eski çizelge')).toBeInTheDocument();
+
+  await switchToUpload();
+  expect(screen.queryByText('Eski çizelge')).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Elle tablo' }));
+  expect(await screen.findByText('Eski çizelge')).toBeInTheDocument();
 });
 
 test('program görselini büyütür, PDF bağlantısını açar ve dosyaları siler', async () => {

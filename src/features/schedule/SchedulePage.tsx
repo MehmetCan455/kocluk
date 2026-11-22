@@ -4,6 +4,7 @@ import { useAppSettings } from '@/app/SettingsProvider';
 import { cn } from '@/components/ui/cn';
 import { listScheduleFiles } from '@/db/repositories';
 import type { ScheduleMode } from '@/domain/types';
+import { LegacyScheduleTable } from './LegacyScheduleTable';
 import { ScheduleFileList } from './ScheduleFileList';
 
 // The weekly plan pulls in the schedule repository and date helpers. Loading
@@ -86,15 +87,18 @@ export function SchedulePage() {
       ) : null}
 
       {mode === 'manual' ? (
-        <Suspense
-          fallback={
-            <p role="status" className="py-8 text-center text-sm text-muted">
-              Haftalık plan yükleniyor…
-            </p>
-          }
-        >
-          <WeeklyPlan />
-        </Suspense>
+        <>
+          <Suspense
+            fallback={
+              <p role="status" className="py-8 text-center text-sm text-muted">
+                Haftalık plan yükleniyor…
+              </p>
+            }
+          >
+            <WeeklyPlan />
+          </Suspense>
+          <LegacyScheduleTable />
+        </>
       ) : null}
 
       {mode === 'upload' ? (

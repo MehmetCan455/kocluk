@@ -49,9 +49,12 @@ test('newId UUID üretir', () => {
   expect(first).not.toBe(second);
 });
 
-test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db.tables.map((table) => table.name).sort()).toEqual([
+test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {
+  expect(db.tables.map((table) => table.name).sort()).toEqual([
+    'activityLogs',
     'attachments',
     'books',
+    'catalogBooks',
     'examResults',
     'exams',
     'notes',
@@ -60,11 +63,16 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db
     'practiceSessions',
     'scheduleEntries',
     'scheduleFiles',
+    'scheduleRows',
     'scheduleTables',
+    'scheduleTasks',
+    'scheduleWeeks',
     'settings',
     'subjects',
     'topicBooks',
+    'topicProgress',
     'topics',
+    'userBooks',
   ]);
   expect(db.subjects.schema.indexes.find((index) => index.name === 'seedKey')?.unique).toBe(true);
   expect(db.topics.schema.indexes.find((index) => index.name === 'seedKey')?.unique).toBe(true);
@@ -76,6 +84,9 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {  expect(db
   ]);
   expect(db.scheduleFiles.schema.indexes.map((index) => index.name)).toEqual(['createdAt']);
   expect(db.scheduleTables.schema.primKey.name).toBe('id');
+  expect(db.userBooks.schema.indexes.find((index) => index.name === 'bookId')?.unique).toBe(true);
+  expect(db.scheduleWeeks.schema.indexes.find((index) => index.name === 'weekStart')?.unique).toBe(true);
+  expect(db.topicProgress.schema.indexes.find((index) => index.name === 'topicId')?.unique).toBe(true);
 });
 
 test('varsayılan ayarları döner ve yamayı saklar', async () => {

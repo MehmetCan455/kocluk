@@ -1,7 +1,9 @@
 import Dexie, { type Table } from 'dexie';
 import type {
+  ActivityLog,
   Attachment,
   Book,
+  CatalogBook,
   Exam,
   ExamResult,
   Note,
@@ -10,10 +12,15 @@ import type {
   PracticeSession,
   ScheduleEntry,
   ScheduleFile,
+  ScheduleRow,
   ScheduleTable,
+  ScheduleTask,
+  ScheduleWeek,
   Subject,
   Topic,
   TopicBook,
+  TopicProgress,
+  UserBook,
 } from '@/domain/types';
 import { PHOTO_SEARCH_SCHEMA, toPhotoSearch } from './photoSearch';
 
@@ -38,6 +45,13 @@ export class KoclukDB extends Dexie {
   scheduleEntries!: Table<ScheduleEntry, string>;
   scheduleFiles!: Table<ScheduleFile, string>;
   scheduleTables!: Table<ScheduleTable, string>;
+  catalogBooks!: Table<CatalogBook, string>;
+  userBooks!: Table<UserBook, string>;
+  activityLogs!: Table<ActivityLog, string>;
+  scheduleWeeks!: Table<ScheduleWeek, string>;
+  scheduleRows!: Table<ScheduleRow, string>;
+  scheduleTasks!: Table<ScheduleTask, string>;
+  topicProgress!: Table<TopicProgress, string>;
 
   constructor() {
     super('kocluk');
@@ -98,6 +112,19 @@ export class KoclukDB extends Dexie {
     // files stay in place; only the new table is used by the manual UI.
     this.version(5).stores({
       scheduleTables: 'id',
+    });
+
+    // v6 adds page-based book tracking and the dated weekly plan. Every store
+    // is new, so the upgrade is purely additive: the legacy books, topicBooks
+    // and scheduleTables tables keep their data and indexes untouched.
+    this.version(6).stores({
+      catalogBooks: 'id, ownerId, title, exam, subjectSlug, updatedAt, deletedAt',
+      userBooks: 'id, &bookId, status, updatedAt, deletedAt',
+      activityLogs: 'id, userBookId, topicId, taskId, createdAt, deletedAt',
+      scheduleWeeks: 'id, &weekStart, updatedAt, deletedAt',
+      scheduleRows: 'id, weekId, order',
+      scheduleTasks: 'id, weekId, rowId, dayIndex, completedAt, updatedAt, deletedAt',
+      topicProgress: 'id, &topicId, done, updatedAt, deletedAt',
     });
   }
 }

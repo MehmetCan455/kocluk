@@ -274,3 +274,102 @@ export interface Progress {
   started: boolean;
   done: boolean;
 }
+
+export type UserBookStatus = 'active' | 'completed' | 'archived';
+export type ActivityType = 'book_pages' | 'page_set' | 'topic_review';
+export type ScheduleTaskType = 'book' | 'topic' | 'free';
+
+export interface CatalogBook {
+  id: string;
+  ownerId?: string;
+  title: string;
+  publisher?: string;
+  exam?: ExamType;
+  subjectSlug?: string;
+  totalPages: number;
+  edition?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface UserBook {
+  id: string;
+  bookId: string;
+  totalPagesOverride?: number;
+  note?: string;
+  status: UserBookStatus;
+  startedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  type: ActivityType;
+  userBookId?: string;
+  topicId?: string;
+  fromPage?: number;
+  toPage?: number;
+  taskId?: string;
+  source: 'task' | 'manual';
+  createdAt: string;
+  deletedAt?: string;
+}
+
+export interface ScheduleWeek {
+  id: string;
+  weekStart: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface ScheduleRow {
+  id: string;
+  weekId: string;
+  subjectId?: string;
+  label: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface ScheduleTask {
+  id: string;
+  weekId: string;
+  rowId: string;
+  dayIndex: number;
+  type: ScheduleTaskType;
+  userBookId?: string;
+  fromPage?: number;
+  toPage?: number;
+  topicId?: string;
+  title?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface TopicProgress {
+  id: string;
+  topicId: string;
+  done: boolean;
+  doneAt?: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface BookProgress {
+  currentPage: number;
+  totalPages: number;
+  percent: number;
+  remaining: number;
+  started: boolean;
+  done: boolean;
+  hasTotalPages: boolean;
+}

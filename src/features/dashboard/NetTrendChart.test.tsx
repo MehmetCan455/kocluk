@@ -14,16 +14,18 @@ import {
   POINT_HOVER_RADIUS,
   POINT_RADIUS,
   POINT_STYLE,
-  RECORD_POINT_BORDER_COLOR,
   RECORD_POINT_BORDER_WIDTH,
   RECORD_POINT_COLOR,
   RECORD_POINT_HOVER_RADIUS,
   RECORD_POINT_RADIUS,
   RECORD_POINT_STYLE,
+  STAR_POINT_DISPLAY_SIZE,
+  STAR_POINT_RENDER_SCALE,
   createStarPointStyle,
   netTooltipLabel,
   netTooltipTitle,
   NetTrendChart,
+  renderStarCanvas,
   seriesPointBorderColors,
   seriesPointBorderWidths,
   seriesPointColors,
@@ -136,14 +138,14 @@ test('ilk nokta rekor işaretliyse altın yıldız kalır', () => {
   );
   expect(seriesPointRadii([point({ record: true })])).toEqual([RECORD_POINT_RADIUS]);
   expect(seriesPointBorderColors([point({ record: true })], ACCENT)).toEqual([
-    RECORD_POINT_BORDER_COLOR,
+    ACCENT,
   ]);
   expect(seriesPointBorderWidths([point({ record: true })])).toEqual([
     RECORD_POINT_BORDER_WIDTH,
   ]);
 });
 
-test('rekor noktalar altın yıldız, diğerleri accent daire; koyu kenar ve boyutlar', () => {
+test('rekor noktalar altın yıldız, diğerleri accent daire; kenarsız ve boyutlar', () => {
   const points = [
     point({ net: 20, record: false }),
     point({ net: 30, record: true }),
@@ -167,7 +169,7 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; koyu kenar ve boy
   ]);
   expect(seriesPointBorderColors(points, ACCENT)).toEqual([
     ACCENT,
-    RECORD_POINT_BORDER_COLOR,
+    ACCENT,
     ACCENT,
   ]);
   expect(seriesPointBorderWidths(points)).toEqual([
@@ -176,14 +178,37 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; koyu kenar ve boy
     POINT_BORDER_WIDTH,
   ]);
 
-  // Klasik 5 köşeli yıldız: altın dolgu, koyu ince kenar, 7-8 yarıçap.
+  // Klasik 5 köşeli yıldız: saf altın dolgu, Chart.js kenarlığı yok.
   expect(RECORD_POINT_COLOR).toBe('#FACC15');
-  expect(RECORD_POINT_BORDER_COLOR).toBe('#0A0A0C');
-  expect(RECORD_POINT_BORDER_WIDTH).toBe(1.5);
+  expect(RECORD_POINT_BORDER_WIDTH).toBe(0);
   expect(RECORD_POINT_RADIUS).toBeGreaterThanOrEqual(10);
   expect(RECORD_POINT_RADIUS).toBeLessThanOrEqual(11);
   expect(RECORD_POINT_HOVER_RADIUS).toBe(14);
   expect(RECORD_POINT_RADIUS).toBeGreaterThan(POINT_RADIUS);
+  expect(POINT_BORDER_WIDTH).toBe(1);
+});
+
+test('yıldız 4x çözünürlükte çizilip görüntü boyutuna indirilir', () => {
+  const renderCanvas = renderStarCanvas();
+  expect(renderCanvas).toBeInstanceOf(HTMLCanvasElement);
+  expect(renderCanvas?.width).toBe(
+    STAR_POINT_DISPLAY_SIZE * STAR_POINT_RENDER_SCALE,
+  );
+  expect(renderCanvas?.height).toBe(renderCanvas?.width);
+  expect(STAR_POINT_RENDER_SCALE).toBe(4);
+
+  const pointStyle = createStarPointStyle();
+  expect(pointStyle).toBeInstanceOf(HTMLCanvasElement);
+  const canvas = pointStyle as HTMLCanvasElement;
+  // Chart.js görsel nokta stilini tuvalin kendi piksel boyutunda çizer.
+  expect(canvas.width).toBe(STAR_POINT_DISPLAY_SIZE);
+  expect(canvas.height).toBe(STAR_POINT_DISPLAY_SIZE);
+  expect(canvas.width).toBeLessThan(renderCanvas?.width ?? 0);
+});
+
+test('yıldız çizimi koyu kenar içermez', () => {
+  expect(chartSource).not.toContain('#0A0A0C');
+  expect(chartSource).not.toMatch(/strokeStyle\s*=\s*['"]#0/);
 });
 
 test('canvas 2D bağlamı yoksa yıldız stili string yedeğe düşer', () => {
@@ -227,7 +252,7 @@ test('kırpılmış dashboard serisinde pencere başındaki rekor altın yıldı
 
   const dataset = (captured.lineProps as CapturedLineProps).data.datasets[0];
   expect(dataset.pointBackgroundColor[0]).toBe(RECORD_POINT_COLOR);
-  expect(dataset.pointBorderColor[0]).toBe(RECORD_POINT_BORDER_COLOR);
+  expect(dataset.pointBorderColor[0]).toBe(ACCENT);
   expect(dataset.pointBorderWidth[0]).toBe(RECORD_POINT_BORDER_WIDTH);
   expect(dataset.pointStyle[0]).toBeInstanceOf(HTMLCanvasElement);
   expect(dataset.pointRadius[0]).toBe(RECORD_POINT_RADIUS);
@@ -271,7 +296,7 @@ test('grafik bileşeni nokta renklerini, şekillerini ve tooltip callbacklerini 
   ]);
   expect(props.data.datasets[0].pointBorderColor).toEqual([
     ACCENT,
-    RECORD_POINT_BORDER_COLOR,
+    ACCENT,
   ]);
   expect(props.data.datasets[0].pointBorderWidth).toEqual([
     POINT_BORDER_WIDTH,
@@ -279,7 +304,7 @@ test('grafik bileşeni nokta renklerini, şekillerini ve tooltip callbacklerini 
   ]);
   expect(props.data.datasets[0].pointHoverBorderColor).toEqual([
     ACCENT,
-    RECORD_POINT_BORDER_COLOR,
+    ACCENT,
   ]);
   expect(props.data.datasets[0].pointHoverBorderWidth).toEqual([
     POINT_BORDER_WIDTH,

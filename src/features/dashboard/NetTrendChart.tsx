@@ -25,8 +25,6 @@ const TICK_COLOR = '#98A2B3';
 
 /** An all-time net record is gold; everything else is accent. */
 export const RECORD_POINT_COLOR = '#FACC15';
-/** The near-black outline keeps the gold star readable on the dark chart. */
-export const RECORD_POINT_BORDER_COLOR = '#0A0A0C';
 
 export const POINT_STYLE: PointStyle = 'circle';
 /** Fallback when a canvas context is unavailable (for example during SSR). */
@@ -39,17 +37,24 @@ export const POINT_HOVER_RADIUS = 5;
 export const RECORD_POINT_HOVER_RADIUS = 14;
 
 export const POINT_BORDER_WIDTH = 1;
-export const RECORD_POINT_BORDER_WIDTH = 1.5;
+/** Chart.js must not stroke the image bounding box, so records have no border. */
+export const RECORD_POINT_BORDER_WIDTH = 0;
 
-/** Draws a filled, classic five-point star centred on `(x, y)`. */
+/** A fill-coloured stroke rounds the tips, so the canvas needs a little room. */
+const STAR_POINT_STROKE_WIDTH = 1.5;
+/** Logical canvas size; Chart.js draws image point styles at their intrinsic size. */
+export const STAR_POINT_DISPLAY_SIZE =
+  Math.ceil((RECORD_POINT_RADIUS + STAR_POINT_STROKE_WIDTH) * 2) + 2;
+/** The star is supersampled and downscaled so its curves stay smooth. */
+export const STAR_POINT_RENDER_SCALE = 4;
+
+/** Draws a filled, classic five-point star with rounded tips centred on `(x, y)`. */
 function drawClassicStar(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   radius: number,
   fill: string,
-  stroke: string,
-  borderWidth: number,
 ): void {
   const innerRadius = radius * 0.42;
   const startAngle = -Math.PI / 2;
@@ -69,16 +74,38 @@ function drawClassicStar(
 
   ctx.fillStyle = fill;
   ctx.fill();
-  if (borderWidth > 0) {
-    ctx.lineJoin = 'miter';
-    ctx.lineWidth = borderWidth;
-    ctx.strokeStyle = stroke;
-    ctx.stroke();
-  }
+
+  // Aynı altın renkte ince bir çizgi, yuvarlak birleşimlerle uçları yumuşatır.
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = STAR_POINT_STROKE_WIDTH;
+  ctx.strokeStyle = fill;
+  ctx.stroke();
 }
 
-const STAR_POINT_CANVAS_SIZE =
-  Math.ceil((RECORD_POINT_RADIUS + RECORD_POINT_BORDER_WIDTH) * 2) + 2;
+/**
+ * Yüksek çözünürlüklü yıldız tuvali: 4x pikselde, mantıksal koordinatlarla çizilir.
+ * Chart.js görsel nokta stilini kendi piksel boyutunda gösterdiği için asıl
+ * nokta stili bunu görüntü boyutuna indirir.
+ */
+export function renderStarCanvas(): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = STAR_POINT_DISPLAY_SIZE * STAR_POINT_RENDER_SCALE;
+  canvas.height = canvas.width;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+
+  ctx.scale(STAR_POINT_RENDER_SCALE, STAR_POINT_RENDER_SCALE);
+  const center = STAR_POINT_DISPLAY_SIZE / 2;
+  drawClassicStar(ctx, center, center, RECORD_POINT_RADIUS, RECORD_POINT_COLOR);
+  return canvas;
+}
+
 let cachedStarPointStyle: PointStyle | null = null;
 
 /**
@@ -88,26 +115,33 @@ let cachedStarPointStyle: PointStyle | null = null;
  * string when no 2D context exists.
  */
 export function createStarPointStyle(): PointStyle {
-  if (typeof document === 'undefined') {
+  const renderCanvas = renderStarCanvas();
+  if (!renderCanvas) {
     return RECORD_POINT_STYLE;
   }
+
   const canvas = document.createElement('canvas');
-  canvas.width = STAR_POINT_CANVAS_SIZE;
-  canvas.height = STAR_POINT_CANVAS_SIZE;
+  canvas.width = STAR_POINT_DISPLAY_SIZE;
+  canvas.height = STAR_POINT_DISPLAY_SIZE;
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     return RECORD_POINT_STYLE;
   }
 
-  const center = STAR_POINT_CANVAS_SIZE / 2;
-  drawClassicStar(
-    ctx,
-    center,
-    center,
-    RECORD_POINT_RADIUS,
-    RECORD_POINT_COLOR,
-    RECORD_POINT_BORDER_COLOR,
-    RECORD_POINT_BORDER_WIDTH,
+  ctx.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in ctx) {
+    ctx.imageSmoothingQuality = 'high';
+  }
+  ctx.drawImage(
+    renderCanvas,
+    0,
+    0,
+    renderCanvas.width,
+    renderCanvas.height,
+    0,
+    0,
+    STAR_POINT_DISPLAY_SIZE,
+    STAR_POINT_DISPLAY_SIZE,
   );
   return canvas;
 }
@@ -151,17 +185,15 @@ export function seriesPointHoverRadii(
   );
 }
 
-/** Records get the dark outline; ordinary points keep the accent outline. */
+/** Image point styles are never stroked; every point keeps the accent outline. */
 export function seriesPointBorderColors(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
   accent: string,
 ): string[] {
-  return points.map((point) =>
-    point.record ? RECORD_POINT_BORDER_COLOR : accent,
-  );
+  return points.map(() => accent);
 }
 
-/** The star outline is slightly thicker than the plain circle outline. */
+/** Record stars have no Chart.js border; plain circles keep the accent outline. */
 export function seriesPointBorderWidths(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): number[] {

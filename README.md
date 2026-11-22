@@ -37,15 +37,15 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
 ## Kitaplar, konu durumu ve haftalık plan
 
 - **Kitaplar** sayfasında katalogdan kitap seçip rafına ekleyebilirsin. Her kitap
-  toplam sayfa, güncel sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir; toplam
+  okunan sayfa / toplam sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir; toplam
   sayfa girilmemiş kitaplarda yüzde yerine **Sayfa sayısını gir** uyarısı çıkar.
   Bu aşamada katalog, doğrulanmış dört başlangıç kitabı içerir; diğer kitapları
   kendi başlık, yayınevi ve sayfa sayısıyla rafına ekleyebilirsin.
-- Kitap detayında **Şu anki sayfa** alanına okuduğun son sayfayı girerek ilerlemeyi
-  elle kaydedebilir, geçmişi görebilir ve plandaki kitap görevlerini izleyebilirsin.
-  İlerleme yalnızca etkin okuma kayıtlarından hesaplanır; tek sayfa girişi kitabın
-  güncel sayfasını ayarlar, sayfa aralığı ise haftalık plandaki kitap görevlerine
-  aittir.
+- Kitap detayında **Başlangıç sayfası** ve **Bitiş sayfası** alanlarıyla okuduğun
+  sayfa aralığını ekleyebilir, geçmişi görebilir ve plandaki kitap görevlerini
+  izleyebilirsin. İlerleme, etkin okuma aralıklarının birleşimindeki benzersiz
+  sayfalardan hesaplanır: 480 sayfalık kitapta 250–255 girmek 6 sayfa sayar.
+  Aynı veya örtüşen aralıklar çift sayılmaz.
 - **Ders Çalışma Çizelgesi** sayfasında haftalık plan tarihli olarak tutulur. Haftalar
   arasında geçiş yapabilir, satır ekleyebilir ve her hücreye kitap sayfası, konu
   tekrarı veya serbest görev ekleyebilirsin. Değişiklikler kısa bir gecikmeyle

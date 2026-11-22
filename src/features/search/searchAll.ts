@@ -1,12 +1,12 @@
+import { listShelfBooks } from '@/db/bookRepositories';
 import { db } from '@/db/db';
 import {
   listAllExamResults,
   listAllTopics,
-  listBooks,
   listExams,
   listSubjects,
 } from '@/db/repositories';
-import type { Book, Exam, ExamType, Subject, Topic } from '@/domain/types';
+import type { CatalogBook, Exam, ExamType, Subject, Topic } from '@/domain/types';
 import { formatAlan, formatExamDate } from '@/features/exams/examFormat';
 import { resolveAytAlan } from '@/features/exams/examConfig';
 import { getBranchExam, isBranchExam } from '@/features/exams/branchConfig';
@@ -60,8 +60,27 @@ function compareTopics(left: Topic, right: Topic, subjectById: Map<string, Subje
   );
 }
 
-function bookSubtitle(book: Book): string {
-  return book.publisher ? `Yayınevi: ${book.publisher}` : 'Kitap';
+const DEFAULT_SUBJECT_LABEL = 'Genel';
+
+/**
+ * Catalog rows only carry a subject slug. Prefer the subject of the book's own
+ * exam, then fall back to any subject with that slug, matching the shelf UI.
+ */
+function subjectNameFor(catalogBook: CatalogBook, subjects: readonly Subject[]): string {
+  if (!catalogBook.subjectSlug) {
+    return DEFAULT_SUBJECT_LABEL;
+  }
+  const match =
+    subjects.find(
+      (subject) =>
+        subject.slug === catalogBook.subjectSlug &&
+        (catalogBook.exam === undefined || subject.exam === catalogBook.exam),
+    ) ?? subjects.find((subject) => subject.slug === catalogBook.subjectSlug);
+  return match?.name ?? DEFAULT_SUBJECT_LABEL;
+}
+
+function bookSubtitle(catalogBook: CatalogBook, subjectName: string): string {
+  return catalogBook.publisher ? `${catalogBook.publisher} · ${subjectName}` : subjectName;
 }
 
 function examSubtitle(
@@ -108,15 +127,16 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
     return [];
   }
 
-  const [subjects, topics, notes, books, exams, examResults, photoSearch] = await Promise.all([
-    listSubjects(),
-    listAllTopics(),
-    db.notes.toArray(),
-    listBooks(),
-    listExams(),
-    listAllExamResults(),
-    db.photoSearch.toArray(),
-  ]);
+  const [subjects, topics, notes, shelfBooks, exams, examResults, photoSearch] =
+    await Promise.all([
+      listSubjects(),
+      listAllTopics(),
+      db.notes.toArray(),
+      listShelfBooks(true),
+      listExams(),
+      listAllExamResults(),
+      db.photoSearch.toArray(),
+    ]);
 
   const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
   const topicById = new Map(topics.map((topic) => [topic.id, topic]));
@@ -184,19 +204,27 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
   }
 
   const bookResults: SearchResult[] = [];
-  for (const book of books) {
+  for (const { userBook, catalogBook } of shelfBooks) {
     if (bookResults.length >= SEARCH_RESULT_LIMIT_PER_KIND) {
       break;
     }
-    if (!matchesTokens(`${book.name} ${book.publisher ?? ''}`, tokens)) {
+    const subjectName = subjectNameFor(catalogBook, subjects);
+    const haystack = [
+      catalogBook.title,
+      catalogBook.publisher ?? '',
+      catalogBook.subjectSlug ?? '',
+      subjectName,
+      catalogBook.exam ?? '',
+    ].join(' ');
+    if (!matchesTokens(haystack, tokens)) {
       continue;
     }
     bookResults.push({
       kind: 'book',
-      id: book.id,
-      title: book.name,
-      subtitle: bookSubtitle(book),
-      href: `/kitaplar/${book.id}`,
+      id: userBook.id,
+      title: catalogBook.title,
+      subtitle: bookSubtitle(catalogBook, subjectName),
+      href: `/kitaplar/${userBook.id}`,
     });
   }
 

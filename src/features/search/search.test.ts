@@ -1,9 +1,10 @@
 import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
+import { addCustomBook } from '@/db/bookRepositories';
 import { db } from '@/db/db';
 import { createBook, saveExam, saveNote } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
-import type { Book, Exam, Subject, Topic } from '@/domain/types';
+import type { CatalogBook, Exam, Subject, Topic, UserBook } from '@/domain/types';
 import { newId } from '@/lib/id';
 import { normalizeTr } from '@/lib/normalize';
 import { seedOnboarded } from '@/test/fixtures';
@@ -34,12 +35,23 @@ const FIXTURE: CurriculumSeed = {
       order: 1,
       topics: [{ seedKey: 'ayt-mat-integral', name: 'İntegral', order: 1 }],
     },
+    {
+      seedKey: 'tyt-fiz',
+      exam: 'TYT',
+      name: 'Fizik',
+      slug: 'fen',
+      icon: 'atom',
+      order: 2,
+      topics: [],
+    },
   ],
 };
 
 let turevSubject: Subject;
 let turevTopic: Topic;
-let turevBook: Book;
+let turevBook: UserBook;
+let turevCatalogBook: CatalogBook;
+let fizikBook: UserBook;
 let turevExam: Exam;
 
 beforeEach(async () => {
@@ -62,7 +74,30 @@ beforeEach(async () => {
     '<p>Türev konu anlatımı</p><p>Uygulama soruları</p>',
     '',
   );
-  turevBook = await createBook({ name: 'Türev Soru Bankası', publisher: 'Karekök' });
+  turevBook = await addCustomBook({
+    title: 'Türev Soru Bankası',
+    publisher: 'Karekök',
+    exam: 'TYT',
+    subjectSlug: 'matematik',
+    totalPages: 240,
+  });
+  const catalogBook = await db.catalogBooks.get(turevBook.bookId);
+  if (!catalogBook) {
+    throw new Error('Türev kitabının katalog kaydı bulunamadı');
+  }
+  turevCatalogBook = catalogBook;
+
+  fizikBook = await addCustomBook({
+    title: 'Soru Bankası',
+    publisher: 'Palme',
+    exam: 'TYT',
+    subjectSlug: 'fen',
+    totalPages: 320,
+  });
+
+  // Eski kitaplar yalnızca `books` tablosunda durur; aramada görünmemelidir.
+  await createBook({ name: 'Eski Kitap', publisher: 'Eski Yayınevi' });
+
   turevExam = await saveExam({
     type: 'TYT',
     name: 'Türev Tarama',
@@ -103,9 +138,11 @@ test('türev araması konu, not, kitap ve deneme sonuçlarını döndürür', as
   expect(books[0]).toMatchObject({
     id: turevBook.id,
     title: 'Türev Soru Bankası',
-    subtitle: 'Yayınevi: Karekök',
+    subtitle: 'Karekök · Matematik',
     href: `/kitaplar/${turevBook.id}`,
   });
+  // Bağlantı raf kaydını kullanır, katalog kaydını değil.
+  expect(turevBook.id).not.toBe(turevCatalogBook.id);
 
   const exams = results.filter((result) => result.kind === 'exam');
   expect(exams).toHaveLength(1);
@@ -133,7 +170,41 @@ test('arama Türkçe büyük harf sorgusunu ve yayınevi alanını eşler', asyn
   expect(uppercase.some((result) => result.kind === 'topic' && result.title === 'Türev')).toBe(true);
 
   const publisher = await searchAll('KAREKÖK');
-  expect(publisher.map((result) => result.title)).toContain('Türev Soru Bankası');
+  expect(
+    publisher.filter((result) => result.kind === 'book').map((result) => result.title),
+  ).toEqual(['Türev Soru Bankası']);
+});
+
+test('ders adı ve ders slugı raf kitabını bulur', async () => {
+  const byName = await searchAll('Fizik');
+  expect(
+    byName.filter((result) => result.kind === 'book').map((result) => result.id),
+  ).toEqual([fizikBook.id]);
+  expect(byName.find((result) => result.kind === 'book')?.subtitle).toBe('Palme · Fizik');
+
+  const bySlug = await searchAll('fen');
+  expect(
+    bySlug.filter((result) => result.kind === 'book').map((result) => result.id),
+  ).toEqual([fizikBook.id]);
+});
+
+test('sınav türü raf kitabını bulur', async () => {
+  const results = await searchAll('TYT');
+
+  const titles = results
+    .filter((result) => result.kind === 'book')
+    .map((result) => result.title)
+    .sort();
+
+  expect(titles).toEqual(['Soru Bankası', 'Türev Soru Bankası']);
+});
+
+test('eski books tablosundaki kitaplar ayrı sonuç olarak çıkmaz', async () => {
+  expect(await db.books.count()).toBe(1);
+
+  const results = await searchAll('Eski Kitap');
+
+  expect(results).toEqual([]);
 });
 
 test('denemeler not metniyle de bulunur', async () => {
@@ -227,12 +298,9 @@ test('sonuç listesi en fazla 20 kayıtla sınırlanır', async () => {
     isCustom: true,
     createdAt: now,
   }));
-  const extraBooks: Book[] = Array.from({ length: 6 }, (_, index) => ({
-    id: newId(),
-    name: `Zzortak Kitap ${index + 1}`,
-    createdAt: now,
-    updatedAt: now,
-  }));
+  for (let index = 0; index < 6; index += 1) {
+    await addCustomBook({ title: `Zzortak Kitap ${index + 1}`, totalPages: 100 });
+  }
   const extraExams: Exam[] = Array.from({ length: 6 }, (_, index) => ({
     id: newId(),
     type: 'TYT',
@@ -251,7 +319,6 @@ test('sonuç listesi en fazla 20 kayıtla sınırlanır', async () => {
       updatedAt: now,
     })),
   );
-  await db.books.bulkAdd(extraBooks);
   await db.exams.bulkAdd(extraExams);
 
   const results = await searchAll('zzortak');

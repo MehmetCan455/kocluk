@@ -11,7 +11,9 @@ import {
 import { Toast } from '@/components/ui/Toast';
 import { CURRICULUM } from '@/data/curriculum';
 import { seedCatalog } from '@/db/catalogRepository';
+import { migrateLegacyShelfFromLocalData } from '@/db/legacyMigration';
 import { DEFAULT_SETTINGS, getSettings, patchSettings, seedCurriculum } from '@/db/repositories';
+import { repairScheduleDayIndexes } from '@/db/scheduleMigration';
 import type { AppSettings } from '@/domain/types';
 import { applyAccent } from './theme';
 
@@ -71,6 +73,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         await seedCatalog();
       } catch (error: unknown) {
         console.error('Kitap kataloğu yüklenemedi', error);
+      }
+
+      // One-time repairs for data written by earlier local builds. Neither
+      // blocks settings: a failed migration is logged and retried next start.
+      try {
+        await repairScheduleDayIndexes();
+      } catch (error: unknown) {
+        console.error('Haftalık plan gün indeksleri onarılamadı', error);
+      }
+
+      try {
+        await migrateLegacyShelfFromLocalData();
+      } catch (error: unknown) {
+        console.error('Eski kitaplar rafa taşınamadı', error);
       }
 
       if (!cancelled) {

@@ -11,4 +11,11 @@ export async function seedOnboarded(seed: CurriculumSeed, patch: Partial<AppSett
   await resetDb();
   await seedCurriculum(seed);
   await patchSettings({ onboardingDone: true, ...patch });
+  // Simulate a database that already ran the one-time startup migrations, so
+  // tests seed their own tasks/legacy rows without an implicit repair pass.
+  // Migration tests remove these markers explicitly.
+  await db.settings.bulkPut([
+    { key: 'scheduleDayIndexVersion', value: 1 },
+    { key: 'legacyShelfMigrated', value: true },
+  ]);
 }

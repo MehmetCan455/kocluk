@@ -17,23 +17,23 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { RingProgress } from '@/components/ui/RingProgress';
 import { db } from '@/db/db';
+import { listShelfBooks, type ShelfBook } from '@/db/bookRepositories';
 import {
   listAllExamResults,
-  listAllTopicBooks,
   listAllTopics,
-  listBooks,
   listFullExams,
   listSubjects,
 } from '@/db/repositories';
-import { calculateProgress } from '@/domain/calculations';
+import { listAllTopicProgress } from '@/db/topicProgressRepository';
+import { calculateCountProgress } from '@/domain/calculations';
 import type {
-  Book,
   Exam,
   ExamResult,
   ExamType,
+  Progress,
   Subject,
   Topic,
-  TopicBook,
+  TopicProgress,
 } from '@/domain/types';
 import { daysUntil } from '@/lib/date';
 import { formatNet, formatPercent } from '@/lib/format';
@@ -50,6 +50,7 @@ import {
   type NetSeries,
 } from './chartData';
 import { NetTrendChart } from './NetTrendChart';
+import { TodayPlanCard } from './TodayPlanCard';
 
 const todayFormatter = new Intl.DateTimeFormat('tr-TR', {
   day: 'numeric',
@@ -80,17 +81,11 @@ function countdownDays(value: string): number | null {
 interface DashboardData {
   subjects: Subject[];
   topics: Topic[];
-  topicBooks: TopicBook[];
-  books: Book[];
+  topicProgress: TopicProgress[];
+  shelfBooks: ShelfBook[];
   exams: Exam[];
   results: ExamResult[];
   photosSinceBackup: number;
-}
-
-interface BookCardRow {
-  id: string;
-  name: string;
-  progress: ReturnType<typeof calculateProgress>;
 }
 
 interface NetStats {
@@ -131,7 +126,7 @@ function StatCard({
   extra,
 }: {
   label: string;
-  progress: ReturnType<typeof calculateProgress>;
+  progress: Progress;
   extra: string;
 }) {
   return (
@@ -140,7 +135,7 @@ function StatCard({
       <div className="min-w-0 space-y-1">
         <h2 className="text-sm font-medium text-muted">{label}</h2>
         <p className="text-sm tabular-nums">
-          {progress.solved}/{progress.total} test
+          {progress.solved}/{progress.total} konu
         </p>
         <p className="text-xs text-muted">{extra}</p>
       </div>
@@ -162,22 +157,39 @@ export function DashboardPage() {
   const reminderDismissed = dismissedSignature === reminderSignature;
 
   const data = useLiveQuery(async (): Promise<DashboardData> => {
-    // One read per table: no per-book or per-exam query on the dashboard. The
-    // backup reminder counts only photos added after the last export.
+    // One read per table: no per-book or per-exam query on the dashboard.
+    // Percentages come from explicit topic completion, the book cards from the
+    // page-based shelf, and the backup reminder counts only photos added after
+    // the last export.
     const lastBackupAt = settings.lastBackupAt;
-    const [subjects, topics, topicBooks, books, exams, results, photosSinceBackup] =
-      await Promise.all([
-        listSubjects(),
-        listAllTopics(),
-        listAllTopicBooks(),
-        listBooks(),
-        listFullExams(),
-        listAllExamResults(),
-        lastBackupAt
-          ? db.photos.where('createdAt').above(lastBackupAt).count()
-          : db.photos.count(),
-      ]);
-    return { subjects, topics, topicBooks, books, exams, results, photosSinceBackup };
+    const [
+      subjects,
+      topics,
+      topicProgress,
+      shelfBooks,
+      exams,
+      results,
+      photosSinceBackup,
+    ] = await Promise.all([
+      listSubjects(),
+      listAllTopics(),
+      listAllTopicProgress(),
+      listShelfBooks(),
+      listFullExams(),
+      listAllExamResults(),
+      lastBackupAt
+        ? db.photos.where('createdAt').above(lastBackupAt).count()
+        : db.photos.count(),
+    ]);
+    return {
+      subjects,
+      topics,
+      topicProgress,
+      shelfBooks,
+      exams,
+      results,
+      photosSinceBackup,
+    };
   }, [settings.lastBackupAt]);
 
   if (!data) {
@@ -190,48 +202,37 @@ export function DashboardPage() {
 
   const hidden = new Set(settings.hiddenSubjects);
   const subjectById = new Map(data.subjects.map((subject) => [subject.id, subject]));
-  const topicById = new Map(data.topics.map((topic) => [topic.id, topic]));
   const visibleSubjectIds = new Set(
     data.subjects.filter((subject) => !hidden.has(subject.id)).map((subject) => subject.id),
   );
-  const visibleTopicIds = new Set(
-    data.topics
-      .filter((topic) => visibleSubjectIds.has(topic.subjectId))
-      .map((topic) => topic.id),
+  const visibleTopics = data.topics.filter((topic) =>
+    visibleSubjectIds.has(topic.subjectId),
   );
-  const visibleRecords = data.topicBooks.filter((record) =>
-    visibleTopicIds.has(record.topicId),
+  const doneTopicIds = new Set(
+    data.topicProgress.filter((row) => row.done).map((row) => row.topicId),
   );
 
-  function progressForExam(exam: ExamType): ReturnType<typeof calculateProgress> {
-    return calculateProgress(
-      visibleRecords.filter((record) => {
-        const topic = topicById.get(record.topicId);
-        const subject = topic ? subjectById.get(topic.subjectId) : undefined;
-        return subject?.exam === exam;
-      }),
-    );
+  // `started` from calculateCountProgress only sees explicit completions, so it
+  // is intentionally not used for status decisions on the dashboard.
+  function progressForExam(exam?: ExamType): { progress: Progress; topicCount: number } {
+    const topics =
+      exam === undefined
+        ? visibleTopics
+        : visibleTopics.filter(
+            (topic) => subjectById.get(topic.subjectId)?.exam === exam,
+          );
+    const done = topics.filter((topic) => doneTopicIds.has(topic.id)).length;
+    return {
+      progress: calculateCountProgress(done, topics.length),
+      topicCount: topics.length,
+    };
   }
 
-  const overall = calculateProgress(visibleRecords);
+  const overall = progressForExam();
   const tytProgress = progressForExam('TYT');
   const aytProgress = progressForExam('AYT');
 
-  const recordsByBook = new Map<string, TopicBook[]>();
-  for (const record of data.topicBooks) {
-    const records = recordsByBook.get(record.bookId);
-    if (records) {
-      records.push(record);
-    } else {
-      recordsByBook.set(record.bookId, [record]);
-    }
-  }
-
-  const topBooks: BookCardRow[] = data.books.slice(0, 5).map((book) => ({
-    id: book.id,
-    name: book.name,
-    progress: calculateProgress(recordsByBook.get(book.id) ?? []),
-  }));
+  const topBooks = data.shelfBooks.slice(0, 5);
 
   const resultsByExam = new Map<string, ExamResult[]>();
   for (const result of data.results) {
@@ -302,13 +303,23 @@ export function DashboardPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
-          label="Genel ilerleme"
-          progress={overall}
-          extra={`${data.exams.length} deneme`}
+          label="Genel konu ilerlemesi"
+          progress={overall.progress}
+          extra={`${overall.topicCount} konu`}
         />
-        <StatCard label="TYT ilerlemesi" progress={tytProgress} extra="TYT dersleri" />
-        <StatCard label="AYT ilerlemesi" progress={aytProgress} extra="AYT dersleri" />
+        <StatCard
+          label="TYT konu ilerlemesi"
+          progress={tytProgress.progress}
+          extra={`${tytProgress.topicCount} konu`}
+        />
+        <StatCard
+          label="AYT konu ilerlemesi"
+          progress={aytProgress.progress}
+          extra={`${aytProgress.topicCount} konu`}
+        />
       </div>
+
+      <TodayPlanCard books={data.shelfBooks} topics={data.topics} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         {netStatsByType.map(({ type, stats }) => (
@@ -360,38 +371,51 @@ export function DashboardPage() {
             <EmptyState
               icon={Library}
               title="Henüz kitap yok"
-              description="Konu sayfalarından kitap ve test ekleyerek kitaplığını oluşturabilirsin."
+              description="Rafa kitap ekleyerek sayfa ilerlemesini takip edebilirsin."
             />
           ) : (
             <ul className="space-y-2">
-              {topBooks.map((book) => (
-                <li key={book.id}>
-                  <Link
-                    to={`/kitaplar/${book.id}`}
-                    className="block rounded-xl border border-line bg-raised/40 p-3 transition-colors hover:border-[var(--accent)]"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-sm font-medium">{book.name}</span>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--accent)]">
-                        {formatPercent(book.progress.percent)}
-                      </span>
-                    </div>
-                    <div className="mt-2 space-y-1.5">
-                      <ProgressBar
-                        value={book.progress.percent}
-                        label={`${book.name} ilerlemesi`}
-                      />
-                      <p className="text-xs text-muted">
-                        {book.progress.total === 0
-                          ? 'Henüz test kaydı yok'
-                          : book.progress.done
-                            ? 'Bitti'
-                            : `${book.progress.remaining} test kaldı`}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
+              {topBooks.map((row) => {
+                const { catalogBook, userBook, progress } = row;
+                const hasTotalPages = progress.hasTotalPages;
+                return (
+                  <li key={userBook.id}>
+                    <Link
+                      to={`/kitaplar/${userBook.id}`}
+                      className="block rounded-xl border border-line bg-raised/40 p-3 transition-colors hover:border-[var(--accent)]"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 truncate text-sm font-medium">
+                          {catalogBook.title}
+                        </span>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--accent)]">
+                          {hasTotalPages ? formatPercent(progress.percent) : '—'}
+                        </span>
+                      </div>
+                      <div className="mt-2 space-y-1.5">
+                        <ProgressBar
+                          value={progress.percent}
+                          label={`${catalogBook.title} ilerlemesi`}
+                        />
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted">
+                          <span className="tabular-nums">
+                            {hasTotalPages
+                              ? `${progress.currentPage}/${progress.totalPages} sayfa`
+                              : 'Toplam sayfa belirtilmedi'}
+                          </span>
+                          {hasTotalPages ? (
+                            <span>
+                              {progress.done
+                                ? 'Bitti'
+                                : `${progress.remaining} sayfa kaldı`}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>

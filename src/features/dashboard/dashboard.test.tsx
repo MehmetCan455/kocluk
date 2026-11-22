@@ -1,9 +1,18 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
+import {
+  addCustomBook,
+  getShelfBook,
+  setBookPage,
+} from '@/db/bookRepositories';
 import { patchSettings, saveExam } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
+import { addRow, addTask, getOrCreateWeek } from '@/db/scheduleRepository';
+import { setTopicDone } from '@/db/topicProgressRepository';
+import { weekStartOf } from '@/domain/schedule';
 import type { Exam } from '@/domain/types';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -81,25 +90,28 @@ function isoDaysFromNow(days: number): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-async function addBook(id: string, name: string, updatedAt: string): Promise<void> {
-  await db.books.add({ id, name, createdAt: updatedAt, updatedAt });
+async function addShelfBook(
+  title: string,
+  totalPages: number,
+  updatedAt: string,
+): Promise<string> {
+  const userBook = await addCustomBook({ title, totalPages });
+  await db.userBooks.update(userBook.id, { updatedAt });
+  return userBook.id;
 }
 
-async function addTests(
-  id: string,
-  topicIdValue: string,
-  bookId: string,
-  solvedTests: number,
+/** Seeds an absolute page baseline, then restores the shelf sort timestamp. */
+async function seedPage(
+  userBookId: string,
+  page: number,
+  updatedAt: string,
 ): Promise<void> {
-  await db.topicBooks.add({
-    id,
-    topicId: topicIdValue,
-    bookId,
-    totalTests: 10,
-    solvedTests,
-    createdAt: '2026-11-01T10:00:00.000Z',
-    updatedAt: '2026-11-01T10:00:00.000Z',
-  });
+  await setBookPage(userBookId, page);
+  await db.userBooks.update(userBookId, { updatedAt });
+}
+
+function todayDayIndex(): number {
+  return ((new Date().getDay() + 6) % 7) + 1;
 }
 
 interface DashboardSeed {
@@ -107,6 +119,7 @@ interface DashboardSeed {
   tytMatematik: string;
   aytMatematik: string;
   aytFizik: string;
+  books: { bilgi: string; fizik: string };
   exams: Exam[];
 }
 
@@ -116,17 +129,21 @@ async function seedDashboardData(): Promise<DashboardSeed> {
   const aytMatematik = await subjectId('ayt-matematik');
   const aytFizik = await subjectId('ayt-fizik');
 
-  await addBook('book-1', 'Bilgi Sarmal TYT Matematik', '2026-11-20T10:00:00.000Z');
-  await addBook('book-2', '3D AYT Fizik', '2026-11-19T10:00:00.000Z');
-  await addBook('book-3', 'Palme TYT Türkçe', '2026-11-18T10:00:00.000Z');
-  await addBook('book-4', 'Karekök AYT Matematik', '2026-11-17T10:00:00.000Z');
-  await addBook('book-5', 'Limit TYT Deneme', '2026-11-16T10:00:00.000Z');
-  await addBook('book-6', 'Eski Kitap', '2026-10-01T10:00:00.000Z');
-
-  await addTests('tb-1', await topicId('tyt-turkce-paragraf'), 'book-3', 5);
-  await addTests('tb-2', await topicId('tyt-matematik-temel'), 'book-1', 10);
-  await addTests('tb-3', await topicId('ayt-matematik-turev'), 'book-4', 3);
-  await addTests('tb-4', await topicId('ayt-fizik-vektorler'), 'book-2', 0);
+  const bilgi = await addShelfBook(
+    'Bilgi Sarmal TYT Matematik',
+    400,
+    '2026-11-20T10:00:00.000Z',
+  );
+  await seedPage(bilgi, 220, '2026-11-20T10:00:00.000Z');
+  const fizik = await addShelfBook(
+    '3D AYT Fizik',
+    320,
+    '2026-11-19T10:00:00.000Z',
+  );
+  await addShelfBook('Palme TYT Türkçe', 384, '2026-11-18T10:00:00.000Z');
+  await addShelfBook('Karekök AYT Matematik', 392, '2026-11-17T10:00:00.000Z');
+  await addShelfBook('Limit TYT Deneme', 200, '2026-11-16T10:00:00.000Z');
+  await addShelfBook('Eski Kitap', 100, '2026-10-01T10:00:00.000Z');
 
   const latest = await saveExam({
     type: 'TYT',
@@ -151,11 +168,21 @@ async function seedDashboardData(): Promise<DashboardSeed> {
     results: [{ subjectId: turkce, correct: 10, wrong: 0, blank: 0 }],
   });
 
-  return { turkce, tytMatematik, aytMatematik, aytFizik, exams: [latest, ayt, first] };
+  return {
+    turkce,
+    tytMatematik,
+    aytMatematik,
+    aytFizik,
+    books: { bilgi, fizik },
+    exams: [latest, ayt, first],
+  };
 }
 
-test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gösterir', async () => {
+test('ana sayfa konu yüzdelerini, sayfa tabanlı kitapları, net grafiğini ve son denemeleri gösterir', async () => {
   const seed = await seedDashboardData();
+  await setTopicDone(await topicId('tyt-turkce-paragraf'), true);
+  await setTopicDone(await topicId('tyt-matematik-temel'), true);
+  await setTopicDone(await topicId('ayt-matematik-turev'), true);
   await patchSettings({ examDate: isoDaysFromNow(50) });
 
   renderApp('/');
@@ -166,22 +193,30 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
   ).toBeInTheDocument();
   expect(await screen.findByText(/YKS'ye 50 gün/)).toBeInTheDocument();
 
-  expect(await screen.findByRole('progressbar', { name: 'Genel ilerleme' })).toHaveAttribute(
+  expect(
+    await screen.findByRole('progressbar', { name: 'Genel konu ilerlemesi' }),
+  ).toHaveAttribute('aria-valuenow', '75');
+  expect(screen.getByRole('progressbar', { name: 'TYT konu ilerlemesi' })).toHaveAttribute(
     'aria-valuenow',
-    '45',
+    '100',
   );
-  expect(screen.getByRole('progressbar', { name: 'TYT ilerlemesi' })).toHaveAttribute(
+  expect(screen.getByRole('progressbar', { name: 'AYT konu ilerlemesi' })).toHaveAttribute(
     'aria-valuenow',
-    '75',
+    '50',
   );
-  expect(screen.getByRole('progressbar', { name: 'AYT ilerlemesi' })).toHaveAttribute(
-    'aria-valuenow',
-    '15',
-  );
+  expect(screen.getByText('3/4 konu')).toBeInTheDocument();
 
-  expect(screen.getByText('Bilgi Sarmal TYT Matematik')).toBeInTheDocument();
+  const bilgiLink = screen.getByRole('link', { name: /Bilgi Sarmal TYT Matematik/ });
+  expect(within(bilgiLink).getByText('220/400 sayfa')).toBeInTheDocument();
+  expect(within(bilgiLink).getByText('%55')).toBeInTheDocument();
+  expect(
+    within(bilgiLink).getByRole('progressbar', {
+      name: 'Bilgi Sarmal TYT Matematik ilerlemesi',
+    }),
+  ).toHaveAttribute('aria-valuenow', '55');
   expect(screen.getByText('Palme TYT Türkçe')).toBeInTheDocument();
   expect(screen.queryByText('Eski Kitap')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Bugünün planı' })).toBeInTheDocument();
 
   expect(screen.getByRole('img', { name: 'TYT net trend grafiği' })).toBeInTheDocument();
   expect(screen.getByText('Deneme başarı grafiği')).toBeInTheDocument();
@@ -220,6 +255,65 @@ test('ana sayfa istatistikleri, kitapları, net grafiğini ve son denemeleri gö
       name: 'Ders Çalışma Çizelgesi',
     }),
   ).toHaveAttribute('href', '/program');
+});
+
+test('bugünün planı bugünün görevlerini gösterir ve tik kitap ilerlemesini günceller', async () => {
+  const seed = await seedDashboardData();
+  const { week } = await getOrCreateWeek(weekStartOf(new Date()));
+  const row = await addRow(week.id, 'Fizik');
+  const today = todayDayIndex();
+  await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: today,
+    type: 'book',
+    userBookId: seed.books.fizik,
+    fromPage: 1,
+    toPage: 20,
+  });
+  await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: (today % 7) + 1,
+    type: 'free',
+    title: 'Yarına kalan görev',
+  });
+
+  renderApp('/');
+
+  expect(
+    await screen.findByRole('heading', { name: 'Bugünün planı' }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('Yarına kalan görev')).not.toBeInTheDocument();
+
+  const checkbox = await screen.findByRole('checkbox', {
+    name: '3D AYT Fizik s. 1–20 görevini tamamla',
+  });
+  expect(checkbox).not.toBeChecked();
+
+  const fizikLink = screen.getByRole('link', { name: /3D AYT Fizik/ });
+  expect(within(fizikLink).getByText('0/320 sayfa')).toBeInTheDocument();
+  expect(within(fizikLink).getByText('%0')).toBeInTheDocument();
+
+  await userEvent.click(checkbox);
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole('checkbox', {
+        name: '3D AYT Fizik s. 1–20 görevini tamamla',
+      }),
+    ).toBeChecked();
+  });
+  await waitFor(() => {
+    const link = screen.getByRole('link', { name: /3D AYT Fizik/ });
+    expect(within(link).getByText('20/320 sayfa')).toBeInTheDocument();
+  });
+  expect(
+    within(screen.getByRole('link', { name: /3D AYT Fizik/ })).getByText('%6'),
+  ).toBeInTheDocument();
+
+  const shelfBook = await getShelfBook(seed.books.fizik);
+  expect(shelfBook?.progress.currentPage).toBe(20);
 });
 
 test('en yüksek ve ortalama net son beşle sınırlı kalmadan tür bazında tüm denemeleri kapsar', async () => {
@@ -336,37 +430,38 @@ test('branş denemesi ana sayfa net kartlarını ve son denemeleri değiştirmez
     results: [{ subjectId: 'tyt-sosyal', correct: 15, wrong: 3, blank: 2 }],
   });
   renderApp('/');
-  // "Genel ilerleme" ve "TYT netleri" sayaçlarının ikisi de yalnızca tam
-  // denemeyi sayar; branş denemesi 2. deneme olarak eklenmez.
-  expect(await screen.findAllByText('1 deneme')).toHaveLength(2);
+  // Net kartı yalnızca tam denemeyi sayar; branş denemesi 2. deneme olarak
+  // eklenmez.
+  const tytCard = await screen.findByRole('group', { name: 'TYT netleri' });
+  expect(within(tytCard).getByText('1 deneme')).toBeInTheDocument();
   expect(screen.getByText('Tam TYT')).toBeInTheDocument();
   expect(screen.queryByText('Branş Sosyal')).not.toBeInTheDocument();
   expect(screen.queryByText('2 deneme')).not.toBeInTheDocument();
 
   // En yüksek ve ortalama yalnızca tam denemeden: 30 - 5/4 = 28,75.
   // Branş denemesi 15 - 3/4 = 14,25 olsaydı ortalama değişirdi.
-  const tytCard = screen.getByRole('group', { name: 'TYT netleri' });
   expect(within(tytCard).getAllByText('28,75')).toHaveLength(2);
   expect(within(tytCard).queryByText('14,25')).not.toBeInTheDocument();
 });
 
-test('gizlenen dersler genel ve AYT yüzdelerine katılmaz', async () => {
+test('gizlenen dersler konu yüzdelerine katılmaz', async () => {
   const seed = await seedDashboardData();
+  await setTopicDone(await topicId('tyt-turkce-paragraf'), true);
+  await setTopicDone(await topicId('ayt-matematik-turev'), true);
   await patchSettings({ hiddenSubjects: [seed.aytFizik] });
 
   renderApp('/');
 
-  expect(await screen.findByRole('progressbar', { name: 'Genel ilerleme' })).toHaveAttribute(
+  expect(
+    await screen.findByRole('progressbar', { name: 'Genel konu ilerlemesi' }),
+  ).toHaveAttribute('aria-valuenow', '67');
+  expect(screen.getByRole('progressbar', { name: 'TYT konu ilerlemesi' })).toHaveAttribute(
     'aria-valuenow',
-    '60',
+    '50',
   );
-  expect(screen.getByRole('progressbar', { name: 'TYT ilerlemesi' })).toHaveAttribute(
+  expect(screen.getByRole('progressbar', { name: 'AYT konu ilerlemesi' })).toHaveAttribute(
     'aria-valuenow',
-    '75',
-  );
-  expect(screen.getByRole('progressbar', { name: 'AYT ilerlemesi' })).toHaveAttribute(
-    'aria-valuenow',
-    '30',
+    '100',
   );
 });
 
@@ -389,6 +484,7 @@ test('veri yokken bölümler boş durum gösterir', async () => {
   expect((await screen.findAllByText('Henüz deneme yok')).length).toBeGreaterThan(0);
   expect(screen.getByText('Henüz kitap yok')).toBeInTheDocument();
   expect(screen.getByText('Henüz deneme kaydı yok')).toBeInTheDocument();
+  expect(await screen.findByText('Bugün için görev yok.')).toBeInTheDocument();
   expect(
     within(screen.getByRole('group', { name: 'TYT netleri' })).getByText(
       'Henüz TYT denemesi yok',
@@ -400,8 +496,7 @@ test('veri yokken bölümler boş durum gösterir', async () => {
     ),
   ).toBeInTheDocument();
   expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
-  expect(screen.getByRole('progressbar', { name: 'Genel ilerleme' })).toHaveAttribute(
-    'aria-valuenow',
-    '0',
-  );
+  expect(
+    screen.getByRole('progressbar', { name: 'Genel konu ilerlemesi' }),
+  ).toHaveAttribute('aria-valuenow', '0');
 });

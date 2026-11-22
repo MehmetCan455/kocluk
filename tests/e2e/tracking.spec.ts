@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { completeOnboarding, TEST_NAME } from './helpers';
 
-test('TYT konusuna kitap ve test eklenir, yüzde güncellenir', async ({ page }) => {
+test('TYT konusu bitirilince durum ve ilerleme güncellenir', async ({ page }) => {
   await completeOnboarding(page, TEST_NAME, 'Tümü');
 
   await page.getByRole('link', { name: 'TYT', exact: true }).click();
@@ -11,17 +11,23 @@ test('TYT konusuna kitap ve test eklenir, yüzde güncellenir', async ({ page })
   await page.getByRole('link', { name: 'Temel Kavramlar' }).click();
   await expect(page.getByRole('heading', { name: 'Temel Kavramlar' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Kitap / test ekle' }).click();
-  await page.getByLabel('Yeni kitap adı').fill('3D TYT Soru Bankası');
-  await page.getByLabel('Yayınevi').fill('3D');
-  await page.getByLabel('Toplam test').fill('10');
-  await page.getByLabel('Çözülen test').fill('4');
-  await page.getByRole('button', { name: 'Kaydet' }).click();
+  await expect(page.getByRole('tab', { name: 'Durum' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 
-  await expect(page.getByText('4/10 test').first()).toBeVisible();
-  await expect(page.getByText('%40').first()).toBeVisible();
+  const doneCheckbox = page.getByRole('checkbox', { name: 'Bu konuyu bitirdim' });
+  // The checkbox is controlled by a live Dexie query, so its checked state
+  // settles asynchronously; click and let the assertion retry.
+  await doneCheckbox.click();
+  await expect(doneCheckbox).toBeChecked();
+
+  await expect(page.getByText('Bitti', { exact: true })).toBeVisible();
   await expect(
     page.getByRole('progressbar', { name: 'Temel Kavramlar ilerlemesi' }),
-  ).toHaveAttribute('aria-valuenow', '40');
-  await expect(page.getByText('3D TYT Soru Bankası')).toBeVisible();
+  ).toHaveAttribute('aria-valuenow', '100');
+
+  await expect(page.getByRole('heading', { name: 'Tekrar geçmişi' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Eski test kayıtları' })).toBeVisible();
+  await expect(page.getByText('Eski test kaydı yok')).toBeVisible();
 });

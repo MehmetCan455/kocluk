@@ -1,4 +1,4 @@
-import { resolveBookTotalPages } from '@/domain/bookProgress';
+import { calculateBookProgress, resolveBookTotalPages } from '@/domain/bookProgress';
 import { validateTaskPages } from '@/domain/schedule';
 import type {
   ActivityLog,
@@ -6,6 +6,8 @@ import type {
   ScheduleTask,
   ScheduleTaskType,
   ScheduleWeek,
+  UserBook,
+  UserBookStatus,
 } from '@/domain/types';
 import { deterministicId } from '@/lib/deterministicId';
 import { newId } from '@/lib/id';
@@ -370,6 +372,52 @@ async function replaceTaskActivity(
   }
 }
 
+/**
+ * Recalculates the stored shelf status after task-driven activity changes.
+ * Archiving stays an explicit user choice; `updatedAt` only moves when the
+ * status or `startedAt` actually changes. A missing user/catalog row is a
+ * no-op, matching the defensive behavior of `deleteActivityLog`.
+ */
+async function refreshBookStatus(userBookId: string): Promise<void> {
+  const userBook = await db.userBooks.get(userBookId);
+  if (!userBook || userBook.deletedAt) {
+    return;
+  }
+  const catalogBook = await db.catalogBooks.get(userBook.bookId);
+  if (!catalogBook || catalogBook.deletedAt) {
+    return;
+  }
+
+  const logs = activeLogs(
+    await db.activityLogs.where('userBookId').equals(userBookId).toArray(),
+  );
+  const progress = calculateBookProgress(
+    logs,
+    resolveBookTotalPages(userBook, catalogBook),
+  );
+
+  const status: UserBookStatus =
+    userBook.status === 'archived'
+      ? 'archived'
+      : progress.done
+        ? 'completed'
+        : 'active';
+  const now = new Date().toISOString();
+  const startedAt = userBook.startedAt ?? (progress.started ? now : undefined);
+  const startedAtChanged =
+    userBook.startedAt === undefined && startedAt !== undefined;
+
+  if (status === userBook.status && !startedAtChanged) {
+    return;
+  }
+
+  const next: UserBook = { ...userBook, status, updatedAt: now };
+  if (startedAt !== undefined) {
+    next.startedAt = startedAt;
+  }
+  await db.userBooks.put(next);
+}
+
 export async function updateTask(
   taskId: string,
   input: UpdateScheduleTaskInput,
@@ -419,6 +467,20 @@ export async function updateTask(
       }
 
       await db.scheduleTasks.put(next);
+
+      // Replacing the linked activity can move either book in or out of 100%.
+      if (task.completedAt !== undefined) {
+        const affectedBookIds = new Set<string>();
+        if (task.userBookId !== undefined) {
+          affectedBookIds.add(task.userBookId);
+        }
+        if (fields.userBookId !== undefined) {
+          affectedBookIds.add(fields.userBookId);
+        }
+        for (const userBookId of affectedBookIds) {
+          await refreshBookStatus(userBookId);
+        }
+      }
     },
   );
 }
@@ -454,6 +516,9 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
         const next: ScheduleTask = { ...task, updatedAt: now };
         delete next.completedAt;
         await db.scheduleTasks.put(next);
+        if (task.userBookId !== undefined) {
+          await refreshBookStatus(task.userBookId);
+        }
         return;
       }
 
@@ -470,6 +535,9 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
         completedAt: now,
         updatedAt: now,
       });
+      if (fields.userBookId !== undefined) {
+        await refreshBookStatus(fields.userBookId);
+      }
     },
   );
 }

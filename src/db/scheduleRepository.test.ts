@@ -26,9 +26,12 @@ const CREATED_AT = '2026-11-01T09:00:00.000Z';
 const WEEK_START = '2026-11-16';
 const NEXT_WEEK_START = '2026-11-23';
 
-async function seedShelfBook(totalPages = 400): Promise<string> {
+async function seedShelfBook(
+  totalPages = 400,
+  catalogId = 'catalog-book-1',
+): Promise<string> {
   const catalog: CatalogBook = {
-    id: 'catalog-book-1',
+    id: catalogId,
     title: 'TYT Matematik Soru Bankası',
     publisher: 'Bilgi Sarmal',
     totalPages,
@@ -263,6 +266,74 @@ test('tikleme kitabın güncel toplam sayfasına göre yeniden doğrulanır', as
   );
   expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeUndefined();
   expect(await db.activityLogs.count()).toBe(0);
+});
+
+test('görev tiklemesi kitabı yüzde yüzde tamamlar ve startedAt yazar', async () => {
+  const userBookId = await seedShelfBook(100);
+  const { weekId, rowId } = await seedWeekAndRow();
+  const task = await addTask(bookInput(weekId, rowId, userBookId, 1, 100));
+
+  await toggleTask(task.id, true);
+
+  const book = await db.userBooks.get(userBookId);
+  expect(book?.status).toBe('completed');
+  expect(book?.startedAt).toBeDefined();
+  expect((await getShelfBook(userBookId))?.progress.done).toBe(true);
+});
+
+test('tik geri alınınca kitap yeniden etkin olur ve startedAt korunur', async () => {
+  const userBookId = await seedShelfBook(100);
+  const { weekId, rowId } = await seedWeekAndRow();
+  const task = await addTask(bookInput(weekId, rowId, userBookId, 1, 100));
+
+  await toggleTask(task.id, true);
+  const startedAt = (await db.userBooks.get(userBookId))?.startedAt;
+  expect(startedAt).toBeDefined();
+
+  await toggleTask(task.id, false);
+
+  const book = await db.userBooks.get(userBookId);
+  expect(book?.status).toBe('active');
+  expect(book?.startedAt).toBe(startedAt);
+});
+
+test('arşivlenmiş kitap görev tiklemesiyle arşivde kalır', async () => {
+  const userBookId = await seedShelfBook(100);
+  await updateUserBook(userBookId, { status: 'archived' });
+  const { weekId, rowId } = await seedWeekAndRow();
+  const task = await addTask(bookInput(weekId, rowId, userBookId, 1, 100));
+
+  await toggleTask(task.id, true);
+
+  const book = await db.userBooks.get(userBookId);
+  expect(book?.status).toBe('archived');
+  expect(book?.startedAt).toBeDefined();
+});
+
+test('tamamlanan görev başka kitaba taşınınca iki kitabın durumu yenilenir', async () => {
+  const firstBookId = await seedShelfBook(100);
+  const secondBookId = await seedShelfBook(100, 'catalog-book-2');
+  const { weekId, rowId } = await seedWeekAndRow();
+  const task = await addTask(bookInput(weekId, rowId, firstBookId, 1, 100));
+
+  await toggleTask(task.id, true);
+  expect((await db.userBooks.get(firstBookId))?.status).toBe('completed');
+
+  await updateTask(task.id, {
+    rowId,
+    dayIndex: 1,
+    type: 'book',
+    userBookId: secondBookId,
+    fromPage: 1,
+    toPage: 100,
+  });
+
+  const first = await db.userBooks.get(firstBookId);
+  const second = await db.userBooks.get(secondBookId);
+  expect(first?.status).toBe('active');
+  expect(first?.startedAt).toBeDefined();
+  expect(second?.status).toBe('completed');
+  expect(second?.startedAt).toBeDefined();
 });
 
 test('görev kaydı kitabın son etkin kaydından sonra zaman damgalanır', async () => {

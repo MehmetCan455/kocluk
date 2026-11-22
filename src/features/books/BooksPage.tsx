@@ -102,7 +102,7 @@ function ShelfBookCard({ row, subjectLabel }: { row: ShelfBook; subjectLabel: st
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
             <span className="tabular-nums">
               {hasTotalPages
-                ? `${progress.currentPage}/${totalPages} sayfa`
+                ? `${progress.readPages}/${totalPages} sayfa`
                 : 'Toplam sayfa belirtilmedi'}
             </span>
             {hasTotalPages ? (

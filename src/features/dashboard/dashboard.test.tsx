@@ -4,9 +4,9 @@ import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import {
+  addBookPageRange,
   addCustomBook,
   getShelfBook,
-  setBookPage,
 } from '@/db/bookRepositories';
 import { patchSettings, saveExam } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
@@ -100,13 +100,13 @@ async function addShelfBook(
   return userBook.id;
 }
 
-/** Seeds an absolute page baseline, then restores the shelf sort timestamp. */
+/** Seeds read pages through `page`, then restores the shelf sort timestamp. */
 async function seedPage(
   userBookId: string,
   page: number,
   updatedAt: string,
 ): Promise<void> {
-  await setBookPage(userBookId, page);
+  await addBookPageRange(userBookId, 1, page);
   await db.userBooks.update(userBookId, { updatedAt });
 }
 
@@ -315,7 +315,7 @@ test('bugünün planı bugünün görevlerini gösterir ve tik kitap ilerlemesin
   ).toBeInTheDocument();
 
   const shelfBook = await getShelfBook(seed.books.fizik);
-  expect(shelfBook?.progress.currentPage).toBe(20);
+  expect(shelfBook?.progress.readPages).toBe(20);
 });
 
 test('en yüksek ve ortalama net son beşle sınırlı kalmadan tür bazında tüm denemeleri kapsar', async () => {

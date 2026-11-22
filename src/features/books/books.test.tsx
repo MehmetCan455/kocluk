@@ -5,12 +5,12 @@ import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import { listCatalogBooks, seedCatalog } from '@/db/catalogRepository';
 import {
+  addBookPageRange,
   addCatalogBookToShelf,
   addCustomBook,
   getShelfBook,
   listBookActivity,
   listShelfBooks,
-  setBookPage,
 } from '@/db/bookRepositories';
 import { LEGACY_SHELF_MIGRATED_KEY } from '@/db/legacyMigration';
 import {
@@ -260,7 +260,7 @@ test('durum filtresi arşivlenen kitabı aktif raftan ayırır', async () => {
 test('bitenler filtresi tamamlanmış kitabı durum alanından bağımsız gösterir', async () => {
   const catalog = await catalogBookByPublisher('Bilgi Sarmal');
   const userBook = await addCatalogBookToShelf(catalog.id);
-  await setBookPage(userBook.id, catalog.totalPages);
+  await addBookPageRange(userBook.id, 1, catalog.totalPages);
   // Yeniden eklenen %100 kitap `active` kalabilir; filtre ilerlemeye bakmalı.
   await db.userBooks.update(userBook.id, { status: 'active' });
 
@@ -329,7 +329,7 @@ async function addCatalogShelfBook(): Promise<{ id: string }> {
   return addCatalogBookToShelf(catalog.id);
 }
 
-test('kitap detayı sayfa güncellemesini, düzeltmeyi ve geçmişten silmeyi gösterir', async () => {
+test('kitap detayı sayfa aralığı eklemeyi ve geçmişten silmeyi gösterir', async () => {
   const userBook = await addCatalogShelfBook();
 
   renderApp(`/kitaplar/${userBook.id}`);
@@ -337,48 +337,129 @@ test('kitap detayı sayfa güncellemesini, düzeltmeyi ve geçmişten silmeyi g�
   expect(
     await screen.findByRole('heading', { level: 1, name: 'TYT Matematik Soru Bankası' }),
   ).toBeInTheDocument();
-  expect(screen.getByText('0/400 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('0/400 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('400 sayfa kaldı')).toBeInTheDocument();
   expect(
     screen.getByRole('progressbar', { name: 'TYT Matematik Soru Bankası ilerlemesi' }),
   ).toHaveAttribute('aria-valuenow', '0');
 
-  const firstInput = screen.getByLabelText('Şu anki sayfa');
-  await userEvent.clear(firstInput);
-  await userEvent.type(firstInput, '220');
-  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  const fromInput = screen.getByLabelText('Başlangıç sayfası');
+  const toInput = screen.getByLabelText('Bitiş sayfası');
+  await userEvent.clear(fromInput);
+  await userEvent.type(fromInput, '1');
+  await userEvent.clear(toInput);
+  await userEvent.type(toInput, '220');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
 
-  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+  expect(await screen.findByText('220/400 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('%55')).toBeInTheDocument();
+  expect(screen.getByText('Son sayfa: 220')).toBeInTheDocument();
 
-  const correctedInput = screen.getByLabelText('Şu anki sayfa');
-  await userEvent.clear(correctedInput);
-  await userEvent.type(correctedInput, '180');
-  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  const nextFrom = screen.getByLabelText('Başlangıç sayfası');
+  const nextTo = screen.getByLabelText('Bitiş sayfası');
+  await userEvent.clear(nextFrom);
+  await userEvent.type(nextFrom, '221');
+  await userEvent.clear(nextTo);
+  await userEvent.type(nextTo, '300');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
 
-  expect(await screen.findByText('180/400 sayfa')).toBeInTheDocument();
-  expect(screen.getByText('%45')).toBeInTheDocument();
+  expect(await screen.findByText('300/400 sayfa okundu')).toBeInTheDocument();
+  expect(screen.getByText('%75')).toBeInTheDocument();
+  expect(screen.getByText('Son sayfa: 300')).toBeInTheDocument();
 
   const history = await screen.findByRole('list', { name: 'İlerleme geçmişi' });
   let items = within(history).getAllByRole('listitem');
   expect(items).toHaveLength(2);
-  expect(within(items[0]).getByText('Düzeltme')).toBeInTheDocument();
+  expect(within(items[0]).getByText('s. 221–300')).toBeInTheDocument();
+  expect(within(items[1]).getByText('s. 1–220')).toBeInTheDocument();
+  expect(within(items[0]).getByText('Manuel')).toBeInTheDocument();
   expect(within(items[1]).getByText('Manuel')).toBeInTheDocument();
 
   await userEvent.click(within(items[0]).getByRole('button', { name: /sil/i }));
 
-  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+  expect(await screen.findByText('220/400 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('%55')).toBeInTheDocument();
   items = within(
     screen.getByRole('list', { name: 'İlerleme geçmişi' }),
   ).getAllByRole('listitem');
   expect(items).toHaveLength(1);
-  expect(within(items[0]).getByText('Manuel')).toBeInTheDocument();
-  expect(within(items[0]).queryByText('Düzeltme')).not.toBeInTheDocument();
+  expect(within(items[0]).getByText('s. 1–220')).toBeInTheDocument();
 
   const activity = await listBookActivity(userBook.id);
   expect(activity).toHaveLength(1);
-  expect(activity[0]).toMatchObject({ type: 'page_set', toPage: 220, source: 'manual' });
+  expect(activity[0]).toMatchObject({
+    type: 'book_pages',
+    fromPage: 1,
+    toPage: 220,
+    source: 'manual',
+  });
+});
+
+test('480 sayfalık kitapta 250–255 altı sayfa sayılır, 1–250 birleşimi 255 yapar', async () => {
+  const userBook = await addCustomBook({ title: '480 Sayfalık Kitap', totalPages: 480 });
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  const heading = await screen.findByRole('heading', {
+    level: 1,
+    name: '480 Sayfalık Kitap',
+  });
+  expect(heading).toBeInTheDocument();
+  expect(screen.getByText('0/480 sayfa okundu')).toBeInTheDocument();
+
+  const fromInput = screen.getByLabelText('Başlangıç sayfası');
+  const toInput = screen.getByLabelText('Bitiş sayfası');
+  await userEvent.clear(fromInput);
+  await userEvent.type(fromInput, '250');
+  await userEvent.clear(toInput);
+  await userEvent.type(toInput, '255');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
+
+  expect(await screen.findByText('6/480 sayfa okundu')).toBeInTheDocument();
+  expect(screen.getByText('%1')).toBeInTheDocument();
+  expect(screen.getByText('Son sayfa: 255')).toBeInTheDocument();
+  expect(screen.queryByText('%53')).not.toBeInTheDocument();
+
+  const nextFrom = screen.getByLabelText('Başlangıç sayfası');
+  const nextTo = screen.getByLabelText('Bitiş sayfası');
+  await userEvent.clear(nextFrom);
+  await userEvent.type(nextFrom, '1');
+  await userEvent.clear(nextTo);
+  await userEvent.type(nextTo, '250');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa aralığı ekle' }));
+
+  expect(await screen.findByText('255/480 sayfa okundu')).toBeInTheDocument();
+  expect(screen.getByText('%53')).toBeInTheDocument();
+  expect(screen.getByText('Son sayfa: 255')).toBeInTheDocument();
+
+  const progress = (await getShelfBook(userBook.id))?.progress;
+  expect(progress).toMatchObject({ readPages: 255, currentPage: 255, percent: 53 });
+});
+
+test('eski page_set kaydı geçmişte Konum (eski) olarak görünür, ilerlemeye sayılmaz', async () => {
+  const userBook = await addCatalogShelfBook();
+  await db.activityLogs.add({
+    id: 'legacy-page-set',
+    type: 'page_set',
+    userBookId: userBook.id,
+    toPage: 240,
+    source: 'manual',
+    createdAt: NOW,
+  });
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  expect(await screen.findByText('0/400 sayfa okundu')).toBeInTheDocument();
+  expect(screen.queryByText(/^Son sayfa:/)).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('progressbar', { name: 'TYT Matematik Soru Bankası ilerlemesi' }),
+  ).toHaveAttribute('aria-valuenow', '0');
+
+  const history = await screen.findByRole('list', { name: 'İlerleme geçmişi' });
+  const items = within(history).getAllByRole('listitem');
+  expect(items).toHaveLength(1);
+  expect(within(items[0]).getByText('Konum (eski)')).toBeInTheDocument();
+  expect(within(items[0]).getByText('Manuel')).toBeInTheDocument();
 });
 
 test('kitap düzenleme toplam sayfayı ve notu günceller', async () => {
@@ -404,7 +485,7 @@ test('kitap düzenleme toplam sayfayı ve notu günceller', async () => {
     expect(screen.queryByRole('dialog', { name: 'Kitabı düzenle' })).not.toBeInTheDocument();
   });
 
-  expect(await screen.findByText('0/500 sayfa')).toBeInTheDocument();
+  expect(await screen.findByText('0/500 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('500 sayfa kaldı')).toBeInTheDocument();
   // The note is no longer write-only: it is visible on the detail page.
   expect(screen.getByText('Kitap notu')).toBeInTheDocument();
@@ -451,13 +532,13 @@ test('özel kitapta ad, yayınevi, sınav ve ders düzenlenebilir', async () => 
   });
 });
 
-test('toplam sayfa okunan sayfanın altına inerse uyarı verir ve ilerleme %100 kalır', async () => {
+test('toplam sayfa son okunan sayfanın altına inerse uyarı verir ve ilerleme %100 kalır', async () => {
   const userBook = await addCatalogShelfBook();
-  await setBookPage(userBook.id, 220);
+  await addBookPageRange(userBook.id, 1, 220);
 
   renderApp(`/kitaplar/${userBook.id}`);
 
-  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+  expect(await screen.findByText('220/400 sayfa okundu')).toBeInTheDocument();
 
   await userEvent.click(
     screen.getByRole('button', {
@@ -471,7 +552,7 @@ test('toplam sayfa okunan sayfanın altına inerse uyarı verir ve ilerleme %100
   await userEvent.type(pages, '150');
 
   expect(
-    await within(dialog).findByText(/okunan 220 sayfadan az/),
+    await within(dialog).findByText(/son okunan 220 sayfadan az/),
   ).toBeInTheDocument();
 
   await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
@@ -479,19 +560,21 @@ test('toplam sayfa okunan sayfanın altına inerse uyarı verir ve ilerleme %100
     expect(screen.queryByRole('dialog', { name: 'Kitabı düzenle' })).not.toBeInTheDocument();
   });
 
-  expect(await screen.findByText('150/150 sayfa')).toBeInTheDocument();
+  expect(await screen.findByText('150/150 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('%100')).toBeInTheDocument();
   expect(screen.getByText('Bitti')).toBeInTheDocument();
 
   const activity = await listBookActivity(userBook.id);
   expect(
-    activity.some((log) => log.type === 'page_set' && log.toPage === 220),
+    activity.some(
+      (log) => log.type === 'book_pages' && log.fromPage === 1 && log.toPage === 220,
+    ),
   ).toBe(true);
 });
 
 test('geçmişi olan kitabın silme onayı arşivlemeyi önerir', async () => {
   const userBook = await addCatalogShelfBook();
-  await setBookPage(userBook.id, 120);
+  await addBookPageRange(userBook.id, 1, 120);
 
   renderApp(`/kitaplar/${userBook.id}`);
 
@@ -507,18 +590,18 @@ test('geçmişi olan kitabın silme onayı arşivlemeyi önerir', async () => {
   ).toBeInTheDocument();
 });
 
-test('plan tikinden sonra aşağı düzeltme Düzeltme olarak etiketlenir', async () => {
+test('plan görevi ve manuel aralık okunan sayfada birleşir', async () => {
   const userBook = await addCatalogShelfBook();
   await db.activityLogs.add({
     id: 'book-pages-1',
     type: 'book_pages',
     userBookId: userBook.id,
-    fromPage: 0,
+    fromPage: 200,
     toPage: 260,
     source: 'task',
     createdAt: NOW,
   });
-  await setBookPage(userBook.id, 240);
+  await addBookPageRange(userBook.id, 100, 199);
 
   renderApp(`/kitaplar/${userBook.id}`);
 
@@ -526,12 +609,15 @@ test('plan tikinden sonra aşağı düzeltme Düzeltme olarak etiketlenir', asyn
   const items = within(history).getAllByRole('listitem');
 
   expect(items).toHaveLength(2);
-  expect(within(items[0]).getByText('Düzeltme')).toBeInTheDocument();
+  expect(within(items[0]).getByText('s. 100–199')).toBeInTheDocument();
+  expect(within(items[0]).getByText('Manuel')).toBeInTheDocument();
+  expect(within(items[1]).getByText('s. 200–260')).toBeInTheDocument();
   expect(within(items[1]).getByText('Plan görevi')).toBeInTheDocument();
-  expect(screen.getByText('240/400 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('161/400 sayfa okundu')).toBeInTheDocument();
+  expect(screen.getByText('Son sayfa: 260')).toBeInTheDocument();
 });
 
-test('toplam sayfası olmayan kitapta sayfa güncelleme kapalıdır', async () => {
+test('toplam sayfası olmayan kitapta sayfa aralığı ekleme kapalıdır', async () => {
   const userBook = await addCustomBook({ title: 'Sayfasız Kitap', totalPages: 0 });
 
   renderApp(`/kitaplar/${userBook.id}`);
@@ -542,8 +628,9 @@ test('toplam sayfası olmayan kitapta sayfa güncelleme kapalıdır', async () =
   expect(
     screen.getByText('İlerleme için sayfa sayısı gerekli. Düzenle.'),
   ).toBeInTheDocument();
-  expect(screen.getByLabelText('Şu anki sayfa')).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+  expect(screen.getByLabelText('Başlangıç sayfası')).toBeDisabled();
+  expect(screen.getByLabelText('Bitiş sayfası')).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Sayfa aralığı ekle' })).toBeDisabled();
   expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 });
 

@@ -650,7 +650,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   );
 
   await waitFor(async () => {
-    expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(220);
+    expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
   });
   expect(
     (await listBookActivity(userBookId)).filter(
@@ -665,7 +665,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
 
   await userEvent.click(screen.getByRole('checkbox', { name: checkboxName }));
   await waitFor(async () => {
-    expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(0);
+    expect((await getShelfBook(userBookId))?.progress.readPages).toBe(0);
   });
   expect(
     (await listBookActivity(userBookId)).filter(
@@ -675,7 +675,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
 
   await userEvent.click(screen.getByRole('checkbox', { name: checkboxName }));
   await waitFor(async () => {
-    expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(220);
+    expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
   });
   expect(
     (await listBookActivity(userBookId)).filter(
@@ -685,7 +685,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
 
   view.unmount();
   renderApp(`/kitaplar/${userBookId}`);
-  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+  expect(await screen.findByText('11/400 sayfa okundu')).toBeInTheDocument();
   const planLink = await screen.findByRole('link', {
     name: /s\. 210–220 görevini plana aç/,
   });

@@ -16,11 +16,11 @@ import { Field } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { RingProgress } from '@/components/ui/RingProgress';
 import {
+  addBookPageRange,
   deleteActivityLog,
   deleteShelfBook,
   getShelfBook,
   listBookActivity,
-  setBookPage,
   updateUserBook,
   type ShelfBook,
 } from '@/db/bookRepositories';
@@ -71,44 +71,14 @@ function subjectNameFor(catalogBook: CatalogBook, subjects: Subject[]): string {
 }
 
 /**
- * A `page_set` is a manual baseline. It is a correction when it is below the
- * effective page reached immediately before it, including plan-tick
- * (`book_pages`) logs after the previous baseline. Labels are derived from the
- * log stream instead of a stored flag.
+ * History labels derive from the log type and source. `book_pages` entries are
+ * manual or plan-task ranges; `page_set` rows are legacy position markers kept
+ * for display only.
  */
-function pageSetLabels(logs: ActivityLog[]): Map<string, string> {
-  const chronological = logs
-    .filter(
-      (log) =>
-        !log.deletedAt && (log.type === 'page_set' || log.type === 'book_pages'),
-    )
-    .sort(
-      (left, right) =>
-        left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
-    );
-
-  const labels = new Map<string, string>();
-  let baseline: number | undefined;
-  let pagesAfterBaseline = 0;
-
-  for (const log of chronological) {
-    if (log.type === 'book_pages') {
-      pagesAfterBaseline = Math.max(pagesAfterBaseline, log.toPage ?? 0);
-      continue;
-    }
-
-    const page = log.toPage ?? 0;
-    const effectiveBefore =
-      baseline === undefined ? pagesAfterBaseline : Math.max(baseline, pagesAfterBaseline);
-    labels.set(log.id, page < effectiveBefore ? 'Düzeltme' : 'Manuel');
-    baseline = page;
-    pagesAfterBaseline = 0;
-  }
-
-  return labels;
-}
-
 function activityRangeLabel(log: ActivityLog): string {
+  if (log.type === 'page_set') {
+    return 'Konum (eski)';
+  }
   if (log.type === 'book_pages' && log.fromPage !== undefined && log.toPage !== undefined) {
     return `s. ${log.fromPage}–${log.toPage}`;
   }
@@ -118,12 +88,9 @@ function activityRangeLabel(log: ActivityLog): string {
   return 'Kayıt';
 }
 
-function activitySourceLabel(log: ActivityLog, labels: Map<string, string>): string {
-  if (log.type === 'page_set') {
-    return labels.get(log.id) ?? 'Manuel';
-  }
-  if (log.type === 'book_pages') {
-    return 'Plan görevi';
+function activitySourceLabel(log: ActivityLog): string {
+  if (log.type === 'page_set' || log.type === 'book_pages') {
+    return log.source === 'task' ? 'Plan görevi' : 'Manuel';
   }
   return 'Konu tekrarı';
 }
@@ -193,30 +160,41 @@ function BookPlanTasks({ tasks }: BookPlanTasksProps) {
   );
 }
 
-interface PageUpdateFormProps {
+interface PageRangeFormProps {
   row: ShelfBook;
 }
 
-function PageUpdateForm({ row }: PageUpdateFormProps) {
-  const inputId = useId();
+function PageRangeForm({ row }: PageRangeFormProps) {
+  const fromId = useId();
+  const toId = useId();
   const noPagesId = useId();
   const { progress, totalPages, userBook } = row;
-  const [page, setPage] = useState(String(progress.currentPage));
+  const nextPage = totalPages > 0 ? Math.min(progress.currentPage + 1, totalPages) : 1;
+  const [fromPage, setFromPage] = useState(String(nextPage));
+  const [toPage, setToPage] = useState(String(nextPage));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const hasTotalPages = totalPages > 0;
-  const trimmedPage = page.trim();
-  const parsedPage = Number(trimmedPage);
-  const pageInvalid =
+  const trimmedFrom = fromPage.trim();
+  const trimmedTo = toPage.trim();
+  const parsedFrom = Number(trimmedFrom);
+  const parsedTo = Number(trimmedTo);
+  const filled = trimmedFrom !== '' && trimmedTo !== '';
+  const valuesInvalid =
     hasTotalPages &&
-    trimmedPage !== '' &&
-    (!Number.isInteger(parsedPage) || parsedPage < 0 || parsedPage > totalPages);
-  const pageError = pageInvalid
-    ? `Sayfa 0 ile ${totalPages} arasında bir tam sayı olmalı`
-    : null;
-  const canSubmit =
-    !saving && hasTotalPages && trimmedPage !== '' && !pageInvalid;
+    filled &&
+    (!Number.isInteger(parsedFrom) ||
+      !Number.isInteger(parsedTo) ||
+      parsedFrom < 1 ||
+      parsedTo > totalPages);
+  const orderInvalid = hasTotalPages && filled && !valuesInvalid && parsedFrom > parsedTo;
+  const rangeError = valuesInvalid
+    ? `Sayfa 1 ile ${totalPages} arasında bir tam sayı olmalı`
+    : orderInvalid
+      ? 'Başlangıç sayfası bitiş sayfasından büyük olamaz'
+      : null;
+  const canSubmit = !saving && hasTotalPages && filled && !valuesInvalid && !orderInvalid;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -227,11 +205,13 @@ function PageUpdateForm({ row }: PageUpdateFormProps) {
     setSaving(true);
     setError(null);
     try {
-      await setBookPage(userBook.id, parsedPage);
+      await addBookPageRange(userBook.id, parsedFrom, parsedTo);
     } catch (caught: unknown) {
-      console.error('Sayfa güncellenemedi', caught);
+      console.error('Sayfa aralığı eklenemedi', caught);
       setError(
-        caught instanceof Error ? caught.message : 'Sayfa güncellenemedi. Lütfen tekrar dene.',
+        caught instanceof Error
+          ? caught.message
+          : 'Sayfa aralığı eklenemedi. Lütfen tekrar dene.',
       );
     } finally {
       setSaving(false);
@@ -240,7 +220,7 @@ function PageUpdateForm({ row }: PageUpdateFormProps) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Sayfa güncelle</h2>
+      <h2 className="text-lg font-semibold">Sayfa aralığı ekle</h2>
 
       {hasTotalPages ? null : (
         <p
@@ -256,34 +236,62 @@ function PageUpdateForm({ row }: PageUpdateFormProps) {
         className="flex flex-wrap items-end gap-3"
       >
         <Field
-          label="Şu anki sayfa"
-          htmlFor={inputId}
-          hint={hasTotalPages ? `0 ile ${totalPages} arasında` : undefined}
-          error={pageError ?? undefined}
-          className="w-full sm:max-w-56"
+          label="Başlangıç sayfası"
+          htmlFor={fromId}
+          hint={hasTotalPages ? `1 ile ${totalPages} arasında` : undefined}
+          error={rangeError ?? undefined}
+          className="w-full sm:max-w-48"
         >
           <input
-            id={inputId}
+            id={fromId}
             type="number"
             inputMode="numeric"
-            min={0}
+            min={1}
             max={hasTotalPages ? totalPages : undefined}
             step={1}
-            value={page}
-            onChange={(event) => setPage(event.target.value)}
+            value={fromPage}
+            onChange={(event) => setFromPage(event.target.value)}
             disabled={!hasTotalPages}
+            aria-invalid={rangeError ? true : undefined}
             aria-describedby={
-              pageInvalid
-                ? `${inputId}-error`
+              rangeError
+                ? `${fromId}-error`
                 : hasTotalPages
-                  ? `${inputId}-hint`
+                  ? `${fromId}-hint`
+                  : noPagesId
+            }
+            className={inputClass}
+          />
+        </Field>
+        <Field
+          label="Bitiş sayfası"
+          htmlFor={toId}
+          hint={hasTotalPages ? `1 ile ${totalPages} arasında` : undefined}
+          className="w-full sm:max-w-48"
+        >
+          <input
+            id={toId}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={hasTotalPages ? totalPages : undefined}
+            step={1}
+            value={toPage}
+            onChange={(event) => setToPage(event.target.value)}
+            disabled={!hasTotalPages}
+            aria-invalid={rangeError ? true : undefined}
+            aria-describedby={
+              rangeError
+                ? `${fromId}-error`
+                : hasTotalPages
+                  ? `${toId}-hint`
                   : noPagesId
             }
             className={inputClass}
           />
         </Field>
         <Button type="submit" disabled={!canSubmit}>
-          {saving ? 'Kaydediliyor…' : 'Kaydet'}
+          {saving ? 'Ekleniyor…' : 'Sayfa aralığı ekle'}
         </Button>
       </form>
 
@@ -302,7 +310,6 @@ interface ProgressHistoryProps {
 }
 
 function ProgressHistory({ logs, onDelete }: ProgressHistoryProps) {
-  const labels = pageSetLabels(logs);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -334,7 +341,9 @@ function ProgressHistory({ logs, onDelete }: ProgressHistoryProps) {
       ) : (
         <ul aria-label="İlerleme geçmişi" className="space-y-2">
           {logs.map((log) => {
-            const manual = log.type === 'page_set' && log.source === 'manual';
+            const manual =
+              log.source === 'manual' &&
+              (log.type === 'book_pages' || log.type === 'page_set');
             const range = activityRangeLabel(log);
 
             return (
@@ -347,7 +356,7 @@ function ProgressHistory({ logs, onDelete }: ProgressHistoryProps) {
                   <p className="flex flex-wrap items-center gap-1 text-xs text-muted">
                     <time dateTime={log.createdAt}>{formatHistoryDate(log.createdAt)}</time>
                     <span aria-hidden="true">·</span>
-                    <span>{activitySourceLabel(log, labels)}</span>
+                    <span>{activitySourceLabel(log)}</span>
                   </p>
                 </div>
                 {manual ? (
@@ -592,9 +601,14 @@ export function BookDetailPage() {
           </div>
           <p className="text-sm font-medium tabular-nums">
             {progress.hasTotalPages
-              ? `${progress.currentPage}/${totalPages} sayfa`
+              ? `${progress.readPages}/${totalPages} sayfa okundu`
               : 'Toplam sayfa belirtilmedi'}
           </p>
+          {progress.currentPage > 0 ? (
+            <p className="text-xs tabular-nums text-muted">
+              Son sayfa: {progress.currentPage}
+            </p>
+          ) : null}
           <p className="text-sm text-muted">
             {progress.hasTotalPages
               ? progress.done
@@ -672,8 +686,8 @@ export function BookDetailPage() {
         </p>
       ) : null}
 
-      {/* Scope by book and page so navigation cannot carry typed state over. */}
-      <PageUpdateForm key={`${userBook.id}:${progress.currentPage}`} row={row} />
+      {/* Scope by book and read pages so navigation cannot carry typed state over. */}
+      <PageRangeForm key={`${userBook.id}:${progress.readPages}`} row={row} />
 
       <ProgressHistory
         logs={logs}

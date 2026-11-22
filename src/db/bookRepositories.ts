@@ -74,9 +74,9 @@ function activeLogsOf(logs: ActivityLog[]): ActivityLog[] {
 }
 
 /**
- * A page set must sort after every earlier log even when two updates land in
- * the same millisecond, because the calculator picks the latest baseline by
- * `createdAt` and falls back to the id on a tie.
+ * A new range must sort after every earlier log even when two writes land in
+ * the same millisecond, so history order stays stable and timestamps are
+ * monotonically increasing within a book.
  */
 function nextLogTimestamp(logs: ActivityLog[]): string {
   const latest = logs.reduce(
@@ -337,16 +337,24 @@ export async function updateUserBook(id: string, input: UpdateUserBookInput): Pr
 }
 
 /**
- * Sets the current page as an absolute manual correction. Setting the page that
- * is already current is a no-op. The status follows the fresh percentage unless
- * the user archived the book.
+ * Adds one inclusive page range as a manual `book_pages` log. Progress is the
+ * union of every active range, so re-entering a read range is harmless while
+ * the history still records the entry. The status follows the fresh percentage
+ * unless the user archived the book.
  */
-export async function setBookPage(userBookId: string, page: number): Promise<void> {
-  if (!Number.isInteger(page)) {
-    throw new Error('Sayfa tam sayı olmalı');
+export async function addBookPageRange(
+  userBookId: string,
+  fromPage: number,
+  toPage: number,
+): Promise<void> {
+  if (!Number.isInteger(fromPage) || !Number.isInteger(toPage)) {
+    throw new Error('Sayfa aralığı tam sayı olmalı');
   }
-  if (page < 0) {
-    throw new Error('Sayfa negatif olamaz');
+  if (fromPage < 1) {
+    throw new Error('Başlangıç sayfası 1 veya daha büyük olmalı');
+  }
+  if (fromPage > toPage) {
+    throw new Error('Başlangıç sayfası bitiş sayfasından büyük olamaz');
   }
 
   await db.transaction('rw', db.userBooks, db.catalogBooks, db.activityLogs, async () => {
@@ -361,26 +369,24 @@ export async function setBookPage(userBookId: string, page: number): Promise<voi
     }
 
     const totalPages = resolveBookTotalPages(userBook, catalogBook);
-    if (page > 0 && totalPages <= 0) {
+    if (totalPages <= 0) {
       throw new Error('Önce toplam sayfa sayısını gir');
     }
-    if (totalPages > 0 && page > totalPages) {
-      throw new Error('Sayfa toplam sayfayı aşamaz');
+    if (toPage > totalPages) {
+      throw new Error('Bitiş sayfası toplam sayfayı aşamaz');
     }
 
     const logs = activeLogsOf(
       await db.activityLogs.where('userBookId').equals(userBookId).toArray(),
     );
-    if (calculateBookProgress(logs, totalPages).currentPage === page) {
-      return;
-    }
 
     const createdAt = nextLogTimestamp(logs);
     const log: ActivityLog = {
       id: newId(),
-      type: 'page_set',
+      type: 'book_pages',
       userBookId,
-      toPage: page,
+      fromPage,
+      toPage,
       source: 'manual',
       createdAt,
     };
@@ -390,7 +396,7 @@ export async function setBookPage(userBookId: string, page: number): Promise<voi
     await db.userBooks.put({
       ...userBook,
       status: statusFor(userBook, progress.done),
-      startedAt: userBook.startedAt ?? (page > 0 ? createdAt : undefined),
+      startedAt: userBook.startedAt ?? createdAt,
       updatedAt: createdAt,
     });
   });
@@ -406,9 +412,9 @@ export async function listBookActivity(userBookId: string): Promise<ActivityLog[
 }
 
 /**
- * Tombstones one log so the calculator falls back to the previous baseline.
- * Deleting a baseline can drop a completed book below 100%, so the stored
- * status is refreshed with the same archive rule as `setBookPage`.
+ * Tombstones one log. Deleting the last range that completed a book drops it
+ * below 100%, so the stored status is refreshed with the same archive rule as
+ * `addBookPageRange`.
  */
 export async function deleteActivityLog(id: string): Promise<void> {
   await db.transaction('rw', db.activityLogs, db.userBooks, db.catalogBooks, async () => {

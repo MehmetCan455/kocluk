@@ -11,7 +11,7 @@ import {
   readBackupSummary,
 } from '@/db/backup';
 import { db } from '@/db/db';
-import { addCatalogBookToShelf, getShelfBook, setBookPage } from '@/db/bookRepositories';
+import { addBookPageRange, addCatalogBookToShelf, getShelfBook } from '@/db/bookRepositories';
 import { toPhotoSearch } from '@/db/photoSearch';
 import {
   createBook,
@@ -1129,7 +1129,7 @@ test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yükl
     updatedAt: createdAt,
   });
   const userBook = await addCatalogBookToShelf('katalog-test-1');
-  await setBookPage(userBook.id, 40);
+  await addBookPageRange(userBook.id, 1, 40);
   const { week } = await getOrCreateWeek('2026-11-16');
   const row = await addRow(week.id, 'Matematik', seeded.subject.id);
   const task = await addTask({
@@ -1183,8 +1183,9 @@ test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yükl
   expect(data.topicProgress).toHaveLength(1);
   expect(data.activityLogs[0]).toMatchObject({
     id: storedLog.id,
-    type: 'page_set',
+    type: 'book_pages',
     userBookId: userBook.id,
+    fromPage: 1,
     toPage: 40,
   });
   expect(data.scheduleTasks[0]).toMatchObject({
@@ -1226,7 +1227,7 @@ test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yükl
   expect(await db.scheduleRows.get(row.id)).toEqual(storedRow);
   expect(await db.scheduleTasks.get(task.id)).toEqual(storedTask);
   expect(await db.topicProgress.get(storedProgress.id)).toEqual(storedProgress);
-  expect((await getShelfBook(userBook.id))?.progress.currentPage).toBe(40);
+  expect((await getShelfBook(userBook.id))?.progress.readPages).toBe(40);
   expect(await getTopicDone(seeded.topic.id)).toBe(true);
 });
 

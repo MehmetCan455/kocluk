@@ -247,7 +247,7 @@ test('tikleme tek etkin kitap kaydı oluşturur, geri alma kaydı tombstone eder
     toPage: 20,
   });
   expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeDefined();
-  expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(20);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
 
   // İkinci kez tiklemek etkin kayıt sayısını artırmaz.
   await toggleTask(task.id, true);
@@ -258,7 +258,7 @@ test('tikleme tek etkin kitap kaydı oluşturur, geri alma kaydı tombstone eder
   expect(afterUntick).toHaveLength(1);
   expect(afterUntick[0].deletedAt).toBeDefined();
   expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeUndefined();
-  expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(0);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(0);
 
   await toggleTask(task.id, true);
   const afterRetick = await taskLogs(task.id);
@@ -266,7 +266,7 @@ test('tikleme tek etkin kitap kaydı oluşturur, geri alma kaydı tombstone eder
   const activeAgain = afterRetick.filter((log) => !log.deletedAt);
   expect(activeAgain).toHaveLength(1);
   expect(activeAgain[0].id).not.toBe(firstActive[0].id);
-  expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(20);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
 });
 
 test('tikleme kitabın güncel toplam sayfasına göre yeniden doğrulanır', async () => {
@@ -370,7 +370,7 @@ test('görev kaydı kitabın son etkin kaydından sonra zaman damgalanır', asyn
 
   const tick = (await activeTaskLogs(task.id))[0];
   expect(tick.createdAt > future).toBe(true);
-  expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(20);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
 });
 
 test('konu görevi tekrar kaydı oluşturur ve konu durumunu değiştirmez', async () => {
@@ -448,7 +448,7 @@ test('tamamlanan görevin sayfa aralığı güncellenince kayıt yenilenir', asy
   const saved = await db.scheduleTasks.get(task.id);
   expect(saved).toMatchObject({ fromPage: 30, toPage: 40, dayIndex: 4 });
   expect(saved?.completedAt).toBeDefined();
-  expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(40);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
 
   await expect(
     updateTask(task.id, {
@@ -563,7 +563,7 @@ test('görev silme kaydı korur, satır silme görevleri tombstone eder', async 
 
   expect((await db.scheduleTasks.get(firstTask.id))?.deletedAt).toBeDefined();
   expect((await db.activityLogs.get(progressLog.id))?.deletedAt).toBeUndefined();
-  expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(20);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
   expect(await listBookTasks(userBookId)).toEqual([]);
 
   const secondRow = await addRow(weekId, 'Kalacak satır');
@@ -576,7 +576,7 @@ test('görev silme kaydı korur, satır silme görevleri tombstone eder', async 
   expect((await db.scheduleRows.get(secondRow.id))?.deletedAt).toBeDefined();
   expect((await db.scheduleTasks.get(secondTask.id))?.deletedAt).toBeDefined();
   expect((await db.activityLogs.get(rowLog.id))?.deletedAt).toBeUndefined();
-  expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(40);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(22);
   expect((await db.scheduleRows.get(firstRow.id))?.deletedAt).toBeUndefined();
 
   const week = await getWeek(WEEK_START);

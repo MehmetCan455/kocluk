@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import JSZip from 'jszip';
 import { CURRICULUM } from '@/data/curriculum';
 import { exportBackup } from '@/db/backup';
-import { addCustomBook, setBookPage } from '@/db/bookRepositories';
+import { addBookPageRange, addCustomBook } from '@/db/bookRepositories';
 import { db } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import {
@@ -169,7 +169,7 @@ test('yedek indirir, dosya adını üretir ve son yedek tarihini gösterir', asy
 test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir', async () => {
   const { topic } = await seedPanelData('Yedek Profili');
   const shelfBook = await addCustomBook({ title: 'Panel Raf Kitabı', totalPages: 120 });
-  await setBookPage(shelfBook.id, 10);
+  await addBookPageRange(shelfBook.id, 1, 10);
   const { week } = await getOrCreateWeek('2026-11-16');
   const row = await addRow(week.id, 'Matematik');
   await addTask({

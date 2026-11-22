@@ -399,7 +399,7 @@ export function DashboardPage() {
                         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted">
                           <span className="tabular-nums">
                             {hasTotalPages
-                              ? `${progress.currentPage}/${progress.totalPages} sayfa`
+                              ? `${progress.readPages}/${progress.totalPages} sayfa`
                               : 'Toplam sayfa belirtilmedi'}
                           </span>
                           {hasTotalPages ? (

@@ -4,6 +4,7 @@ import { deterministicId } from '@/lib/deterministicId';
 import { LOCAL_SCOPE, USER_BOOK_NAMESPACE } from '@/lib/namespaces';
 import { db } from './db';
 import {
+  addBookPageRange,
   addCatalogBookToShelf,
   addCustomBook,
   deleteActivityLog,
@@ -11,7 +12,6 @@ import {
   getShelfBook,
   listBookActivity,
   listShelfBooks,
-  setBookPage,
   updateUserBook,
 } from './bookRepositories';
 
@@ -107,72 +107,99 @@ test('özel kitapta ad zorunludur ve toplam sayfa tam sayı olmalıdır', async 
   );
 });
 
-test('sayfa güncellemesi manuel page_set kaydı oluşturur', async () => {
+test('sayfa aralığı ekleme manuel book_pages kaydı oluşturur', async () => {
   const catalog = await insertCatalogBook();
   const userBook = await addCatalogBookToShelf(catalog.id);
 
-  await setBookPage(userBook.id, 100);
-  await setBookPage(userBook.id, 100);
+  await addBookPageRange(userBook.id, 100, 140);
+  await addBookPageRange(userBook.id, 100, 140);
 
   const logs = await listBookActivity(userBook.id);
-  expect(logs).toHaveLength(1);
+  expect(logs).toHaveLength(2);
   expect(logs[0]).toMatchObject({
-    type: 'page_set',
+    type: 'book_pages',
     source: 'manual',
     userBookId: userBook.id,
-    toPage: 100,
+    fromPage: 100,
+    toPage: 140,
   });
 
   const shelf = await getShelfBook(userBook.id);
-  expect(shelf?.progress).toMatchObject({
-    currentPage: 100,
+  expect(shelf?.progress).toEqual({
+    currentPage: 140,
+    readPages: 41,
     totalPages: 400,
-    percent: 25,
-    remaining: 300,
+    percent: 10,
+    remaining: 359,
+    started: true,
+    done: false,
+    hasTotalPages: true,
   });
   expect(shelf?.userBook.startedAt).toBeDefined();
 });
 
-test('geçersiz sayfa değerleri reddedilir', async () => {
+test('geçersiz sayfa aralıkları reddedilir', async () => {
   const catalog = await insertCatalogBook();
   const userBook = await addCatalogBookToShelf(catalog.id);
 
-  await expect(setBookPage(userBook.id, -1)).rejects.toThrow('Sayfa negatif olamaz');
-  await expect(setBookPage(userBook.id, 1.5)).rejects.toThrow('Sayfa tam sayı olmalı');
-  await expect(setBookPage(userBook.id, 401)).rejects.toThrow('Sayfa toplam sayfayı aşamaz');
+  await expect(addBookPageRange(userBook.id, 0, 10)).rejects.toThrow(
+    'Başlangıç sayfası 1 veya daha büyük olmalı',
+  );
+  await expect(addBookPageRange(userBook.id, 1.5, 10)).rejects.toThrow(
+    'Sayfa aralığı tam sayı olmalı',
+  );
+  await expect(addBookPageRange(userBook.id, 10, 5)).rejects.toThrow(
+    'Başlangıç sayfası bitiş sayfasından büyük olamaz',
+  );
+  await expect(addBookPageRange(userBook.id, 1, 401)).rejects.toThrow(
+    'Bitiş sayfası toplam sayfayı aşamaz',
+  );
   expect(await db.activityLogs.count()).toBe(0);
 });
 
-test('toplam sayfası bilinmeyen kitapta sayfa güncellenemez', async () => {
+test('toplam sayfası bilinmeyen kitapta sayfa aralığı eklenemez', async () => {
   const userBook = await addCustomBook({ title: 'Sayfasız Kitap', totalPages: 0 });
 
-  await expect(setBookPage(userBook.id, 10)).rejects.toThrow(
+  await expect(addBookPageRange(userBook.id, 1, 10)).rejects.toThrow(
     'Önce toplam sayfa sayısını gir',
   );
   expect(await db.activityLogs.count()).toBe(0);
 });
 
-test('yüzde yüz kitabı tamamlar, düzeltme tekrar etkin yapar ve arşivi korur', async () => {
+test('tüm sayfalar okununca tamamlar, kayıt silinince yeniden etkin yapar', async () => {
   const catalog = await insertCatalogBook();
   const userBook = await addCatalogBookToShelf(catalog.id);
 
-  await setBookPage(userBook.id, 400);
+  await addBookPageRange(userBook.id, 1, 400);
   expect((await db.userBooks.get(userBook.id))?.status).toBe('completed');
 
-  await setBookPage(userBook.id, 200);
+  // Aynı aralığı tekrar girmek birleşimi büyütmez, kitap tamamlanmış kalır.
+  await addBookPageRange(userBook.id, 1, 200);
+  expect((await db.userBooks.get(userBook.id))?.status).toBe('completed');
+
+  const fullRange = (await listBookActivity(userBook.id)).find(
+    (log) => log.fromPage === 1 && log.toPage === 400,
+  );
+  await deleteActivityLog(fullRange!.id);
   expect((await db.userBooks.get(userBook.id))?.status).toBe('active');
+});
+
+test('arşivlenen kitap yeni sayfa aralığıyla arşivde kalır', async () => {
+  const catalog = await insertCatalogBook();
+  const userBook = await addCatalogBookToShelf(catalog.id);
 
   await db.userBooks.update(userBook.id, { status: 'archived' });
-  await setBookPage(userBook.id, 100);
-  expect((await db.userBooks.get(userBook.id))?.status).toBe('archived');
-  await setBookPage(userBook.id, 400);
-  expect((await db.userBooks.get(userBook.id))?.status).toBe('archived');
+  await addBookPageRange(userBook.id, 1, 400);
+
+  const book = await db.userBooks.get(userBook.id);
+  expect(book?.status).toBe('archived');
+  expect(book?.startedAt).toBeDefined();
 });
 
 test('kitap toplam sayfa geçersiz kılması ayarlanır ve temizlenir', async () => {
   const catalog = await insertCatalogBook();
   const userBook = await addCatalogBookToShelf(catalog.id);
-  await setBookPage(userBook.id, 100);
+  await addBookPageRange(userBook.id, 1, 100);
 
   await updateUserBook(userBook.id, { totalPagesOverride: 200, note: '  Yaz tatili  ' });
   let shelf = await getShelfBook(userBook.id);
@@ -228,18 +255,20 @@ test('raf listesi ilerlemeyi hesaplar ve arşiv ile silinmişleri ayıklar', asy
   const first = await addCatalogBookToShelf(firstCatalog.id);
   const second = await addCatalogBookToShelf(secondCatalog.id);
 
-  await setBookPage(first.id, 50);
-  await setBookPage(second.id, 100);
+  await addBookPageRange(first.id, 1, 50);
+  await addBookPageRange(second.id, 1, 100);
 
   const active = await listShelfBooks();
   expect(active).toHaveLength(2);
   expect(active.find((row) => row.userBook.id === first.id)?.progress).toMatchObject({
     currentPage: 50,
+    readPages: 50,
     totalPages: 200,
     percent: 25,
   });
   expect(active.find((row) => row.userBook.id === second.id)?.progress).toMatchObject({
     currentPage: 100,
+    readPages: 100,
     percent: 100,
     done: true,
   });
@@ -252,28 +281,40 @@ test('raf listesi ilerlemeyi hesaplar ve arşiv ile silinmişleri ayıklar', asy
   expect((await listShelfBooks(true)).map((row) => row.userBook.id)).toEqual([second.id]);
 });
 
-test('silinen aktivite kaydı tombstone edilir ve önceki tabana dönülür', async () => {
+test('silinen aktivite kaydı birleşimden düşer ve durumu yeniler', async () => {
   const catalog = await insertCatalogBook();
   const userBook = await addCatalogBookToShelf(catalog.id);
-  await setBookPage(userBook.id, 220);
-  await setBookPage(userBook.id, 180);
+  await addBookPageRange(userBook.id, 1, 220);
+  await addBookPageRange(userBook.id, 200, 300);
 
-  const correction = (await listBookActivity(userBook.id)).find((log) => log.toPage === 180);
-  expect(correction).toBeDefined();
+  expect((await getShelfBook(userBook.id))?.progress).toMatchObject({
+    currentPage: 300,
+    readPages: 300,
+    percent: 75,
+  });
 
-  await deleteActivityLog(correction!.id);
+  const overlap = (await listBookActivity(userBook.id)).find(
+    (log) => log.fromPage === 200 && log.toPage === 300,
+  );
+  expect(overlap).toBeDefined();
+
+  await deleteActivityLog(overlap!.id);
 
   const logs = await listBookActivity(userBook.id);
   expect(logs.map((log) => log.toPage)).toEqual([220]);
-  expect((await db.activityLogs.get(correction!.id))?.deletedAt).toBeDefined();
-  expect((await getShelfBook(userBook.id))?.progress.currentPage).toBe(220);
+  expect((await db.activityLogs.get(overlap!.id))?.deletedAt).toBeDefined();
+  expect((await getShelfBook(userBook.id))?.progress).toMatchObject({
+    currentPage: 220,
+    readPages: 220,
+    percent: 55,
+  });
 });
 
 test('kitap silme kitabı, kayıtlarını ve plan görevlerini tombstone eder', async () => {
   const catalog = await insertCatalogBook();
   const userBook = await addCatalogBookToShelf(catalog.id);
   const other = await addCustomBook({ title: 'Diğer Kitap', totalPages: 100 });
-  await setBookPage(userBook.id, 50);
+  await addBookPageRange(userBook.id, 40, 60);
 
   const ownTask = await insertTask(userBook.id);
   const otherTask = await insertTask(other.id);

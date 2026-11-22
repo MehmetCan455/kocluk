@@ -365,7 +365,10 @@ export interface TopicProgress {
 }
 
 export interface BookProgress {
+  /** Highest `toPage` in the active `book_pages` stream; display only. */
   currentPage: number;
+  /** Unique pages covered by the union of active read ranges. */
+  readPages: number;
   totalPages: number;
   percent: number;
   remaining: number;

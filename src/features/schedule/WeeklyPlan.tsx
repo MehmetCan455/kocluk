@@ -536,6 +536,7 @@ export function WeeklyPlan() {
       weekStartRef.current = next;
       setTaskEditor(null);
       setCopyConfirmOpen(false);
+      setDeleteTarget(null);
       setWeekStart(next);
     },
     [flushNote, flushRows],

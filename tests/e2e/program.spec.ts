@@ -88,12 +88,14 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
   await taskDialog.getByRole('button', { name: 'Kaydet', exact: true }).click();
   await expect(taskDialog).not.toBeVisible();
 
-  const taskCheckbox = page.getByRole('checkbox', {
-    name: 'E2E görev görevini tamamla',
-  });
-  await expect(taskCheckbox).toBeVisible();
-  await taskCheckbox.click();
-  await expect(taskCheckbox).toBeChecked();
+  // Completion goes through tick mode; the chip itself is the button now.
+  await page.getByRole('button', { name: 'Tik modu' }).click();
+  const taskChip = page.getByRole('button', { name: 'E2E görev: Planlandı' });
+  await expect(taskChip).toBeVisible();
+  await taskChip.click();
+  await expect(
+    page.getByRole('button', { name: 'E2E görev: Yapıldı' }),
+  ).toBeVisible();
 
   await page.reload();
   await expect(
@@ -106,9 +108,11 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
     .getByRole('group', { name: 'Çizelge günü' })
     .getByRole('button', { name: 'Pzt Pazartesi' })
     .click();
+  // Tick mode is a per-session toggle, so re-enable it to read the state.
+  await page.getByRole('button', { name: 'Tik modu' }).click();
   await expect(
-    page.getByRole('checkbox', { name: 'E2E görev görevini tamamla' }),
-  ).toBeChecked();
+    page.getByRole('button', { name: 'E2E görev: Yapıldı' }),
+  ).toBeVisible();
 });
 
 test('çizelge fotoğrafı ve PDF dosyası yüklenir, önizlenir ve silinir', async ({

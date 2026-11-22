@@ -34,7 +34,6 @@ export interface WeeklyPlanTableProps {
   taskContent: (task: ScheduleTask, rowLabel: string) => ScheduleTaskContent;
   /** Receives the ISO day (1 = Monday … 7 = Sunday), not the visual index. */
   onAddTask: (row: WeeklyPlanRow, day: number) => void;
-  onToggleTask: (task: ScheduleTask, done: boolean) => void;
   onSetTaskStatus: (task: ScheduleTask, status: ScheduleTaskStatus) => void;
   onEditTask: (task: ScheduleTask) => void;
   onDeleteTask: (task: ScheduleTask) => void;
@@ -69,7 +68,6 @@ export function WeeklyPlanTable({
   onDeleteRow,
   taskContent,
   onAddTask,
-  onToggleTask,
   onSetTaskStatus,
   onEditTask,
   onDeleteTask,
@@ -247,7 +245,6 @@ export function WeeklyPlanTable({
                                 onStatusChange={(status) =>
                                   onSetTaskStatus(task, status)
                                 }
-                                onToggle={(done) => onToggleTask(task, done)}
                                 onEdit={() => onEditTask(task)}
                                 onDelete={() => onDeleteTask(task)}
                                 disabled={disabled}

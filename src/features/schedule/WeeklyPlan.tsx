@@ -18,7 +18,6 @@ import {
   renameRow,
   saveWeekNote,
   setTaskStatus as setScheduleTaskStatus,
-  toggleTask,
   type WeekData,
 } from '@/db/scheduleRepository';
 import {
@@ -668,21 +667,6 @@ export function WeeklyPlan() {
     }
   }
 
-  async function handleToggleTask(
-    task: ScheduleTask,
-    done: boolean,
-  ): Promise<void> {
-    setTaskError(null);
-    try {
-      await toggleTask(task.id, done);
-      await refreshTasks();
-    } catch (caught: unknown) {
-      setTaskError(
-        messageFor(caught, 'Görev güncellenemedi. Lütfen tekrar dene.'),
-      );
-    }
-  }
-
   async function handleSetTaskStatus(
     task: ScheduleTask,
     status: ScheduleTaskStatus,
@@ -851,7 +835,6 @@ export function WeeklyPlan() {
               }
               setTaskEditor({ rowId: row.id, dayIndex });
             }}
-            onToggleTask={(task, done) => void handleToggleTask(task, done)}
             onSetTaskStatus={(task, status) =>
               void handleSetTaskStatus(task, status)
             }

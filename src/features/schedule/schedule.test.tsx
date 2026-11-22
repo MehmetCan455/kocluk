@@ -652,11 +652,25 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   expect(screen.getByText('Planlanan sayfa').parentElement).toHaveTextContent('11');
   expect(screen.getByText('Okunan sayfa').parentElement).toHaveTextContent('0');
 
-  const checkboxName =
-    'TYT Matematik Soru Bankası s. 210–220 görevini tamamla';
-  await userEvent.click(
-    await screen.findByRole('checkbox', { name: checkboxName }),
-  );
+  // Completion now goes through tick mode; the chip has no checkbox.
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+  const chipTitle = () =>
+    screen.getByText('TYT Matematik Soru Bankası', {
+      selector: '[data-line="title"]',
+    });
+  await userEvent.click(chipTitle());
+  await waitFor(() => {
+    expect(taskChip('TYT Matematik Soru Bankası')).toHaveAttribute(
+      'data-status',
+      'done',
+    );
+  });
+  expect(
+    screen.getByRole('button', {
+      name: 'TYT Matematik Soru Bankası s. 210–220: Yapıldı',
+    }),
+  ).toBeInTheDocument();
 
   await waitFor(async () => {
     expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
@@ -672,7 +686,13 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
     );
   });
 
-  await userEvent.click(screen.getByRole('checkbox', { name: checkboxName }));
+  await userEvent.click(chipTitle());
+  await waitFor(() => {
+    expect(taskChip('TYT Matematik Soru Bankası')).toHaveAttribute(
+      'data-status',
+      'pending',
+    );
+  });
   await waitFor(async () => {
     expect((await getShelfBook(userBookId))?.progress.readPages).toBe(0);
   });
@@ -682,7 +702,13 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
     ),
   ).toHaveLength(0);
 
-  await userEvent.click(screen.getByRole('checkbox', { name: checkboxName }));
+  await userEvent.click(chipTitle());
+  await waitFor(() => {
+    expect(taskChip('TYT Matematik Soru Bankası')).toHaveAttribute(
+      'data-status',
+      'done',
+    );
+  });
   await waitFor(async () => {
     expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
   });
@@ -751,8 +777,9 @@ test('konu tekrarı görevi tiklenince tekrar kaydı oluşturur ama konuyu bitir
   await userEvent.selectOptions(within(dialog).getByLabelText('Konu'), topic.id);
   await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
 
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
   await userEvent.click(
-    await screen.findByRole('checkbox', { name: 'Türev görevini tamamla' }),
+    await screen.findByText('Türev', { selector: '[data-line="title"]' }),
   );
   await waitFor(async () => {
     expect(await listTopicReviews(topic.id)).toHaveLength(1);
@@ -848,11 +875,13 @@ test('arayüzden eklenen görev ISO gün indeksiyle saklanır ve bugünün plan�
     expect(tasks[0].dayIndex).toBe(today);
   });
 
-  const chipCheckbox = screen.getByRole('checkbox', {
-    name: 'Bugünün görevi görevini tamamla',
-  });
-  // The tick label and the icon buttons keep the 44px touch target rule.
-  expect(chipCheckbox.closest('label')).toHaveClass('min-h-11', 'min-w-11');
+  const planChip = taskChip('Bugünün görevi');
+  // The three-line body and the icon buttons keep the 44px touch target rule.
+  expect(planChip).toHaveAttribute('aria-label', 'Bugünün görevi: Planlandı');
+  expect(
+    planChip.querySelector('[data-line="title"]')?.closest('div'),
+  ).toHaveClass('min-h-11');
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   expect(
     screen.getByRole('button', { name: 'Bugünün görevi görevini düzenle' }),
   ).toHaveClass('h-11', 'w-11');
@@ -994,7 +1023,7 @@ test('tik modu sol tıkla yapıldı, sağ tıkla yapılmadı, tekrar tıkla nöt
   expect(
     screen.getByText('Sol tık: yapıldı · Sağ tık: yapılmadı'),
   ).toBeInTheDocument();
-  // Tik modunda düzenle/sil gizlenir ve normal mod kutusu çizilmez.
+  // Tik modunda düzenle/sil gizlenir; çipin tamamı tıklama hedefi olur.
   expect(
     screen.queryByRole('button', { name: 'Türev tekrarı görevini düzenle' }),
   ).not.toBeInTheDocument();
@@ -1002,6 +1031,12 @@ test('tik modu sol tıkla yapıldı, sağ tıkla yapılmadı, tekrar tıkla nöt
     screen.queryByRole('button', { name: 'Türev tekrarı görevini sil' }),
   ).not.toBeInTheDocument();
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  expect(taskChip('Türev tekrarı')).toHaveAttribute('role', 'button');
+  expect(taskChip('Türev tekrarı')).toHaveAttribute('tabindex', '0');
+  expect(taskChip('Türev tekrarı')).toHaveAttribute(
+    'aria-label',
+    'Türev tekrarı: Planlandı',
+  );
 
   await userEvent.click(
     screen.getByText('Türev tekrarı', { selector: '[data-line="title"]' }),
@@ -1039,6 +1074,77 @@ test('tik modu sol tıkla yapıldı, sağ tıkla yapılmadı, tekrar tıkla nöt
   const cleared = await db.scheduleTasks.get(task.id);
   expect(cleared?.missedAt).toBeUndefined();
   expect(cleared?.completedAt).toBeUndefined();
+});
+
+test('normal modda görev çipi tıklanınca durum değiştirmez', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  const task = await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Türev tekrarı',
+  });
+  await openSchedule();
+
+  await screen.findByText('Türev tekrarı', { selector: '[data-line="title"]' });
+  const chip = taskChip('Türev tekrarı');
+  expect(chip).not.toHaveAttribute('role');
+  expect(chip).toHaveAttribute('aria-label', 'Türev tekrarı: Planlandı');
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+  await userEvent.click(chip);
+
+  expect(chip).toHaveAttribute('data-status', 'pending');
+  expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeUndefined();
+  expect(
+    screen.getByRole('button', { name: 'Türev tekrarı görevini düzenle' }),
+  ).toBeInTheDocument();
+});
+
+test('tik modunda çip klavyeyle yapıldı ve yapılmadı işaretlenir', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  const task = await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Türev tekrarı',
+  });
+  await openSchedule();
+
+  await screen.findByText('Türev tekrarı', { selector: '[data-line="title"]' });
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+
+  const chip = screen.getByRole('button', {
+    name: 'Türev tekrarı: Planlandı',
+  });
+  expect(chip).toHaveAttribute('tabindex', '0');
+  chip.focus();
+  expect(chip).toHaveFocus();
+
+  await userEvent.keyboard('{Enter}');
+  await waitFor(() => {
+    expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'done');
+  });
+  expect(chip).toHaveFocus();
+  await waitFor(async () => {
+    expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeDefined();
+  });
+
+  await userEvent.keyboard(' ');
+  await waitFor(() => {
+    expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'pending');
+  });
+  expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeUndefined();
+
+  await userEvent.keyboard('{Shift>}{Enter}{/Shift}');
+  await waitFor(() => {
+    expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'missed');
+  });
+  await waitFor(async () => {
+    expect((await db.scheduleTasks.get(task.id))?.missedAt).toBeDefined();
+  });
 });
 
 test('geçmiş haftada işaretsiz görev kırmızı, tamamlanan görev yeşil görünür', async () => {

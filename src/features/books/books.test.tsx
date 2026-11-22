@@ -72,9 +72,16 @@ beforeEach(async () => {
   await seedCatalog();
 });
 
-async function catalogBookByPublisher(publisher: string, exam = 'TYT') {
+async function catalogBookByPublisher(
+  publisher: string,
+  exam = 'TYT',
+  title = 'TYT Matematik Soru Bankası',
+) {
   const book = (await listCatalogBooks()).find(
-    (candidate) => candidate.publisher === publisher && candidate.exam === exam,
+    (candidate) =>
+      candidate.publisher === publisher &&
+      candidate.exam === exam &&
+      candidate.title === title,
   );
   if (!book) {
     throw new Error(`Katalog kitabı bulunamadı: ${publisher}`);
@@ -216,10 +223,12 @@ test('katalog araması yayıneviyle eşleşir ve aynı yayınevinin sınav kitap
     name: '"orbital" için katalog sonuçları',
   });
   await waitFor(() =>
-    expect(within(list).getAllByRole('listitem')).toHaveLength(2),
+    expect(within(list).getAllByRole('listitem')).toHaveLength(4),
   );
   expect(within(list).getByText('TYT Kimya Soru Bankası')).toBeInTheDocument();
   expect(within(list).getByText('AYT Kimya Soru Bankası')).toBeInTheDocument();
+  expect(within(list).getByText('Organik Kimya Konu Özetli Soru Bankası')).toBeInTheDocument();
+  expect(within(list).getByText('Kimya Maarif Model 1. Aşama Soru Bankası')).toBeInTheDocument();
 });
 
 test('kendi kitabını ekler ve ders seçilmeyince Genel gösterir', async () => {
@@ -410,8 +419,8 @@ test('kitap detayı sayfa aralığı eklemeyi ve geçmişten silmeyi gösterir',
   const history = await screen.findByRole('list', { name: 'İlerleme geçmişi' });
   let items = within(history).getAllByRole('listitem');
   expect(items).toHaveLength(2);
-  expect(within(items[0]).getByText('s. 221–300')).toBeInTheDocument();
-  expect(within(items[1]).getByText('s. 1–220')).toBeInTheDocument();
+  expect(within(items[0]).getByText('Syf. 221–300')).toBeInTheDocument();
+  expect(within(items[1]).getByText('Syf. 1–220')).toBeInTheDocument();
   expect(within(items[0]).getByText('Manuel')).toBeInTheDocument();
   expect(within(items[1]).getByText('Manuel')).toBeInTheDocument();
 
@@ -423,7 +432,7 @@ test('kitap detayı sayfa aralığı eklemeyi ve geçmişten silmeyi gösterir',
     screen.getByRole('list', { name: 'İlerleme geçmişi' }),
   ).getAllByRole('listitem');
   expect(items).toHaveLength(1);
-  expect(within(items[0]).getByText('s. 1–220')).toBeInTheDocument();
+  expect(within(items[0]).getByText('Syf. 1–220')).toBeInTheDocument();
 
   const activity = await listBookActivity(userBook.id);
   expect(activity).toHaveLength(1);
@@ -649,9 +658,9 @@ test('plan görevi ve manuel aralık okunan sayfada birleşir', async () => {
   const items = within(history).getAllByRole('listitem');
 
   expect(items).toHaveLength(2);
-  expect(within(items[0]).getByText('s. 100–199')).toBeInTheDocument();
+  expect(within(items[0]).getByText('Syf. 100–199')).toBeInTheDocument();
   expect(within(items[0]).getByText('Manuel')).toBeInTheDocument();
-  expect(within(items[1]).getByText('s. 200–260')).toBeInTheDocument();
+  expect(within(items[1]).getByText('Syf. 200–260')).toBeInTheDocument();
   expect(within(items[1]).getByText('Plan görevi')).toBeInTheDocument();
   expect(screen.getByText('161/400 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('Son sayfa: 260')).toBeInTheDocument();

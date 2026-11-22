@@ -289,7 +289,7 @@ test('bugünün planı bugünün görevlerini gösterir ve tik kitap ilerlemesin
   expect(screen.queryByText('Yarına kalan görev')).not.toBeInTheDocument();
 
   const checkbox = await screen.findByRole('checkbox', {
-    name: '3D AYT Fizik s. 1–20 görevini tamamla',
+    name: '3D AYT Fizik Syf. 1–20 görevini tamamla',
   });
   expect(checkbox).not.toBeChecked();
 
@@ -302,7 +302,7 @@ test('bugünün planı bugünün görevlerini gösterir ve tik kitap ilerlemesin
   await waitFor(() => {
     expect(
       screen.getByRole('checkbox', {
-        name: '3D AYT Fizik s. 1–20 görevini tamamla',
+        name: '3D AYT Fizik Syf. 1–20 görevini tamamla',
       }),
     ).toBeChecked();
   });

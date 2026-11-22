@@ -131,7 +131,10 @@ async function seedPlanRow(): Promise<{ weekStart: string; weekId: string; rowId
 async function seedBilgiSarmalBook(): Promise<ShelfBook> {
   await seedCatalog();
   const catalogBook = (await listCatalogBooks()).find(
-    (book) => book.publisher === 'Bilgi Sarmal' && book.exam === 'TYT',
+    (book) =>
+      book.publisher === 'Bilgi Sarmal' &&
+      book.exam === 'TYT' &&
+      book.title === 'TYT Matematik Soru Bankası',
   );
   if (!catalogBook) {
     throw new Error('Bilgi Sarmal katalog kitabı bulunamadı');
@@ -648,7 +651,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '220');
   await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
 
-  expect(await screen.findByText(/s\. 210–220/)).toBeInTheDocument();
+  expect(await screen.findByText(/Syf\. 210–220/)).toBeInTheDocument();
   expect(screen.getByText('Planlanan sayfa').parentElement).toHaveTextContent('11');
   expect(screen.getByText('Okunan sayfa').parentElement).toHaveTextContent('0');
 
@@ -666,7 +669,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   });
   expect(
     screen.getByRole('button', {
-      name: `${bookChipTitle} s. 210–220: Yapıldı`,
+      name: `${bookChipTitle} Syf. 210–220: Yapıldı`,
     }),
   ).toBeInTheDocument();
 
@@ -714,7 +717,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   renderApp(`/kitaplar/${userBookId}`);
   expect(await screen.findByText('11/400 sayfa okundu')).toBeInTheDocument();
   const planLink = await screen.findByRole('link', {
-    name: /s\. 210–220 görevini plana aç/,
+    name: /Syf\. 210–220 görevini plana aç/,
   });
   expect(planLink).toHaveAttribute('href', `/program?week=${weekStart}`);
   // Week/day context and completion state stay in the accessible name.
@@ -1201,14 +1204,14 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
   expect(subtitleLine).toHaveAttribute('title', 'Türev');
   expect(subtitleLine).toHaveClass('truncate', 'whitespace-nowrap');
 
-  const detailLine = screen.getByText('s. 123–128', {
+  const detailLine = screen.getByText('Syf. 123–128', {
     selector: '[data-line="detail"]',
   });
-  expect(detailLine).toHaveAttribute('title', 's. 123–128');
+  expect(detailLine).toHaveAttribute('title', 'Syf. 123–128');
   expect(detailLine).toHaveClass('truncate', 'whitespace-nowrap');
   expect(taskChip(bookChipTitle).querySelector('.break-words')).toBeNull();
 
-  const label = `${bookChipTitle} s. 123–128`;
+  const label = `${bookChipTitle} Syf. 123–128`;
   const editButton = screen.getByRole('button', {
     name: `${label} görevini düzenle`,
   });
@@ -1276,7 +1279,7 @@ test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur'
     await screen.findByText('Türev', { selector: '[data-line="subtitle"]' }),
   ).toBeInTheDocument();
   expect(
-    screen.getByText('s. 10–20', { selector: '[data-line="detail"]' }),
+    screen.getByText('Syf. 10–20', { selector: '[data-line="detail"]' }),
   ).toBeInTheDocument();
   const stored = await db.scheduleTasks.toArray();
   expect(stored).toHaveLength(1);

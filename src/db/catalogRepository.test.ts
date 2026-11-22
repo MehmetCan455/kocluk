@@ -1,4 +1,5 @@
 import { beforeEach, expect, test } from 'vitest';
+import { CATALOG_SEED } from '@/data/catalogBooks';
 import { db } from './db';
 import { getCatalogBook, listCatalogBooks, seedCatalog, searchCatalog } from './catalogRepository';
 
@@ -14,8 +15,9 @@ test('katalog tohumu idempotenttir ve arama yapar', async () => {
   expect(await db.catalogBooks.count()).toBe(firstCount);
 
   const books = await listCatalogBooks();
-  // Dört eski kitap korunur, 26 yeni satır eklenir.
-  expect(books).toHaveLength(30);
+  // 30 eski kitap korunur, onaylanmış 50 yeni satır eklenir.
+  expect(CATALOG_SEED).toHaveLength(80);
+  expect(books).toHaveLength(CATALOG_SEED.length);
   expect(new Set(books.map((book) => book.id)).size).toBe(books.length);
   expect(books.some((book) => book.publisher === 'Karekök')).toBe(true);
 
@@ -24,21 +26,27 @@ test('katalog tohumu idempotenttir ve arama yapar', async () => {
   expect(results.some((book) => book.publisher === 'Bilgi Sarmal')).toBe(true);
 
   const biyotik = await searchCatalog('biyotik');
-  expect(biyotik).toHaveLength(2);
+  expect(biyotik).toHaveLength(6);
   expect(biyotik.every((book) => book.publisher === 'Biyotik')).toBe(true);
   expect(biyotik.map((book) => book.title).sort()).toEqual([
+    '2028 Üniversiteye Hazırlık Biyoloji Maarif Model Soru Bankası',
     'AYT Biyoloji Soru Bankası',
+    'AYT Biyoloji Soru Kampı',
     'TYT Biyoloji Soru Bankası',
+    'TYT Biyoloji Soru Kampı',
+    'TYT-AYT Biyoloji Sistemler İnsan Fizyolojisi Konu Anlatımlı Soru Bankası',
   ]);
 
-  // Apotemi AYT bir fasikül setidir; katalogda tek TYT kitabı vardır.
+  // Apotemi AYT fasikül setleri katalogda yok; tek cilt kitaplar vardır.
   const apotemi = await searchCatalog('apotemi');
-  expect(apotemi).toHaveLength(1);
-  expect(apotemi[0]).toMatchObject({
-    title: 'TYT Matematik Soru Bankası',
-    exam: 'TYT',
-    totalPages: 400,
-  });
+  expect(apotemi).toHaveLength(7);
+  expect(apotemi).toContainEqual(
+    expect.objectContaining({
+      title: 'TYT Matematik Soru Bankası',
+      exam: 'TYT',
+      totalPages: 400,
+    }),
+  );
 
   const book = await getCatalogBook(results[0].id);
   expect(book?.totalPages).toBeGreaterThan(0);

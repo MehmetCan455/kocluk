@@ -186,7 +186,7 @@ test('görev çipi kitap, konu ve serbest görev için üç satır üretir', () 
   expect(book).toEqual({
     title: 'Bilgi Sarmal · TYT Matematik Soru Bankası',
     subtitle: 'Türev',
-    detail: 's. 123–128',
+    detail: 'Syf. 123–128',
   });
 
   const bookWithoutTopic = scheduleTaskContent(
@@ -196,7 +196,7 @@ test('görev çipi kitap, konu ve serbest görev için üç satır üretir', () 
   expect(bookWithoutTopic).toEqual({
     title: 'Kitap A',
     subtitle: 'Fizik',
-    detail: 's. 1–2',
+    detail: 'Syf. 1–2',
   });
 
   const topic = scheduleTaskContent(

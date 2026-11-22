@@ -30,7 +30,7 @@ function taskLabel(
       books.find((row) => row.userBook.id === task.userBookId)?.catalogBook.title ??
       'Kitap';
     if (task.fromPage !== undefined && task.toPage !== undefined) {
-      return `${title} s. ${task.fromPage}–${task.toPage}`;
+      return `${title} Syf. ${task.fromPage}–${task.toPage}`;
     }
     return title;
   }

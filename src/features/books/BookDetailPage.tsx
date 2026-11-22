@@ -80,10 +80,10 @@ function activityRangeLabel(log: ActivityLog): string {
     return 'Konum (eski)';
   }
   if (log.type === 'book_pages' && log.fromPage !== undefined && log.toPage !== undefined) {
-    return `s. ${log.fromPage}–${log.toPage}`;
+    return `Syf. ${log.fromPage}–${log.toPage}`;
   }
   if (log.toPage !== undefined) {
-    return `s. ${log.toPage}`;
+    return `Syf. ${log.toPage}`;
   }
   return 'Kayıt';
 }
@@ -97,10 +97,10 @@ function activitySourceLabel(log: ActivityLog): string {
 
 function bookTaskLabel(task: ScheduleTask): string {
   if (task.fromPage !== undefined && task.toPage !== undefined) {
-    return `s. ${task.fromPage}–${task.toPage}`;
+    return `Syf. ${task.fromPage}–${task.toPage}`;
   }
   if (task.fromPage !== undefined) {
-    return `s. ${task.fromPage}`;
+    return `Syf. ${task.fromPage}`;
   }
   return 'Sayfa aralığı belirtilmedi';
 }

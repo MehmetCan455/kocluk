@@ -133,7 +133,7 @@ export function scheduleTaskContent(
       title: publisher ? `${publisher} · ${bookTitle}` : bookTitle,
       subtitle: task.title?.trim() || rowLabel,
       detail:
-        from !== undefined && to !== undefined ? `s. ${from}–${to}` : '',
+        from !== undefined && to !== undefined ? `Syf. ${from}–${to}` : '',
     };
   }
 

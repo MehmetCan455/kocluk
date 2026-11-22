@@ -39,8 +39,9 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
 - **Kitaplar** sayfasında katalogdan kitap seçip rafına ekleyebilirsin. Her kitap
   okunan sayfa / toplam sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir; toplam
   sayfa girilmemiş kitaplarda yüzde yerine **Sayfa sayısını gir** uyarısı çıkar.
-  Bu aşamada katalog, farklı yayınevlerinden TYT/AYT matematik, fizik, kimya ve
-  biyoloji kitaplarından oluşan bir başlangıç seti içerir; listede olmayan
+  Bu aşamada katalog, farklı yayınevlerinden TYT/AYT matematik, geometri, fizik,
+  kimya, biyoloji, Türkçe ve edebiyat kitaplarından oluşan 80 kitaplık bir
+  başlangıç seti içerir; listede olmayan
   kitapları kendi başlık, yayınevi ve sayfa sayısıyla rafına ekleyebilirsin.
   Baskıya göre değişen sayfa sayılarını kitap detayından düzeltebilirsin.
 - Kitap detayında **Başlangıç sayfası** ve **Bitiş sayfası** alanlarıyla okuduğun

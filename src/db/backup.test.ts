@@ -30,6 +30,13 @@ import {
 import { addRow, addTask, getOrCreateWeek } from '@/db/scheduleRepository';
 import { getTopicDone, setTopicDone } from '@/db/topicProgressRepository';
 import { createEmptyScheduleTable } from '@/domain/scheduleTable';
+import { deterministicId } from '@/lib/deterministicId';
+import {
+  CATALOG_NAMESPACE,
+  LOCAL_SCOPE,
+  TOPIC_PROGRESS_NAMESPACE,
+  USER_BOOK_NAMESPACE,
+} from '@/lib/namespaces';
 import { resetDb, seedOnboarded } from '@/test/fixtures';
 
 const seed: CurriculumSeed = {
@@ -46,6 +53,40 @@ const seed: CurriculumSeed = {
     },
   ],
 };
+
+/** Two subjects so the legacy conversion can exercise the "Genel" tie. */
+const legacySeed: CurriculumSeed = {
+  version: 1,
+  subjects: [
+    {
+      seedKey: 'tyt-mat',
+      exam: 'TYT',
+      name: 'Matematik',
+      slug: 'matematik',
+      icon: 'calculator',
+      order: 1,
+      topics: [
+        { seedKey: 'tyt-mat-turev', name: 'Türev', order: 1 },
+        { seedKey: 'tyt-mat-limit', name: 'Limit', order: 2 },
+      ],
+    },
+    {
+      seedKey: 'tyt-fiz',
+      exam: 'TYT',
+      name: 'Fizik',
+      slug: 'fizik',
+      icon: 'atom',
+      order: 2,
+      topics: [{ seedKey: 'tyt-fiz-hareket', name: 'Hareket', order: 1 }],
+    },
+  ],
+};
+
+async function topicBySeedKey(seedKey: string) {
+  const topic = await db.topics.where('seedKey').equals(seedKey).first();
+  expect(topic).toBeDefined();
+  return topic!;
+}
 
 const PHOTO_BYTES = 'fotoğraf-baytları';
 const THUMB_BYTES = 'küçük-fotoğraf-baytları';
@@ -107,6 +148,27 @@ async function mutateZip(
   replaceJson(zip, 'veri.json', data);
   replaceJson(zip, 'manifest.json', manifest);
   return zipBlob(zip);
+}
+
+const V6_TABLE_KEYS = [
+  'catalogBooks',
+  'userBooks',
+  'activityLogs',
+  'scheduleWeeks',
+  'scheduleRows',
+  'scheduleTasks',
+  'topicProgress',
+] as const;
+
+/** Turns a current archive into a v5 archive: no v6 tables, schema version 5. */
+async function asV5Archive(blob: Blob): Promise<Blob> {
+  return mutateZip(blob, async (_zip, data, manifest) => {
+    for (const key of V6_TABLE_KEYS) {
+      delete data[key];
+      manifest.counts[key] = 0;
+    }
+    manifest.schemaVersion = 5;
+  });
 }
 
 async function fullSeed() {
@@ -1051,16 +1113,6 @@ test('AYT branş denemesi alanı ve sonucuyla yedekten geri yüklenir', async ()
   expect(results[0].net).toBeCloseTo(28.5);
 });
 
-const V6_TABLE_KEYS = [
-  'catalogBooks',
-  'userBooks',
-  'activityLogs',
-  'scheduleWeeks',
-  'scheduleRows',
-  'scheduleTasks',
-  'topicProgress',
-] as const;
-
 test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yüklenir', async () => {
   const seeded = await fullSeed();
   const createdAt = '2026-11-01T09:00:00.000Z';
@@ -1200,21 +1252,14 @@ test('içe aktarma eksik katalog tohumunu ekler ve düzenlenen satırı ezmez', 
   });
 });
 
-test('v6 tabloları içermeyen v5 yedeği boş listelerle yüklenir', async () => {
-  await fullSeed();
-  const exported = await exportBackup();
-
-  const legacy = await mutateZip(exported, async (_zip, data, manifest) => {
-    for (const key of V6_TABLE_KEYS) {
-      delete data[key];
-      manifest.counts[key] = 0;
-    }
-    manifest.schemaVersion = 5;
-  });
+test('v6 tabloları içermeyen v5 yedeği legacy kitabı rafa taşıyarak yüklenir', async () => {
+  const seeded = await fullSeed();
+  const legacy = await asV5Archive(await exportBackup());
 
   await resetDb();
   const imported = await importBackup(new File([legacy], 'v5.zip'));
 
+  // Sayaçlar arşivdeki tabloları yansıtır; dönüşüm satırları arşivde yoktur.
   expect(imported.counts).toMatchObject({
     catalogBooks: 0,
     userBooks: 0,
@@ -1224,14 +1269,135 @@ test('v6 tabloları içermeyen v5 yedeği boş listelerle yüklenir', async () =
     scheduleTasks: 0,
     topicProgress: 0,
   });
-  expect(await db.userBooks.count()).toBe(0);
+  // Eski kitap rafa taşınır; kısmi test kaydı konuyu tamamlamış saymaz.
+  expect(await db.userBooks.count()).toBe(1);
+  expect(await db.topicProgress.count()).toBe(0);
   expect(await db.activityLogs.count()).toBe(0);
   expect(await db.scheduleWeeks.count()).toBe(0);
   expect(await db.scheduleRows.count()).toBe(0);
   expect(await db.scheduleTasks.count()).toBe(0);
-  expect(await db.topicProgress.count()).toBe(0);
-  // Catalog seeding still repairs the missing seed rows on a legacy archive.
-  expect(await db.catalogBooks.count()).toBe(CATALOG_SEED.length);
+  // Katalog tohumu ve türetilen özel kitap birlikte bulunur.
+  expect(await db.catalogBooks.count()).toBe(CATALOG_SEED.length + 1);
+  expect(await db.books.get(seeded.book.id)).toBeDefined();
   expect(await db.photos.count()).toBe(1);
+});
+
+test('v5 yedeği eski kitabı rafa taşır, notu ve tamamlanan konuyu aktarır', async () => {
+  await seedOnboarded(legacySeed, { seedVersion: CURRICULUM.version });
+  const turev = await topicBySeedKey('tyt-mat-turev');
+  const hareket = await topicBySeedKey('tyt-fiz-hareket');
+  const book = await createBook({ name: 'Eski Kitap', publisher: 'Eski Yayın' });
+  await db.books.update(book.id, { note: 'Eski kitap notu' });
+  await upsertTopicBook({ topicId: turev.id, bookId: book.id, totalTests: 10, solvedTests: 10 });
+  await upsertTopicBook({ topicId: hareket.id, bookId: book.id, totalTests: 8, solvedTests: 3 });
+
+  const legacy = await asV5Archive(await exportBackup());
+  await resetDb();
+  await importBackup(new File([legacy], 'v5-eski-kitap.zip'));
+
+  const userBooks = await db.userBooks.toArray();
+  expect(userBooks).toHaveLength(1);
+  const userBook = userBooks[0];
+  expect(userBook).toMatchObject({ status: 'active', note: 'Eski kitap notu' });
+  expect(userBook.id).toBe(
+    deterministicId(USER_BOOK_NAMESPACE, `${LOCAL_SCOPE}:${userBook.bookId}`),
+  );
+
+  const catalogBook = await db.catalogBooks.get(userBook.bookId);
+  expect(catalogBook).toMatchObject({
+    id: deterministicId(CATALOG_NAMESPACE, `${LOCAL_SCOPE}:legacy:${book.id}`),
+    ownerId: LOCAL_SCOPE,
+    title: 'Eski Kitap',
+    publisher: 'Eski Yayın',
+    totalPages: 0,
+  });
+  // Konular iki derse dağıldığı için ders/sınav boş ("Genel") kalır.
+  expect(catalogBook?.subjectSlug).toBeUndefined();
+  expect(catalogBook?.exam).toBeUndefined();
+
+  expect(await getTopicDone(turev.id)).toBe(true);
+  expect(await getTopicDone(hareket.id)).toBe(false);
+  expect(await db.topicProgress.count()).toBe(1);
+  expect(
+    await db.topicProgress.get(
+      deterministicId(TOPIC_PROGRESS_NAMESPACE, `${LOCAL_SCOPE}:${turev.id}`),
+    ),
+  ).toMatchObject({ topicId: turev.id, done: true });
+
+  // Legacy tablolar arşiv olarak korunur.
+  expect(await db.books.get(book.id)).toMatchObject({
+    name: 'Eski Kitap',
+    note: 'Eski kitap notu',
+  });
+  expect(await db.topicBooks.count()).toBe(2);
+});
+
+test('v5 yedeğinde eşleşen eski kitaplar tek katalog kitabında birleşir', async () => {
+  await seedOnboarded(seed, { seedVersion: CURRICULUM.version });
+  const topic = await topicBySeedKey('tyt-mat-turev');
+  const first = await createBook({ name: 'TYT Matematik Soru Bankası', publisher: 'Bilgi Sarmal' });
+  const second = await createBook({
+    name: 'tyt matematik soru bankası',
+    publisher: 'BİLGİ SARMAL',
+  });
+  await db.books.update(first.id, { note: 'İlk kitabın notu' });
+  await db.books.update(second.id, { note: 'İkinci kitabın notu' });
+  await upsertTopicBook({ topicId: topic.id, bookId: first.id, totalTests: 12, solvedTests: 12 });
+  await upsertTopicBook({ topicId: topic.id, bookId: second.id, totalTests: 6, solvedTests: 6 });
+
+  const legacy = await asV5Archive(await exportBackup());
+  await resetDb();
+  await importBackup(new File([legacy], 'v5-katalog.zip'));
+
+  const seedRow = CATALOG_SEED[0];
+  const catalogId = catalogBookId(seedRow.title, seedRow.publisher, seedRow.edition);
+  const userBooks = await db.userBooks.toArray();
+  expect(userBooks).toHaveLength(1);
+  const ordered = [first, second].sort((left, right) => left.id.localeCompare(right.id));
+  const expectedNote =
+    ordered[0].id === first.id ? 'İlk kitabın notu' : 'İkinci kitabın notu';
+  expect(userBooks[0]).toMatchObject({
+    bookId: catalogId,
+    note: expectedNote,
+    status: 'active',
+  });
+  expect(await db.catalogBooks.get(catalogId)).toMatchObject({
+    title: 'TYT Matematik Soru Bankası',
+    publisher: 'Bilgi Sarmal',
+    totalPages: 400,
+    edition: '2025',
+  });
+  // Birleştirme eski kitap ve test kayıtlarını silmez.
+  expect(await db.books.count()).toBe(2);
+  expect(await db.topicBooks.count()).toBe(2);
+  expect(await getTopicDone(topic.id)).toBe(true);
+});
+
+test('v5 yedeğinde kitabın dersi eski konuların çoğunluğundan türetilir', async () => {
+  await seedOnboarded(legacySeed, { seedVersion: CURRICULUM.version });
+  const turev = await topicBySeedKey('tyt-mat-turev');
+  const limit = await topicBySeedKey('tyt-mat-limit');
+  const hareket = await topicBySeedKey('tyt-fiz-hareket');
+  const book = await createBook({ name: 'Dersli Kitap' });
+  await upsertTopicBook({ topicId: turev.id, bookId: book.id, totalTests: 10, solvedTests: 10 });
+  await upsertTopicBook({ topicId: limit.id, bookId: book.id, totalTests: 10, solvedTests: 2 });
+  await upsertTopicBook({ topicId: hareket.id, bookId: book.id, totalTests: 10, solvedTests: 10 });
+
+  const legacy = await asV5Archive(await exportBackup());
+  await resetDb();
+  await importBackup(new File([legacy], 'v5-ders.zip'));
+
+  const [userBook] = await db.userBooks.toArray();
+  expect(await db.catalogBooks.get(userBook.bookId)).toMatchObject({
+    ownerId: LOCAL_SCOPE,
+    title: 'Dersli Kitap',
+    subjectSlug: 'matematik',
+    exam: 'TYT',
+    totalPages: 0,
+  });
+  // Kısmi konu tamamlanmış sayılmaz; diğer iki konu aktarılır.
+  expect(await getTopicDone(turev.id)).toBe(true);
+  expect(await getTopicDone(limit.id)).toBe(false);
+  expect(await getTopicDone(hareket.id)).toBe(true);
 });
 

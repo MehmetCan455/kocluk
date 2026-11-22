@@ -5,11 +5,13 @@ import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import {
   SCHEDULE_FILE_MAX_BYTES,
-  getScheduleTable,
   getSettings,
   listScheduleFiles,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
+import { getWeek } from '@/db/scheduleRepository';
+import { SCHEDULE_DAYS } from '@/features/schedule/scheduleDays';
+import { shiftWeek, weekLabel, weekStartOf } from '@/domain/schedule';
 import { compressImage } from '@/lib/image';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -42,13 +44,19 @@ const FIXTURE: CurriculumSeed = {
   ],
 };
 
+const TABLE_NAME = 'Haftalık ders çalışma tablosu';
+
+function currentWeekStart(): string {
+  return weekStartOf(new Date());
+}
+
 beforeEach(async () => {
   await seedOnboarded(FIXTURE, { seedVersion: CURRICULUM.version });
   vi.mocked(compressImage).mockClear();
 });
 
-async function openSchedule() {
-  const view = renderApp('/program');
+async function openSchedule(path = '/program') {
+  const view = renderApp(path);
   expect(
     await screen.findByRole('heading', {
       level: 1,
@@ -56,6 +64,10 @@ async function openSchedule() {
     }),
   ).toBeInTheDocument();
   return view;
+}
+
+function findPlanTable(): Promise<HTMLElement> {
+  return screen.findByRole('table', { name: TABLE_NAME });
 }
 
 async function switchToUpload(): Promise<void> {
@@ -73,160 +85,170 @@ function fileWithSize(name: string, type: string, size: number): FakeSizeFile {
   return file;
 }
 
-test('elle tablo beş boş satırla açılır, satır eklenip silinir', async () => {
+test('program geçerli haftayı, yedi gün sütununu ve boş planı gösterir', async () => {
   await openSchedule();
 
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  expect(within(table).getAllByLabelText(/^\d+\. satır ders$/)).toHaveLength(5);
-  expect(within(table).getByLabelText('1. satır ders').tagName).toBe('TEXTAREA');
-  expect(within(table).getByText('DERSLER / TARİH')).toBeInTheDocument();
-  expect(within(table).getAllByText('TOPLAM SÜRE/SORU')).toHaveLength(2);
+  expect(await screen.findByText(weekLabel(currentWeekStart()))).toBeInTheDocument();
+
+  const table = await findPlanTable();
+  for (const day of SCHEDULE_DAYS) {
+    expect(
+      within(table).getByRole('columnheader', { name: day.label }),
+    ).toBeInTheDocument();
+  }
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(8);
+  expect(
+    await within(table).findByText('Bu hafta için henüz satır yok'),
+  ).toBeInTheDocument();
+
+  const dayTabs = screen.getByRole('group', { name: 'Çizelge günü' });
+  expect(within(dayTabs).getAllByRole('button')).toHaveLength(7);
+  const sali = within(dayTabs).getByRole('button', { name: 'Sal Salı' });
+  expect(sali).toHaveAttribute('aria-pressed', 'false');
+  await userEvent.click(sali);
+  expect(sali).toHaveAttribute('aria-pressed', 'true');
+
   expect(screen.getByLabelText('Haftanın notu')).toBeInTheDocument();
   expect(screen.getByText('Henüz kaydedilmedi')).toBeInTheDocument();
+});
+
+test('adresteki hafta parametresi açılış haftasını belirler', async () => {
+  await openSchedule('/program?week=2026-11-18');
+
+  expect(await screen.findByText(weekLabel('2026-11-16'))).toBeInTheDocument();
+  expect(await findPlanTable()).toBeInTheDocument();
+});
+
+test('geçersiz hafta parametresi geçerli haftaya döner', async () => {
+  await openSchedule('/program?week=2026-02-30');
+
+  expect(await screen.findByText(weekLabel(currentWeekStart()))).toBeInTheDocument();
+});
+
+test('hafta düğmeleri tarih aralığını değiştirir', async () => {
+  await openSchedule();
+  const current = currentWeekStart();
+  expect(await screen.findByText(weekLabel(current))).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Sonraki hafta' }));
+  expect(
+    await screen.findByText(weekLabel(shiftWeek(current, 1))),
+  ).toBeInTheDocument();
+  await waitFor(async () => {
+    expect(await getWeek(shiftWeek(current, 1))).toBeDefined();
+  });
+
+  await userEvent.click(screen.getByRole('button', { name: 'Bu hafta' }));
+  expect(await screen.findByText(weekLabel(current))).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Önceki hafta' }));
+  expect(
+    await screen.findByText(weekLabel(shiftWeek(current, -1))),
+  ).toBeInTheDocument();
+});
+
+test('satır eklenir, adlandırılır, silinir ve yeniden açınca korunur', async () => {
+  const view = await openSchedule();
+  const current = currentWeekStart();
+  await screen.findByText('Bu hafta için henüz satır yok');
 
   await userEvent.click(screen.getByRole('button', { name: 'Satır ekle' }));
-  expect(within(table).getAllByLabelText(/^\d+\. satır ders$/)).toHaveLength(6);
+  const firstRow = screen.getByLabelText('1. satır');
+  expect(firstRow.tagName).toBe('TEXTAREA');
+  expect(firstRow).toHaveValue('');
+  await userEvent.type(firstRow, 'Matematik');
 
-  await userEvent.click(screen.getByRole('button', { name: '6. satırı sil' }));
-  expect(within(table).getAllByLabelText(/^\d+\. satır ders$/)).toHaveLength(5);
-});
-
-test('elle tablo doldurulur, kaydedilir ve yeniden açınca korunur', async () => {
-  const view = await openSchedule();
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-
-  await userEvent.type(within(table).getByLabelText('1. satır ders'), 'Matematik');
-  await userEvent.type(within(table).getByLabelText('1. satır Pazartesi'), '2 saat');
-  await userEvent.type(within(table).getByLabelText('1. satır Salı'), '40 soru');
-  await userEvent.type(within(table).getByLabelText('1. satır toplam'), '2 saat');
-  await userEvent.type(
-    within(table).getByLabelText('Toplam satırı Pazartesi'),
-    '10 saat',
-  );
-  await userEvent.type(within(table).getByLabelText('Genel toplam'), '10 saat');
-  await userEvent.type(screen.getByLabelText('Haftanın notu'), 'Türev tekrarı');
-
-  expect(await screen.findByText('Kaydedilmemiş değişiklikler')).toBeInTheDocument();
-
-  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-  expect(await screen.findByText('Kaydedildi')).toBeInTheDocument();
-
-  const stored = await getScheduleTable();
-  expect(stored?.id).toBe('main');
-  expect(stored?.rows[0]).toMatchObject({
-    subject: 'Matematik',
-    days: ['2 saat', '40 soru', '', '', '', '', ''],
-    total: '2 saat',
-  });
-  expect(stored?.totals).toMatchObject({
-    label: 'TOPLAM SÜRE/SORU',
-    days: ['10 saat', '', '', '', '', '', ''],
-    total: '10 saat',
-  });
-  expect(stored?.note).toBe('Türev tekrarı');
-
-  view.unmount();
-  await openSchedule();
-  const reloaded = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  expect(within(reloaded).getByLabelText('1. satır ders')).toHaveValue('Matematik');
-  expect(within(reloaded).getByLabelText('1. satır Pazartesi')).toHaveValue('2 saat');
-  expect(within(reloaded).getByLabelText('Genel toplam')).toHaveValue('10 saat');
-  expect(screen.getByLabelText('Haftanın notu')).toHaveValue('Türev tekrarı');
-  expect(screen.getByText('Kaydedildi')).toBeInTheDocument();
-});
-
-test('elle tablo kısa bir gecikmeyle otomatik kaydedilir', async () => {
-  await openSchedule();
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-
-  await userEvent.type(within(table).getByLabelText('1. satır ders'), 'Fizik');
-  expect(await screen.findByText('Kaydedildi', {}, { timeout: 3000 })).toBeInTheDocument();
-
-  const stored = await getScheduleTable();
-  expect(stored?.rows[0].subject).toBe('Fizik');
-});
-
-test('otomatik kaydetme başarısız olursa taslak korunur ve hata gösterilir', async () => {
-  await openSchedule();
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  const put = vi
-    .spyOn(db.scheduleTables, 'put')
-    .mockRejectedValueOnce(new Error('Disk dolu'));
-
-  try {
-    await userEvent.type(
-      within(table).getByLabelText('1. satır ders'),
-      'Biyoloji',
-    );
-    expect(
-      await screen.findByText('Kaydedilmedi', {}, { timeout: 3000 }),
-    ).toBeInTheDocument();
-    expect(within(table).getByLabelText('1. satır ders')).toHaveValue('Biyoloji');
-    expect(await screen.findByRole('alert')).toHaveTextContent('Disk dolu');
-  } finally {
-    put.mockRestore();
-  }
-
-  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-  expect(
-    await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
-  ).toBeInTheDocument();
-  expect((await getScheduleTable())?.rows[0].subject).toBe('Biyoloji');
-});
-
-test('mod değişiminde kaydedilmemiş taslak korunur', async () => {
-  await openSchedule();
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-
-  await userEvent.type(
-    within(table).getByLabelText('1. satır ders'),
-    'Geometri',
-  );
-  await userEvent.click(screen.getByRole('button', { name: 'Fotoğraf/PDF' }));
-  expect(await screen.findByText('Henüz çizelge dosyası yok')).toBeInTheDocument();
-
-  await userEvent.click(screen.getByRole('button', { name: 'Elle tablo' }));
-  const returned = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  expect(within(returned).getByLabelText('1. satır ders')).toHaveValue('Geometri');
-});
-
-test('rotadan ayrılırken elle tablo taslağı boşaltılır', async () => {
-  await openSchedule();
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  await userEvent.type(within(table).getByLabelText('1. satır ders'), 'Kimya');
-
-  await userEvent.click(screen.getByRole('link', { name: 'Ana Sayfa' }));
   await waitFor(
     async () => {
-      expect((await getScheduleTable())?.rows[0].subject).toBe('Kimya');
+      expect((await getWeek(current))?.rows.map((row) => row.label)).toEqual([
+        'Matematik',
+      ]);
     },
     { timeout: 3000 },
   );
+
+  await userEvent.click(screen.getByRole('button', { name: 'Satır ekle' }));
+  await userEvent.type(screen.getByLabelText('2. satır'), 'Fizik');
+  await waitFor(
+    async () => {
+      expect((await getWeek(current))?.rows.map((row) => row.label)).toEqual([
+        'Matematik',
+        'Fizik',
+      ]);
+    },
+    { timeout: 3000 },
+  );
+
+  await userEvent.click(screen.getByRole('button', { name: '2. satırı sil' }));
+  await waitFor(
+    async () => {
+      expect((await getWeek(current))?.rows.map((row) => row.label)).toEqual([
+        'Matematik',
+      ]);
+    },
+    { timeout: 3000 },
+  );
+
+  view.unmount();
+  await openSchedule();
+  const reloaded = await findPlanTable();
+  expect(await within(reloaded).findByLabelText('1. satır')).toHaveValue(
+    'Matematik',
+  );
+  expect(within(reloaded).queryByLabelText('2. satır')).not.toBeInTheDocument();
 });
 
-test('mod seçimi kalıcıdır; yükleme ve elle tablo arasında geçilir', async () => {
+test('haftanın notu kısa bir gecikmeyle kaydedilir ve yeniden açınca korunur', async () => {
   const view = await openSchedule();
+  const current = currentWeekStart();
+
+  const note = await screen.findByLabelText('Haftanın notu');
+  await userEvent.type(note, 'Türev tekrarı');
+  expect(await screen.findByText('Kaydedilmemiş değişiklikler')).toBeInTheDocument();
+  expect(
+    await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
+  ).toBeInTheDocument();
+  expect((await getWeek(current))?.week.note).toBe('Türev tekrarı');
+
+  view.unmount();
+  await openSchedule();
+  expect(await screen.findByLabelText('Haftanın notu')).toHaveValue(
+    'Türev tekrarı',
+  );
+  expect(screen.getByText('Kaydedildi')).toBeInTheDocument();
+});
+
+test('not kaydedilemezse taslak korunur ve hata gösterilir', async () => {
+  await openSchedule();
+  const note = await screen.findByLabelText('Haftanın notu');
+  const update = vi
+    .spyOn(db.scheduleWeeks, 'update')
+    .mockRejectedValueOnce(new Error('Disk dolu'));
+
+  try {
+    await userEvent.type(note, 'Deneme');
+    expect(
+      await screen.findByText('Kaydedilmedi', {}, { timeout: 3000 }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Disk dolu');
+    expect(note).toHaveValue('Deneme');
+  } finally {
+    update.mockRestore();
+  }
+
+  await userEvent.type(note, ' notu');
+  expect(
+    await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
+  ).toBeInTheDocument();
+  expect((await getWeek(currentWeekStart()))?.week.note).toBe('Deneme notu');
+});
+
+test('mod seçimi kalıcıdır; yükleme ve elle plan arasında geçilir', async () => {
+  const view = await openSchedule();
+  expect(await findPlanTable()).toBeInTheDocument();
 
   await switchToUpload();
-  expect(
-    screen.queryByRole('table', { name: 'Haftalık ders çalışma tablosu' }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('table', { name: TABLE_NAME })).not.toBeInTheDocument();
   expect((await getSettings()).scheduleMode).toBe('upload');
 
   view.unmount();
@@ -234,9 +256,7 @@ test('mod seçimi kalıcıdır; yükleme ve elle tablo arasında geçilir', asyn
   expect(await screen.findByText('Henüz çizelge dosyası yok')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Elle tablo' }));
-  expect(
-    await screen.findByRole('table', { name: 'Haftalık ders çalışma tablosu' }),
-  ).toBeInTheDocument();
+  expect(await findPlanTable()).toBeInTheDocument();
   expect((await getSettings()).scheduleMode).toBe('manual');
 });
 
@@ -295,122 +315,6 @@ test('program görselini büyütür, PDF bağlantısını açar ve dosyaları si
     expect(screen.queryByText('program.pdf')).not.toBeInTheDocument();
   });
   expect(await listScheduleFiles()).toHaveLength(1);
-});
-
-test('gün seçicisi seçili günü değiştirir', async () => {
-  await openSchedule();
-
-  const pazartesi = screen.getByRole('button', { name: 'Pzt Pazartesi' });
-  const sali = screen.getByRole('button', { name: 'Sal Salı' });
-  expect(pazartesi).toHaveAttribute('aria-pressed', 'true');
-  expect(sali).toHaveAttribute('aria-pressed', 'false');
-
-  await userEvent.click(sali);
-
-  expect(sali).toHaveAttribute('aria-pressed', 'true');
-  expect(pazartesi).toHaveAttribute('aria-pressed', 'false');
-});
-
-test('tik modu hücreyi tikler, geri alır ve yeniden açınca korunur', async () => {
-  const view = await openSchedule();
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  const mode = screen.getByRole('button', { name: 'Tik modu' });
-  expect(mode).toHaveAttribute('aria-pressed', 'false');
-  expect(
-    screen.queryByText('Kutulara dokunarak tik at veya kaldır.'),
-  ).not.toBeInTheDocument();
-  expect(within(table).queryAllByRole('checkbox')).toHaveLength(0);
-
-  await userEvent.type(
-    within(table).getByLabelText('1. satır Pazartesi'),
-    '2 saat',
-  );
-
-  await userEvent.click(mode);
-  expect(mode).toHaveAttribute('aria-pressed', 'true');
-  expect(
-    screen.getByText('Kutulara dokunarak tik at veya kaldır.'),
-  ).toBeInTheDocument();
-
-  const cell = within(table).getByRole('button', {
-    name: /^1\. satır Pazartesi/,
-  });
-  expect(cell).toHaveAttribute('aria-pressed', 'false');
-  expect(cell).toHaveAttribute('aria-label', '1. satır Pazartesi: 2 saat');
-
-  await userEvent.click(cell);
-  expect(cell).toHaveAttribute('aria-pressed', 'true');
-  expect(cell.closest('td')).toHaveAttribute('data-done', 'true');
-  expect(cell.closest('td')).toHaveClass('bg-success/10');
-  expect(cell).toHaveClass('text-muted', 'opacity-80');
-
-  await userEvent.click(cell);
-  expect(cell).toHaveAttribute('aria-pressed', 'false');
-  expect(cell.closest('td')).not.toHaveAttribute('data-done');
-  expect(cell).not.toHaveClass('opacity-80');
-
-  await userEvent.click(cell);
-  expect(await screen.findByText('Kaydedilmemiş değişiklikler')).toBeInTheDocument();
-  expect(
-    await screen.findByText('Kaydedildi', {}, { timeout: 3000 }),
-  ).toBeInTheDocument();
-
-  // Leaving tick mode brings the textarea back with the text intact and the
-  // done state still exposed to assistive tech.
-  await userEvent.click(mode);
-  expect(mode).toHaveAttribute('aria-pressed', 'false');
-  expect(
-    screen.queryByText('Kutulara dokunarak tik at veya kaldır.'),
-  ).not.toBeInTheDocument();
-  const textarea = within(table).getByLabelText('1. satır Pazartesi');
-  expect(textarea).toHaveValue('2 saat');
-  expect(textarea.closest('td')).toHaveAttribute('data-done', 'true');
-  expect(
-    within(textarea.closest('td') as HTMLElement).getByText('Tamamlandı'),
-  ).toHaveClass('sr-only');
-
-  view.unmount();
-  await openSchedule();
-
-  const reloaded = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  expect(screen.getByRole('button', { name: 'Tik modu' })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
-  const reloadedCell = within(reloaded).getByLabelText('1. satır Pazartesi');
-  expect(reloadedCell).toHaveValue('2 saat');
-  expect(reloadedCell.closest('td')).toHaveAttribute('data-done', 'true');
-  expect(reloadedCell).toHaveClass('text-muted', 'opacity-80');
-  expect(
-    within(reloadedCell.closest('td') as HTMLElement).getByText('Tamamlandı'),
-  ).toHaveClass('sr-only');
-});
-
-test('tüm tikleri tek düğmeyle kaldırır', async () => {
-  await openSchedule();
-  const table = await screen.findByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  const clear = screen.getByRole('button', { name: 'Tüm tikleri kaldır' });
-  expect(clear).toBeDisabled();
-
-  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
-  await userEvent.click(
-    within(table).getByRole('button', { name: '1. satır Pazartesi' }),
-  );
-  await userEvent.click(
-    within(table).getByRole('button', { name: '2. satır Salı' }),
-  );
-  expect(clear).toBeEnabled();
-
-  await userEvent.click(clear);
-
-  expect(within(table).queryAllByRole('button', { pressed: true })).toHaveLength(0);
-  expect(clear).toBeDisabled();
 });
 
 test('20 MB üzerindeki çizelge dosyasını yüklemez', async () => {

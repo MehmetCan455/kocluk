@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { cn } from '@/components/ui/cn';
-import { getScheduleTable, listScheduleFiles } from '@/db/repositories';
+import { listScheduleFiles } from '@/db/repositories';
 import type { ScheduleMode } from '@/domain/types';
 import { ScheduleFileList } from './ScheduleFileList';
-import { ScheduleTableEditor } from './ScheduleTableEditor';
+
+// The weekly plan pulls in the schedule repository and date helpers. Loading
+// it only in manual mode keeps the route heading on screen immediately.
+const WeeklyPlan = lazy(() =>
+  import('./WeeklyPlan').then((module) => ({ default: module.WeeklyPlan })),
+);
 
 const MODE_OPTIONS: ReadonlyArray<{ value: ScheduleMode; label: string }> = [
   { value: 'upload', label: 'Fotoğraf/PDF' },
@@ -17,25 +22,11 @@ export function SchedulePage() {
   const [modeError, setModeError] = useState<string | null>(null);
   const mode = settings.scheduleMode;
 
-  // Separate queries: saving the table must not re-read the file blobs, and
-  // the wrapper object distinguishes "still loading" from "no saved table".
   // Files (and their blobs) are only read in upload mode.
-  const tableQuery = useLiveQuery(
-    async () => ({ table: await getScheduleTable() }),
-    [],
-  );
   const files = useLiveQuery(
     async () => (mode === 'upload' ? listScheduleFiles() : []),
     [mode],
   );
-
-  if (!tableQuery) {
-    return (
-      <p role="status" className="py-16 text-center text-sm text-muted">
-        Çizelge yükleniyor…
-      </p>
-    );
-  }
 
   async function changeMode(next: ScheduleMode): Promise<void> {
     if (next === settings.scheduleMode) {
@@ -57,8 +48,7 @@ export function SchedulePage() {
             Ders Çalışma Çizelgesi
           </h1>
           <p className="text-sm text-muted">
-            Haftalık ders programını elle tablo olarak tut ya da fotoğraf/PDF
-            olarak sakla.
+            Haftalık planını gün gün oluştur ya da fotoğraf/PDF olarak sakla.
           </p>
         </div>
 
@@ -95,14 +85,17 @@ export function SchedulePage() {
         </p>
       ) : null}
 
-      {/*
-       * Keep the editor mounted while the upload archive is visible so an
-       * unsaved draft survives mode switches. It is hidden from layout and the
-       * accessibility tree in upload mode; autosave also runs while hidden.
-       */}
-      <div hidden={mode !== 'manual'}>
-        <ScheduleTableEditor initialTable={tableQuery.table} />
-      </div>
+      {mode === 'manual' ? (
+        <Suspense
+          fallback={
+            <p role="status" className="py-8 text-center text-sm text-muted">
+              Haftalık plan yükleniyor…
+            </p>
+          }
+        >
+          <WeeklyPlan />
+        </Suspense>
+      ) : null}
 
       {mode === 'upload' ? (
         files ? (

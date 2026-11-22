@@ -62,7 +62,7 @@ export function BookEditModal({ row, subjects, onClose }: BookEditModalProps) {
     : null;
   const readPageWarning =
     !pagesInvalid && trimmedPages !== '' && parsedPages < progress.currentPage
-      ? `Girdiğin toplam sayfa, son okunan ${progress.currentPage} sayfadan az. Okunan sayfa aralıkları silinmez; ilerleme %100 kalır.`
+      ? `Girdiğin toplam sayfa, son okunan ${progress.currentPage} sayfadan az. Okunan sayfa aralıkları silinmez; ilerleme okunan sayfaların yeni toplama oranından hesaplanır.`
       : null;
   const canSave =
     !saving &&

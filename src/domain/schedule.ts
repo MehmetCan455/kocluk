@@ -107,6 +107,8 @@ export interface ScheduleTaskContent {
 export interface ScheduleTaskContentContext {
   rowLabel?: string;
   bookTitle?: string;
+  /** Prefixes the book chip title so long titles keep the publisher visible. */
+  bookPublisher?: string;
   topicName?: string;
   subjectName?: string;
 }
@@ -124,8 +126,11 @@ export function scheduleTaskContent(
   if (task.type === 'book') {
     const from = task.fromPage;
     const to = task.toPage;
+    const bookTitle = context.bookTitle ?? 'Kitap';
+    const publisher = context.bookPublisher?.trim();
     return {
-      title: context.bookTitle ?? 'Kitap',
+      // Publisher first: truncation on narrow cells must not hide it.
+      title: publisher ? `${publisher} · ${bookTitle}` : bookTitle,
       subtitle: task.title?.trim() || rowLabel,
       detail:
         from !== undefined && to !== undefined ? `s. ${from}–${to}` : '',

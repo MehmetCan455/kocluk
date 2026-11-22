@@ -184,11 +184,13 @@ export function WeeklyPlan() {
       const subject = taskLookups?.subjects.find(
         (item) => item.id === topic?.subjectId,
       );
+      const shelfBook = taskLookups?.books.find(
+        (item) => item.userBook.id === task.userBookId,
+      );
       return scheduleTaskContent(task, {
         rowLabel,
-        bookTitle: taskLookups?.books.find(
-          (item) => item.userBook.id === task.userBookId,
-        )?.catalogBook.title,
+        bookTitle: shelfBook?.catalogBook.title,
+        bookPublisher: shelfBook?.catalogBook.publisher,
         topicName: topic?.name,
         subjectName: subject?.name,
       });

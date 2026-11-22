@@ -131,7 +131,7 @@ async function seedPlanRow(): Promise<{ weekStart: string; weekId: string; rowId
 async function seedBilgiSarmalBook(): Promise<ShelfBook> {
   await seedCatalog();
   const catalogBook = (await listCatalogBooks()).find(
-    (book) => book.publisher === 'Bilgi Sarmal',
+    (book) => book.publisher === 'Bilgi Sarmal' && book.exam === 'TYT',
   );
   if (!catalogBook) {
     throw new Error('Bilgi Sarmal katalog kitabı bulunamadı');
@@ -655,20 +655,18 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   // Completion now goes through tick mode; the chip has no checkbox.
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+  const bookChipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
   const chipTitle = () =>
-    screen.getByText('TYT Matematik Soru Bankası', {
+    screen.getByText(bookChipTitle, {
       selector: '[data-line="title"]',
     });
   await userEvent.click(chipTitle());
   await waitFor(() => {
-    expect(taskChip('TYT Matematik Soru Bankası')).toHaveAttribute(
-      'data-status',
-      'done',
-    );
+    expect(taskChip(bookChipTitle)).toHaveAttribute('data-status', 'done');
   });
   expect(
     screen.getByRole('button', {
-      name: 'TYT Matematik Soru Bankası s. 210–220: Yapıldı',
+      name: `${bookChipTitle} s. 210–220: Yapıldı`,
     }),
   ).toBeInTheDocument();
 
@@ -688,10 +686,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
 
   await userEvent.click(chipTitle());
   await waitFor(() => {
-    expect(taskChip('TYT Matematik Soru Bankası')).toHaveAttribute(
-      'data-status',
-      'pending',
-    );
+    expect(taskChip(bookChipTitle)).toHaveAttribute('data-status', 'pending');
   });
   await waitFor(async () => {
     expect((await getShelfBook(userBookId))?.progress.readPages).toBe(0);
@@ -704,10 +699,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
 
   await userEvent.click(chipTitle());
   await waitFor(() => {
-    expect(taskChip('TYT Matematik Soru Bankası')).toHaveAttribute(
-      'data-status',
-      'done',
-    );
+    expect(taskChip(bookChipTitle)).toHaveAttribute('data-status', 'done');
   });
   await waitFor(async () => {
     expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
@@ -1193,10 +1185,13 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
   });
   await openSchedule();
 
-  const titleLine = await screen.findByText('TYT Matematik Soru Bankası', {
+  const bookChipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  const titleLine = await screen.findByText(bookChipTitle, {
     selector: '[data-line="title"]',
   });
-  expect(titleLine).toHaveAttribute('title', 'TYT Matematik Soru Bankası');
+  // Yayınevi başta kalır; uzun başlık kısaltılsa da ilk satır yayıneviyle başlar.
+  expect(titleLine).toHaveTextContent(/^Bilgi Sarmal · /);
+  expect(titleLine).toHaveAttribute('title', bookChipTitle);
   expect(titleLine).toHaveClass('truncate', 'whitespace-nowrap');
   expect(titleLine.className).not.toContain('break-words');
 
@@ -1211,9 +1206,9 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
   });
   expect(detailLine).toHaveAttribute('title', 's. 123–128');
   expect(detailLine).toHaveClass('truncate', 'whitespace-nowrap');
-  expect(taskChip('TYT Matematik Soru Bankası').querySelector('.break-words')).toBeNull();
+  expect(taskChip(bookChipTitle).querySelector('.break-words')).toBeNull();
 
-  const label = 'TYT Matematik Soru Bankası s. 123–128';
+  const label = `${bookChipTitle} s. 123–128`;
   const editButton = screen.getByRole('button', {
     name: `${label} görevini düzenle`,
   });
@@ -1236,7 +1231,7 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
   expect(
     screen.queryByRole('button', { name: 'Matematik Pazartesi görev ekle' }),
   ).not.toBeInTheDocument();
-  const mondayCell = taskChip('TYT Matematik Soru Bankası').closest('td');
+  const mondayCell = taskChip(bookChipTitle).closest('td');
   if (!(mondayCell instanceof HTMLElement)) {
     throw new Error('Pazartesi hücresi bulunamadı');
   }

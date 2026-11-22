@@ -72,9 +72,9 @@ beforeEach(async () => {
   await seedCatalog();
 });
 
-async function catalogBookByPublisher(publisher: string) {
+async function catalogBookByPublisher(publisher: string, exam = 'TYT') {
   const book = (await listCatalogBooks()).find(
-    (candidate) => candidate.publisher === publisher,
+    (candidate) => candidate.publisher === publisher && candidate.exam === exam,
   );
   if (!book) {
     throw new Error(`Katalog kitabı bulunamadı: ${publisher}`);
@@ -180,7 +180,7 @@ test('katalogdan kitap ekler ve sayfa ilerlemesini gösterir', async () => {
   );
 
   const addButton = await within(dialog).findByRole('button', {
-    name: /Bilgi Sarmal\) kitabını rafıma ekle/,
+    name: 'TYT Matematik Soru Bankası (Bilgi Sarmal) kitabını rafıma ekle',
   });
   await waitFor(() =>
     expect(within(dialog).queryByText('Karekök')).not.toBeInTheDocument(),
@@ -200,6 +200,26 @@ test('katalogdan kitap ekler ve sayfa ilerlemesini gösterir', async () => {
   expect(
     screen.getByRole('progressbar', { name: 'TYT Matematik Soru Bankası ilerlemesi' }),
   ).toHaveAttribute('aria-valuenow', '0');
+});
+
+test('katalog araması yayıneviyle eşleşir ve aynı yayınevinin sınav kitaplarını listeler', async () => {
+  renderApp('/kitaplar');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Kitap ekle' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Kitap ekle' });
+  await userEvent.type(
+    within(dialog).getByLabelText('Kitap, yayınevi veya ders ara'),
+    'orbital',
+  );
+
+  const list = await within(dialog).findByRole('list', {
+    name: '"orbital" için katalog sonuçları',
+  });
+  await waitFor(() =>
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2),
+  );
+  expect(within(list).getByText('TYT Kimya Soru Bankası')).toBeInTheDocument();
+  expect(within(list).getByText('AYT Kimya Soru Bankası')).toBeInTheDocument();
 });
 
 test('kendi kitabını ekler ve ders seçilmeyince Genel gösterir', async () => {

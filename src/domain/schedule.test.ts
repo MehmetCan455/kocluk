@@ -179,11 +179,12 @@ test('görev çipi kitap, konu ve serbest görev için üç satır üretir', () 
     task({ type: 'book', fromPage: 123, toPage: 128, title: 'Türev' }),
     {
       bookTitle: 'TYT Matematik Soru Bankası',
+      bookPublisher: 'Bilgi Sarmal',
       rowLabel: 'Matematik',
     },
   );
   expect(book).toEqual({
-    title: 'TYT Matematik Soru Bankası',
+    title: 'Bilgi Sarmal · TYT Matematik Soru Bankası',
     subtitle: 'Türev',
     detail: 's. 123–128',
   });

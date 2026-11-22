@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { Toast } from '@/components/ui/Toast';
 import { CURRICULUM } from '@/data/curriculum';
+import { seedCatalog } from '@/db/catalogRepository';
 import { DEFAULT_SETTINGS, getSettings, patchSettings, seedCurriculum } from '@/db/repositories';
 import type { AppSettings } from '@/domain/types';
 import { applyAccent } from './theme';
@@ -62,6 +63,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             }
           }
         }
+      }
+
+      // The starter catalog is additive and idempotent. A failure here must not
+      // block settings: log it and let the next app start retry the seed.
+      try {
+        await seedCatalog();
+      } catch (error: unknown) {
+        console.error('Kitap kataloğu yüklenemedi', error);
       }
 
       if (!cancelled) {

@@ -7,6 +7,8 @@ import { listCatalogBooks, seedCatalog } from '@/db/catalogRepository';
 import {
   addCatalogBookToShelf,
   addCustomBook,
+  getShelfBook,
+  listBookActivity,
   listShelfBooks,
   setBookPage,
 } from '@/db/bookRepositories';
@@ -302,6 +304,196 @@ test('raf araması ad, yayınevi ve dersle süzer', async () => {
   await userEvent.clear(search);
   await userEvent.type(search, 'bulunmayan');
   expect(await screen.findByText('Aramanla eşleşen kitap yok')).toBeInTheDocument();
+});
+
+async function addCatalogShelfBook(): Promise<{ id: string }> {
+  const catalog = await catalogBookByPublisher('Bilgi Sarmal');
+  return addCatalogBookToShelf(catalog.id);
+}
+
+test('kitap detayı sayfa güncellemesini, düzeltmeyi ve geçmişten silmeyi gösterir', async () => {
+  const userBook = await addCatalogShelfBook();
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'TYT Matematik Soru Bankası' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('0/400 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('400 sayfa kaldı')).toBeInTheDocument();
+  expect(
+    screen.getByRole('progressbar', { name: 'TYT Matematik Soru Bankası ilerlemesi' }),
+  ).toHaveAttribute('aria-valuenow', '0');
+
+  const firstInput = screen.getByLabelText('Şu anki sayfa');
+  await userEvent.clear(firstInput);
+  await userEvent.type(firstInput, '220');
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+
+  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('%55')).toBeInTheDocument();
+
+  const correctedInput = screen.getByLabelText('Şu anki sayfa');
+  await userEvent.clear(correctedInput);
+  await userEvent.type(correctedInput, '180');
+  await userEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+
+  expect(await screen.findByText('180/400 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('%45')).toBeInTheDocument();
+
+  const history = await screen.findByRole('list', { name: 'İlerleme geçmişi' });
+  let items = within(history).getAllByRole('listitem');
+  expect(items).toHaveLength(2);
+  expect(within(items[0]).getByText('Düzeltme')).toBeInTheDocument();
+  expect(within(items[1]).getByText('Manuel')).toBeInTheDocument();
+
+  await userEvent.click(within(items[0]).getByRole('button', { name: /sil/i }));
+
+  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('%55')).toBeInTheDocument();
+  items = within(
+    screen.getByRole('list', { name: 'İlerleme geçmişi' }),
+  ).getAllByRole('listitem');
+  expect(items).toHaveLength(1);
+  expect(within(items[0]).getByText('Manuel')).toBeInTheDocument();
+  expect(within(items[0]).queryByText('Düzeltme')).not.toBeInTheDocument();
+
+  const activity = await listBookActivity(userBook.id);
+  expect(activity).toHaveLength(1);
+  expect(activity[0]).toMatchObject({ type: 'page_set', toPage: 220, source: 'manual' });
+});
+
+test('kitap düzenleme toplam sayfayı ve notu günceller', async () => {
+  const userBook = await addCatalogShelfBook();
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  await userEvent.click(
+    await screen.findByRole('button', {
+      name: 'TYT Matematik Soru Bankası kitabını düzenle',
+    }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Kitabı düzenle' });
+  expect(within(dialog).queryByLabelText('Kitap adı')).not.toBeInTheDocument();
+
+  const pages = within(dialog).getByLabelText('Toplam sayfa');
+  await userEvent.clear(pages);
+  await userEvent.type(pages, '500');
+  await userEvent.type(within(dialog).getByLabelText('Not'), 'Yeni baskı notu');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Kitabı düzenle' })).not.toBeInTheDocument();
+  });
+
+  expect(await screen.findByText('0/500 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('500 sayfa kaldı')).toBeInTheDocument();
+
+  const shelfBook = await getShelfBook(userBook.id);
+  expect(shelfBook?.totalPages).toBe(500);
+  expect(shelfBook?.userBook.totalPagesOverride).toBe(500);
+  expect(shelfBook?.userBook.note).toBe('Yeni baskı notu');
+});
+
+test('özel kitapta ad, yayınevi, sınav ve ders düzenlenebilir', async () => {
+  const userBook = await addCustomBook({ title: 'Fizik Defteri', totalPages: 120 });
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Fizik Defteri kitabını düzenle' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Kitabı düzenle' });
+
+  const title = within(dialog).getByLabelText('Kitap adı');
+  await userEvent.clear(title);
+  await userEvent.type(title, 'Fizik Defteri 2');
+  await userEvent.type(within(dialog).getByLabelText('Yayınevi'), 'Palme');
+  await userEvent.selectOptions(within(dialog).getByLabelText('Sınav'), 'TYT');
+  await userEvent.selectOptions(within(dialog).getByLabelText('Ders'), 'fizik');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Kitabı düzenle' })).not.toBeInTheDocument();
+  });
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Fizik Defteri 2' }),
+  ).toBeInTheDocument();
+
+  const shelfBook = await getShelfBook(userBook.id);
+  expect(shelfBook?.catalogBook).toMatchObject({
+    title: 'Fizik Defteri 2',
+    publisher: 'Palme',
+    exam: 'TYT',
+    subjectSlug: 'fizik',
+  });
+});
+
+test('toplam sayfası olmayan kitapta sayfa güncelleme kapalıdır', async () => {
+  const userBook = await addCustomBook({ title: 'Sayfasız Kitap', totalPages: 0 });
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Sayfasız Kitap' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText('İlerleme için sayfa sayısı gerekli. Düzenle.'),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText('Şu anki sayfa')).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+  expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+});
+
+test('arşivleme kitabı aktif raftan gizler', async () => {
+  const userBook = await addCatalogShelfBook();
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  await userEvent.click(
+    await screen.findByRole('button', {
+      name: 'TYT Matematik Soru Bankası kitabını arşivle',
+    }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Kitabı arşivle' });
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Arşivle' }));
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Kitaplar' }),
+  ).toBeInTheDocument();
+  expect(await screen.findByText('Bu filtreye uygun kitap yok')).toBeInTheDocument();
+  expect(await listShelfBooks()).toHaveLength(0);
+});
+
+test('kitap silme onay ister ve rafı boşaltır', async () => {
+  const userBook = await addCatalogShelfBook();
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  await userEvent.click(
+    await screen.findByRole('button', {
+      name: 'TYT Matematik Soru Bankası kitabını sil',
+    }),
+  );
+  let dialog = await screen.findByRole('dialog', { name: 'Kitabı sil' });
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Vazgeç' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Kitabı sil' })).not.toBeInTheDocument();
+  });
+  expect(await getShelfBook(userBook.id)).toBeDefined();
+
+  await userEvent.click(
+    screen.getByRole('button', { name: 'TYT Matematik Soru Bankası kitabını sil' }),
+  );
+  dialog = await screen.findByRole('dialog', { name: 'Kitabı sil' });
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Sil' }));
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Kitaplar' }),
+  ).toBeInTheDocument();
+  expect(await screen.findByText('Rafın boş.')).toBeInTheDocument();
+  expect(await getShelfBook(userBook.id)).toBeUndefined();
 });
 
 // The legacy tables and repositories stay in place, so their regression tests

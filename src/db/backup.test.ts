@@ -275,6 +275,7 @@ test('yedek tüm tabloları ve blob dosyalarını kayıpsız geri yükler', asyn
   await resetDb();
   const summary = await readBackupSummary(new File([exported], 'yedek.zip'));
   expect(summary.exportedAt).toBe(manifest.exportedAt);
+  expect(summary.schemaVersion).toBe(BACKUP_SCHEMA_VERSION);
   expect(summary.counts).toMatchObject({ exams: 1, photos: 1, notes: 1, practiceSessions: 1 });
 
   const imported = await importBackup(new File([exported], 'yedek.zip'));
@@ -1252,17 +1253,71 @@ test('içe aktarma eksik katalog tohumunu ekler ve düzenlenen satırı ezmez', 
   });
 });
 
+test('geçersiz gün indeksi ve hafta başlangıcı yedeği mevcut veriye dokunmadan reddeder', async () => {
+  await fullSeed();
+  const { week } = await getOrCreateWeek('2026-11-16');
+  const row = await addRow(week.id, 'Matematik');
+  await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Pazartesi görevi',
+  });
+  const exported = await exportBackup();
+
+  const badDay = await mutateZip(exported, async (_zip, data) => {
+    const tasks = data.scheduleTasks as Array<Record<string, unknown>>;
+    tasks[0].dayIndex = 0;
+  });
+  await expect(
+    readBackupSummary(new File([badDay], 'gun-sifir.zip')),
+  ).rejects.toThrow('Geçersiz yedek dosyası');
+  await expect(
+    importBackup(new File([badDay], 'gun-sifir.zip')),
+  ).rejects.toThrow('Geçersiz yedek dosyası');
+
+  const badWeek = await mutateZip(exported, async (_zip, data) => {
+    const weeks = data.scheduleWeeks as Array<Record<string, unknown>>;
+    weeks[0].weekStart = '2026-02-30';
+  });
+  await expect(
+    readBackupSummary(new File([badWeek], 'hafta-tarihi.zip')),
+  ).rejects.toThrow('Geçersiz yedek dosyası');
+  await expect(
+    importBackup(new File([badWeek], 'hafta-tarihi.zip')),
+  ).rejects.toThrow('Geçersiz yedek dosyası');
+
+  expect((await getSettings()).profileName).toBe('Ada');
+  // The failed imports must leave the seeded week/task untouched.
+  expect(await db.scheduleTasks.count()).toBe(1);
+  expect(await db.scheduleWeeks.count()).toBe(1);
+});
+
 test('v6 tabloları içermeyen v5 yedeği legacy kitabı rafa taşıyarak yüklenir', async () => {
   const seeded = await fullSeed();
   const legacy = await asV5Archive(await exportBackup());
 
+  const summary = await readBackupSummary(new File([legacy], 'v5.zip'));
+  expect(summary.schemaVersion).toBe(5);
+  // The preview and the import report the derived shelf/topic rows, not zero.
+  expect(summary.counts).toMatchObject({
+    catalogBooks: 1,
+    userBooks: 1,
+    activityLogs: 0,
+    scheduleWeeks: 0,
+    scheduleRows: 0,
+    scheduleTasks: 0,
+    topicProgress: 0,
+  });
+
   await resetDb();
   const imported = await importBackup(new File([legacy], 'v5.zip'));
 
-  // Sayaçlar arşivdeki tabloları yansıtır; dönüşüm satırları arşivde yoktur.
+  expect(imported.schemaVersion).toBe(5);
   expect(imported.counts).toMatchObject({
-    catalogBooks: 0,
-    userBooks: 0,
+    catalogBooks: 1,
+    userBooks: 1,
     activityLogs: 0,
     scheduleWeeks: 0,
     scheduleRows: 0,

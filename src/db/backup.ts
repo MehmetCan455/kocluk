@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { z } from 'zod';
-import { CATALOG_SEED, catalogBookId, type CatalogBookSeed } from '@/data/catalogBooks';
+import { CATALOG_SEED } from '@/data/catalogBooks';
 import { CURRICULUM } from '@/data/curriculum';
 import { seedCatalog } from '@/db/catalogRepository';
 import { db, type SettingsRow } from '@/db/db';
@@ -36,15 +36,8 @@ import {
   SCHEDULE_TABLE_TOTAL_MAX_LENGTH,
   emptyScheduleTableDoneCells,
 } from '@/domain/scheduleTable';
+import { buildNewModelFromLegacy } from '@/domain/legacyBookMigration';
 import { isValidDateString } from '@/lib/date';
-import { deterministicId } from '@/lib/deterministicId';
-import {
-  CATALOG_NAMESPACE,
-  LOCAL_SCOPE,
-  TOPIC_PROGRESS_NAMESPACE,
-  USER_BOOK_NAMESPACE,
-} from '@/lib/namespaces';
-import { normalizeTr } from '@/lib/normalize';
 import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
 import { compareHHmm, isHHmm } from '@/lib/time';
 import { isStorageQuotaError, STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
@@ -73,6 +66,8 @@ export interface BackupManifest {
 
 export interface BackupSummary {
   exportedAt: string;
+  /** Lets the preview explain old-model books that will move to the shelf. */
+  schemaVersion: number;
   counts: Record<string, number>;
 }
 
@@ -123,7 +118,11 @@ const SETTING_VALUE_SCHEMAS = {
   hiddenSubjects: z.array(z.string()),
   geometryMode: z.enum(['separate', 'combined']),
   scheduleMode: z.enum(['upload', 'manual']),
-} satisfies Record<keyof AppSettings, z.ZodType>;
+  // Internal startup-migration markers; device-level, but preserved in zips so
+  // restoring an already repaired database does not shift tasks a second time.
+  scheduleDayIndexVersion: z.number().int().nonnegative(),
+  legacyShelfMigrated: z.boolean(),
+} satisfies Record<keyof AppSettings, z.ZodType> & Record<string, z.ZodType>;
 
 type SettingKey = keyof typeof SETTING_VALUE_SCHEMAS;
 
@@ -530,7 +529,10 @@ const activityLogSchema = z.object({
 
 const scheduleWeekSchema = z.object({
   id: idSchema,
-  weekStart: z.string().min(1),
+  // A malformed start would produce wrong day labels and dashboard tasks.
+  weekStart: z
+    .string()
+    .refine(isValidDateString, 'Hafta başlangıcı geçerli bir gün olmalı'),
   note: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -552,7 +554,7 @@ const scheduleTaskSchema = z.object({
   id: idSchema,
   weekId: idSchema,
   rowId: idSchema,
-  dayIndex: z.number().int(),
+  dayIndex: z.number().int().min(1).max(7),
   type: scheduleTaskTypeSchema,
   userBookId: idSchema.optional(),
   fromPage: z.number().int().nonnegative().optional(),
@@ -720,230 +722,6 @@ function migrateBackupData(data: BackupData, fromVersion: number): BackupData {
   // themselves in the schema. The v5→v6 book conversion needs the built
   // RestoredData, so importBackup owns it via buildNewModelFromLegacy.
   return data;
-}
-
-type RestoredBook = RestoredData['books'][number];
-type RestoredTopicBook = RestoredData['topicBooks'][number];
-type RestoredTopic = RestoredData['topics'][number];
-type RestoredSubject = RestoredData['subjects'][number];
-
-interface NewModelRows {
-  catalogBooks: CatalogBook[];
-  userBooks: UserBook[];
-  topicProgress: TopicProgress[];
-}
-
-/** Private legacy rows get a stable catalog id derived from the old book id. */
-function legacyCatalogBookId(bookId: string): string {
-  return deterministicId(CATALOG_NAMESPACE, `${LOCAL_SCOPE}:legacy:${bookId}`);
-}
-
-function legacyUserBookId(catalogId: string): string {
-  return deterministicId(USER_BOOK_NAMESPACE, `${LOCAL_SCOPE}:${catalogId}`);
-}
-
-function legacyTopicProgressId(topicId: string): string {
-  return deterministicId(TOPIC_PROGRESS_NAMESPACE, `${LOCAL_SCOPE}:${topicId}`);
-}
-
-function isNewerSeed(candidate: CatalogBookSeed, current: CatalogBookSeed): boolean {
-  if (candidate.edition !== current.edition) {
-    return candidate.edition > current.edition;
-  }
-  // Equal editions cannot occur in the shipped seed, but the tie must still
-  // resolve to a single row deterministically.
-  return (
-    catalogBookId(candidate.title, candidate.publisher, candidate.edition) <
-    catalogBookId(current.title, current.publisher, current.edition)
-  );
-}
-
-/**
- * Legacy books carry no catalog id, so their normalized title+publisher is
- * matched against the in-memory seed: the restore transaction clears every
- * table before the derived rows are written. The newest edition wins and the
- * catalog id breaks a same-edition tie.
- */
-function matchCatalogSeed(book: RestoredBook): CatalogBookSeed | undefined {
-  const title = normalizeTr(book.name);
-  const publisher = normalizeTr(book.publisher ?? '');
-  let best: CatalogBookSeed | undefined;
-  for (const seed of CATALOG_SEED) {
-    if (normalizeTr(seed.title) !== title || normalizeTr(seed.publisher) !== publisher) {
-      continue;
-    }
-    if (!best || isNewerSeed(seed, best)) {
-      best = seed;
-    }
-  }
-  return best;
-}
-
-function catalogBookFromSeed(seed: CatalogBookSeed, now: string): CatalogBook {
-  return {
-    id: catalogBookId(seed.title, seed.publisher, seed.edition),
-    title: seed.title,
-    publisher: seed.publisher,
-    exam: seed.exam,
-    subjectSlug: seed.subjectSlug,
-    totalPages: seed.totalPages,
-    edition: seed.edition,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-/**
- * A custom book's subject/exam comes from the strict majority of its old topic
- * records (topics → subjects). A tie or no records leaves both fields empty,
- * which the UI labels "Genel".
- */
-function deriveLegacySubject(
-  bookId: string,
-  topicBooks: readonly RestoredTopicBook[],
-  topicsById: ReadonlyMap<string, RestoredTopic>,
-  subjectsById: ReadonlyMap<string, RestoredSubject>,
-): Pick<CatalogBook, 'subjectSlug' | 'exam'> {
-  const counts = new Map<string, number>();
-  for (const record of topicBooks) {
-    if (record.bookId !== bookId) {
-      continue;
-    }
-    const topic = topicsById.get(record.topicId);
-    if (!topic) {
-      continue;
-    }
-    counts.set(topic.subjectId, (counts.get(topic.subjectId) ?? 0) + 1);
-  }
-
-  let leader: { subjectId: string; count: number } | undefined;
-  let tied = false;
-  for (const [subjectId, count] of counts) {
-    if (!leader || count > leader.count) {
-      leader = { subjectId, count };
-      tied = false;
-    } else if (count === leader.count) {
-      tied = true;
-    }
-  }
-
-  const subject = leader && !tied ? subjectsById.get(leader.subjectId) : undefined;
-  return subject ? { subjectSlug: subject.slug, exam: subject.exam } : {};
-}
-
-/**
- * Converts the pre-v6 `books`/`topicBooks` archive into the page-based model.
- * The legacy rows stay in the restored data as a read-only archive.
- *
- * - A book matching the catalog seed (normalized title+publisher, newest
- *   edition) reuses that catalog row; otherwise it becomes a private row with
- *   `totalPages: 0`, for the user to complete later.
- * - Every catalog id gets exactly one shelf row, so books matching the same
- *   seed merge, and no `userBooks.bookId` can dangle.
- * - A topic starts done only when all of its old records are fully solved.
- */
-function buildNewModelFromLegacy(restored: RestoredData): NewModelRows {
-  const now = new Date().toISOString();
-  const topicsById = new Map(restored.topics.map((topic) => [topic.id, topic]));
-  const subjectsById = new Map(restored.subjects.map((subject) => [subject.id, subject]));
-
-  // Sorting by id makes the merged note and timestamps deterministic.
-  const legacyBooks = [...restored.books].sort((left, right) => left.id.localeCompare(right.id));
-  const catalogById = new Map<string, CatalogBook>();
-  const mergedBooks = new Map<string, RestoredBook[]>();
-  for (const book of legacyBooks) {
-    const seed = matchCatalogSeed(book);
-    const catalogBook: CatalogBook = seed
-      ? catalogBookFromSeed(seed, now)
-      : {
-          id: legacyCatalogBookId(book.id),
-          ownerId: LOCAL_SCOPE,
-          title: book.name,
-          publisher: book.publisher,
-          totalPages: 0,
-          ...deriveLegacySubject(book.id, restored.topicBooks, topicsById, subjectsById),
-          createdAt: book.createdAt,
-          updatedAt: book.updatedAt,
-        };
-    catalogById.set(catalogBook.id, catalogBook);
-    const group = mergedBooks.get(catalogBook.id);
-    if (group) {
-      group.push(book);
-    } else {
-      mergedBooks.set(catalogBook.id, [book]);
-    }
-  }
-
-  const userBooks: UserBook[] = [];
-  for (const [catalogId, books] of mergedBooks) {
-    const note = books
-      .map((book) => book.note?.trim())
-      .find((value): value is string => Boolean(value));
-    const createdAt = books.reduce(
-      (earliest, book) => (book.createdAt < earliest ? book.createdAt : earliest),
-      books[0].createdAt,
-    );
-    const updatedAt = books.reduce(
-      (latest, book) => (book.updatedAt > latest ? book.updatedAt : latest),
-      books[0].updatedAt,
-    );
-    const userBook: UserBook = {
-      id: legacyUserBookId(catalogId),
-      bookId: catalogId,
-      status: 'active',
-      createdAt,
-      updatedAt,
-    };
-    if (note) {
-      userBook.note = note;
-    }
-    userBooks.push(userBook);
-  }
-  userBooks.sort((left, right) => left.id.localeCompare(right.id));
-
-  // A topic is done only when every old record for it is fully solved. Partial
-  // topics get no row; their legacy records remain visible in the archive.
-  const recordsByTopic = new Map<string, RestoredTopicBook[]>();
-  for (const record of restored.topicBooks) {
-    const group = recordsByTopic.get(record.topicId);
-    if (group) {
-      group.push(record);
-    } else {
-      recordsByTopic.set(record.topicId, [record]);
-    }
-  }
-  const topicProgress: TopicProgress[] = [];
-  for (const [topicId, records] of recordsByTopic) {
-    if (!topicsById.has(topicId)) {
-      continue;
-    }
-    const fullySolved = records.every(
-      (record) => record.totalTests > 0 && record.solvedTests >= record.totalTests,
-    );
-    if (!fullySolved) {
-      continue;
-    }
-    const updatedAt = records.reduce(
-      (latest, record) => (record.updatedAt > latest ? record.updatedAt : latest),
-      records[0].updatedAt,
-    );
-    topicProgress.push({
-      id: legacyTopicProgressId(topicId),
-      topicId,
-      done: true,
-      doneAt: updatedAt,
-      updatedAt,
-    });
-  }
-  topicProgress.sort((left, right) => left.topicId.localeCompare(right.topicId));
-
-  return {
-    catalogBooks: [...catalogById.values()].sort((left, right) =>
-      left.id.localeCompare(right.id),
-    ),
-    userBooks,
-    topicProgress,
-  };
 }
 
 function assertUnique(label: string, values: Iterable<string>): void {
@@ -1215,7 +993,27 @@ async function restoreScheduleFiles(
  */
 export async function readBackupSummary(file: File): Promise<BackupSummary> {
   const { manifest, data } = await readArchive(file);
-  return { exportedAt: manifest.exportedAt, counts: countTables(data) };
+  const counts = countTables(data);
+  if (manifest.schemaVersion < 6) {
+    // The preview must not say "0 raf kitabı" when the import will derive a
+    // shelf from the legacy archive. The counts always describe archive data,
+    // not the starter catalog rows that seeding adds afterwards.
+    const derived = buildNewModelFromLegacy({
+      books: data.books,
+      topicBooks: data.topicBooks,
+      topics: data.topics,
+      subjects: data.subjects,
+      catalogSeed: CATALOG_SEED,
+    });
+    counts.catalogBooks = derived.catalogBooks.length;
+    counts.userBooks = derived.userBooks.length;
+    counts.topicProgress = derived.topicProgress.length;
+  }
+  return {
+    exportedAt: manifest.exportedAt,
+    schemaVersion: manifest.schemaVersion,
+    counts,
+  };
 }
 
 /**
@@ -1288,14 +1086,26 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
   // before the destructive transaction; the catalog match uses the in-memory
   // seed because the transaction clears every table. v6 archives keep their
   // own new-model rows untouched.
+  let derived: ReturnType<typeof buildNewModelFromLegacy> | undefined;
   if (manifest.schemaVersion < 6) {
-    const derived = buildNewModelFromLegacy(restored);
+    derived = buildNewModelFromLegacy({
+      books: restored.books,
+      topicBooks: restored.topicBooks,
+      topics: restored.topics,
+      subjects: restored.subjects,
+      catalogSeed: CATALOG_SEED,
+    });
     restored.catalogBooks = derived.catalogBooks;
     restored.userBooks = derived.userBooks;
     restored.topicProgress = derived.topicProgress;
   }
 
   const counts = countTables(data);
+  if (derived) {
+    counts.catalogBooks = derived.catalogBooks.length;
+    counts.userBooks = derived.userBooks.length;
+    counts.topicProgress = derived.topicProgress.length;
+  }
 
   try {
     await db.transaction('rw', db.tables, async () => {
@@ -1351,7 +1161,7 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
     await seedCurriculum(CURRICULUM);
   }
 
-  return { exportedAt: manifest.exportedAt, counts };
+  return { exportedAt: manifest.exportedAt, schemaVersion: manifest.schemaVersion, counts };
 }
 
 /** Clears every table atomically, including settings and lastBackupAt. */

@@ -247,9 +247,11 @@ test('ana sayfa konu yüzdelerini, sayfa tabanlı kitapları, net grafiğini ve 
     'href',
     '/yanlislar',
   );
-  expect(screen.getByRole('link', { name: 'Test kaydı' })).toHaveAttribute('href', '/tyt');
   const quickAdd = screen.getByRole('heading', { name: 'Hızlı ekle' }).parentElement;
   expect(quickAdd).not.toBeNull();
+  expect(
+    within(quickAdd as HTMLElement).getByRole('link', { name: 'Kitaplar' }),
+  ).toHaveAttribute('href', '/kitaplar');
   expect(
     within(quickAdd as HTMLElement).getByRole('link', {
       name: 'Ders Çalışma Çizelgesi',

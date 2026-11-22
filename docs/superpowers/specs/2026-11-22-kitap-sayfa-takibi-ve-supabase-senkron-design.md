@@ -207,9 +207,11 @@ Başarı ölçütü:
   baskı/yıl, isteğe bağlı kapak görseli.
 - Katalog yönetici tarafından SQL tohumuyla güncellenir. Uygulama içinden ortak
   kataloğa yazılmaz.
-- Başlangıç tohumu: popüler YKS yayınlarından 20–30 kitap. Sayfa sayıları
-  doğrulanabildiği kadar; her kitapta `edition` alanı. Yanlış sayfa sayısı
-  kullanıcı tarafından kendi rafında düzeltilebilir.
+- Başlangıç tohumu: Aşama 1'de doğrulanmış dört başlangıç kitabı yayınlanır;
+  diğer kitaplar kullanıcının kendi kitabını ekleme akışıyla rafa girer ve
+  katalog genişletmesi ayrı bir veri çalışmasıdır. Her kitapta `edition`
+  alanı bulunur; yanlış sayfa sayısı kullanıcı tarafından kendi rafında
+  düzeltilebilir.
 - Katalog araması: ad, yayınevi, ders, sınav. Sonuç yoksa "Kendi kitabımı ekle".
 
 **Raf (kullanıcıya özel):**
@@ -840,8 +842,9 @@ senkron mantığı ayrıca birim testlerinde doğrulanır.
 
 - Supabase Auth'ta e-posta onayının MVP'de kapalı olması; genel açılış öncesi
   açılması.
-- Katalog başlangıç listesinin seçimi (20–30 popüler kitap) ve sayfa sayılarının
-  doğrulanması; katalog kimliklerinin deterministik olması.
+- Katalog başlangıç listesinin seçimi (Aşama 1'de dört doğrulanmış kitap) ve
+  sayfa sayılarının doğrulanması; katalog kimliklerinin deterministik olması.
+  Listenin genişletilmesi ayrı bir veri çalışmasıdır.
 - Hafta kopyalamada notun kopyalanmaması; kopya kimliklerinin deterministik
   olması.
 - Tamamlanmış görev silinince ilerlemenin kalması; geri almanın yalnızca tik

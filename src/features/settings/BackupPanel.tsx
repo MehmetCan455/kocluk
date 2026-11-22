@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Toast } from '@/components/ui/Toast';
 import {
+  BACKUP_SCHEMA_VERSION,
   clearAllData,
   exportBackup,
   importBackup,
@@ -28,6 +29,13 @@ const pluralCounts = [
   { key: 'photos', singular: 'fotoğraf' },
   { key: 'notes', singular: 'not' },
   { key: 'practiceSessions', singular: 'test oturumu' },
+  { key: 'catalogBooks', singular: 'katalog kitabı' },
+  { key: 'userBooks', singular: 'raf kitabı' },
+  { key: 'activityLogs', singular: 'ilerleme kaydı' },
+  { key: 'scheduleWeeks', singular: 'plan haftası' },
+  { key: 'scheduleRows', singular: 'plan satırı' },
+  { key: 'scheduleTasks', singular: 'plan görevi' },
+  { key: 'topicProgress', singular: 'konu durumu' },
   { key: 'scheduleEntries', singular: 'eski çizelge kaydı' },
   { key: 'scheduleFiles', singular: 'eski çizelge dosyası' },
   { key: 'scheduleTables', singular: 'çizelge tablosu' },
@@ -247,6 +255,13 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
                 </li>
               ))}
             </ul>
+            {preview.summary.schemaVersion < BACKUP_SCHEMA_VERSION ? (
+              <p className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+                Bu yedek eski sürüm (v{preview.summary.schemaVersion}). İçe
+                aktarınca eski kitaplar rafa taşınır ve tamamlanmış konular
+                işaretlenir; eski test kayıtları salt okunur arşivde kalır.
+              </p>
+            ) : null}
             <p className="text-sm text-muted">
               Mevcut verilerin tamamı bu yedekle değiştirilecek. Bu işlem geri alınamaz.
             </p>

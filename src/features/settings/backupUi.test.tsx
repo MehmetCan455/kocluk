@@ -2,8 +2,10 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { saveAs } from 'file-saver';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import JSZip from 'jszip';
 import { CURRICULUM } from '@/data/curriculum';
 import { exportBackup } from '@/db/backup';
+import { addCustomBook, setBookPage } from '@/db/bookRepositories';
 import { db } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import {
@@ -17,6 +19,8 @@ import {
   saveScheduleTable,
   type CurriculumSeed,
 } from '@/db/repositories';
+import { addRow, addTask, getOrCreateWeek } from '@/db/scheduleRepository';
+import { setTopicDone } from '@/db/topicProgressRepository';
 import { createEmptyScheduleTable } from '@/domain/scheduleTable';
 import { resetDb, seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -92,6 +96,49 @@ async function seedPanelData(profileName = 'Yedek Profili') {
   return { subject, topic };
 }
 
+const V6_TABLE_KEYS = [
+  'catalogBooks',
+  'userBooks',
+  'activityLogs',
+  'scheduleWeeks',
+  'scheduleRows',
+  'scheduleTasks',
+  'topicProgress',
+] as const;
+
+function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Blob okunamadı'));
+      }
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Blob okunamadı'));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+async function asV5Archive(blob: Blob): Promise<Blob> {
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(blob));
+  const data = JSON.parse(
+    (await zip.file('veri.json')!.async('string')) as string,
+  ) as Record<string, unknown>;
+  const manifest = JSON.parse(
+    (await zip.file('manifest.json')!.async('string')) as string,
+  ) as { schemaVersion: number; counts: Record<string, number> };
+  for (const key of V6_TABLE_KEYS) {
+    delete data[key];
+    manifest.counts[key] = 0;
+  }
+  manifest.schemaVersion = 5;
+  zip.file('veri.json', JSON.stringify(data));
+  zip.file('manifest.json', JSON.stringify(manifest));
+  return zip.generateAsync({ type: 'blob' });
+}
+
 beforeEach(async () => {
   vi.clearAllMocks();
   await resetDb();
@@ -120,7 +167,19 @@ test('yedek indirir, dosya adını üretir ve son yedek tarihini gösterir', asy
 });
 
 test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir', async () => {
-  await seedPanelData('Yedek Profili');
+  const { topic } = await seedPanelData('Yedek Profili');
+  const shelfBook = await addCustomBook({ title: 'Panel Raf Kitabı', totalPages: 120 });
+  await setBookPage(shelfBook.id, 10);
+  const { week } = await getOrCreateWeek('2026-11-16');
+  const row = await addRow(week.id, 'Matematik');
+  await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Panel görevi',
+  });
+  await setTopicDone(topic.id, true);
   const backup = await exportBackup();
   await patchSettings({ profileName: 'Mevcut Profil' });
 
@@ -136,6 +195,13 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
   expect(screen.getByText(/1 eski çizelge kaydı/)).toBeInTheDocument();
   expect(screen.getByText(/1 eski çizelge dosyası/)).toBeInTheDocument();
   expect(screen.getByText(/1 çizelge tablosu/)).toBeInTheDocument();
+  expect(screen.getByText(/1 raf kitabı/)).toBeInTheDocument();
+  expect(screen.getByText(/1 ilerleme kaydı/)).toBeInTheDocument();
+  expect(screen.getByText(/1 plan haftası/)).toBeInTheDocument();
+  expect(screen.getByText(/1 plan satırı/)).toBeInTheDocument();
+  expect(screen.getByText(/1 plan görevi/)).toBeInTheDocument();
+  expect(screen.getByText(/1 konu durumu/)).toBeInTheDocument();
+  expect(screen.queryByText(/eski sürüm/)).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Mevcut verileri değiştir' }));
 
@@ -145,6 +211,20 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
   expect(await screen.findByText('Yedek geri yüklendi.')).toBeInTheDocument();
   expect(await screen.findByLabelText('Ad soyad')).toHaveValue('Yedek Profili');
   expect((await getSettings()).lastBackupAt).toBeUndefined();
+});
+
+test('eski sürüm yedeğinin özeti rafa taşıma uyarısını gösterir', async () => {
+  await seedPanelData('Eski Yedek');
+  const legacy = await asV5Archive(await exportBackup());
+
+  renderApp('/ayarlar');
+  const input = await screen.findByLabelText('Yedek dosyası seç');
+  await userEvent.upload(input, new File([legacy], 'v5.zip', { type: 'application/zip' }));
+
+  expect(await screen.findByText('Yedek özeti')).toBeInTheDocument();
+  expect(screen.getByText(/eski sürüm \(v5\)/)).toBeInTheDocument();
+  expect(screen.getByText(/eski kitaplar rafa taşınır/)).toBeInTheDocument();
+  expect(screen.getByText(/1 raf kitabı/)).toBeInTheDocument();
 });
 
 test('bozuk yedek dosyasını özetlemez ve hata bildirir', async () => {

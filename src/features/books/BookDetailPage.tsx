@@ -26,6 +26,7 @@ import {
 } from '@/db/bookRepositories';
 import { listSubjects } from '@/db/repositories';
 import { listBookTasks } from '@/db/scheduleRepository';
+import { dayLabel, weekLabel } from '@/domain/schedule';
 import type {
   ActivityLog,
   CatalogBook,
@@ -155,14 +156,24 @@ function BookPlanTasks({ tasks }: BookPlanTasksProps) {
         <ul aria-label="Plan görevleri" className="space-y-2">
           {tasks.map((task) => {
             const label = bookTaskLabel(task);
+            const status = task.completedAt ? 'Tamamlandı' : 'Planlandı';
+            const week = weekLabel(task.weekStart);
+            const day = dayLabel(task.weekStart, task.dayIndex);
             return (
               <li key={task.id}>
                 <Link
                   to={`/program?week=${task.weekStart}`}
-                  aria-label={`${label} görevini plana aç`}
+                  // The aria-label must keep the week/day context and the
+                  // status that the visible row shows.
+                  aria-label={`${label} görevini plana aç, ${week}, ${day}, ${status}`}
                   className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2 text-sm transition-colors hover:border-[var(--accent)]"
                 >
-                  <span className="font-medium tabular-nums">{label}</span>
+                  <span className="min-w-0 space-y-0.5">
+                    <span className="block font-medium tabular-nums">{label}</span>
+                    <span className="block text-xs font-normal text-muted">
+                      {week} · {day}
+                    </span>
+                  </span>
                   <span
                     className={
                       task.completedAt
@@ -170,7 +181,7 @@ function BookPlanTasks({ tasks }: BookPlanTasksProps) {
                         : 'text-xs font-medium text-muted'
                     }
                   >
-                    {task.completedAt ? 'Tamamlandı' : 'Planlandı'}
+                    {status}
                   </span>
                 </Link>
               </li>
@@ -596,6 +607,14 @@ export function BookDetailPage() {
               ? `Son okuma: ${formatLongDate(latestLog.createdAt)}`
               : 'Henüz okuma kaydı yok'}
           </p>
+          {userBook.note ? (
+            <div className="max-w-prose space-y-0.5 rounded-xl border border-line bg-surface px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                Kitap notu
+              </p>
+              <p className="whitespace-pre-wrap text-sm">{userBook.note}</p>
+            </div>
+          ) : null}
         </div>
         {progress.hasTotalPages ? (
           <RingProgress

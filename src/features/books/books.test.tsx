@@ -12,6 +12,7 @@ import {
   listShelfBooks,
   setBookPage,
 } from '@/db/bookRepositories';
+import { LEGACY_SHELF_MIGRATED_KEY } from '@/db/legacyMigration';
 import {
   createBook,
   deleteBookCascade,
@@ -140,6 +141,23 @@ async function addNoteAndPhoto(topic: Topic, subject: Subject): Promise<void> {
     createdAt: NOW,
   });
 }
+
+test('yerinde güncellemeden sonra eski kitap açılışta rafa taşınır', async () => {
+  await db.settings.delete(LEGACY_SHELF_MIGRATED_KEY);
+  const legacy = await createBook({ name: 'Eski Fizik Defteri', publisher: 'Palme' });
+  await db.books.update(legacy.id, { note: 'Eski kitap notu' });
+
+  renderApp('/kitaplar');
+
+  expect(await screen.findByText('Eski Fizik Defteri')).toBeInTheDocument();
+  await waitFor(async () => {
+    expect(await db.userBooks.count()).toBe(1);
+  });
+  const [userBook] = await db.userBooks.toArray();
+  expect(userBook.note).toBe('Eski kitap notu');
+  expect((await db.settings.get(LEGACY_SHELF_MIGRATED_KEY))?.value).toBe(true);
+  expect(await db.books.get(legacy.id)).toBeDefined();
+});
 
 test('boş rafta katalogdan ekleme çağrısı gösterir', async () => {
   renderApp('/kitaplar');
@@ -388,6 +406,9 @@ test('kitap düzenleme toplam sayfayı ve notu günceller', async () => {
 
   expect(await screen.findByText('0/500 sayfa')).toBeInTheDocument();
   expect(screen.getByText('500 sayfa kaldı')).toBeInTheDocument();
+  // The note is no longer write-only: it is visible on the detail page.
+  expect(screen.getByText('Kitap notu')).toBeInTheDocument();
+  expect(screen.getByText('Yeni baskı notu')).toBeInTheDocument();
 
   const shelfBook = await getShelfBook(userBook.id);
   expect(shelfBook?.totalPages).toBe(500);

@@ -39,7 +39,8 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
 - **Kitaplar** sayfasında katalogdan kitap seçip rafına ekleyebilirsin. Her kitap
   toplam sayfa, güncel sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir; toplam
   sayfa girilmemiş kitaplarda yüzde yerine **Sayfa sayısını gir** uyarısı çıkar.
-  Katalogda olmayan kitapları kendi başlık, yayınevi ve sayfa sayısıyla ekleyebilirsin.
+  Bu aşamada katalog, doğrulanmış dört başlangıç kitabı içerir; diğer kitapları
+  kendi başlık, yayınevi ve sayfa sayısıyla rafına ekleyebilirsin.
 - Kitap detayında **Şu anki sayfa** alanına okuduğun son sayfayı girerek ilerlemeyi
   elle kaydedebilir, geçmişi görebilir ve plandaki kitap görevlerini izleyebilirsin.
   İlerleme yalnızca etkin okuma kayıtlarından hesaplanır; tek sayfa girişi kitabın

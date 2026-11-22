@@ -62,7 +62,7 @@ export function TopicStatusTab({ topicId }: TopicStatusTabProps) {
     <div className="space-y-6">
       <section className="space-y-2">
         <div className="rounded-2xl border border-line bg-surface p-4">
-          <div className="flex items-start gap-3">
+          <label className="flex min-h-11 cursor-pointer items-center gap-3">
             <input
               id={checkboxId}
               type="checkbox"
@@ -70,12 +70,10 @@ export function TopicStatusTab({ topicId }: TopicStatusTabProps) {
               disabled={saving}
               onChange={(event) => void handleToggle(event.target.checked)}
               aria-describedby={hintId}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]"
+              className="h-5 w-5 shrink-0 accent-[var(--accent)]"
             />
-            <label htmlFor={checkboxId} className="min-w-0 cursor-pointer">
-              <span className="block text-sm font-medium">Bu konuyu bitirdim</span>
-            </label>
-          </div>
+            <span className="block text-sm font-medium">Bu konuyu bitirdim</span>
+          </label>
           <p id={hintId} className="mt-2 pl-8 text-xs text-muted">
             {data.done
               ? 'Bu konu bitti olarak işaretli.'

@@ -76,7 +76,12 @@ test('konu sayfası Durum sekmesini ve bitirme onayını gösterir', async () =>
 
   expect(screen.getByText('Başlanmadı')).toBeInTheDocument();
   expect(screen.getByText('Henüz tekrar yok')).toBeInTheDocument();
-  expect(await screen.findByRole('checkbox', { name: 'Bu konuyu bitirdim' })).not.toBeChecked();
+  const doneCheckbox = await screen.findByRole('checkbox', {
+    name: 'Bu konuyu bitirdim',
+  });
+  expect(doneCheckbox).not.toBeChecked();
+  // The whole label row is a 44px touch target, not just the 20px box.
+  expect(doneCheckbox.closest('label')).toHaveClass('min-h-11');
   expect(await screen.findByText('Eski test kaydı yok')).toBeInTheDocument();
 });
 
@@ -126,6 +131,8 @@ test('tekrar geçmişini ve tekrar sayısını gösterir', async () => {
   renderApp(path(subject, topic));
 
   expect(await screen.findByText('1 tekrar')).toBeInTheDocument();
+  // A review is a started signal even though the topic is not done.
+  expect(screen.getByText('Devam ediyor')).toBeInTheDocument();
   const history = await screen.findByRole('list', { name: 'Tekrar geçmişi' });
   expect(within(history).getAllByRole('listitem')).toHaveLength(1);
   expect(within(history).getByText('10 Kas 2026')).toBeInTheDocument();

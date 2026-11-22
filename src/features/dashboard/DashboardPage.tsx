@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Archive,
-  BookOpen,
   CalendarDays,
   Camera,
   ClipboardList,
@@ -527,9 +526,9 @@ export function DashboardPage() {
               </Link>
             </li>
             <li>
-              <Link to="/tyt" className={quickAddLinkClass}>
-                <BookOpen className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
-                Test kaydı
+              <Link to="/kitaplar" className={quickAddLinkClass}>
+                <Library className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+                Kitaplar
               </Link>
             </li>
             <li>

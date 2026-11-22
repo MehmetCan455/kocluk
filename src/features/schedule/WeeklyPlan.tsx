@@ -1,22 +1,32 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { parseISO } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/components/ui/cn';
+import { listShelfBooks } from '@/db/bookRepositories';
+import { listAllTopics } from '@/db/repositories';
 import {
   addRow,
+  copyWeek,
   deleteRow as deleteScheduleRow,
+  deleteTask as deleteScheduleTask,
   getOrCreateWeek,
   renameRow,
   saveWeekNote,
+  toggleTask,
   type WeekData,
 } from '@/db/scheduleRepository';
 import { shiftWeek, weekLabel, weekStartOf } from '@/domain/schedule';
+import type { ScheduleTask } from '@/domain/types';
 import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
+import { ScheduleTaskModal } from './ScheduleTaskModal';
 import { WeeklyPlanTable, type WeeklyPlanRow } from './WeeklyPlanTable';
+import { WeekSummary } from './WeekSummary';
 
 /** Short enough to feel automatic, long enough not to save every keystroke. */
 const ROW_SAVE_DELAY_MS = 600;
@@ -37,6 +47,12 @@ interface PendingRowsSave {
 interface PendingNoteSave {
   note: string;
   weekId: string;
+}
+
+interface TaskEditorTarget {
+  rowId: string;
+  dayIndex: number;
+  task?: ScheduleTask;
 }
 
 function requestedWeekStart(value: string | null): string {
@@ -80,6 +96,12 @@ export function WeeklyPlan() {
   const [savedRows, setSavedRows] = useState<SavedRow[]>([]);
   const [rowsSaving, setRowsSaving] = useState(false);
 
+  const [tasks, setTasks] = useState<ScheduleTask[]>([]);
+  const [taskEditor, setTaskEditor] = useState<TaskEditorTarget | null>(null);
+  const [taskError, setTaskError] = useState<string | null>(null);
+  const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
+  const [copying, setCopying] = useState(false);
+
   const [note, setNote] = useState('');
   const [savedNote, setSavedNote] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
@@ -92,6 +114,7 @@ export function WeeklyPlan() {
   const weekDataRef = useRef<WeekData | null>(null);
   const rowsRef = useRef<WeeklyPlanRow[]>([]);
   const savedRowsRef = useRef<SavedRow[]>([]);
+  const tasksRef = useRef<ScheduleTask[]>([]);
   const noteRef = useRef('');
   const savedNoteRef = useRef('');
 
@@ -121,6 +144,89 @@ export function WeeklyPlan() {
     savedRowsRef.current = next;
     setSavedRows(next);
   }, []);
+
+  const updateTasks = useCallback((next: ScheduleTask[]): void => {
+    tasksRef.current = next;
+    setTasks(next);
+  }, []);
+
+  // Labels only; the task modal reads its own form options.
+  const taskLookups = useLiveQuery(async () => {
+    const [books, topics] = await Promise.all([
+      listShelfBooks(true),
+      listAllTopics(),
+    ]);
+    return { books, topics };
+  }, []);
+
+  const taskLabel = useCallback(
+    (task: ScheduleTask): string => {
+      if (task.type === 'book') {
+        const title =
+          taskLookups?.books.find(
+            (item) => item.userBook.id === task.userBookId,
+          )?.catalogBook.title ?? 'Kitap';
+        if (task.fromPage !== undefined && task.toPage !== undefined) {
+          return `${title} s. ${task.fromPage}–${task.toPage}`;
+        }
+        return title;
+      }
+      if (task.type === 'topic') {
+        return (
+          taskLookups?.topics.find((topic) => topic.id === task.topicId)?.name ??
+          'Konu tekrarı'
+        );
+      }
+      return task.title ?? 'Serbest görev';
+    },
+    [taskLookups],
+  );
+
+  const refreshTasks = useCallback(async (): Promise<void> => {
+    const forWeekId = weekIdRef.current;
+    if (!forWeekId) {
+      return;
+    }
+    const data = await getOrCreateWeek(weekStartRef.current);
+    if (weekIdRef.current === forWeekId) {
+      updateTasks(data.tasks);
+    }
+  }, [updateTasks]);
+
+  const refreshAfterCopy = useCallback(async (): Promise<void> => {
+    const forWeekId = weekIdRef.current;
+    if (!forWeekId) {
+      return;
+    }
+    const data = await getOrCreateWeek(weekStartRef.current);
+    if (weekIdRef.current !== forWeekId) {
+      return;
+    }
+    updateTasks(data.tasks);
+
+    // Copied rows arrive with database ids; append the missing ones without
+    // disturbing local drafts that are still waiting for their first save.
+    const known = new Set(rowsRef.current.map((row) => row.key));
+    const added = data.rows
+      .filter((row) => !known.has(row.id))
+      .map<WeeklyPlanRow>((row) => ({
+        key: row.id,
+        id: row.id,
+        label: row.label,
+      }));
+    if (added.length === 0) {
+      return;
+    }
+
+    updateRows([...rowsRef.current, ...added]);
+    updateSavedRows([...savedRowsRef.current, ...savedView(added)]);
+    for (const row of added) {
+      lastSavedLabelsRef.current.set(
+        savedLabelKey(forWeekId, row.key),
+        row.label,
+      );
+    }
+  }, [updateRows, updateSavedRows, updateTasks]);
 
   const updateNote = useCallback((next: string): void => {
     noteRef.current = next;
@@ -354,6 +460,7 @@ export function WeeklyPlan() {
     setWeekData(null);
     weekDataRef.current = null;
     setSaveError(null);
+    setTaskError(null);
     failedRowsSignatureRef.current = null;
     failedNoteRef.current = null;
 
@@ -383,6 +490,7 @@ export function WeeklyPlan() {
 
         updateNote(data.week.note);
         updateSavedNote(data.week.note.trim());
+        updateTasks(data.tasks);
         setHasSaved(data.week.note.trim().length > 0 || nextRows.length > 0);
         setWeekData(data);
         setLoading(false);
@@ -400,7 +508,14 @@ export function WeeklyPlan() {
     return () => {
       active = false;
     };
-  }, [weekStart, updateRows, updateSavedRows, updateNote, updateSavedNote]);
+  }, [
+    weekStart,
+    updateRows,
+    updateSavedRows,
+    updateTasks,
+    updateNote,
+    updateSavedNote,
+  ]);
 
   const changeWeek = useCallback(
     (next: string): void => {
@@ -410,6 +525,8 @@ export function WeeklyPlan() {
       flushNote();
       flushRows();
       weekStartRef.current = next;
+      setTaskEditor(null);
+      setCopyConfirmOpen(false);
       setWeekStart(next);
     },
     [flushNote, flushRows],
@@ -519,6 +636,62 @@ export function WeeklyPlan() {
     }
     updateRows(rowsRef.current.filter((item) => item.key !== key));
     updateSavedRows(savedRowsRef.current.filter((item) => item.key !== key));
+    if (row.id !== undefined) {
+      // Deleting a row also tombstones its tasks; refresh so the summary stops
+      // counting them.
+      await refreshTasks();
+    }
+  }
+
+  async function handleToggleTask(
+    task: ScheduleTask,
+    done: boolean,
+  ): Promise<void> {
+    setTaskError(null);
+    try {
+      await toggleTask(task.id, done);
+      await refreshTasks();
+    } catch (caught: unknown) {
+      setTaskError(
+        messageFor(caught, 'Görev güncellenemedi. Lütfen tekrar dene.'),
+      );
+    }
+  }
+
+  async function handleDeleteTask(task: ScheduleTask): Promise<void> {
+    setTaskError(null);
+    try {
+      await deleteScheduleTask(task.id);
+      await refreshTasks();
+    } catch (caught: unknown) {
+      setTaskError(
+        messageFor(caught, 'Görev silinemedi. Lütfen tekrar dene.'),
+      );
+    }
+  }
+
+  async function copyPreviousWeek(): Promise<void> {
+    setCopying(true);
+    setTaskError(null);
+    try {
+      await copyWeek(shiftWeek(weekStartRef.current, -1), weekStartRef.current);
+      await refreshAfterCopy();
+    } catch (caught: unknown) {
+      setTaskError(
+        messageFor(caught, 'Görevler kopyalanamadı. Lütfen tekrar dene.'),
+      );
+    } finally {
+      setCopying(false);
+      setCopyConfirmOpen(false);
+    }
+  }
+
+  function requestCopy(): void {
+    if (tasksRef.current.length > 0) {
+      setCopyConfirmOpen(true);
+      return;
+    }
+    void copyPreviousWeek();
   }
 
   const currentWeekStart = weekStartOf(new Date());
@@ -560,6 +733,15 @@ export function WeeklyPlan() {
           >
             Bu hafta
           </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={requestCopy}
+            disabled={copying || loading || !weekData}
+          >
+            <Copy className="h-4 w-4" aria-hidden="true" />
+            {copying ? 'Kopyalanıyor…' : 'Geçen haftadan kopyala'}
+          </Button>
         </div>
         <p
           aria-live="polite"
@@ -578,15 +760,42 @@ export function WeeklyPlan() {
           Haftalık plan yükleniyor…
         </p>
       ) : (
-        <WeeklyPlanTable
-          weekStart={weekStart}
-          rows={rows}
-          selectedDay={selectedDay}
-          onSelectDay={setSelectedDay}
-          onAddRow={addDraftRow}
-          onRenameRow={renameDraftRow}
-          onDeleteRow={(key) => void removeRow(key)}
-        />
+        <>
+          <WeeklyPlanTable
+            weekStart={weekStart}
+            rows={rows}
+            tasks={tasks}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            onAddRow={addDraftRow}
+            onRenameRow={renameDraftRow}
+            onDeleteRow={(key) => void removeRow(key)}
+            taskLabel={taskLabel}
+            onAddTask={(row, dayIndex) => {
+              if (!weekData || row.id === undefined) {
+                return;
+              }
+              setTaskEditor({ rowId: row.id, dayIndex });
+            }}
+            onToggleTask={(task, done) => void handleToggleTask(task, done)}
+            onEditTask={(task) =>
+              setTaskEditor({
+                rowId: task.rowId,
+                dayIndex: task.dayIndex,
+                task,
+              })
+            }
+            onDeleteTask={(task) => void handleDeleteTask(task)}
+          />
+
+          {taskError ? (
+            <p role="alert" className="text-sm text-danger">
+              {taskError}
+            </p>
+          ) : null}
+
+          <WeekSummary tasks={tasks} />
+        </>
       )}
 
       {weekData ? (
@@ -630,6 +839,54 @@ export function WeeklyPlan() {
             {statusText}
           </p>
         </Card>
+      ) : null}
+
+      {taskEditor && weekData ? (
+        <ScheduleTaskModal
+          weekId={weekData.week.id}
+          rowId={taskEditor.rowId}
+          dayIndex={taskEditor.dayIndex}
+          task={taskEditor.task}
+          onClose={() => setTaskEditor(null)}
+          onSaved={async () => {
+            setTaskEditor(null);
+            await refreshTasks();
+          }}
+        />
+      ) : null}
+
+      {copyConfirmOpen ? (
+        <Modal
+          open
+          title="Geçen haftadan kopyala"
+          onClose={() => {
+            if (!copying) {
+              setCopyConfirmOpen(false);
+            }
+          }}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setCopyConfirmOpen(false)}
+                disabled={copying}
+              >
+                Vazgeç
+              </Button>
+              <Button onClick={() => void copyPreviousWeek()} disabled={copying}>
+                {copying ? 'Kopyalanıyor…' : 'Kopyala'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            Bu haftada zaten görevler var. Kopyalama yalnızca eksik satır ve
+            görevleri ekler; var olan görevler çoğaltılmaz.
+          </p>
+          <p className="text-sm text-muted">
+            Kopyalanan görevler tamamlanmamış olarak gelir.
+          </p>
+        </Modal>
       ) : null}
     </div>
   );

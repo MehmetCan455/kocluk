@@ -9,13 +9,24 @@ import {
   listScheduleFiles,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
+import { listCatalogBooks, seedCatalog } from '@/db/catalogRepository';
+import {
+  addCatalogBookToShelf,
+  getShelfBook,
+  listBookActivity,
+  type ShelfBook,
+} from '@/db/bookRepositories';
 import {
   addRow,
+  addTask,
   getOrCreateWeek,
   getWeek,
+  toggleTask,
 } from '@/db/scheduleRepository';
+import { getTopicDone, listTopicReviews } from '@/db/topicProgressRepository';
 import { SCHEDULE_DAYS } from '@/features/schedule/scheduleDays';
 import { dayLabel, shiftWeek, weekLabel, weekStartOf } from '@/domain/schedule';
+import type { Subject, Topic } from '@/domain/types';
 import { compressImage } from '@/lib/image';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -61,7 +72,7 @@ const FIXTURE: CurriculumSeed = {
       slug: 'matematik',
       icon: 'calculator',
       order: 1,
-      topics: [],
+      topics: [{ seedKey: 'tyt-mat-turev', name: 'Türev', order: 1 }],
     },
   ],
 };
@@ -95,6 +106,45 @@ async function openSchedule(path = '/program') {
 
 function findPlanTable(): Promise<HTMLElement> {
   return screen.findByRole('table', { name: TABLE_NAME });
+}
+
+async function seedPlanRow(): Promise<{ weekStart: string; weekId: string; rowId: string }> {
+  const weekStart = currentWeekStart();
+  const { week } = await getOrCreateWeek(weekStart);
+  const row = await addRow(week.id, 'Matematik');
+  return { weekStart, weekId: week.id, rowId: row.id };
+}
+
+async function seedBilgiSarmalBook(): Promise<ShelfBook> {
+  await seedCatalog();
+  const catalogBook = (await listCatalogBooks()).find(
+    (book) => book.publisher === 'Bilgi Sarmal',
+  );
+  if (!catalogBook) {
+    throw new Error('Bilgi Sarmal katalog kitabı bulunamadı');
+  }
+  const userBook = await addCatalogBookToShelf(catalogBook.id);
+  const shelfBook = await getShelfBook(userBook.id);
+  if (!shelfBook) {
+    throw new Error('Raf kitabı bulunamadı');
+  }
+  return shelfBook;
+}
+
+async function subjectByKey(seedKey: string): Promise<Subject> {
+  const subject = await db.subjects.where('seedKey').equals(seedKey).first();
+  if (!subject) {
+    throw new Error(`Test dersi bulunamadı: ${seedKey}`);
+  }
+  return subject;
+}
+
+async function topicByKey(seedKey: string): Promise<Topic> {
+  const topic = await db.topics.where('seedKey').equals(seedKey).first();
+  if (!topic) {
+    throw new Error(`Test konusu bulunamadı: ${seedKey}`);
+  }
+  return topic;
 }
 
 async function switchToUpload(): Promise<void> {
@@ -463,4 +513,206 @@ test('20 MB üzerindeki çizelge dosyasını yüklemez', async () => {
     'Dosya boyutu 20 MB sınırını aşıyor',
   );
   expect(await listScheduleFiles()).toHaveLength(0);
+});
+
+test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () => {
+  const { weekStart } = await seedPlanRow();
+  const shelfBook = await seedBilgiSarmalBook();
+  const userBookId = shelfBook.userBook.id;
+  const view = await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Çarşamba görev ekle' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await within(dialog).findByRole('option', { name: /Bilgi Sarmal/ });
+  await userEvent.selectOptions(
+    within(dialog).getByLabelText('Kitap'),
+    userBookId,
+  );
+  await userEvent.type(
+    within(dialog).getByLabelText('Başlangıç sayfası'),
+    '210',
+  );
+  await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '220');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  expect(await screen.findByText(/s\. 210–220/)).toBeInTheDocument();
+  expect(screen.getByText('Planlanan sayfa').parentElement).toHaveTextContent('11');
+  expect(screen.getByText('Okunan sayfa').parentElement).toHaveTextContent('0');
+
+  const checkboxName =
+    'TYT Matematik Soru Bankası s. 210–220 görevini tamamla';
+  await userEvent.click(
+    await screen.findByRole('checkbox', { name: checkboxName }),
+  );
+
+  await waitFor(async () => {
+    expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(220);
+  });
+  expect(
+    (await listBookActivity(userBookId)).filter(
+      (log) => log.type === 'book_pages',
+    ),
+  ).toHaveLength(1);
+  await waitFor(() => {
+    expect(screen.getByText('Okunan sayfa').parentElement).toHaveTextContent(
+      '11',
+    );
+  });
+
+  await userEvent.click(screen.getByRole('checkbox', { name: checkboxName }));
+  await waitFor(async () => {
+    expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(0);
+  });
+  expect(
+    (await listBookActivity(userBookId)).filter(
+      (log) => log.type === 'book_pages',
+    ),
+  ).toHaveLength(0);
+
+  await userEvent.click(screen.getByRole('checkbox', { name: checkboxName }));
+  await waitFor(async () => {
+    expect((await getShelfBook(userBookId))?.progress.currentPage).toBe(220);
+  });
+  expect(
+    (await listBookActivity(userBookId)).filter(
+      (log) => log.type === 'book_pages',
+    ),
+  ).toHaveLength(1);
+
+  view.unmount();
+  renderApp(`/kitaplar/${userBookId}`);
+  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+  const planLink = await screen.findByRole('link', {
+    name: /s\. 210–220 görevini plana aç/,
+  });
+  expect(planLink).toHaveAttribute('href', `/program?week=${weekStart}`);
+});
+
+test('konu tekrarı görevi tiklenince tekrar kaydı oluşturur ama konuyu bitirmez', async () => {
+  await seedPlanRow();
+  const subject = await subjectByKey('tyt-mat');
+  const topic = await topicByKey('tyt-mat-turev');
+  const view = await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Perşembe görev ekle' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Konu tekrarı' }),
+  );
+  await within(dialog).findByRole('option', { name: 'Türev' });
+  await userEvent.selectOptions(within(dialog).getByLabelText('Konu'), topic.id);
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  await userEvent.click(
+    await screen.findByRole('checkbox', { name: 'Türev görevini tamamla' }),
+  );
+  await waitFor(async () => {
+    expect(await listTopicReviews(topic.id)).toHaveLength(1);
+  });
+  expect(await getTopicDone(topic.id)).toBe(false);
+
+  view.unmount();
+  renderApp(`/tyt/${subject.id}/${topic.id}`);
+  expect(await screen.findByText('1 tekrar')).toBeInTheDocument();
+  expect(screen.getByText('Başlanmadı')).toBeInTheDocument();
+});
+
+test('geçen haftadan kopyala görevleri tamamlanmadan kopyalar ve çoğaltmaz', async () => {
+  const current = currentWeekStart();
+  const source = await getOrCreateWeek(shiftWeek(current, -1));
+  const sourceRow = await addRow(source.week.id, 'Matematik');
+  const completed = await addTask({
+    weekId: source.week.id,
+    rowId: sourceRow.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Türev tekrarı',
+  });
+  await toggleTask(completed.id, true);
+  await addTask({
+    weekId: source.week.id,
+    rowId: sourceRow.id,
+    dayIndex: 2,
+    type: 'free',
+    title: 'Deneme çözümü',
+  });
+
+  const view = await openSchedule();
+  await findPlanTable();
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Geçen haftadan kopyala' }),
+  );
+
+  expect(await screen.findByText('Türev tekrarı')).toBeInTheDocument();
+  expect(await screen.findByText('Deneme çözümü')).toBeInTheDocument();
+  await waitFor(async () => {
+    expect((await getWeek(current))?.tasks).toHaveLength(2);
+  });
+  const firstCopy = (await getWeek(current))?.tasks ?? [];
+  expect(firstCopy.every((task) => task.completedAt === undefined)).toBe(true);
+
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Geçen haftadan kopyala' }),
+  );
+  const confirmDialog = await screen.findByRole('dialog', {
+    name: 'Geçen haftadan kopyala',
+  });
+  await userEvent.click(
+    within(confirmDialog).getByRole('button', { name: 'Kopyala' }),
+  );
+  await waitFor(async () => {
+    expect((await getWeek(current))?.tasks).toHaveLength(2);
+  });
+  expect(await screen.findAllByText('Türev tekrarı')).toHaveLength(1);
+
+  view.unmount();
+  expect((await getWeek(current))?.tasks).toHaveLength(2);
+});
+
+test('serbest görev eklenir, düzenlenir ve silinir', async () => {
+  await seedPlanRow();
+  await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Cuma görev ekle' }),
+  );
+  let dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Serbest görev' }),
+  );
+  await userEvent.type(
+    within(dialog).getByLabelText('Görev adı'),
+    'Deneme çözümü',
+  );
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+  expect(await screen.findByText('Deneme çözümü')).toBeInTheDocument();
+
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'Deneme çözümü görevini düzenle',
+    }),
+  );
+  dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
+  const titleInput = within(dialog).getByLabelText('Görev adı');
+  await userEvent.clear(titleInput);
+  await userEvent.type(titleInput, 'Deneme analizi');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+  expect(await screen.findByText('Deneme analizi')).toBeInTheDocument();
+
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'Deneme analizi görevini sil',
+    }),
+  );
+  await waitFor(() => {
+    expect(screen.queryByText('Deneme analizi')).not.toBeInTheDocument();
+  });
+  expect((await getWeek(currentWeekStart()))?.tasks).toEqual([]);
 });

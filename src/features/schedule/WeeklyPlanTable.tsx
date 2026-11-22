@@ -4,8 +4,10 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/components/ui/cn';
 import { dayLabel } from '@/domain/schedule';
+import type { ScheduleTask } from '@/domain/types';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
 import { SCHEDULE_DAYS } from './scheduleDays';
+import { TaskChip } from './TaskChip';
 
 export interface WeeklyPlanRow {
   /** Stable local key; survives the first save when the database id arrives. */
@@ -17,12 +19,18 @@ export interface WeeklyPlanRow {
 export interface WeeklyPlanTableProps {
   weekStart: string;
   rows: WeeklyPlanRow[];
+  tasks: ScheduleTask[];
   /** Zero-based index into SCHEDULE_DAYS: narrow screens show a single day. */
   selectedDay: number;
   onSelectDay: (dayIndex: number) => void;
   onAddRow: () => void;
   onRenameRow: (key: string, label: string) => void;
   onDeleteRow: (key: string) => void;
+  taskLabel: (task: ScheduleTask) => string;
+  onAddTask: (row: WeeklyPlanRow, dayIndex: number) => void;
+  onToggleTask: (task: ScheduleTask, done: boolean) => void;
+  onEditTask: (task: ScheduleTask) => void;
+  onDeleteTask: (task: ScheduleTask) => void;
   disabled?: boolean;
 }
 
@@ -36,14 +44,25 @@ const bodyCellClass = 'border-b border-r border-line p-0.5 align-top';
 const rowCellClass =
   'border-b border-r border-line p-0.5 align-middle last:border-r-0';
 
+function cellName(row: WeeklyPlanRow, rowIndex: number): string {
+  const label = row.label.trim();
+  return label === '' ? `${rowIndex + 1}. satır` : label;
+}
+
 export function WeeklyPlanTable({
   weekStart,
   rows,
+  tasks,
   selectedDay,
   onSelectDay,
   onAddRow,
   onRenameRow,
   onDeleteRow,
+  taskLabel,
+  onAddTask,
+  onToggleTask,
+  onEditTask,
+  onDeleteTask,
   disabled = false,
 }: WeeklyPlanTableProps) {
   return (
@@ -52,7 +71,7 @@ export function WeeklyPlanTable({
         <div className="min-w-0 space-y-1">
           <h2 className="text-lg font-semibold">Haftalık plan</h2>
           <p className="text-xs text-muted">
-            Satırlara ders veya serbest bir etiket yaz.
+            Satırlara ders veya serbest bir etiket yaz; her hücreye görev ekle.
           </p>
         </div>
         <Button
@@ -163,17 +182,49 @@ export function WeeklyPlanTable({
                       </button>
                     </div>
                   </td>
-                  {SCHEDULE_DAYS.map((day, dayIndex) => (
-                    <td
-                      key={`${row.key}-${day.day}`}
-                      className={cn(
-                        bodyCellClass,
-                        dayIndex !== selectedDay && 'hidden min-[768px]:table-cell',
-                      )}
-                    >
-                      {/* Task chips are added in the next task. */}
-                    </td>
-                  ))}
+                  {SCHEDULE_DAYS.map((day, dayIndex) => {
+                    const cellTasks = tasks.filter(
+                      (task) => task.rowId === row.id && task.dayIndex === dayIndex,
+                    );
+                    return (
+                      <td
+                        key={`${row.key}-${day.day}`}
+                        className={cn(
+                          bodyCellClass,
+                          dayIndex !== selectedDay &&
+                            'hidden min-[768px]:table-cell',
+                        )}
+                      >
+                        <div className="flex min-h-11 flex-col gap-1 p-1">
+                          {cellTasks.map((task) => (
+                            <TaskChip
+                              key={task.id}
+                              task={task}
+                              label={taskLabel(task)}
+                              onToggle={(done) => onToggleTask(task, done)}
+                              onEdit={() => onEditTask(task)}
+                              onDelete={() => onDeleteTask(task)}
+                              disabled={disabled}
+                            />
+                          ))}
+                          <button
+                            type="button"
+                            aria-label={`${cellName(row, rowIndex)} ${day.label} görev ekle`}
+                            onClick={() => onAddTask(row, dayIndex)}
+                            disabled={disabled || row.id === undefined}
+                            title={
+                              row.id === undefined
+                                ? 'Görev eklemek için önce satırı kaydet.'
+                                : 'Görev ekle'
+                            }
+                            className="flex min-h-11 w-full items-center justify-center rounded-lg border border-dashed border-line text-muted transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+                          >
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        </div>
+                      </td>
+                    );
+                  })}
                 </tr>
               ))
             )}

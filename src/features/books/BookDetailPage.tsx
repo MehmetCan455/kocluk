@@ -25,7 +25,13 @@ import {
   type ShelfBook,
 } from '@/db/bookRepositories';
 import { listSubjects } from '@/db/repositories';
-import type { ActivityLog, CatalogBook, Subject } from '@/domain/types';
+import { listBookTasks } from '@/db/scheduleRepository';
+import type {
+  ActivityLog,
+  CatalogBook,
+  ScheduleTask,
+  Subject,
+} from '@/domain/types';
 import { formatPercent } from '@/lib/format';
 import { BookEditModal } from './BookEditModal';
 
@@ -119,6 +125,61 @@ function activitySourceLabel(log: ActivityLog, labels: Map<string, string>): str
     return 'Plan görevi';
   }
   return 'Konu tekrarı';
+}
+
+function bookTaskLabel(task: ScheduleTask): string {
+  if (task.fromPage !== undefined && task.toPage !== undefined) {
+    return `s. ${task.fromPage}–${task.toPage}`;
+  }
+  if (task.fromPage !== undefined) {
+    return `s. ${task.fromPage}`;
+  }
+  return 'Sayfa aralığı belirtilmedi';
+}
+
+interface BookPlanTasksProps {
+  tasks: Array<ScheduleTask & { weekStart: string }>;
+}
+
+function BookPlanTasks({ tasks }: BookPlanTasksProps) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Plan görevleri</h2>
+
+      {tasks.length === 0 ? (
+        <EmptyState
+          title="Henüz plan görevi yok"
+          description="Bu kitap için haftalık plana eklenen sayfa görevleri burada listelenir."
+        />
+      ) : (
+        <ul aria-label="Plan görevleri" className="space-y-2">
+          {tasks.map((task) => {
+            const label = bookTaskLabel(task);
+            return (
+              <li key={task.id}>
+                <Link
+                  to={`/program?week=${task.weekStart}`}
+                  aria-label={`${label} görevini plana aç`}
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2 text-sm transition-colors hover:border-[var(--accent)]"
+                >
+                  <span className="font-medium tabular-nums">{label}</span>
+                  <span
+                    className={
+                      task.completedAt
+                        ? 'text-xs font-medium text-success'
+                        : 'text-xs font-medium text-muted'
+                    }
+                  >
+                    {task.completedAt ? 'Tamamlandı' : 'Planlandı'}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 interface PageUpdateFormProps {
@@ -441,11 +502,20 @@ export function BookDetailPage() {
   const data = useLiveQuery(async () => {
     const row = await getShelfBook(id);
     if (!row) {
-      return { row: undefined, logs: [] as ActivityLog[], subjects: [] as Subject[] };
+      return {
+        row: undefined,
+        logs: [] as ActivityLog[],
+        subjects: [] as Subject[],
+        tasks: [] as Array<ScheduleTask & { weekStart: string }>,
+      };
     }
 
-    const [logs, subjects] = await Promise.all([listBookActivity(id), listSubjects()]);
-    return { row, logs, subjects };
+    const [logs, subjects, tasks] = await Promise.all([
+      listBookActivity(id),
+      listSubjects(),
+      listBookTasks(id),
+    ]);
+    return { row, logs, subjects, tasks };
   }, [id]);
 
   if (!data) {
@@ -456,7 +526,7 @@ export function BookDetailPage() {
     );
   }
 
-  const { row, logs, subjects } = data;
+  const { row, logs, subjects, tasks } = data;
 
   if (!row) {
     return (
@@ -593,14 +663,7 @@ export function BookDetailPage() {
         }}
       />
 
-      {/* Placeholder until Task 12 loads related tasks with `listBookTasks`. */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Plan görevleri</h2>
-        <EmptyState
-          title="Henüz plan görevi yok"
-          description="Bu kitapla ilişkili plan görevleri burada listelenecek."
-        />
-      </section>
+      <BookPlanTasks tasks={tasks} />
 
       {editing ? (
         <BookEditModal
@@ -624,7 +687,7 @@ export function BookDetailPage() {
       {deleting ? (
         <DeleteBookModal
           title={title}
-          hasHistory={logs.length > 0}
+          hasHistory={logs.length > 0 || tasks.length > 0}
           onClose={() => setDeleting(false)}
           onConfirm={async () => {
             await deleteShelfBook(userBook.id);

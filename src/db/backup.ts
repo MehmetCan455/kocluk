@@ -562,6 +562,7 @@ const scheduleTaskSchema = z.object({
   topicId: idSchema.optional(),
   title: z.string().optional(),
   completedAt: z.string().optional(),
+  missedAt: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   deletedAt: z.string().optional(),

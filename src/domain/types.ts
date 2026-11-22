@@ -350,6 +350,8 @@ export interface ScheduleTask {
   topicId?: string;
   title?: string;
   completedAt?: string;
+  /** Mutually exclusive with `completedAt`; set when the task was missed. */
+  missedAt?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;

@@ -17,6 +17,7 @@ import {
   listTasksForDay,
   renameRow,
   saveWeekNote,
+  setTaskStatus,
   toggleTask,
   updateTask,
 } from './scheduleRepository';
@@ -652,4 +653,95 @@ test('gün görevleri yalnızca o günün etkin görevlerini döndürür', async
     updatedAt: CREATED_AT,
   });
   expect(await listTasksForDay(WEEK_START, 7)).toEqual([]);
+});
+test('görev durumu yapıldı, yapılmadı ve nötr arasında geçer; aktivite tutarlı kalır', async () => {
+  const userBookId = await seedShelfBook(400);
+  const { weekId, rowId } = await seedWeekAndRow();
+  const task = await addTask(bookInput(weekId, rowId, userBookId, 10, 22));
+
+  await setTaskStatus(task.id, 'done');
+  let stored = await db.scheduleTasks.get(task.id);
+  expect(stored?.completedAt).toBeDefined();
+  expect(stored?.missedAt).toBeUndefined();
+  expect(await activeTaskLogs(task.id)).toHaveLength(1);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(13);
+
+  // İkinci kez yapıldı işaretlemek yeni kayıt üretmez.
+  await setTaskStatus(task.id, 'done');
+  expect(await taskLogs(task.id)).toHaveLength(1);
+
+  await setTaskStatus(task.id, 'missed');
+  stored = await db.scheduleTasks.get(task.id);
+  expect(stored?.completedAt).toBeUndefined();
+  expect(stored?.missedAt).toBeDefined();
+  expect(await activeTaskLogs(task.id)).toHaveLength(0);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(0);
+
+  await setTaskStatus(task.id, 'pending');
+  stored = await db.scheduleTasks.get(task.id);
+  expect(stored?.completedAt).toBeUndefined();
+  expect(stored?.missedAt).toBeUndefined();
+
+  await setTaskStatus(task.id, 'done');
+  stored = await db.scheduleTasks.get(task.id);
+  expect(stored?.completedAt).toBeDefined();
+  expect(stored?.missedAt).toBeUndefined();
+  expect(await activeTaskLogs(task.id)).toHaveLength(1);
+});
+
+test('yapılmadı işaretli görev düzenlenince durum korunur ve aktivite oluşmaz', async () => {
+  const userBookId = await seedShelfBook(400);
+  const { weekId, rowId } = await seedWeekAndRow();
+  const task = await addTask(bookInput(weekId, rowId, userBookId, 10, 20));
+
+  await setTaskStatus(task.id, 'missed');
+  await updateTask(task.id, {
+    rowId,
+    dayIndex: 3,
+    type: 'book',
+    userBookId,
+    fromPage: 30,
+    toPage: 40,
+    title: 'Türev',
+  });
+
+  const stored = await db.scheduleTasks.get(task.id);
+  expect(stored?.missedAt).toBeDefined();
+  expect(stored?.completedAt).toBeUndefined();
+  expect(stored).toMatchObject({ fromPage: 30, toPage: 40, dayIndex: 3, title: 'Türev' });
+  expect(await activeTaskLogs(task.id)).toHaveLength(0);
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(0);
+
+  await setTaskStatus(task.id, 'done');
+  expect((await getShelfBook(userBookId))?.progress.readPages).toBe(11);
+});
+
+test('hafta kopyası yapıldı/yapılmadı işaretlerini taşımaz', async () => {
+  const source = await getOrCreateWeek(WEEK_START);
+  const row = await addRow(source.week.id, 'Matematik');
+  const doneTask = await addTask({
+    weekId: source.week.id,
+    rowId: row.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Yapılan görev',
+  });
+  const missedTask = await addTask({
+    weekId: source.week.id,
+    rowId: row.id,
+    dayIndex: 2,
+    type: 'free',
+    title: 'Kaçırılan görev',
+  });
+  await setTaskStatus(doneTask.id, 'done');
+  await setTaskStatus(missedTask.id, 'missed');
+
+  await copyWeek(WEEK_START, NEXT_WEEK_START);
+
+  const target = await getOrCreateWeek(NEXT_WEEK_START);
+  expect(target.tasks).toHaveLength(2);
+  for (const task of target.tasks) {
+    expect(task.completedAt).toBeUndefined();
+    expect(task.missedAt).toBeUndefined();
+  }
 });

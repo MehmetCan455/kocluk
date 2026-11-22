@@ -27,7 +27,7 @@ import {
   upsertTopicBook,
   type CurriculumSeed,
 } from '@/db/repositories';
-import { addRow, addTask, getOrCreateWeek } from '@/db/scheduleRepository';
+import { addRow, addTask, getOrCreateWeek, setTaskStatus } from '@/db/scheduleRepository';
 import { getTopicDone, setTopicDone } from '@/db/topicProgressRepository';
 import { createEmptyScheduleTable } from '@/domain/scheduleTable';
 import { deterministicId } from '@/lib/deterministicId';
@@ -1231,8 +1231,32 @@ test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yükl
   expect(await getTopicDone(seeded.topic.id)).toBe(true);
 });
 
-test('içe aktarma eksik katalog tohumunu ekler ve düzenlenen satırı ezmez', async () => {
+test('v6 yedeği yapılmadı işaretini ve konu başlığını korur', async () => {
   await fullSeed();
+  const { week } = await getOrCreateWeek('2026-11-16');
+  const row = await addRow(week.id, 'Matematik');
+  const task = await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Kaçırılan görev',
+  });
+  await setTaskStatus(task.id, 'missed');
+  const stored = (await db.scheduleTasks.get(task.id))!;
+  expect(stored.missedAt).toBeDefined();
+  expect(stored.completedAt).toBeUndefined();
+
+  const exported = await exportBackup();
+  await resetDb();
+  await importBackup(new File([exported], 'kacirilan-gorev.zip'));
+
+  const restored = await db.scheduleTasks.get(task.id);
+  expect(restored?.missedAt).toBe(stored.missedAt);
+  expect(restored?.completedAt).toBeUndefined();
+});
+
+test('içe aktarma eksik katalog tohumunu ekler ve düzenlenen satırı ezmez', async () => {  await fullSeed();
   const [firstSeed] = CATALOG_SEED;
   const seededId = catalogBookId(firstSeed.title, firstSeed.publisher, firstSeed.edition);
   await db.catalogBooks.add({

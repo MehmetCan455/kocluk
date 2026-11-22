@@ -1,5 +1,5 @@
 import { calculateBookProgress, resolveBookTotalPages } from '@/domain/bookProgress';
-import { validateTaskPages } from '@/domain/schedule';
+import { validateTaskPages, type ScheduleTaskStatus } from '@/domain/schedule';
 import type {
   ActivityLog,
   ScheduleRow,
@@ -275,11 +275,13 @@ async function validateTaskFields(
       if (error) {
         throw new Error(error);
       }
+      const title = input.title?.trim();
       return {
         type: 'book',
         userBookId: input.userBookId,
         fromPage: input.fromPage,
         toPage: input.toPage,
+        ...(title ? { title } : {}),
       };
     }
     case 'topic': {
@@ -473,6 +475,18 @@ export async function updateTask(
       if (task.completedAt !== undefined) {
         next.completedAt = task.completedAt;
         await replaceTaskActivity(taskId, fields, now);
+      } else if (task.missedAt !== undefined) {
+        // A missed task must not keep a progress record. Editing keeps the
+        // missed state; only an explicit tick can complete it again.
+        next.missedAt = task.missedAt;
+        const active = activeLogs(
+          await db.activityLogs.where('taskId').equals(taskId).toArray(),
+        );
+        if (active.length > 0) {
+          await db.activityLogs.bulkPut(
+            active.map((log) => ({ ...log, deletedAt: now })),
+          );
+        }
       }
 
       await db.scheduleTasks.put(next);
@@ -495,6 +509,18 @@ export async function updateTask(
 }
 
 export async function toggleTask(taskId: string, done: boolean): Promise<void> {
+  await setTaskStatus(taskId, done ? 'done' : 'pending');
+}
+
+/**
+ * Sets the tick-mode status. `completedAt` and `missedAt` are mutually
+ * exclusive; marking done keeps (or creates) the linked activity, while missed
+ * and pending tombstone it so progress follows the visible state.
+ */
+export async function setTaskStatus(
+  taskId: string,
+  status: ScheduleTaskStatus,
+): Promise<void> {
   await db.transaction(
     'rw',
     db.scheduleTasks,
@@ -513,8 +539,8 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
       );
       const now = new Date().toISOString();
 
-      if (!done) {
-        if (!task.completedAt && existing.length === 0) {
+      if (status === 'pending') {
+        if (!task.completedAt && !task.missedAt && existing.length === 0) {
           return;
         }
         if (existing.length > 0) {
@@ -524,6 +550,7 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
         }
         const next: ScheduleTask = { ...task, updatedAt: now };
         delete next.completedAt;
+        delete next.missedAt;
         await db.scheduleTasks.put(next);
         if (task.userBookId !== undefined) {
           await refreshBookStatus(task.userBookId);
@@ -531,19 +558,46 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
         return;
       }
 
-      if (task.completedAt) {
+      if (status === 'missed') {
+        if (task.missedAt && !task.completedAt && existing.length === 0) {
+          return;
+        }
+        if (existing.length > 0) {
+          await db.activityLogs.bulkPut(
+            existing.map((log) => ({ ...log, deletedAt: now })),
+          );
+        }
+        const next: ScheduleTask = {
+          ...task,
+          missedAt: now,
+          updatedAt: now,
+        };
+        delete next.completedAt;
+        await db.scheduleTasks.put(next);
+        if (task.userBookId !== undefined) {
+          await refreshBookStatus(task.userBookId);
+        }
+        return;
+      }
+
+      // Already done with its activity in place: nothing to rewrite.
+      if (task.completedAt && existing.length > 0) {
         return;
       }
 
       // Ticking re-validates against the book's current total pages, not the
       // total that was present when the task was created.
       const fields = await validateTaskFields(task);
-      await replaceTaskActivity(taskId, fields, now);
-      await db.scheduleTasks.put({
+      if (existing.length === 0) {
+        await replaceTaskActivity(taskId, fields, now);
+      }
+      const next: ScheduleTask = {
         ...task,
         completedAt: now,
         updatedAt: now,
-      });
+      };
+      delete next.missedAt;
+      await db.scheduleTasks.put(next);
       if (fields.userBookId !== undefined) {
         await refreshBookStatus(fields.userBookId);
       }

@@ -75,6 +75,80 @@ function pageSpan(fromPage: number | undefined, toPage: number | undefined): num
   return toPage - fromPage + 1;
 }
 
+export type ScheduleTaskStatus = 'done' | 'missed' | 'pending';
+
+/**
+ * An explicit tick wins. An unmarked task in a past week is derived as missed
+ * so old plans show what did not happen; the stored task stays pending.
+ */
+export function scheduleTaskStatus(
+  task: ScheduleTask,
+  weekStart: string,
+  now: Date = new Date(),
+): ScheduleTaskStatus {
+  if (task.completedAt) {
+    return 'done';
+  }
+  if (task.missedAt) {
+    return 'missed';
+  }
+  return weekStart < weekStartOf(now) ? 'missed' : 'pending';
+}
+
+export interface ScheduleTaskContent {
+  /** Book/topic/free title; the chip shows it truncated. */
+  title: string;
+  /** Konu (book), subject + Tekrar (topic) or the row label. */
+  subtitle: string;
+  /** Page range for book tasks. */
+  detail: string;
+}
+
+export interface ScheduleTaskContentContext {
+  rowLabel?: string;
+  bookTitle?: string;
+  topicName?: string;
+  subjectName?: string;
+}
+
+/**
+ * Builds the three chip lines. The caller supplies looked-up names so the
+ * domain stays independent of Dexie.
+ */
+export function scheduleTaskContent(
+  task: ScheduleTask,
+  context: ScheduleTaskContentContext = {},
+): ScheduleTaskContent {
+  const rowLabel = context.rowLabel?.trim() ?? '';
+
+  if (task.type === 'book') {
+    const from = task.fromPage;
+    const to = task.toPage;
+    return {
+      title: context.bookTitle ?? 'Kitap',
+      subtitle: task.title?.trim() || rowLabel,
+      detail:
+        from !== undefined && to !== undefined ? `s. ${from}–${to}` : '',
+    };
+  }
+
+  if (task.type === 'topic') {
+    return {
+      title: context.topicName ?? 'Konu tekrarı',
+      subtitle: context.subjectName
+        ? `${context.subjectName} · Tekrar`
+        : 'Tekrar',
+      detail: '',
+    };
+  }
+
+  return {
+    title: task.title?.trim() || 'Serbest görev',
+    subtitle: rowLabel,
+    detail: '',
+  };
+}
+
 /**
  * Counts the active tasks of a week and the pages they plan and read. Deleted
  * tasks and logs never count, and only logs attached to active tasks do.

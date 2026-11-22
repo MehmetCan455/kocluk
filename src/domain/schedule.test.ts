@@ -2,6 +2,8 @@ import { expect, test } from 'vitest';
 import type { ActivityLog, ScheduleTask } from './types';
 import {
   dayLabel,
+  scheduleTaskContent,
+  scheduleTaskStatus,
   shiftWeek,
   summarizeWeek,
   validateTaskPages,
@@ -153,5 +155,66 @@ test('boş hafta özeti sıfır döndürür', () => {
     doneCount: 0,
     plannedPages: 0,
     readPages: 0,
+  });
+});
+
+test('görev durumu tamamlanma, kaçırılma ve geçmiş haftadan türetilir', () => {
+  // 22 Kasım 2026 Pazar; geçerli hafta 16 Kasım'da başlar.
+  const now = new Date(2026, 10, 22, 12);
+  const done = task({ completedAt: '2026-11-17T10:00:00.000Z' });
+
+  expect(scheduleTaskStatus(done, '2026-11-16', now)).toBe('done');
+  expect(
+    scheduleTaskStatus(task({ missedAt: '2026-11-17T10:00:00.000Z' }), '2026-11-16', now),
+  ).toBe('missed');
+  expect(scheduleTaskStatus(task(), '2026-11-16', now)).toBe('pending');
+  expect(scheduleTaskStatus(task(), '2026-11-09', now)).toBe('missed');
+  // Gelecek hafta nötr kalır; geçmişte tamamlanan görev yeşil kalır.
+  expect(scheduleTaskStatus(task(), '2026-11-23', now)).toBe('pending');
+  expect(scheduleTaskStatus(done, '2026-11-09', now)).toBe('done');
+});
+
+test('görev çipi kitap, konu ve serbest görev için üç satır üretir', () => {
+  const book = scheduleTaskContent(
+    task({ type: 'book', fromPage: 123, toPage: 128, title: 'Türev' }),
+    {
+      bookTitle: 'TYT Matematik Soru Bankası',
+      rowLabel: 'Matematik',
+    },
+  );
+  expect(book).toEqual({
+    title: 'TYT Matematik Soru Bankası',
+    subtitle: 'Türev',
+    detail: 's. 123–128',
+  });
+
+  const bookWithoutTopic = scheduleTaskContent(
+    task({ type: 'book', fromPage: 1, toPage: 2 }),
+    { bookTitle: 'Kitap A', rowLabel: 'Fizik' },
+  );
+  expect(bookWithoutTopic).toEqual({
+    title: 'Kitap A',
+    subtitle: 'Fizik',
+    detail: 's. 1–2',
+  });
+
+  const topic = scheduleTaskContent(
+    task({ type: 'topic', topicId: 'topic-1' }),
+    { topicName: 'Türev', subjectName: 'Matematik', rowLabel: 'Matematik' },
+  );
+  expect(topic).toEqual({
+    title: 'Türev',
+    subtitle: 'Matematik · Tekrar',
+    detail: '',
+  });
+
+  const free = scheduleTaskContent(
+    task({ type: 'free', title: 'Deneme çözümü' }),
+    { rowLabel: 'Matematik' },
+  );
+  expect(free).toEqual({
+    title: 'Deneme çözümü',
+    subtitle: 'Matematik',
+    detail: '',
   });
 });

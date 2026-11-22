@@ -1,9 +1,11 @@
 # Koçluk — YKS Takip
 
-YKS hazırlığı için yerel çalışan (local-first) bir takip uygulaması. Kitaplarını,
-konu bazında çözdüğün testleri, TYT/AYT denemelerini, yanlış soru fotoğraflarını ve
-konu notlarını tek yerde tutar. Veriler **yalnızca kullandığın cihazın tarayıcısında**
-saklanır; hesap, sunucu, analitik veya otomatik senkron yoktur.
+YKS hazırlığı için yerel çalışan (local-first) bir takip uygulaması. Kitaplarını
+sayfa bazında katalogdan rafına ekler, okuduğun sayfaları ve kitap yüzdesini takip eder;
+haftalık planına ders satırları ve kitap/konu/serbest görevler koyar. TYT/AYT
+denemelerini, yanlış soru fotoğraflarını, konu notlarını ve konu tamamlama durumunu
+tek yerde tutar. Veriler **yalnızca kullandığın cihazın tarayıcısında** saklanır;
+hesap, sunucu, analitik veya otomatik senkron yoktur.
 
 ## Gereksinimler
 
@@ -31,6 +33,26 @@ npm run build      # tip kontrolü + üretim derlemesi (dist/)
 npm run preview    # üretim derlemesini /kocluk/ altında önizle
 npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatır)
 ```
+
+## Kitaplar, konu durumu ve haftalık plan
+
+- **Kitaplar** sayfasında katalogdan kitap seçip rafına ekleyebilirsin. Her kitap
+  toplam sayfa, güncel sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir.
+  Katalogda olmayan kitapları kendi başlık, yayınevi ve sayfa sayısıyla ekleyebilirsin.
+- Kitap detayında okuduğun sayfa aralığını elle kaydedebilir, geçmişi görebilir ve
+  plandaki kitap görevlerini izleyebilirsin. İlerleme yalnızca etkin okuma
+  kayıtlarından hesaplanır; aynı aralığı tekrar girmek ilerlemeyi çift saymaz.
+- **Ders Çalışma Çizelgesi** sayfasında haftalık plan tarihli olarak tutulur. Haftalar
+  arasında geçiş yapabilir, satır ekleyebilir ve her hücreye kitap sayfası, konu
+  tekrarı veya serbest görev ekleyebilirsin. Değişiklikler kısa bir gecikmeyle
+  otomatik kaydedilir; haftanın notu da aynı şekilde saklanır.
+- Plan görevini tiklemek kitap görevinde okuma kaydını oluşturur ve kitap
+  ilerlemesini otomatik günceller. Tiki geri almak kaydı geri alır, böylece ilerleme
+  çift sayılmaz. Konu görevi tiklenince tekrar geçmişine kayıt eklenir; konunun
+  **Bitti** durumu ayrıca konu sayfasındaki **Durum** sekmesinden işaretlenir.
+- **Genel Bakış** sayfası bugünün planını, kitap ilerlemesini ve haftalık özeti
+  bir arada gösterir. Eski test kayıtları ve eski serbest metin çizelgesi salt
+  okunur olarak korunur.
 
 PWA ikonlarını `public/favicon.svg` kaynağından yeniden üretmek için:
 
@@ -93,9 +115,10 @@ ile güncelleyebilirsin.
 Veriler tarayıcı deposunda (IndexedDB) tutulur. Tarayıcı verilerini temizlersen,
 cihaz değiştirirsen veya iOS depolamayı boşaltırsa veriler kaybolabilir.
 **Ayarlar → Yedekleme → Yedek indir** ile zip yedeği al ve düzenli olarak
-güncelle. Yedek dosyası tüm dersleri, testleri, denemeleri, notları, fotoğrafları
-ve ekleri içerir. Geri yükleme mevcut verilerin tamamını değiştirir; birleştirme
-yapmaz.
+güncelle. Yedek dosyası sayfa bazlı kitapları ve okuma kayıtlarını, haftalık planı
+ve görevleri, konu durumlarını, denemeleri, notları, fotoğrafları ve ekleri; ayrıca
+salt okunur eski test ve çizelge kayıtlarını içerir. Geri yükleme mevcut verilerin
+tamamını değiştirir; birleştirme yapmaz.
 
 ## Gizlilik
 
@@ -103,6 +126,12 @@ yapmaz.
 - Hiçbir veri cihazdan dışarı gönderilmez; tüm okuma/yazma IndexedDB üzerindedir.
 - Fotoğraflar ve ekler yalnızca yerel veritabanında saklanır.
 - Depo yalnızca kodu içerir; örnek veya kişisel veri commit edilmez.
+
+## Sonraki aşama
+
+Hesap açma ve cihazlar arası bulut senkronizasyonu planlanan sonraki aşamadır. Bu
+sürümde bulunmaz; uygulama hesap istemez, veri göndermez ve cihazlar arasında
+otomatik eşitleme yapmaz.
 
 ## Teknolojiler
 

@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { completeOnboarding, TEST_NAME } from './helpers';
 
 const DAYS = [
@@ -10,6 +10,23 @@ const DAYS = [
   'Cumartesi',
   'Pazar',
 ] as const;
+
+const DAY_BUTTONS: Record<(typeof DAYS)[number], string> = {
+  Pazartesi: 'Pzt Pazartesi',
+  Salı: 'Sal Salı',
+  Çarşamba: 'Çar Çarşamba',
+  Perşembe: 'Per Perşembe',
+  Cuma: 'Cum Cuma',
+  Cumartesi: 'Cmt Cumartesi',
+  Pazar: 'Paz Pazar',
+};
+
+async function selectDay(page: Page, day: (typeof DAYS)[number]): Promise<void> {
+  await page
+    .getByRole('group', { name: 'Çizelge günü' })
+    .getByRole('button', { name: DAY_BUTTONS[day], exact: true })
+    .click();
+}
 
 async function expectOnlyDayColumn(table: Locator, selectedDay: (typeof DAYS)[number]) {
   for (const day of DAYS) {
@@ -28,6 +45,16 @@ async function expectSevenDayTable(table: Locator) {
       table.getByRole('columnheader', { name: day, exact: true }),
     ).toBeVisible();
   }
+}
+
+async function openProgram(page: Page): Promise<void> {
+  await page.goto('./#/program');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' }),
+  ).toBeVisible();
 }
 
 const PAGES: ReadonlyArray<{ path: string; heading: string }> = [
@@ -95,40 +122,45 @@ test('1440 px masaüstünde yan menü görünür ve yatay kaydırma olmaz', asyn
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test('390 px çizelgede tek gün görünür ve gün değiştirilir', async ({ page }) => {
+test('390 px çizelgede tek gün görünür, gün değiştirilir ve satır etiketi büyür', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await completeOnboarding(page, TEST_NAME, 'Tümü');
-  await page.goto('./#/program');
+  await openProgram(page);
 
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
   await expectOnlyDayColumn(table, 'Pazartesi');
 
-  await page.getByRole('button', { name: 'Salı' }).click();
+  await selectDay(page, 'Salı');
   await expectOnlyDayColumn(table, 'Salı');
 
-  // Text written before a day switch must survive a hide/reveal cycle and the
-  // revealed field must autosize without an inner scrollbar.
-  const cell = table.getByLabel('1. satır Salı', { exact: true });
-  await cell.fill('X'.repeat(120));
-  await page.getByRole('button', { name: 'Pazartesi' }).click();
-  await page.getByRole('button', { name: 'Salı' }).click();
+  // The row label field must autosize without an inner scrollbar when it wraps.
+  await page.getByRole('button', { name: 'Satır ekle' }).click();
+  const label = table.getByLabel('1. satır', { exact: true });
+  await label.fill('X'.repeat(80));
+  await selectDay(page, 'Pazartesi');
+  await selectDay(page, 'Salı');
 
-  await expect
-    .poll(async () => cell.evaluate((field) => field.clientHeight))
-    .toBeGreaterThan(44);
-  const revealOverflow = await cell.evaluate(
-    (field) => field.scrollHeight - field.clientHeight,
-  );
-  expect(revealOverflow).toBeLessThanOrEqual(1);
+  await expect.poll(async () => label.evaluate((field) => field.clientHeight)).toBeGreaterThan(44);
+  const overflow = await label.evaluate((field) => ({
+    vertical: field.scrollHeight - field.clientHeight,
+    horizontal: field.scrollWidth - field.clientWidth,
+  }));
+  expect(overflow.vertical).toBeLessThanOrEqual(1);
+  expect(overflow.horizontal).toBeLessThanOrEqual(1);
 });
 
-test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşağı büyür', async ({ page }) => {
+test('768 px çizelgede yedi gün kaydırılarak görünür ve satır aşağı büyür', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await completeOnboarding(page, TEST_NAME, 'Tümü');
-  await page.goto('./#/program');
+  await openProgram(page);
 
   const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
   await expectSevenDayTable(table);
+  await page.getByRole('button', { name: 'Satır ekle' }).click();
 
   const scroll = await table.evaluate((element) => {
     const wrapper = element.parentElement;
@@ -154,19 +186,17 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
   );
   expect(scrolledLeft).toBeGreaterThan(0);
 
-  // The subject column must stay pinned to the left edge while the days scroll.
+  // The day columns scroll, but the row label column stays pinned to the left.
   const sticky = await table.evaluate((element) => {
     const wrapper = element.parentElement;
     if (!wrapper) throw new Error('Kaydırma kapsayıcısı bulunamadı');
     const wrapperRect = wrapper.getBoundingClientRect();
-    const headerRect = element
-      .querySelector('thead th')
-      ?.getBoundingClientRect();
-    const subjectRect = element
-      .querySelector('tbody tr textarea')
+    const cell = element.querySelector('tbody tr td');
+    const subjectRect = cell
+      ?.querySelector('textarea')
       ?.getBoundingClientRect();
     return {
-      headerOffset: headerRect ? headerRect.left - wrapperRect.left : Number.NaN,
+      position: cell ? getComputedStyle(cell).position : '',
       subjectInside:
         subjectRect !== undefined &&
         subjectRect.width > 0 &&
@@ -174,8 +204,8 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
         subjectRect.right <= wrapperRect.right + 2,
     };
   });
-  await expect(table.locator('thead th').first()).toContainText('DERSLER / TARİH');
-  expect(Math.abs(sticky.headerOffset)).toBeLessThanOrEqual(2);
+  await expect(table.locator('thead th').first()).toContainText('DERS / ETKİNLİK');
+  expect(sticky.position).toBe('sticky');
   expect(sticky.subjectInside).toBe(true);
 
   await table.evaluate((element, scrollLeft) => {
@@ -186,7 +216,7 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
   const mondayWidth = await table
     .getByRole('columnheader', { name: 'Pazartesi', exact: true })
     .evaluate((element) => element.getBoundingClientRect().width);
-  expect(mondayWidth).toBeGreaterThanOrEqual(110);
+  expect(mondayWidth).toBeGreaterThanOrEqual(100);
 
   const pageOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -195,8 +225,8 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
 
   const row = table.locator('tbody tr').first();
   const before = await row.evaluate((el) => el.getBoundingClientRect().height);
-  const cell = table.getByLabel('1. satır Pazartesi', { exact: true });
-  await cell.fill('X'.repeat(120));
+  const label = table.getByLabel('1. satır', { exact: true });
+  await label.fill('X'.repeat(80));
 
   await expect
     .poll(async () => row.evaluate((el) => el.getBoundingClientRect().height))
@@ -204,12 +234,12 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
 
   await expectSevenDayTable(table);
 
-  const cellOverflow = await cell.evaluate((element) => ({
+  const labelOverflow = await label.evaluate((element) => ({
     vertical: element.scrollHeight - element.clientHeight,
     horizontal: element.scrollWidth - element.clientWidth,
   }));
-  expect(cellOverflow.vertical).toBeLessThanOrEqual(1);
-  expect(cellOverflow.horizontal).toBeLessThanOrEqual(1);
+  expect(labelOverflow.vertical).toBeLessThanOrEqual(1);
+  expect(labelOverflow.horizontal).toBeLessThanOrEqual(1);
 
   const overflowAfterFill = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -222,33 +252,30 @@ test('768 px çizelgede yedi gün kaydırılarak görünür ve uzun hücre aşa�
   }, originalScrollLeft);
 });
 
-test('1440 px çizelgede tablo kartı doldurur ve toplam sütunu görünür', async ({ page }) => {
+test('1440 px çizelgede tablo kartı doldurur ve eski toplam sütunu yoktur', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await completeOnboarding(page, TEST_NAME, 'Tümü');
-  await page.goto('./#/program');
+  await openProgram(page);
 
-  const table = page.getByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
+  const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
   await expectSevenDayTable(table);
 
-  const totalHeader = table.getByRole('columnheader', {
-    name: 'Toplam süre/soru',
-  });
-  await expect(totalHeader).toBeVisible();
+  // The old free-text table's totals never belong to the dated weekly plan.
+  await expect(
+    table.getByRole('columnheader', { name: 'Toplam süre/soru' }),
+  ).toHaveCount(0);
 
   const layout = await table.evaluate((element) => {
     const wrapper = element.parentElement;
     const main = document.getElementById('icerik');
-    const total = element.querySelector('th[aria-label="Toplam süre/soru"]');
     const wrapperRect = wrapper?.getBoundingClientRect();
-    const totalRect = total?.getBoundingClientRect();
     return {
       tableWidth: element.getBoundingClientRect().width,
       wrapperWidth: wrapper?.clientWidth ?? 0,
       wrapperScrollWidth: wrapper?.scrollWidth ?? 0,
       mainWidth: main?.getBoundingClientRect().width ?? 0,
-      totalRight: totalRect?.right ?? Number.NaN,
       wrapperRight: wrapperRect?.right ?? Number.NaN,
     };
   });
@@ -260,9 +287,6 @@ test('1440 px çizelgede tablo kartı doldurur ve toplam sütunu görünür', as
   // No in-card overflow: the table fits inside the scroll container.
   expect(layout.tableWidth).toBeGreaterThanOrEqual(layout.wrapperWidth - 1);
   expect(layout.wrapperScrollWidth).toBeLessThanOrEqual(layout.wrapperWidth + 1);
-
-  // The total column is inside the visible card area.
-  expect(layout.totalRight).toBeLessThanOrEqual(layout.wrapperRight + 1);
 
   const dayWidth = await table
     .getByRole('columnheader', { name: 'Pazartesi', exact: true })

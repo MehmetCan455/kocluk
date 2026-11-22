@@ -5,12 +5,43 @@ import { completeOnboarding, TEST_NAME } from './helpers';
 const PROGRAM_IMAGE = fileURLToPath(new URL('./fixtures/photo.png', import.meta.url));
 const PROGRAM_PDF = fileURLToPath(new URL('./fixtures/program.pdf', import.meta.url));
 
-test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await completeOnboarding(page, TEST_NAME, 'Tümü');
+/**
+ * Mirrors `weekLabel` in `src/domain/schedule.ts`; importing the app module
+ * would put a source file outside the e2e TypeScript project.
+ */
+function currentWeekLabel(now = new Date()): string {
+  const dayIndex = now.getDay();
+  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + mondayOffset,
+  );
+  const end = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate() + 6,
+  );
+  const dayMonth = new Intl.DateTimeFormat('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+  });
+  const full = new Intl.DateTimeFormat('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
+  if (start.getFullYear() !== end.getFullYear()) {
+    return `${full.format(start)} – ${full.format(end)}`;
+  }
+  if (start.getMonth() !== end.getMonth()) {
+    return `${dayMonth.format(start)} – ${full.format(end)}`;
+  }
+  return `${start.getDate()}–${full.format(end)}`;
+}
+
+async function openProgram(page: import('@playwright/test').Page): Promise<void> {
   await page
     .locator('header')
     .getByRole('link', { name: 'Ders Çalışma Çizelgesi', exact: true })
@@ -18,30 +49,63 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   await expect(
     page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
   ).toBeVisible();
+}
 
-  // Manual table is the default mode.
-  const table = page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' });
-  await expect(table).toBeVisible();
-  await table.getByLabel('1. satır ders', { exact: true }).fill('Matematik');
-  await table.getByLabel('1. satır Pazartesi', { exact: true }).fill('2 saat');
-  await page.getByRole('button', { name: 'Salı' }).click();
-  await table.getByLabel('1. satır Salı', { exact: true }).fill('40 soru');
-  await page.getByRole('button', { name: 'Pazartesi' }).click();
-  await table.getByLabel('1. satır toplam').fill('2 saat');
-  await table.getByLabel('Toplam satırı Pazartesi').fill('10 saat');
-  await table.getByLabel('Genel toplam').fill('10 saat');
-  await page.getByLabel('Haftanın notu').fill('E2E hafta notu');
-  await page.getByRole('button', { name: 'Tik modu' }).click();
-  await page
-    .getByRole('button', { name: /^1\. satır Pazartesi/ })
-    .click();
-  await page.getByRole('button', { name: 'Tik modu' }).click();
-  // The table autosaves shortly after the last edit.
+test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await completeOnboarding(page, TEST_NAME, 'Tümü');
+  await openProgram(page);
+
+  await expect(page.getByText(currentWeekLabel(), { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Satır ekle' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Satır ekle' }).click();
+  const rowLabel = page.getByLabel('1. satır', { exact: true });
+  await rowLabel.fill('Matematik');
+
+  // Rows autosave shortly after the last edit.
   await expect(page.getByText('Kaydedildi', { exact: true })).toBeVisible({
     timeout: 5_000,
   });
 
-  // Upload mode still keeps the photo/PDF archive.
+  // A saved row can carry a free-form task; ticking it must persist too.
+  await page
+    .getByRole('button', { name: 'Matematik Pazartesi görev ekle' })
+    .click();
+  const taskDialog = page.getByRole('dialog', { name: 'Görev ekle' });
+  await expect(taskDialog).toBeVisible();
+  await taskDialog.getByRole('button', { name: 'Serbest görev', exact: true }).click();
+  await taskDialog.getByLabel('Görev adı').fill('E2E görev');
+  await taskDialog.getByRole('button', { name: 'Kaydet', exact: true }).click();
+  await expect(taskDialog).not.toBeVisible();
+
+  const taskCheckbox = page.getByRole('checkbox', {
+    name: 'E2E görev görevini tamamla',
+  });
+  await expect(taskCheckbox).toBeVisible();
+  await taskCheckbox.click();
+  await expect(taskCheckbox).toBeChecked();
+
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
+  ).toBeVisible();
+  await expect(page.getByText(currentWeekLabel(), { exact: true })).toBeVisible();
+  await expect(page.getByLabel('1. satır', { exact: true })).toHaveValue('Matematik');
+  await expect(
+    page.getByRole('checkbox', { name: 'E2E görev görevini tamamla' }),
+  ).toBeChecked();
+});
+
+test('çizelge fotoğrafı ve PDF dosyası yüklenir, önizlenir ve silinir', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await completeOnboarding(page, TEST_NAME, 'Tümü');
+  await openProgram(page);
+
   await page.getByRole('button', { name: 'Fotoğraf/PDF', exact: true }).click();
   await expect(page.getByText('Henüz çizelge dosyası yok')).toBeVisible();
 
@@ -72,36 +136,15 @@ test('elle çizelge kaydedilir, görsel ve PDF önizlenir, dosyalar silinir', as
   await expect(imageDeleteDialog).not.toBeVisible();
   await expect(page.getByText('Henüz çizelge dosyası yok')).toBeVisible();
 
-  // The upload mode choice survives a reload; the saved table is still there.
+  // The upload mode choice survives a reload; the weekly plan still opens.
   await page.reload();
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
-  ).toBeVisible();
   await expect(page.getByText('Henüz çizelge dosyası yok')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Fotoğraf/PDF', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+
   await page.getByRole('button', { name: 'Elle tablo', exact: true }).click();
-  const reloadedTable = page.getByRole('table', {
-    name: 'Haftalık ders çalışma tablosu',
-  });
-  await expect(reloadedTable.getByLabel('1. satır ders', { exact: true })).toHaveValue('Matematik');
   await expect(
-    reloadedTable.getByLabel('1. satır Pazartesi', { exact: true }),
-  ).toHaveValue('2 saat');
-  await page.getByRole('button', { name: 'Salı' }).click();
-  await expect(
-    reloadedTable.getByLabel('1. satır Salı', { exact: true }),
-  ).toHaveValue('40 soru');
-  await expect(page.getByLabel('Haftanın notu')).toHaveValue('E2E hafta notu');
-  await page.getByRole('button', { name: 'Pazartesi' }).click();
-  await expect(page.getByRole('button', { name: 'Tik modu' })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
-  const reloadedCell = reloadedTable.getByLabel('1. satır Pazartesi', {
-    exact: true,
-  });
-  await expect(reloadedCell).toHaveValue('2 saat');
-  await expect(reloadedCell.locator('..')).toHaveAttribute(
-    'data-done',
-    'true',
-  );
+    page.getByRole('table', { name: 'Haftalık ders çalışma tablosu' }),
+  ).toBeVisible();
 });

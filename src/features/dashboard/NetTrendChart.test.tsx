@@ -19,13 +19,10 @@ import {
   RECORD_POINT_HOVER_RADIUS,
   RECORD_POINT_RADIUS,
   RECORD_POINT_STYLE,
-  STAR_POINT_DISPLAY_SIZE,
-  STAR_POINT_RENDER_SCALE,
-  createStarPointStyle,
+  createRecordStarPlugin,
   netTooltipLabel,
   netTooltipTitle,
   NetTrendChart,
-  renderStarCanvas,
   seriesPointBorderColors,
   seriesPointBorderWidths,
   seriesPointColors,
@@ -37,11 +34,11 @@ import {
 const ACCENT = '#3B82F6';
 
 const captured = vi.hoisted(() => ({
-  lineProps: null as null | { data: unknown; options: unknown },
+  lineProps: null as null | { data: unknown; options: unknown; plugins: unknown },
 }));
 
 vi.mock('react-chartjs-2', () => ({
-  Line: (props: { data: unknown; options: unknown }) => {
+  Line: (props: { data: unknown; options: unknown; plugins: unknown }) => {
     captured.lineProps = props;
     return null;
   },
@@ -112,6 +109,95 @@ interface CapturedLineProps {
       };
     };
   };
+  plugins?: Array<{ id?: string; afterDatasetsDraw?: unknown }>;
+}
+
+interface RecordedStarCalls {
+  fillRects: number;
+  strokeRects: number;
+  rects: Array<[number, number, number, number]>;
+  moveTo: Array<[number, number]>;
+  lineTo: Array<[number, number]>;
+  fills: string[];
+  strokes: string[];
+  lineJoins: string[];
+  lineCaps: string[];
+  lineWidths: number[];
+}
+
+/** Kaydedici 2D bağlam: yıldızın gerçekten vektör çizildiğini doğrular. */
+function recordingContext(): {
+  ctx: CanvasRenderingContext2D;
+  calls: RecordedStarCalls;
+} {
+  const calls: RecordedStarCalls = {
+    fillRects: 0,
+    strokeRects: 0,
+    rects: [],
+    moveTo: [],
+    lineTo: [],
+    fills: [],
+    strokes: [],
+    lineJoins: [],
+    lineCaps: [],
+    lineWidths: [],
+  };
+  const ctx = {
+    fillStyle: '',
+    strokeStyle: '',
+    lineJoin: 'miter' as CanvasLineJoin,
+    lineCap: 'butt' as CanvasLineCap,
+    lineWidth: 1,
+    save: () => undefined,
+    restore: () => undefined,
+    beginPath: () => undefined,
+    closePath: () => undefined,
+    clip: () => undefined,
+    rect(x: number, y: number, width: number, height: number) {
+      calls.rects.push([x, y, width, height]);
+    },
+    fillRect() {
+      calls.fillRects += 1;
+    },
+    strokeRect() {
+      calls.strokeRects += 1;
+    },
+    moveTo(x: number, y: number) {
+      calls.moveTo.push([x, y]);
+    },
+    lineTo(x: number, y: number) {
+      calls.lineTo.push([x, y]);
+    },
+    fill() {
+      calls.fills.push(String(this.fillStyle));
+    },
+    stroke() {
+      calls.strokes.push(String(this.strokeStyle));
+      calls.lineJoins.push(String(this.lineJoin));
+      calls.lineCaps.push(String(this.lineCap));
+      calls.lineWidths.push(this.lineWidth);
+    },
+  };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, calls };
+}
+
+function fakeChart(
+  recordFlags: boolean[],
+  positions: Array<{ x: number; y: number }>,
+  ctx: CanvasRenderingContext2D,
+  activeIndexes: number[] = [],
+) {
+  return {
+    ctx,
+    chartArea: { left: 10, top: 20, width: 200, height: 150 },
+    data: { datasets: [{ recordFlags }] },
+    getActiveElements: () =>
+      activeIndexes.map((index) => ({ index, datasetIndex: 0, element: null })),
+    getDatasetMeta: () => ({
+      hidden: false,
+      data: positions,
+    }),
+  };
 }
 
 test('rekor nokta altın, diğerleri accent renginde', () => {
@@ -133,10 +219,10 @@ test('ilk nokta rekor işaretliyse altın yıldız kalır', () => {
     RECORD_POINT_COLOR,
   ]);
   expect(seriesPointColors([], ACCENT)).toEqual([]);
-  expect(seriesPointStyles([point({ record: true })])[0]).toBeInstanceOf(
-    HTMLCanvasElement,
+  expect(seriesPointStyles([point({ record: true })])[0]).toBe(
+    RECORD_POINT_STYLE,
   );
-  expect(seriesPointRadii([point({ record: true })])).toEqual([RECORD_POINT_RADIUS]);
+  expect(seriesPointRadii([point({ record: true })])).toEqual([0]);
   expect(seriesPointBorderColors([point({ record: true })], ACCENT)).toEqual([
     ACCENT,
   ]);
@@ -153,18 +239,14 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; kenarsız ve boyu
   ];
   const styles = seriesPointStyles(points);
   expect(styles[0]).toBe(POINT_STYLE);
-  expect(styles[1]).toBeInstanceOf(HTMLCanvasElement);
+  expect(styles[1]).toBe(RECORD_POINT_STYLE);
   expect(styles[2]).toBe(POINT_STYLE);
   expect(POINT_STYLE).toBe('circle');
   expect(RECORD_POINT_STYLE).toBe('star');
-  expect(seriesPointRadii(points)).toEqual([
-    POINT_RADIUS,
-    RECORD_POINT_RADIUS,
-    POINT_RADIUS,
-  ]);
+  expect(seriesPointRadii(points)).toEqual([POINT_RADIUS, 0, POINT_RADIUS]);
   expect(seriesPointHoverRadii(points)).toEqual([
     POINT_HOVER_RADIUS,
-    RECORD_POINT_HOVER_RADIUS,
+    0,
     POINT_HOVER_RADIUS,
   ]);
   expect(seriesPointBorderColors(points, ACCENT)).toEqual([
@@ -178,7 +260,7 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; kenarsız ve boyu
     POINT_BORDER_WIDTH,
   ]);
 
-  // Klasik 5 köşeli yıldız: saf altın dolgu, Chart.js kenarlığı yok.
+  // Klasik 5 köşeli yıldız: saf altın dolgu, vektör plugin, Chart.js kenarlığı yok.
   expect(RECORD_POINT_COLOR).toBe('#FACC15');
   expect(RECORD_POINT_BORDER_WIDTH).toBe(0);
   expect(RECORD_POINT_RADIUS).toBeGreaterThanOrEqual(10);
@@ -188,40 +270,115 @@ test('rekor noktalar altın yıldız, diğerleri accent daire; kenarsız ve boyu
   expect(POINT_BORDER_WIDTH).toBe(1);
 });
 
-test('yıldız 4x çözünürlükte çizilip görüntü boyutuna indirilir', () => {
-  const renderCanvas = renderStarCanvas();
-  expect(renderCanvas).toBeInstanceOf(HTMLCanvasElement);
-  expect(renderCanvas?.width).toBe(
-    STAR_POINT_DISPLAY_SIZE * STAR_POINT_RENDER_SCALE,
+test('plugin rekor noktaya 10 köşeli altın vektör yıldız çizer', () => {
+  const { ctx, calls } = recordingContext();
+  const chart = fakeChart(
+    [false, true, false],
+    [
+      { x: 40, y: 110 },
+      { x: 100, y: 60 },
+      { x: 160, y: 90 },
+    ],
+    ctx,
   );
-  expect(renderCanvas?.height).toBe(renderCanvas?.width);
-  expect(STAR_POINT_RENDER_SCALE).toBe(4);
+  const plugin = createRecordStarPlugin([
+    point({ record: false }),
+    point({ record: true }),
+    point({ record: false }),
+  ]);
+  (plugin.afterDatasetsDraw as (chart: unknown) => void)(chart);
 
-  const pointStyle = createStarPointStyle();
-  expect(pointStyle).toBeInstanceOf(HTMLCanvasElement);
-  const canvas = pointStyle as HTMLCanvasElement;
-  // Chart.js görsel nokta stilini tuvalin kendi piksel boyutunda çizer.
-  expect(canvas.width).toBe(STAR_POINT_DISPLAY_SIZE);
-  expect(canvas.height).toBe(STAR_POINT_DISPLAY_SIZE);
-  expect(canvas.width).toBeLessThan(renderCanvas?.width ?? 0);
+  // Yalnızca grafik alanını (yıldız yarıçapı kadar geniş) kırpan rect var;
+  // kare/çerçeve çizen çağrı yok.
+  expect(calls.rects).toEqual([[-2, 8, 224, 174]]);
+  expect(calls.fillRects).toBe(0);
+  expect(calls.strokeRects).toBe(0);
+
+  // Klasik 5 köşeli yıldız: 1 moveTo + 9 lineTo = 10 köşe.
+  expect(calls.moveTo).toHaveLength(1);
+  expect(calls.lineTo).toHaveLength(9);
+  // İlk köşe yıldızın tepesi: merkez (100, 60), yarıçap 10.5.
+  expect(calls.moveTo[0][0]).toBeCloseTo(100);
+  expect(calls.moveTo[0][1]).toBeCloseTo(60 - RECORD_POINT_RADIUS);
+  expect(calls.fills).toEqual([RECORD_POINT_COLOR]);
+  expect(calls.strokes).toEqual([RECORD_POINT_COLOR]);
+  expect(calls.lineJoins).toEqual(['round']);
+  expect(calls.lineCaps).toEqual(['round']);
+  expect(calls.lineWidths).toEqual([1.5]);
 });
 
-test('yıldız çizimi koyu kenar içermez', () => {
+test('plugin güncel rekor bayraklarını grafik verisinden okur', () => {
+  const { ctx, calls } = recordingContext();
+  // Plugin eski seriyle kurulmuş olsa da chart verisi güncel bayrağı taşır.
+  const chart = fakeChart(
+    [false, true],
+    [
+      { x: 50, y: 100 },
+      { x: 120, y: 70 },
+    ],
+    ctx,
+  );
+  const plugin = createRecordStarPlugin([
+    point({ record: false }),
+    point({ record: false }),
+  ]);
+  (plugin.afterDatasetsDraw as (chart: unknown) => void)(chart);
+
+  expect(calls.moveTo).toHaveLength(1);
+  expect(calls.moveTo[0][0]).toBeCloseTo(120);
+  expect(calls.moveTo[0][1]).toBeCloseTo(70 - RECORD_POINT_RADIUS);
+});
+
+test('hover’daki rekor yıldızını plugin büyütür', () => {
+  const { ctx, calls } = recordingContext();
+  const chart = fakeChart(
+    [false, true],
+    [
+      { x: 50, y: 100 },
+      { x: 120, y: 70 },
+    ],
+    ctx,
+    [1],
+  );
+  const plugin = createRecordStarPlugin([
+    point({ record: false }),
+    point({ record: true }),
+  ]);
+  (plugin.afterDatasetsDraw as (chart: unknown) => void)(chart);
+
+  expect(calls.moveTo).toHaveLength(1);
+  expect(calls.moveTo[0][0]).toBeCloseTo(120);
+  expect(calls.moveTo[0][1]).toBeCloseTo(70 - RECORD_POINT_HOVER_RADIUS);
+});
+
+test('rekor yoksa plugin yıldız çizmez', () => {
+  const { ctx, calls } = recordingContext();
+  const chart = fakeChart(
+    [false, false],
+    [
+      { x: 50, y: 100 },
+      { x: 120, y: 70 },
+    ],
+    ctx,
+  );
+  const plugin = createRecordStarPlugin([
+    point({ record: false }),
+    point({ record: false }),
+  ]);
+  (plugin.afterDatasetsDraw as (chart: unknown) => void)(chart);
+
+  expect(calls.moveTo).toHaveLength(0);
+  expect(calls.fills).toEqual([]);
+  expect(calls.strokes).toEqual([]);
+});
+
+test('yıldız çizimi tuval görüntüsü ve koyu kenar içermez', () => {
   expect(chartSource).not.toContain('#0A0A0C');
+  expect(chartSource).not.toContain("createElement('canvas')");
+  expect(chartSource).not.toContain('getContext');
+  expect(chartSource).not.toContain('drawImage');
   expect(chartSource).not.toMatch(/strokeStyle\s*=\s*['"]#0/);
-});
-
-test('canvas 2D bağlamı yoksa yıldız stili string yedeğe düşer', () => {
-  const getContext = vi
-    .spyOn(HTMLCanvasElement.prototype, 'getContext')
-    .mockImplementation(
-      (() => null) as typeof HTMLCanvasElement.prototype.getContext,
-    );
-  try {
-    expect(createStarPointStyle()).toBe(RECORD_POINT_STYLE);
-  } finally {
-    getContext.mockRestore();
-  }
+  expect(chartSource).toContain('afterDatasetsDraw');
 });
 
 test('PointElement prototipi yamalanmaz', () => {
@@ -254,9 +411,9 @@ test('kırpılmış dashboard serisinde pencere başındaki rekor altın yıldı
   expect(dataset.pointBackgroundColor[0]).toBe(RECORD_POINT_COLOR);
   expect(dataset.pointBorderColor[0]).toBe(ACCENT);
   expect(dataset.pointBorderWidth[0]).toBe(RECORD_POINT_BORDER_WIDTH);
-  expect(dataset.pointStyle[0]).toBeInstanceOf(HTMLCanvasElement);
-  expect(dataset.pointRadius[0]).toBe(RECORD_POINT_RADIUS);
-  expect(dataset.pointHoverRadius[0]).toBe(RECORD_POINT_HOVER_RADIUS);
+  expect(dataset.pointStyle[0]).toBe(RECORD_POINT_STYLE);
+  expect(dataset.pointRadius[0]).toBe(0);
+  expect(dataset.pointHoverRadius[0]).toBe(0);
 });
 
 test('tooltip deneme adı, tarih ve neti gösterir', () => {
@@ -311,15 +468,15 @@ test('grafik bileşeni nokta renklerini, şekillerini ve tooltip callbacklerini 
     RECORD_POINT_BORDER_WIDTH,
   ]);
   expect(props.data.datasets[0].pointStyle[0]).toBe('circle');
-  expect(props.data.datasets[0].pointStyle[1]).toBeInstanceOf(HTMLCanvasElement);
-  expect(props.data.datasets[0].pointRadius).toEqual([
-    POINT_RADIUS,
-    RECORD_POINT_RADIUS,
-  ]);
+  expect(props.data.datasets[0].pointStyle[1]).toBe(RECORD_POINT_STYLE);
+  expect(props.data.datasets[0].pointRadius).toEqual([POINT_RADIUS, 0]);
   expect(props.data.datasets[0].pointHoverRadius).toEqual([
     POINT_HOVER_RADIUS,
-    RECORD_POINT_HOVER_RADIUS,
+    0,
   ]);
+  expect(props.plugins).toHaveLength(1);
+  expect(props.plugins?.[0]?.id).toBe('recordStar');
+  expect(props.plugins?.[0]?.afterDatasetsDraw).toBeTypeOf('function');
 
   const { title, label } = props.options.plugins.tooltip.callbacks;
   expect(title([{ dataIndex: 0 }])).toBe('Sabah Denemesi');

@@ -8,6 +8,7 @@ import {
   PointElement,
   Tooltip,
   type ChartOptions,
+  type Plugin,
   type PointStyle,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
@@ -27,7 +28,7 @@ const TICK_COLOR = '#98A2B3';
 export const RECORD_POINT_COLOR = '#FACC15';
 
 export const POINT_STYLE: PointStyle = 'circle';
-/** Fallback when a canvas context is unavailable (for example during SSR). */
+/** Records are drawn by the vector plugin; the style is a logical label. */
 export const RECORD_POINT_STYLE: PointStyle = 'star';
 
 /** Stars need a little more room than the plain circles. */
@@ -37,16 +38,11 @@ export const POINT_HOVER_RADIUS = 5;
 export const RECORD_POINT_HOVER_RADIUS = 14;
 
 export const POINT_BORDER_WIDTH = 1;
-/** Chart.js must not stroke the image bounding box, so records have no border. */
+/** Records are vector-drawn, so Chart.js draws no border for them. */
 export const RECORD_POINT_BORDER_WIDTH = 0;
 
-/** A fill-coloured stroke rounds the tips, so the canvas needs a little room. */
+/** A fill-coloured stroke rounds the tips of the vector star. */
 const STAR_POINT_STROKE_WIDTH = 1.5;
-/** Logical canvas size; Chart.js draws image point styles at their intrinsic size. */
-export const STAR_POINT_DISPLAY_SIZE =
-  Math.ceil((RECORD_POINT_RADIUS + STAR_POINT_STROKE_WIDTH) * 2) + 2;
-/** The star is supersampled and downscaled so its curves stay smooth. */
-export const STAR_POINT_RENDER_SCALE = 4;
 
 /** Draws a filled, classic five-point star with rounded tips centred on `(x, y)`. */
 function drawClassicStar(
@@ -83,74 +79,63 @@ function drawClassicStar(
   ctx.stroke();
 }
 
-/**
- * Yüksek çözünürlüklü yıldız tuvali: 4x pikselde, mantıksal koordinatlarla çizilir.
- * Chart.js görsel nokta stilini kendi piksel boyutunda gösterdiği için asıl
- * nokta stili bunu görüntü boyutuna indirir.
- */
-export function renderStarCanvas(): HTMLCanvasElement | null {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = STAR_POINT_DISPLAY_SIZE * STAR_POINT_RENDER_SCALE;
-  canvas.height = canvas.width;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    return null;
-  }
-
-  ctx.scale(STAR_POINT_RENDER_SCALE, STAR_POINT_RENDER_SCALE);
-  const center = STAR_POINT_DISPLAY_SIZE / 2;
-  drawClassicStar(ctx, center, center, RECORD_POINT_RADIUS, RECORD_POINT_COLOR);
-  return canvas;
+/** Dataset'e eklenen rekor bayrakları; plugin güncel veriyi buradan okur. */
+interface RecordFlagDataset {
+  recordFlags?: boolean[];
 }
 
-let cachedStarPointStyle: PointStyle | null = null;
-
 /**
- * A small offscreen canvas with the classic gold star. Chart.js draws image
- * point styles without a canvas-wide prototype patch, so normal circles and
- * other charts keep their own drawing path. Falls back to the built-in `star`
- * string when no 2D context exists.
+ * Record stars are drawn as vectors on the chart canvas. Chart.js scales the
+ * canvas context for the device pixel ratio, so the star stays sharp on Retina
+ * screens instead of being an upscaled image point style. The record point
+ * itself has radius 0, so Chart.js draws nothing underneath.
  */
-export function createStarPointStyle(): PointStyle {
-  const renderCanvas = renderStarCanvas();
-  if (!renderCanvas) {
-    return RECORD_POINT_STYLE;
-  }
+export function createRecordStarPlugin(
+  points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
+): Plugin<'line'> {
+  return {
+    id: 'recordStar',
+    afterDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(0);
+      if (meta.hidden) {
+        return;
+      }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = STAR_POINT_DISPLAY_SIZE;
-  canvas.height = STAR_POINT_DISPLAY_SIZE;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    return RECORD_POINT_STYLE;
-  }
+      // react-chartjs-2 keeps chart instances alive and updates data in place,
+      // so use the live flags instead of the captured (possibly stale) array.
+      const dataset = chart.data.datasets[0] as RecordFlagDataset | undefined;
+      const records = dataset?.recordFlags ?? points.map((point) => point.record);
+      const { ctx, chartArea } = chart;
 
-  ctx.imageSmoothingEnabled = true;
-  if ('imageSmoothingQuality' in ctx) {
-    ctx.imageSmoothingQuality = 'high';
-  }
-  ctx.drawImage(
-    renderCanvas,
-    0,
-    0,
-    renderCanvas.width,
-    renderCanvas.height,
-    0,
-    0,
-    STAR_POINT_DISPLAY_SIZE,
-    STAR_POINT_DISPLAY_SIZE,
-  );
-  return canvas;
-}
-
-function recordPointStyle(): PointStyle {
-  if (cachedStarPointStyle === null) {
-    cachedStarPointStyle = createStarPointStyle();
-  }
-  return cachedStarPointStyle;
+      // Kenardaki rekorlar (pencere başındaki eski rekor ya da zirve) yarım
+      // kalmasın diye kırpma alanı yıldızın dış yarıçapı kadar genişletilir.
+      const overflow = RECORD_POINT_RADIUS + STAR_POINT_STROKE_WIDTH;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(
+        chartArea.left - overflow,
+        chartArea.top - overflow,
+        chartArea.width + overflow * 2,
+        chartArea.height + overflow * 2,
+      );
+      ctx.clip();
+      const activeIndexes = new Set(
+        chart.getActiveElements().map((active) => active.index),
+      );
+      meta.data.forEach((element, index) => {
+        if (!records[index]) {
+          return;
+        }
+        // Chart.js'in yerleşik `star` şekli beş köşeli değil; hover'da onun
+        // çizilmemesi için yarıçap 0, büyüme de burada yapılır.
+        const radius = activeIndexes.has(index)
+          ? RECORD_POINT_HOVER_RADIUS
+          : RECORD_POINT_RADIUS;
+        drawClassicStar(ctx, element.x, element.y, radius, RECORD_POINT_COLOR);
+      });
+      ctx.restore();
+    },
+  };
 }
 
 /**
@@ -164,28 +149,28 @@ export function seriesPointColors(
   return points.map((point) => (point.record ? RECORD_POINT_COLOR : accent));
 }
 
-/** Record points are stars so the highlight survives colour-blind viewing. */
+/** Record points carry the star label, but the plugin draws the vector. */
 export function seriesPointStyles(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): PointStyle[] {
-  return points.map((point) => (point.record ? recordPointStyle() : POINT_STYLE));
+  return points.map((point) => (point.record ? RECORD_POINT_STYLE : POINT_STYLE));
 }
 
+/** Record points have radius 0 so Chart.js leaves the spot to the plugin. */
 export function seriesPointRadii(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): number[] {
-  return points.map((point) => (point.record ? RECORD_POINT_RADIUS : POINT_RADIUS));
+  return points.map((point) => (point.record ? 0 : POINT_RADIUS));
 }
 
+/** Record hover growth is drawn by the plugin, so Chart.js gets radius 0. */
 export function seriesPointHoverRadii(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
 ): number[] {
-  return points.map((point) =>
-    point.record ? RECORD_POINT_HOVER_RADIUS : POINT_HOVER_RADIUS,
-  );
+  return points.map((point) => (point.record ? 0 : POINT_HOVER_RADIUS));
 }
 
-/** Image point styles are never stroked; every point keeps the accent outline. */
+/** Every point keeps the accent outline; record stars simply draw no border. */
 export function seriesPointBorderColors(
   points: ReadonlyArray<Pick<NetSeriesPoint, 'record'>>,
   accent: string,
@@ -260,6 +245,8 @@ export function NetTrendChart({
           pointStyle: pointStyles,
           pointRadius: pointRadii,
           pointHoverRadius: pointHoverRadii,
+          // Vector star plugin'i canlı grafik verisinden rekor noktaları bulur.
+          recordFlags: points.map((point) => point.record),
           borderWidth: 2,
           fill: true,
           tension: 0.25,
@@ -267,6 +254,11 @@ export function NetTrendChart({
       ],
     };
   }, [accent, fillColor, points, title]);
+
+  const recordStarPlugin = useMemo(
+    () => createRecordStarPlugin(points),
+    [points],
+  );
 
   const options = useMemo<ChartOptions<'line'>>(
     () => ({
@@ -347,7 +339,12 @@ export function NetTrendChart({
       ) : (
         <figure className="space-y-2">
           <div role="img" aria-label={ariaLabel} className="h-56 sm:h-64">
-            <Line data={data} options={options} aria-hidden="true" />
+            <Line
+              data={data}
+              options={options}
+              plugins={[recordStarPlugin]}
+              aria-hidden="true"
+            />
           </div>
           <figcaption className="sr-only">{summary}</figcaption>
         </figure>

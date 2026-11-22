@@ -966,15 +966,27 @@ git commit -m "feat: keep legacy schedule read-only"
 ## Task 18: Bütünleşik doğrulama ve local preview
 
 **Files:**
+- Modify: `tests/e2e/program.spec.ts` (stale old schedule editor)
 - Modify: `README.md` (book/plan behavior, no cloud yet)
 - Modify: `docs/superpowers/plans/2026-11-22-kitap-sayfa-takibi-ve-haftalik-plan.md` (check boxes as completed)
 
-- [ ] **Step 1: Run the full unit/UI suite**
+- [ ] **Step 1: Update stale E2E specs and run Playwright**
+
+`tests/e2e/program.spec.ts` still drives the deleted `ScheduleTableEditor` UI. Rewrite it for the new dated weekly plan:
+- open `/program`,
+- verify the current week label and `Satır ekle`,
+- add a row, type a label, wait for autosave, reload, assert it persists,
+- optionally add a task and tick it if the test environment is stable.
+Also grep `tests/e2e` for `Kitap / test ekle`, `Toplam test`, `Çözülen test`, `Haftalık tablo`, `Tik modu`, and old editor labels; fix any stale spec that would fail.
+Run: `npm run test:e2e`
+Expected: PASS.
+
+- [ ] **Step 2: Run the full unit/UI suite**
 
 Run: `npm run test:run`
 Expected: PASS, no skipped new tests.
 
-- [ ] **Step 2: Run typecheck and production build**
+- [ ] **Step 3: Run typecheck and production build**
 
 Run: `npm run typecheck`
 Expected: PASS.
@@ -982,18 +994,18 @@ Expected: PASS.
 Run: `npm run build`
 Expected: PASS.
 
-- [ ] **Step 3: Update README**
+- [ ] **Step 4: Update README**
 
 Document that books are now page-based and the weekly plan records progress; note that accounts/cloud sync are the next phase. Do not claim cloud features.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add README.md docs/superpowers/plans/2026-11-22-kitap-sayfa-takibi-ve-haftalik-plan.md
+git add tests/e2e/program.spec.ts README.md docs/superpowers/plans/2026-11-22-kitap-sayfa-takibi-ve-haftalik-plan.md
 git commit -m "docs: describe page-based books and weekly plan"
 ```
 
-- [ ] **Step 5: Start the local preview and stop**
+- [ ] **Step 6: Start the local preview and stop**
 
 Run: `npm run dev -- --host`
 Expected: Vite prints a local URL (`http://localhost:5173/`). Leave it running for the user and report the URL. **Do not run `git push`.**

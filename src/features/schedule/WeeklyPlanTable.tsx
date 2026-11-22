@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -18,6 +17,9 @@ export interface WeeklyPlanRow {
 export interface WeeklyPlanTableProps {
   weekStart: string;
   rows: WeeklyPlanRow[];
+  /** Zero-based index into SCHEDULE_DAYS: narrow screens show a single day. */
+  selectedDay: number;
+  onSelectDay: (dayIndex: number) => void;
   onAddRow: () => void;
   onRenameRow: (key: string, label: string) => void;
   onDeleteRow: (key: string) => void;
@@ -37,14 +39,13 @@ const rowCellClass =
 export function WeeklyPlanTable({
   weekStart,
   rows,
+  selectedDay,
+  onSelectDay,
   onAddRow,
   onRenameRow,
   onDeleteRow,
   disabled = false,
 }: WeeklyPlanTableProps) {
-  // Zero-based index into SCHEDULE_DAYS: narrow screens show a single day.
-  const [selectedDay, setSelectedDay] = useState(0);
-
   return (
     <Card className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -76,7 +77,7 @@ export function WeeklyPlanTable({
             type="button"
             aria-label={`${day.short} ${day.label}`}
             aria-pressed={dayIndex === selectedDay}
-            onClick={() => setSelectedDay(dayIndex)}
+            onClick={() => onSelectDay(dayIndex)}
             className={cn(
               'min-h-11 rounded-lg border text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
               dayIndex === selectedDay

@@ -59,12 +59,19 @@ function messageFor(caught: unknown, fallback: string): string {
   return caught instanceof Error && caught.message ? caught.message : fallback;
 }
 
+/** Saved labels are scoped by week so a pending save survives a week switch. */
+function savedLabelKey(weekId: string, rowKey: string): string {
+  return `${weekId}:${rowKey}`;
+}
+
 export function WeeklyPlan() {
   const noteId = useId();
   const [searchParams] = useSearchParams();
   const weekParam = searchParams.get('week');
 
   const [weekStart, setWeekStart] = useState(() => requestedWeekStart(weekParam));
+  // Lives above the table so switching weeks keeps the selected mobile day.
+  const [selectedDay, setSelectedDay] = useState(0);
   const [weekData, setWeekData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -148,6 +155,19 @@ export function WeeklyPlan() {
 
       let wrote = false;
       try {
+        // A cleared existing label is a normal edit, but the repository rejects
+        // blank labels. Surface the problem instead of silently claiming the
+        // old label was saved.
+        if (
+          targetRows.some(
+            (row) => row.id !== undefined && row.label.trim() === '',
+          )
+        ) {
+          throw new Error(
+            'Satır adı boş olamaz. Satırı silmek için çöp kutusunu kullan.',
+          );
+        }
+
         for (const row of targetRows) {
           const label = row.label.trim();
           if (!label) {
@@ -158,15 +178,35 @@ export function WeeklyPlan() {
             if (addingKeysRef.current.has(row.key)) {
               continue;
             }
+            // A queued flush may still carry the pre-insert snapshot. The
+            // label map proves this key was already inserted, so never add it
+            // a second time.
+            if (
+              lastSavedLabelsRef.current.has(
+                savedLabelKey(forWeekId, row.key),
+              )
+            ) {
+              continue;
+            }
             addingKeysRef.current.add(row.key);
             try {
               const created = await addRow(forWeekId, label);
               wrote = true;
-              lastSavedLabelsRef.current.set(row.key, created.label);
+              lastSavedLabelsRef.current.set(
+                savedLabelKey(forWeekId, row.key),
+                created.label,
+              );
 
               // The row may have been deleted while the insert was in flight.
-              if (!rowsRef.current.some((item) => item.key === row.key)) {
-                lastSavedLabelsRef.current.delete(row.key);
+              // The live rows only belong to this week; after a week switch
+              // they say nothing about the inserted row.
+              const stillPresent =
+                weekIdRef.current !== forWeekId ||
+                rowsRef.current.some((item) => item.key === row.key);
+              if (!stillPresent) {
+                lastSavedLabelsRef.current.delete(
+                  savedLabelKey(forWeekId, row.key),
+                );
                 await deleteScheduleRow(created.id);
                 continue;
               }
@@ -183,10 +223,17 @@ export function WeeklyPlan() {
             } finally {
               addingKeysRef.current.delete(row.key);
             }
-          } else if (lastSavedLabelsRef.current.get(row.key) !== label) {
+          } else if (
+            lastSavedLabelsRef.current.get(
+              savedLabelKey(forWeekId, row.key),
+            ) !== label
+          ) {
             await renameRow(row.id, label);
             wrote = true;
-            lastSavedLabelsRef.current.set(row.key, label);
+            lastSavedLabelsRef.current.set(
+              savedLabelKey(forWeekId, row.key),
+              label,
+            );
           }
         }
 
@@ -215,7 +262,18 @@ export function WeeklyPlan() {
         const pending = pendingRowsRef.current;
         pendingRowsRef.current = null;
         if (pending) {
-          void persistRows(pending.rows, pending.weekId, pending.signature);
+          // When the pending snapshot belongs to the visible week, refresh it
+          // from the live rows so ids assigned by the insert are visible to the
+          // replay. The label guard in persistRows covers the other week.
+          const rowsToSave =
+            weekIdRef.current === pending.weekId
+              ? rowsRef.current
+              : pending.rows;
+          void persistRows(
+            rowsToSave,
+            pending.weekId,
+            rowsSignature(rowsToSave),
+          );
         }
       }
     },
@@ -239,11 +297,11 @@ export function WeeklyPlan() {
         await saveWeekNote(forWeekId, value);
         failedNoteRef.current = null;
         if (mountedRef.current && weekIdRef.current === forWeekId) {
-          updateSavedNote(value);
+          updateSavedNote(value.trim());
           setHasSaved(true);
         }
       } catch (caught: unknown) {
-        failedNoteRef.current = value;
+        failedNoteRef.current = value.trim();
         if (mountedRef.current && weekIdRef.current === forWeekId) {
           setSaveError(
             messageFor(caught, 'Not kaydedilemedi. Lütfen tekrar dene.'),
@@ -283,10 +341,8 @@ export function WeeklyPlan() {
     if (!forWeekId) {
       return;
     }
-    if (
-      noteRef.current !== savedNoteRef.current &&
-      noteRef.current !== failedNoteRef.current
-    ) {
+    const trimmed = noteRef.current.trim();
+    if (trimmed !== savedNoteRef.current && trimmed !== failedNoteRef.current) {
       void persistNote(noteRef.current, forWeekId);
     }
   }, [persistNote]);
@@ -316,15 +372,18 @@ export function WeeklyPlan() {
         }));
         updateRows(nextRows);
         updateSavedRows(savedView(nextRows));
-        lastSavedLabelsRef.current = new Map(
-          nextRows.flatMap((row) =>
-            row.id === undefined ? [] : [[row.key, row.label] as const],
-          ),
-        );
+        for (const row of nextRows) {
+          if (row.id !== undefined) {
+            lastSavedLabelsRef.current.set(
+              savedLabelKey(data.week.id, row.key),
+              row.label,
+            );
+          }
+        }
 
         updateNote(data.week.note);
-        updateSavedNote(data.week.note);
-        setHasSaved(data.week.note.length > 0 || nextRows.length > 0);
+        updateSavedNote(data.week.note.trim());
+        setHasSaved(data.week.note.trim().length > 0 || nextRows.length > 0);
         setWeekData(data);
         setLoading(false);
       })
@@ -387,7 +446,7 @@ export function WeeklyPlan() {
 
   const rowsSignatureValue = rowsSignature(rows);
   const rowsDirty = rowsSignatureValue !== rowsSignature(savedRows);
-  const noteDirty = note !== savedNote;
+  const noteDirty = note.trim() !== savedNote;
   const dirty = rowsDirty || noteDirty;
 
   useEffect(() => {
@@ -414,7 +473,7 @@ export function WeeklyPlan() {
       !weekData ||
       !noteDirty ||
       noteSaving ||
-      note === failedNoteRef.current
+      note.trim() === failedNoteRef.current
     ) {
       return;
     }
@@ -454,7 +513,10 @@ export function WeeklyPlan() {
       }
     }
 
-    lastSavedLabelsRef.current.delete(key);
+    const forWeekId = weekIdRef.current;
+    if (forWeekId) {
+      lastSavedLabelsRef.current.delete(savedLabelKey(forWeekId, key));
+    }
     updateRows(rowsRef.current.filter((item) => item.key !== key));
     updateSavedRows(savedRowsRef.current.filter((item) => item.key !== key));
   }
@@ -519,6 +581,8 @@ export function WeeklyPlan() {
         <WeeklyPlanTable
           weekStart={weekStart}
           rows={rows}
+          selectedDay={selectedDay}
+          onSelectDay={setSelectedDay}
           onAddRow={addDraftRow}
           onRenameRow={renameDraftRow}
           onDeleteRow={(key) => void removeRow(key)}

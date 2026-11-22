@@ -37,11 +37,14 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
 ## Kitaplar, konu durumu ve haftalık plan
 
 - **Kitaplar** sayfasında katalogdan kitap seçip rafına ekleyebilirsin. Her kitap
-  toplam sayfa, güncel sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir.
+  toplam sayfa, güncel sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir; toplam
+  sayfa girilmemiş kitaplarda yüzde yerine **Sayfa sayısını gir** uyarısı çıkar.
   Katalogda olmayan kitapları kendi başlık, yayınevi ve sayfa sayısıyla ekleyebilirsin.
-- Kitap detayında okuduğun sayfa aralığını elle kaydedebilir, geçmişi görebilir ve
-  plandaki kitap görevlerini izleyebilirsin. İlerleme yalnızca etkin okuma
-  kayıtlarından hesaplanır; aynı aralığı tekrar girmek ilerlemeyi çift saymaz.
+- Kitap detayında **Şu anki sayfa** alanına okuduğun son sayfayı girerek ilerlemeyi
+  elle kaydedebilir, geçmişi görebilir ve plandaki kitap görevlerini izleyebilirsin.
+  İlerleme yalnızca etkin okuma kayıtlarından hesaplanır; tek sayfa girişi kitabın
+  güncel sayfasını ayarlar, sayfa aralığı ise haftalık plandaki kitap görevlerine
+  aittir.
 - **Ders Çalışma Çizelgesi** sayfasında haftalık plan tarihli olarak tutulur. Haftalar
   arasında geçiş yapabilir, satır ekleyebilir ve her hücreye kitap sayfası, konu
   tekrarı veya serbest görev ekleyebilirsin. Değişiklikler kısa bir gecikmeyle
@@ -50,9 +53,8 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
   ilerlemesini otomatik günceller. Tiki geri almak kaydı geri alır, böylece ilerleme
   çift sayılmaz. Konu görevi tiklenince tekrar geçmişine kayıt eklenir; konunun
   **Bitti** durumu ayrıca konu sayfasındaki **Durum** sekmesinden işaretlenir.
-- **Genel Bakış** sayfası bugünün planını, kitap ilerlemesini ve haftalık özeti
-  bir arada gösterir. Eski test kayıtları ve eski serbest metin çizelgesi salt
-  okunur olarak korunur.
+- **Genel Bakış** sayfası bugünün planını ve kitap ilerlemesini bir arada gösterir.
+  Eski test kayıtları ve eski serbest metin çizelgesi salt okunur olarak korunur.
 
 PWA ikonlarını `public/favicon.svg` kaynağından yeniden üretmek için:
 

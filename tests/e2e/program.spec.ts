@@ -58,7 +58,9 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
   await completeOnboarding(page, TEST_NAME, 'Tümü');
   await openProgram(page);
 
-  await expect(page.getByText(currentWeekLabel(), { exact: true })).toBeVisible();
+  // Capture once so a run crossing midnight cannot compare two different weeks.
+  const expectedWeekLabel = currentWeekLabel();
+  await expect(page.getByText(expectedWeekLabel, { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Satır ekle' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Satır ekle' }).click();
@@ -92,7 +94,7 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
   await expect(
     page.getByRole('heading', { level: 1, name: 'Ders Çalışma Çizelgesi' }),
   ).toBeVisible();
-  await expect(page.getByText(currentWeekLabel(), { exact: true })).toBeVisible();
+  await expect(page.getByText(expectedWeekLabel, { exact: true })).toBeVisible();
   await expect(page.getByLabel('1. satır', { exact: true })).toHaveValue('Matematik');
   await expect(
     page.getByRole('checkbox', { name: 'E2E görev görevini tamamla' }),

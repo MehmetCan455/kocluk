@@ -270,13 +270,11 @@ test('1440 px çizelgede tablo kartı doldurur ve eski toplam sütunu yoktur', a
   const layout = await table.evaluate((element) => {
     const wrapper = element.parentElement;
     const main = document.getElementById('icerik');
-    const wrapperRect = wrapper?.getBoundingClientRect();
     return {
       tableWidth: element.getBoundingClientRect().width,
       wrapperWidth: wrapper?.clientWidth ?? 0,
       wrapperScrollWidth: wrapper?.scrollWidth ?? 0,
       mainWidth: main?.getBoundingClientRect().width ?? 0,
-      wrapperRight: wrapperRect?.right ?? Number.NaN,
     };
   });
 

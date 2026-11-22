@@ -1,6 +1,6 @@
 # Kitap Sayfa Takibi ve Haftalık Plan — Uygulama Planı (Aşama 1)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Kitap takibini sayfa bazlı katalog/raf modeline geçirmek ve tarihli haftalık planda tiklenen görevlerin kitap ilerlemesini otomatik kaydetmesini sağlamak. Bu aşama tamamen yereldir; hesap, Supabase ve senkron yoktur.
 

@@ -10,7 +10,9 @@
     "test": "vitest",
     "test:run": "vitest --run",
     "test:e2e": "playwright test",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "live:preview": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live-preview.ps1",
+    "live:restore": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live-restore.ps1"
   },
   "engines": {
     "node": ">=22.22.2"

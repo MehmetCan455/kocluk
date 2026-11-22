@@ -13,30 +13,43 @@ Yeni çalışma sırasında bir sorun olursa aşağıdaki komutlarla geri dönü
 
 ## Eski sürümü yerelde açmak
 
+Tek komut:
+
+```bash
+npm run live:preview
+```
+
+Bu komut, mevcut çalışmayı zaman damgalı bir yedek dalına alır, canlı sürüm
+tag'ini açar ve önizleme komutunu hatırlatır. İş bitince çalışma dalına dön:
+
+```bash
+git switch main
+```
+
+Manuel yol:
+
 ```bash
 git switch backup/live-2026-11-22
 npm install
 npm run dev -- --host
 ```
 
-İş bitince çalışma dalına dön:
+## `main` dalını canlı sürüme geri alma
+
+Commit edilmemiş değişiklik yoksa tek komut:
 
 ```bash
-git switch main
+npm run live:restore -- -Force
 ```
 
-## `main` dalını canlı sürüme geri almadan önce
+Bu komut mevcut `main`'i zaman damgalı bir yedek dalına alır ve `main`'i canlı
+sürüm tag'ine döndürür. Commit edilmemiş değişiklik varsa komut bilerek durur.
 
-Önce mevcut çalışmayı koru:
+Manuel yol (dikkat: commit edilmemiş değişiklikleri siler):
 
 ```bash
 git switch main
 git branch backup/deneme-$(date +%Y%m%d-%H%M)
-```
-
-Sonra canlı sürüme döndür (dikkat: commit edilmemiş değişiklikleri siler):
-
-```bash
 git reset --hard live-2026-11-22
 ```
 

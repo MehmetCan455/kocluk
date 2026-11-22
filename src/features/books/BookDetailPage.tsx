@@ -64,25 +64,40 @@ function subjectNameFor(catalogBook: CatalogBook, subjects: Subject[]): string {
 }
 
 /**
- * A `page_set` is a manual baseline. It is a correction when it moves the book
- * backwards; otherwise it is a plain manual entry. Labels are derived from the
- * page order instead of a stored flag.
+ * A `page_set` is a manual baseline. It is a correction when it is below the
+ * effective page reached immediately before it, including plan-tick
+ * (`book_pages`) logs after the previous baseline. Labels are derived from the
+ * log stream instead of a stored flag.
  */
 function pageSetLabels(logs: ActivityLog[]): Map<string, string> {
   const chronological = logs
-    .filter((log) => log.type === 'page_set' && !log.deletedAt)
+    .filter(
+      (log) =>
+        !log.deletedAt && (log.type === 'page_set' || log.type === 'book_pages'),
+    )
     .sort(
       (left, right) =>
         left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
     );
 
   const labels = new Map<string, string>();
-  let previousPage = 0;
+  let baseline: number | undefined;
+  let pagesAfterBaseline = 0;
+
   for (const log of chronological) {
+    if (log.type === 'book_pages') {
+      pagesAfterBaseline = Math.max(pagesAfterBaseline, log.toPage ?? 0);
+      continue;
+    }
+
     const page = log.toPage ?? 0;
-    labels.set(log.id, page < previousPage ? 'Düzeltme' : 'Manuel');
-    previousPage = page;
+    const effectiveBefore =
+      baseline === undefined ? pagesAfterBaseline : Math.max(baseline, pagesAfterBaseline);
+    labels.set(log.id, page < effectiveBefore ? 'Düzeltme' : 'Manuel');
+    baseline = page;
+    pagesAfterBaseline = 0;
   }
+
   return labels;
 }
 
@@ -352,11 +367,12 @@ function ArchiveBookModal({ title, onClose, onConfirm }: ArchiveBookModalProps) 
 
 interface DeleteBookModalProps {
   title: string;
+  hasHistory: boolean;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }
 
-function DeleteBookModal({ title, onClose, onConfirm }: DeleteBookModalProps) {
+function DeleteBookModal({ title, hasHistory, onClose, onConfirm }: DeleteBookModalProps) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -400,6 +416,11 @@ function DeleteBookModal({ title, onClose, onConfirm }: DeleteBookModalProps) {
       <p className="text-sm text-muted">
         İlerleme geçmişi ve bu kitaba bağlı plan görevleri de kaldırılır.
       </p>
+      {hasHistory ? (
+        <p className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+          Bu kitapta okuma geçmişi var. Silmeden önce arşivlemen önerilir.
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}
@@ -562,8 +583,8 @@ export function BookDetailPage() {
         </p>
       ) : null}
 
-      {/* A successful page set changes `currentPage`; the key resets the input. */}
-      <PageUpdateForm key={progress.currentPage} row={row} />
+      {/* Scope by book and page so navigation cannot carry typed state over. */}
+      <PageUpdateForm key={`${userBook.id}:${progress.currentPage}`} row={row} />
 
       <ProgressHistory
         logs={logs}
@@ -603,6 +624,7 @@ export function BookDetailPage() {
       {deleting ? (
         <DeleteBookModal
           title={title}
+          hasHistory={logs.length > 0}
           onClose={() => setDeleting(false)}
           onConfirm={async () => {
             await deleteShelfBook(userBook.id);

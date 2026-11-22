@@ -30,7 +30,7 @@ export interface BookEditModalProps {
  * (`LOCAL_SCOPE`) rows are owned by the user and expose every field.
  */
 export function BookEditModal({ row, subjects, onClose }: BookEditModalProps) {
-  const { catalogBook, totalPages, userBook } = row;
+  const { catalogBook, progress, totalPages, userBook } = row;
   const custom = catalogBook.ownerId === LOCAL_SCOPE;
 
   const formId = useId();
@@ -60,6 +60,10 @@ export function BookEditModal({ row, subjects, onClose }: BookEditModalProps) {
   const pagesError = pagesInvalid
     ? 'Toplam sayfa 0 veya daha büyük tam sayı olmalı'
     : null;
+  const readPageWarning =
+    !pagesInvalid && trimmedPages !== '' && parsedPages < progress.currentPage
+      ? `Girdiğin toplam sayfa, okunan ${progress.currentPage} sayfadan az. Okunan sayfa silinmez; ilerleme %100 kalır.`
+      : null;
   const canSave =
     !saving &&
     trimmedPages !== '' &&
@@ -228,6 +232,15 @@ export function BookEditModal({ row, subjects, onClose }: BookEditModalProps) {
             className={inputClass}
           />
         </Field>
+
+        {readPageWarning ? (
+          <p
+            role="status"
+            className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning"
+          >
+            {readPageWarning}
+          </p>
+        ) : null}
 
         <Field label="Not" htmlFor={noteId} hint="İsteğe bağlı">
           <textarea

@@ -430,6 +430,86 @@ test('özel kitapta ad, yayınevi, sınav ve ders düzenlenebilir', async () => 
   });
 });
 
+test('toplam sayfa okunan sayfanın altına inerse uyarı verir ve ilerleme %100 kalır', async () => {
+  const userBook = await addCatalogShelfBook();
+  await setBookPage(userBook.id, 220);
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  expect(await screen.findByText('220/400 sayfa')).toBeInTheDocument();
+
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'TYT Matematik Soru Bankası kitabını düzenle',
+    }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Kitabı düzenle' });
+
+  const pages = within(dialog).getByLabelText('Toplam sayfa');
+  await userEvent.clear(pages);
+  await userEvent.type(pages, '150');
+
+  expect(
+    await within(dialog).findByText(/okunan 220 sayfadan az/),
+  ).toBeInTheDocument();
+
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: 'Kitabı düzenle' })).not.toBeInTheDocument();
+  });
+
+  expect(await screen.findByText('150/150 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('%100')).toBeInTheDocument();
+  expect(screen.getByText('Bitti')).toBeInTheDocument();
+
+  const activity = await listBookActivity(userBook.id);
+  expect(
+    activity.some((log) => log.type === 'page_set' && log.toPage === 220),
+  ).toBe(true);
+});
+
+test('geçmişi olan kitabın silme onayı arşivlemeyi önerir', async () => {
+  const userBook = await addCatalogShelfBook();
+  await setBookPage(userBook.id, 120);
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  await userEvent.click(
+    await screen.findByRole('button', {
+      name: 'TYT Matematik Soru Bankası kitabını sil',
+    }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Kitabı sil' });
+
+  expect(
+    within(dialog).getByText('Bu kitapta okuma geçmişi var. Silmeden önce arşivlemen önerilir.'),
+  ).toBeInTheDocument();
+});
+
+test('plan tikinden sonra aşağı düzeltme Düzeltme olarak etiketlenir', async () => {
+  const userBook = await addCatalogShelfBook();
+  await db.activityLogs.add({
+    id: 'book-pages-1',
+    type: 'book_pages',
+    userBookId: userBook.id,
+    fromPage: 0,
+    toPage: 260,
+    source: 'task',
+    createdAt: NOW,
+  });
+  await setBookPage(userBook.id, 240);
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  const history = await screen.findByRole('list', { name: 'İlerleme geçmişi' });
+  const items = within(history).getAllByRole('listitem');
+
+  expect(items).toHaveLength(2);
+  expect(within(items[0]).getByText('Düzeltme')).toBeInTheDocument();
+  expect(within(items[1]).getByText('Plan görevi')).toBeInTheDocument();
+  expect(screen.getByText('240/400 sayfa')).toBeInTheDocument();
+});
+
 test('toplam sayfası olmayan kitapta sayfa güncelleme kapalıdır', async () => {
   const userBook = await addCustomBook({ title: 'Sayfasız Kitap', totalPages: 0 });
 

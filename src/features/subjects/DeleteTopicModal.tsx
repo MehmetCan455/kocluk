@@ -5,14 +5,14 @@ import type { Topic } from '@/domain/types';
 
 export interface DeleteTopicModalProps {
   topic: Topic;
-  testRecordCount: number;
+  legacyRecordCount: number;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }
 
 export function DeleteTopicModal({
   topic,
-  testRecordCount,
+  legacyRecordCount,
   onClose,
   onConfirm,
 }: DeleteTopicModalProps) {
@@ -62,7 +62,8 @@ export function DeleteTopicModal({
         </p>
       ) : null}
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
-        <li>{testRecordCount} test kaydı silinecek.</li>
+        <li>{legacyRecordCount} eski test kaydı silinecek.</li>
+        <li>Konu durumu, tekrar geçmişi ve plan görevleri silinecek.</li>
         <li>Konu notları ve ekleri silinecek.</li>
         <li>Yanlış fotoğrafları silinmez; yalnızca konu bağlantısı kaldırılır.</li>
       </ul>

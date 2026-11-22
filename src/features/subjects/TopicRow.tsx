@@ -14,7 +14,7 @@ function statusLabel(progress: Progress): string {
   if (progress.started) {
     return 'Devam ediyor';
   }
-  return progress.total === 0 ? 'Test eklenmedi' : 'Başlanmadı';
+  return 'Başlanmadı';
 }
 
 function statusClass(progress: Progress): string {
@@ -36,7 +36,7 @@ export interface TopicRowProps {
 }
 
 export function TopicRow({ exam, subjectId, row, onRename, onDelete }: TopicRowProps) {
-  const { topic, progress } = row;
+  const { topic, progress, reviewCount } = row;
 
   return (
     <li className="rounded-2xl border border-line bg-surface p-4">
@@ -51,7 +51,7 @@ export function TopicRow({ exam, subjectId, row, onRename, onDelete }: TopicRowP
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <span className="tabular-nums">
-              {progress.solved}/{progress.total} test
+              {progress.solved}/{progress.total} konu
             </span>
             <span className="text-muted" aria-hidden="true">
               ·
@@ -62,7 +62,15 @@ export function TopicRow({ exam, subjectId, row, onRename, onDelete }: TopicRowP
                 <span className="text-muted" aria-hidden="true">
                   ·
                 </span>
-                <span className="text-muted">{progress.remaining} test kaldı</span>
+                <span className="text-muted">{progress.remaining} konu kaldı</span>
+              </>
+            ) : null}
+            {reviewCount > 0 ? (
+              <>
+                <span className="text-muted" aria-hidden="true">
+                  ·
+                </span>
+                <span className="text-muted">{reviewCount} tekrar</span>
               </>
             ) : null}
             <span className="text-muted" aria-hidden="true">

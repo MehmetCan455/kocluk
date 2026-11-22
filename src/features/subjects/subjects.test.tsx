@@ -12,6 +12,7 @@ import {
   patchSettings,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
+import { setTopicDone } from '@/db/topicProgressRepository';
 import type { Subject, Topic } from '@/domain/types';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
@@ -109,7 +110,7 @@ test('TYT ders kartlarını gösterir', async () => {
 
 test('bir konu bitince diğer konu tamam sayılmaz', async () => {
   const turev = await topicByKey('tyt-mat-turev');
-  await addTestRecord(turev.id, 2, 2);
+  await setTopicDone(turev.id, true);
 
   renderApp('/tyt');
 
@@ -117,15 +118,21 @@ test('bir konu bitince diğer konu tamam sayılmaz', async () => {
   expect(screen.queryByText('Tüm konular tamam')).not.toBeInTheDocument();
 });
 
-test('kaydı olan ama çözülmemiş konu sırada gösterilir', async () => {
+test('tekrar kaydı olan konu devam eden konu olur', async () => {
   const turev = await topicByKey('tyt-mat-turev');
   const polinomlar = await topicByKey('tyt-mat-pol');
-  await addTestRecord(turev.id, 2, 2);
-  await addTestRecord(polinomlar.id, 0, 4);
+  await setTopicDone(turev.id, true);
+  await db.activityLogs.add({
+    id: 'review-1',
+    type: 'topic_review',
+    topicId: polinomlar.id,
+    source: 'manual',
+    createdAt: '2026-11-10T09:00:00.000Z',
+  });
 
   renderApp('/tyt');
 
-  expect(await screen.findByText('Sırada: Polinomlar')).toBeInTheDocument();
+  expect(await screen.findByText('Devam eden: Polinomlar')).toBeInTheDocument();
   const mathematicsCard = screen.getByText('Matematik').closest('a');
   expect(mathematicsCard).not.toBeNull();
   expect(within(mathematicsCard!).queryByText('Henüz başlanmadı')).not.toBeInTheDocument();
@@ -134,15 +141,18 @@ test('kaydı olan ama çözülmemiş konu sırada gösterilir', async () => {
 test('tüm konular bitince kart tamamlandı der', async () => {
   const turev = await topicByKey('tyt-mat-turev');
   const polinomlar = await topicByKey('tyt-mat-pol');
-  await addTestRecord(turev.id, 2, 2);
-  await addTestRecord(polinomlar.id, 1, 1);
+  await setTopicDone(turev.id, true);
+  await setTopicDone(polinomlar.id, true);
 
   renderApp('/tyt');
 
   expect(await screen.findByText('Tüm konular tamam')).toBeInTheDocument();
 });
 
-test('hiç test kaydı yoksa kart başlanmadı der', async () => {
+test('legacy test kayıtları ders ilerlemesini etkilemez', async () => {
+  const turev = await topicByKey('tyt-mat-turev');
+  await addTestRecord(turev.id, 2, 2);
+
   renderApp('/tyt');
 
   expect(await screen.findAllByText('Henüz başlanmadı')).toHaveLength(2);
@@ -154,7 +164,7 @@ test('konu listesini ve ilerlemeyi gösterir', async () => {
   await userEvent.click(await screen.findByText('Matematik'));
 
   expect(await screen.findByText('Türev')).toBeInTheDocument();
-  expect(await screen.findByText('Henüz test eklenmedi')).toBeInTheDocument();
+  expect(screen.getByText('0/2 konu · 2 konu kaldı')).toBeInTheDocument();
 });
 
 test('özel konu ekler, yeniden adlandırır ve siler', async () => {
@@ -180,7 +190,7 @@ test('özel konu ekler, yeniden adlandırır ve siler', async () => {
   expect(created?.id).toBeTruthy();
 
   await addTestRecord(created!.id, 2, 5);
-  expect(await screen.findByText('2/5 test')).toBeInTheDocument();
+  expect(await screen.findByText('0/3 konu · 3 konu kaldı')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Limit konusunu yeniden adlandır' }));
   const renameInput = await screen.findByLabelText('Konu adı');
@@ -192,7 +202,7 @@ test('özel konu ekler, yeniden adlandırır ve siler', async () => {
 
   await userEvent.click(screen.getByRole('button', { name: 'Limitler konusunu sil' }));
   const dialog = await screen.findByRole('dialog', { name: 'Konuyu sil' });
-  expect(within(dialog).getByText('1 test kaydı silinecek.')).toBeInTheDocument();
+  expect(within(dialog).getByText('1 eski test kaydı silinecek.')).toBeInTheDocument();
 
   await userEvent.click(within(dialog).getByRole('button', { name: 'Sil' }));
   await waitFor(() => expect(screen.queryByText('Limitler')).not.toBeInTheDocument());
@@ -225,12 +235,18 @@ test('konu filtreleri devam eden ve biten konuları ayırır', async () => {
   const subject = await subjectByKey('tyt-mat');
   const turev = await topicByKey('tyt-mat-turev');
   const polinomlar = await topicByKey('tyt-mat-pol');
-  await addTestRecord(turev.id, 2, 2);
-  await addTestRecord(polinomlar.id, 1, 4);
+  await setTopicDone(turev.id, true);
+  await db.activityLogs.add({
+    id: 'review-1',
+    type: 'topic_review',
+    topicId: polinomlar.id,
+    source: 'manual',
+    createdAt: '2026-11-10T09:00:00.000Z',
+  });
 
   renderApp(`/tyt/${subject.id}`);
 
-  expect(await screen.findByText('2/2 test')).toBeInTheDocument();
+  expect(await screen.findByText('1/1 konu')).toBeInTheDocument();
   expect(screen.getByText('Bitti')).toBeInTheDocument();
   expect(screen.getByText('Devam ediyor')).toBeInTheDocument();
 
@@ -321,25 +337,24 @@ test('TYT dersleri gizli ayarına uyar ve alan filtresi göstermez', async () =>
   expect(screen.queryByRole('button', { name: 'Sayısal' })).not.toBeInTheDocument();
 });
 
-test('çok kayıtlı ilerleme toplanır ve durum done ile belirlenir', async () => {
+test('ders ilerlemesi biten konu sayısıyla hesaplanır', async () => {
   const turev = await topicByKey('tyt-mat-turev');
-  await addTestRecord(turev.id, 5, 6);
-  await addTestRecord(turev.id, 4, 4);
+  await setTopicDone(turev.id, true);
 
   renderApp('/tyt');
-  expect(await screen.findByText('Devam eden: Türev')).toBeInTheDocument();
-  expect(screen.getByText('9/10 test')).toBeInTheDocument();
+  expect(await screen.findByText('Sırada: Polinomlar')).toBeInTheDocument();
+  expect(screen.getByText('1/2 konu')).toBeInTheDocument();
 
   await userEvent.click(screen.getByText('Matematik'));
 
   expect(await screen.findByRole('heading', { level: 1, name: 'Matematik' })).toBeInTheDocument();
-  expect(screen.getByText('9/10 test')).toBeInTheDocument();
-  expect(screen.getByText('Devam ediyor')).toBeInTheDocument();
-  expect(screen.queryByText('Bitti')).not.toBeInTheDocument();
-  expect(screen.getAllByText('%90').length).toBeGreaterThan(0);
+  expect(screen.getByText('1/2 konu · 1 konu kaldı')).toBeInTheDocument();
+  expect(screen.getByText('Bitti')).toBeInTheDocument();
+  expect(screen.getByText('Başlanmadı')).toBeInTheDocument();
+  expect(screen.getAllByText('%50').length).toBeGreaterThan(0);
   expect(screen.getByRole('progressbar', { name: 'Matematik genel ilerlemesi' })).toHaveAttribute(
     'aria-valuenow',
-    '90',
+    '50',
   );
 });
 

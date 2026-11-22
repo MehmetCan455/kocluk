@@ -382,18 +382,49 @@ export async function renameTopic(topicId: string, name: string): Promise<void> 
 export async function deleteCustomTopicCascade(topicId: string): Promise<void> {
   await db.transaction(
     'rw',
-    [db.topics, db.topicBooks, db.notes, db.attachments, db.photos, db.photoSearch],
+    [
+      db.topics,
+      db.topicBooks,
+      db.notes,
+      db.attachments,
+      db.photos,
+      db.photoSearch,
+      db.topicProgress,
+      db.activityLogs,
+      db.scheduleTasks,
+    ],
     async () => {
       const topic = await db.topics.get(topicId);
       if (!topic?.isCustom) {
         return;
       }
 
+      const now = new Date().toISOString();
       await db.topicBooks.where('topicId').equals(topicId).delete();
       await db.notes.delete(topicId);
       await db.attachments.where('topicId').equals(topicId).delete();
       await db.photos.where('topicId').equals(topicId).modify({ topicId: undefined });
       await db.photoSearch.where('topicId').equals(topicId).modify({ topicId: undefined });
+      await db.topicProgress.where('topicId').equals(topicId).delete();
+
+      // Review history is append-only, so it is tombstoned instead of deleted.
+      const reviews = (
+        await db.activityLogs.where('topicId').equals(topicId).toArray()
+      ).filter((log) => log.type === 'topic_review' && !log.deletedAt);
+      if (reviews.length > 0) {
+        await db.activityLogs.bulkPut(reviews.map((log) => ({ ...log, deletedAt: now })));
+      }
+
+      // `topicId` is not indexed on scheduleTasks, so the scan is in memory.
+      const tasks = (await db.scheduleTasks.toArray()).filter(
+        (task) => task.topicId === topicId && !task.deletedAt,
+      );
+      if (tasks.length > 0) {
+        await db.scheduleTasks.bulkPut(
+          tasks.map((task) => ({ ...task, deletedAt: now, updatedAt: now })),
+        );
+      }
+
       await db.topics.delete(topicId);
     },
   );

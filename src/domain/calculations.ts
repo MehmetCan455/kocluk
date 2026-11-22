@@ -20,3 +20,18 @@ export function calculateProgress(
     done,
   };
 }
+
+/**
+ * Count-based progress for explicit completion states (topics). The caller
+ * supplies finished and total counts; `started` follows from any finished item.
+ */
+export function calculateCountProgress(done: number, total: number): Progress {
+  return {
+    solved: done,
+    total,
+    percent: total === 0 ? 0 : Math.min(100, Math.round((done / total) * 100)),
+    remaining: Math.max(total - done, 0),
+    started: done > 0,
+    done: total > 0 && done === total,
+  };
+}

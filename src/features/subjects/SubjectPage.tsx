@@ -111,8 +111,10 @@ export function SubjectPage({ exam }: SubjectPageProps) {
             <h1 className="text-2xl font-semibold tracking-tight">{subject.name}</h1>
             <p className="mt-1 text-sm text-muted">
               {progress.total === 0
-                ? 'Henüz test eklenmedi'
-                : `${progress.solved}/${progress.total} test · ${progress.remaining} test kaldı`}
+                ? 'Henüz konu yok'
+                : progress.remaining > 0
+                  ? `${progress.solved}/${progress.total} konu · ${progress.remaining} konu kaldı`
+                  : `${progress.solved}/${progress.total} konu · Tümü bitti`}
             </p>
           </div>
         </div>
@@ -209,7 +211,7 @@ export function SubjectPage({ exam }: SubjectPageProps) {
       {deleting ? (
         <DeleteTopicModal
           topic={deleting.topic}
-          testRecordCount={deleting.testRecordCount}
+          legacyRecordCount={deleting.legacyTestRecordCount}
           onClose={() => setDeleting(null)}
           onConfirm={async () => {
             await deleteCustomTopicCascade(deleting.topic.id);

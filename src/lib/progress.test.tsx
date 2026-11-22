@@ -3,8 +3,11 @@ import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import { listSubjects, listTopics } from '@/db/repositories';
+import { setTopicDone } from '@/db/topicProgressRepository';
 import { seedOnboarded } from '@/test/fixtures';
-import { useSubjectProgress, useTopicProgress } from './progress';
+import { useSubjectOverview, useSubjectProgress, useTopicProgress } from './progress';
+
+const REVIEW_CREATED_AT = '2026-11-10T09:00:00.000Z';
 
 beforeEach(async () => {
   await seedOnboarded(
@@ -31,6 +34,7 @@ beforeEach(async () => {
   const subject = (await listSubjects('TYT'))[0];
   const [turev] = await listTopics(subject.id);
 
+  // Legacy test records must stay readable but never feed the new progress.
   await db.topicBooks.bulkAdd([
     {
       id: 'tb-1',
@@ -53,16 +57,85 @@ beforeEach(async () => {
   ]);
 });
 
-test('useSubjectProgress çok kayıtlı ilerlemeyi toplar ve done kullanır', async () => {
+test('ders ilerlemesi biten konu sayısından gelir, legacy test kayıtlarından değil', async () => {
   const subject = (await listSubjects('TYT'))[0];
+  const [turev, polinomlar] = await listTopics(subject.id);
+  await setTopicDone(turev.id, true);
+
+  const { result } = renderHook(() => useSubjectOverview(subject.id));
+
+  await waitFor(() => {
+    expect(result.current?.progress).toEqual({
+      solved: 1,
+      total: 2,
+      percent: 50,
+      remaining: 1,
+      started: true,
+      done: false,
+    });
+  });
+
+  expect(
+    result.current?.topics.map((row) => ({
+      id: row.topic.id,
+      done: row.progress.done,
+      reviewCount: row.reviewCount,
+      legacyTestRecordCount: row.legacyTestRecordCount,
+    })),
+  ).toEqual([
+    { id: turev.id, done: true, reviewCount: 0, legacyTestRecordCount: 2 },
+    { id: polinomlar.id, done: false, reviewCount: 0, legacyTestRecordCount: 0 },
+  ]);
+  expect(result.current?.continuingTopic).toBeUndefined();
+});
+
+test('konu tekrarı konuyu başlatır ama bitirmez', async () => {
+  const subject = (await listSubjects('TYT'))[0];
+  const [turev, polinomlar] = await listTopics(subject.id);
+  await setTopicDone(turev.id, true);
+  await db.activityLogs.add({
+    id: 'review-1',
+    type: 'topic_review',
+    topicId: polinomlar.id,
+    source: 'manual',
+    createdAt: REVIEW_CREATED_AT,
+  });
+
+  const { result } = renderHook(() => useSubjectOverview(subject.id));
+
+  await waitFor(() => {
+    expect(result.current?.topics[1]?.reviewCount).toBe(1);
+  });
+
+  expect(result.current?.topics[1]?.progress).toEqual({
+    solved: 0,
+    total: 1,
+    percent: 0,
+    remaining: 1,
+    started: true,
+    done: false,
+  });
+  expect(result.current?.progress).toMatchObject({
+    solved: 1,
+    total: 2,
+    percent: 50,
+    done: false,
+  });
+  expect(result.current?.continuingTopic?.id).toBe(polinomlar.id);
+});
+
+test('useSubjectProgress biten konu oranını döndürür', async () => {
+  const subject = (await listSubjects('TYT'))[0];
+  const [turev] = await listTopics(subject.id);
+  await setTopicDone(turev.id, true);
 
   const { result } = renderHook(() => useSubjectProgress(subject.id));
 
   await waitFor(() => {
     expect(result.current).toEqual({
-      solved: 9,
-      total: 10,
-      percent: 90,
+      solved: 1,
+      total: 2,
+      percent: 50,
       remaining: 1,
       started: true,
       done: false,
@@ -70,30 +143,38 @@ test('useSubjectProgress çok kayıtlı ilerlemeyi toplar ve done kullanır', as
   });
 });
 
-test('useTopicProgress konu bazında ilerlemeyi döndürür', async () => {
+test('useTopicProgress konu durumunu ve tekrarı yansıtır', async () => {
   const subject = (await listSubjects('TYT'))[0];
   const [turev, polinomlar] = await listTopics(subject.id);
+  await setTopicDone(turev.id, true);
+  await db.activityLogs.add({
+    id: 'review-1',
+    type: 'topic_review',
+    topicId: polinomlar.id,
+    source: 'manual',
+    createdAt: REVIEW_CREATED_AT,
+  });
 
-  const { result: withRecords } = renderHook(() => useTopicProgress(turev.id));
+  const { result: done } = renderHook(() => useTopicProgress(turev.id));
   await waitFor(() => {
-    expect(withRecords.current).toMatchObject({
-      solved: 9,
-      total: 10,
-      percent: 90,
-      remaining: 1,
+    expect(done.current).toEqual({
+      solved: 1,
+      total: 1,
+      percent: 100,
+      remaining: 0,
       started: true,
-      done: false,
+      done: true,
     });
   });
 
-  const { result: empty } = renderHook(() => useTopicProgress(polinomlar.id));
+  const { result: reviewed } = renderHook(() => useTopicProgress(polinomlar.id));
   await waitFor(() => {
-    expect(empty.current).toEqual({
+    expect(reviewed.current).toEqual({
       solved: 0,
-      total: 0,
+      total: 1,
       percent: 0,
-      remaining: 0,
-      started: false,
+      remaining: 1,
+      started: true,
       done: false,
     });
   });

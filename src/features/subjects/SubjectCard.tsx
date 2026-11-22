@@ -24,7 +24,7 @@ function cardMessage(overview: SubjectOverview): string {
   if (overview.continuingTopic) {
     return `Devam eden: ${overview.continuingTopic.name}`;
   }
-  if (topics.every((row) => row.progress.total === 0)) {
+  if (topics.every((row) => !row.progress.started)) {
     return 'Henüz başlanmadı';
   }
 
@@ -67,8 +67,8 @@ export function SubjectCard({ subject, exam }: SubjectCardProps) {
           <span className="tabular-nums">
             {progress
               ? progress.total > 0
-                ? `${progress.solved}/${progress.total} test`
-                : 'Henüz test yok'
+                ? `${progress.solved}/${progress.total} konu`
+                : 'Henüz konu yok'
               : '—'}
           </span>
           <span className="min-w-0 truncate">{message}</span>

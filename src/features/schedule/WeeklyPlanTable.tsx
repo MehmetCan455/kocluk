@@ -1,9 +1,14 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { CheckSquare, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/components/ui/cn';
-import { dayLabel } from '@/domain/schedule';
+import {
+  dayLabel,
+  scheduleTaskStatus,
+  type ScheduleTaskContent,
+  type ScheduleTaskStatus,
+} from '@/domain/schedule';
 import type { ScheduleTask } from '@/domain/types';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
 import { SCHEDULE_DAYS } from './scheduleDays';
@@ -26,12 +31,15 @@ export interface WeeklyPlanTableProps {
   onAddRow: () => void;
   onRenameRow: (key: string, label: string) => void;
   onDeleteRow: (key: string) => void;
-  taskLabel: (task: ScheduleTask) => string;
+  taskContent: (task: ScheduleTask, rowLabel: string) => ScheduleTaskContent;
   /** Receives the ISO day (1 = Monday … 7 = Sunday), not the visual index. */
   onAddTask: (row: WeeklyPlanRow, day: number) => void;
   onToggleTask: (task: ScheduleTask, done: boolean) => void;
+  onSetTaskStatus: (task: ScheduleTask, status: ScheduleTaskStatus) => void;
   onEditTask: (task: ScheduleTask) => void;
   onDeleteTask: (task: ScheduleTask) => void;
+  tickMode: boolean;
+  onToggleTickMode: () => void;
   disabled?: boolean;
 }
 
@@ -59,11 +67,14 @@ export function WeeklyPlanTable({
   onAddRow,
   onRenameRow,
   onDeleteRow,
-  taskLabel,
+  taskContent,
   onAddTask,
   onToggleTask,
+  onSetTaskStatus,
   onEditTask,
   onDeleteTask,
+  tickMode,
+  onToggleTickMode,
   disabled = false,
 }: WeeklyPlanTableProps) {
   return (
@@ -75,16 +86,33 @@ export function WeeklyPlanTable({
             Satırlara ders veya serbest bir etiket yaz; her hücreye görev ekle.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={onAddRow}
-          disabled={disabled}
-          aria-label="Satır ekle"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Satır ekle
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={tickMode ? 'primary' : 'secondary'}
+            aria-pressed={tickMode}
+            onClick={onToggleTickMode}
+            disabled={disabled}
+          >
+            <CheckSquare className="h-4 w-4" aria-hidden="true" />
+            Tik modu
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={onAddRow}
+            disabled={disabled}
+            aria-label="Satır ekle"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Satır ekle
+          </Button>
+        </div>
       </div>
+
+      {tickMode ? (
+        <p className="text-xs text-muted">
+          Sol tık: yapıldı · Sağ tık: yapılmadı
+        </p>
+      ) : null}
 
       <div
         role="group"
@@ -156,7 +184,7 @@ export function WeeklyPlanTable({
               </tr>
             ) : (
               rows.map((row, rowIndex) => (
-                <tr key={row.key}>
+                <tr key={row.key} className="group/row">
                   <td
                     className={cn(
                       rowCellClass,
@@ -177,7 +205,7 @@ export function WeeklyPlanTable({
                         type="button"
                         aria-label={`${rowIndex + 1}. satırı sil`}
                         onClick={() => onDeleteRow(row.key)}
-                        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-danger"
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition-opacity focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-[767px]:opacity-100 hover:bg-raised hover:text-danger"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -189,6 +217,8 @@ export function WeeklyPlanTable({
                     const cellTasks = tasks.filter(
                       (task) => task.rowId === row.id && task.dayIndex === day.day,
                     );
+                    const rowLabel = row.label.trim() || cellName(row, rowIndex);
+                    const addLabel = `${cellName(row, rowIndex)} ${day.label} görev ekle`;
                     return (
                       <td
                         key={`${row.key}-${day.day}`}
@@ -198,32 +228,63 @@ export function WeeklyPlanTable({
                             'hidden min-[768px]:table-cell',
                         )}
                       >
-                        <div className="flex min-h-11 flex-col gap-1 p-1">
-                          {cellTasks.map((task) => (
-                            <TaskChip
-                              key={task.id}
-                              task={task}
-                              label={taskLabel(task)}
-                              onToggle={(done) => onToggleTask(task, done)}
-                              onEdit={() => onEditTask(task)}
-                              onDelete={() => onDeleteTask(task)}
-                              disabled={disabled}
-                            />
-                          ))}
-                          <button
-                            type="button"
-                            aria-label={`${cellName(row, rowIndex)} ${day.label} görev ekle`}
-                            onClick={() => onAddTask(row, day.day)}
-                            disabled={disabled || row.id === undefined}
-                            title={
-                              row.id === undefined
-                                ? 'Görev eklemek için önce satırı kaydet.'
-                                : 'Görev ekle'
-                            }
-                            className="flex min-h-11 w-full items-center justify-center rounded-lg border border-dashed border-line text-muted transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
-                          >
-                            <Plus className="h-4 w-4" aria-hidden="true" />
-                          </button>
+                        <div
+                          className={cn(
+                            'relative flex min-h-11 flex-col gap-1 p-1',
+                            cellTasks.length > 0 && 'group/cell',
+                          )}
+                        >
+                          {cellTasks.map((task) => {
+                            const content = taskContent(task, rowLabel);
+                            return (
+                              <TaskChip
+                                key={task.id}
+                                title={content.title}
+                                subtitle={content.subtitle}
+                                detail={content.detail}
+                                status={scheduleTaskStatus(task, weekStart)}
+                                tickMode={tickMode}
+                                onStatusChange={(status) =>
+                                  onSetTaskStatus(task, status)
+                                }
+                                onToggle={(done) => onToggleTask(task, done)}
+                                onEdit={() => onEditTask(task)}
+                                onDelete={() => onDeleteTask(task)}
+                                disabled={disabled}
+                              />
+                            );
+                          })}
+                          {cellTasks.length === 0 ? (
+                            <button
+                              type="button"
+                              aria-label={addLabel}
+                              onClick={() => onAddTask(row, day.day)}
+                              disabled={disabled || row.id === undefined}
+                              title={
+                                row.id === undefined
+                                  ? 'Görev eklemek için önce satırı kaydet.'
+                                  : 'Görev ekle'
+                              }
+                              className="flex min-h-11 w-full items-center justify-center rounded-lg border border-dashed border-line text-muted transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+                            >
+                              <Plus className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              aria-label={addLabel}
+                              onClick={() => onAddTask(row, day.day)}
+                              disabled={disabled || row.id === undefined}
+                              title={
+                                row.id === undefined
+                                  ? 'Görev eklemek için önce satırı kaydet.'
+                                  : 'Görev ekle'
+                              }
+                              className="pointer-events-none absolute right-0 top-0 z-10 grid h-11 w-11 place-items-center rounded-lg border border-line bg-surface/90 text-muted opacity-0 shadow-sm transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/cell:pointer-events-auto group-hover/cell:opacity-100 group-focus-within/cell:pointer-events-auto group-focus-within/cell:opacity-100 max-[767px]:pointer-events-auto max-[767px]:static max-[767px]:order-first max-[767px]:mb-1 max-[767px]:self-end max-[767px]:opacity-100 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+                            >
+                              <Plus className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     );

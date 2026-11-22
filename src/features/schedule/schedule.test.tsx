@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
@@ -110,6 +110,15 @@ async function openSchedule(path = '/program') {
 
 function findPlanTable(): Promise<HTMLElement> {
   return screen.findByRole('table', { name: TABLE_NAME });
+}
+
+function taskChip(title: string): HTMLElement {
+  const line = screen.getByText(title, { selector: '[data-line="title"]' });
+  const chip = line.closest('[data-status]');
+  if (!(chip instanceof HTMLElement)) {
+    throw new Error(`Görev çipi bulunamadı: ${title}`);
+  }
+  return chip;
 }
 
 async function seedPlanRow(): Promise<{ weekStart: string; weekId: string; rowId: string }> {
@@ -960,4 +969,263 @@ test('görev silme onayı vazgeçilince görev korunur', async () => {
   });
   expect(screen.getByText('Kalacak görev')).toBeInTheDocument();
   expect((await getWeek(weekStart))?.tasks).toHaveLength(1);
+});
+
+test('tik modu sol tıkla yapıldı, sağ tıkla yapılmadı, tekrar tıkla nötr olur', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  const task = await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Türev tekrarı',
+  });
+  await openSchedule();
+
+  await screen.findByText('Türev tekrarı', {
+    selector: '[data-line="title"]',
+  });
+  expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'pending');
+
+  const tickButton = screen.getByRole('button', { name: 'Tik modu' });
+  expect(tickButton).toHaveAttribute('aria-pressed', 'false');
+  await userEvent.click(tickButton);
+  expect(tickButton).toHaveAttribute('aria-pressed', 'true');
+  expect(
+    screen.getByText('Sol tık: yapıldı · Sağ tık: yapılmadı'),
+  ).toBeInTheDocument();
+  // Tik modunda düzenle/sil gizlenir ve normal mod kutusu çizilmez.
+  expect(
+    screen.queryByRole('button', { name: 'Türev tekrarı görevini düzenle' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Türev tekrarı görevini sil' }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+  await userEvent.click(
+    screen.getByText('Türev tekrarı', { selector: '[data-line="title"]' }),
+  );
+  await waitFor(() => {
+    expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'done');
+  });
+  expect(taskChip('Türev tekrarı').className).toContain('bg-success/10');
+  await waitFor(async () => {
+    expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeDefined();
+  });
+
+  await userEvent.click(
+    screen.getByText('Türev tekrarı', { selector: '[data-line="title"]' }),
+  );
+  await waitFor(() => {
+    expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'pending');
+  });
+  expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeUndefined();
+
+  // Sağ tık tarayıcı menüsünü açmaz; görevi yapılmadı işaretler.
+  expect(fireEvent.contextMenu(taskChip('Türev tekrarı'))).toBe(false);
+  await waitFor(() => {
+    expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'missed');
+  });
+  expect(taskChip('Türev tekrarı').className).toContain('bg-danger/10');
+  await waitFor(async () => {
+    expect((await db.scheduleTasks.get(task.id))?.missedAt).toBeDefined();
+  });
+
+  fireEvent.contextMenu(taskChip('Türev tekrarı'));
+  await waitFor(() => {
+    expect(taskChip('Türev tekrarı')).toHaveAttribute('data-status', 'pending');
+  });
+  const cleared = await db.scheduleTasks.get(task.id);
+  expect(cleared?.missedAt).toBeUndefined();
+  expect(cleared?.completedAt).toBeUndefined();
+});
+
+test('geçmiş haftada işaretsiz görev kırmızı, tamamlanan görev yeşil görünür', async () => {
+  const previous = shiftWeek(currentWeekStart(), -1);
+  const source = await getOrCreateWeek(previous);
+  const row = await addRow(source.week.id, 'Matematik');
+  const completed = await addTask({
+    weekId: source.week.id,
+    rowId: row.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Bitirilen görev',
+  });
+  await addTask({
+    weekId: source.week.id,
+    rowId: row.id,
+    dayIndex: 2,
+    type: 'free',
+    title: 'Kaçırılan görev',
+  });
+  await toggleTask(completed.id, true);
+
+  await openSchedule(`/program?week=${previous}`);
+
+  await screen.findByText('Kaçırılan görev', { selector: '[data-line="title"]' });
+  expect(taskChip('Kaçırılan görev')).toHaveAttribute('data-status', 'missed');
+  expect(taskChip('Kaçırılan görev').className).toContain('bg-danger/10');
+  expect(taskChip('Kaçırılan görev').className).toContain('text-danger');
+  expect(taskChip('Bitirilen görev')).toHaveAttribute('data-status', 'done');
+  expect(taskChip('Bitirilen görev').className).toContain('bg-success/10');
+  expect(taskChip('Bitirilen görev').className).toContain('text-success');
+});
+
+test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve kompakt ekleme sunar', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  const shelfBook = await seedBilgiSarmalBook();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'book',
+    userBookId: shelfBook.userBook.id,
+    fromPage: 123,
+    toPage: 128,
+    title: 'Türev',
+  });
+  await openSchedule();
+
+  const titleLine = await screen.findByText('TYT Matematik Soru Bankası', {
+    selector: '[data-line="title"]',
+  });
+  expect(titleLine).toHaveAttribute('title', 'TYT Matematik Soru Bankası');
+  expect(titleLine).toHaveClass('truncate', 'whitespace-nowrap');
+  expect(titleLine.className).not.toContain('break-words');
+
+  const subtitleLine = screen.getByText('Türev', {
+    selector: '[data-line="subtitle"]',
+  });
+  expect(subtitleLine).toHaveAttribute('title', 'Türev');
+  expect(subtitleLine).toHaveClass('truncate', 'whitespace-nowrap');
+
+  const detailLine = screen.getByText('s. 123–128', {
+    selector: '[data-line="detail"]',
+  });
+  expect(detailLine).toHaveAttribute('title', 's. 123–128');
+  expect(detailLine).toHaveClass('truncate', 'whitespace-nowrap');
+  expect(taskChip('TYT Matematik Soru Bankası').querySelector('.break-words')).toBeNull();
+
+  const label = 'TYT Matematik Soru Bankası s. 123–128';
+  const editButton = screen.getByRole('button', {
+    name: `${label} görevini düzenle`,
+  });
+  const deleteButton = screen.getByRole('button', {
+    name: `${label} görevini sil`,
+  });
+  for (const button of [editButton, deleteButton]) {
+    expect(button).toHaveClass('h-11', 'w-11');
+  }
+  expect(editButton.parentElement).toHaveClass(
+    'opacity-0',
+    'group-hover/cell:opacity-100',
+    'group-focus-within/cell:opacity-100',
+    'max-[767px]:opacity-100',
+    'min-[768px]:absolute',
+  );
+
+  // Görevli hücrede büyük kesikli kutu yok; yalnızca kompakt + var.
+  const compactAdd = screen.getByRole('button', {
+    name: 'Matematik Pazartesi görev ekle',
+  });
+  expect(compactAdd).toHaveClass(
+    'absolute',
+    'h-11',
+    'w-11',
+    'opacity-0',
+    'group-hover/cell:opacity-100',
+    'max-[767px]:opacity-100',
+  );
+  expect(compactAdd).not.toHaveClass('border-dashed');
+  const mondayCell = compactAdd.closest('td');
+  if (!(mondayCell instanceof HTMLElement)) {
+    throw new Error('Pazartesi hücresi bulunamadı');
+  }
+  expect(mondayCell.querySelector('.border-dashed')).toBeNull();
+  expect(mondayCell.querySelectorAll('[data-status]')).toHaveLength(1);
+
+  // Boş hücrede büyük kesikli + kalır.
+  const emptyAdd = screen.getByRole('button', {
+    name: 'Matematik Salı görev ekle',
+  });
+  expect(emptyAdd).toHaveClass('w-full', 'border-dashed');
+
+  await userEvent.click(compactAdd);
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Serbest görev' }),
+  );
+  await userEvent.type(within(dialog).getByLabelText('Görev adı'), 'İkinci görev');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  expect(
+    await screen.findByText('İkinci görev', { selector: '[data-line="title"]' }),
+  ).toBeInTheDocument();
+  await waitFor(() => {
+    expect(mondayCell.querySelectorAll('[data-status]')).toHaveLength(2);
+  });
+  expect(mondayCell.querySelector('.border-dashed')).toBeNull();
+});
+
+test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur', async () => {
+  await seedPlanRow();
+  const shelfBook = await seedBilgiSarmalBook();
+  await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Cuma görev ekle' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await within(dialog).findByRole('option', { name: /Bilgi Sarmal/ });
+  await userEvent.selectOptions(
+    within(dialog).getByLabelText('Kitap'),
+    shelfBook.userBook.id,
+  );
+  await userEvent.type(within(dialog).getByLabelText('Konu'), 'Türev');
+  await userEvent.type(
+    within(dialog).getByLabelText('Başlangıç sayfası'),
+    '10',
+  );
+  await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '20');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  expect(
+    await screen.findByText('Türev', { selector: '[data-line="subtitle"]' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText('s. 10–20', { selector: '[data-line="detail"]' }),
+  ).toBeInTheDocument();
+  const stored = await db.scheduleTasks.toArray();
+  expect(stored).toHaveLength(1);
+  expect(stored[0].title).toBe('Türev');
+
+  // Konu boş bırakılırsa satır etiketi ikinci satıra düşer.
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Cumartesi görev ekle' }),
+  );
+  const secondDialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await within(secondDialog).findByRole('option', { name: /Bilgi Sarmal/ });
+  await userEvent.selectOptions(
+    within(secondDialog).getByLabelText('Kitap'),
+    shelfBook.userBook.id,
+  );
+  await userEvent.type(
+    within(secondDialog).getByLabelText('Başlangıç sayfası'),
+    '21',
+  );
+  await userEvent.type(
+    within(secondDialog).getByLabelText('Bitiş sayfası'),
+    '30',
+  );
+  await userEvent.click(
+    within(secondDialog).getByRole('button', { name: 'Kaydet' }),
+  );
+
+  const subtitles = await screen.findAllByText('Matematik', {
+    selector: '[data-line="subtitle"]',
+  });
+  expect(subtitles).toHaveLength(1);
+  expect(subtitles[0]).toHaveAttribute('title', 'Matematik');
 });

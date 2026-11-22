@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/components/ui/cn';
 import { listShelfBooks } from '@/db/bookRepositories';
-import { listAllTopics } from '@/db/repositories';
+import { listAllTopics, listSubjects } from '@/db/repositories';
 import {
   addRow,
   copyWeek,
@@ -17,10 +17,17 @@ import {
   getOrCreateWeek,
   renameRow,
   saveWeekNote,
+  setTaskStatus as setScheduleTaskStatus,
   toggleTask,
   type WeekData,
 } from '@/db/scheduleRepository';
-import { shiftWeek, weekLabel, weekStartOf } from '@/domain/schedule';
+import {
+  scheduleTaskContent,
+  shiftWeek,
+  weekLabel,
+  weekStartOf,
+  type ScheduleTaskStatus,
+} from '@/domain/schedule';
 import type { ScheduleTask } from '@/domain/types';
 import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
@@ -105,6 +112,7 @@ export function WeeklyPlan() {
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
   const [taskEditor, setTaskEditor] = useState<TaskEditorTarget | null>(null);
   const [taskError, setTaskError] = useState<string | null>(null);
+  const [tickMode, setTickMode] = useState(false);
   const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
   const [copying, setCopying] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PlanDeleteTarget | null>(null);
@@ -161,34 +169,48 @@ export function WeeklyPlan() {
 
   // Labels only; the task modal reads its own form options.
   const taskLookups = useLiveQuery(async () => {
-    const [books, topics] = await Promise.all([
+    const [books, topics, subjects] = await Promise.all([
       listShelfBooks(true),
       listAllTopics(),
+      listSubjects(),
     ]);
-    return { books, topics };
+    return { books, topics, subjects };
   }, []);
+
+  const contentFor = useCallback(
+    (task: ScheduleTask, rowLabel?: string) => {
+      const topic = taskLookups?.topics.find(
+        (item) => item.id === task.topicId,
+      );
+      const subject = taskLookups?.subjects.find(
+        (item) => item.id === topic?.subjectId,
+      );
+      return scheduleTaskContent(task, {
+        rowLabel,
+        bookTitle: taskLookups?.books.find(
+          (item) => item.userBook.id === task.userBookId,
+        )?.catalogBook.title,
+        topicName: topic?.name,
+        subjectName: subject?.name,
+      });
+    },
+    [taskLookups],
+  );
+
+  const taskContent = useCallback(
+    (task: ScheduleTask, rowLabel: string) => contentFor(task, rowLabel),
+    [contentFor],
+  );
 
   const taskLabel = useCallback(
     (task: ScheduleTask): string => {
-      if (task.type === 'book') {
-        const title =
-          taskLookups?.books.find(
-            (item) => item.userBook.id === task.userBookId,
-          )?.catalogBook.title ?? 'Kitap';
-        if (task.fromPage !== undefined && task.toPage !== undefined) {
-          return `${title} s. ${task.fromPage}–${task.toPage}`;
-        }
-        return title;
-      }
-      if (task.type === 'topic') {
-        return (
-          taskLookups?.topics.find((topic) => topic.id === task.topicId)?.name ??
-          'Konu tekrarı'
-        );
-      }
-      return task.title ?? 'Serbest görev';
+      const row = rowsRef.current.find((item) => item.id === task.rowId);
+      const content = contentFor(task, row?.label);
+      return content.detail
+        ? `${content.title} ${content.detail}`
+        : content.title;
     },
-    [taskLookups],
+    [contentFor],
   );
 
   const refreshTasks = useCallback(async (): Promise<void> => {
@@ -661,6 +683,21 @@ export function WeeklyPlan() {
     }
   }
 
+  async function handleSetTaskStatus(
+    task: ScheduleTask,
+    status: ScheduleTaskStatus,
+  ): Promise<void> {
+    setTaskError(null);
+    try {
+      await setScheduleTaskStatus(task.id, status);
+      await refreshTasks();
+    } catch (caught: unknown) {
+      setTaskError(
+        messageFor(caught, 'Görev güncellenemedi. Lütfen tekrar dene.'),
+      );
+    }
+  }
+
   function requestDeleteTask(task: ScheduleTask): void {
     setTaskError(null);
     setDeleteError(null);
@@ -807,7 +844,7 @@ export function WeeklyPlan() {
             onAddRow={addDraftRow}
             onRenameRow={renameDraftRow}
             onDeleteRow={requestDeleteRow}
-            taskLabel={taskLabel}
+            taskContent={taskContent}
             onAddTask={(row, dayIndex) => {
               if (!weekData || row.id === undefined) {
                 return;
@@ -815,6 +852,9 @@ export function WeeklyPlan() {
               setTaskEditor({ rowId: row.id, dayIndex });
             }}
             onToggleTask={(task, done) => void handleToggleTask(task, done)}
+            onSetTaskStatus={(task, status) =>
+              void handleSetTaskStatus(task, status)
+            }
             onEditTask={(task) =>
               setTaskEditor({
                 rowId: task.rowId,
@@ -823,6 +863,8 @@ export function WeeklyPlan() {
               })
             }
             onDeleteTask={requestDeleteTask}
+            tickMode={tickMode}
+            onToggleTickMode={() => setTickMode((current) => !current)}
           />
 
           {taskError ? (

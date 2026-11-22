@@ -119,6 +119,7 @@ export function ScheduleTaskModal({
           userBookId: selectedBookId,
           fromPage: parsePageInput(fromPage),
           toPage: parsePageInput(toPage),
+          title: trimmedTitle,
         };
       } else if (type === 'topic') {
         input = { ...base, type: 'topic', topicId: selectedTopicId };
@@ -265,6 +266,23 @@ export function ScheduleTaskModal({
                 />
               </Field>
             </div>
+
+            <Field
+              label="Konu"
+              htmlFor={titleId}
+              hint="İsteğe bağlı; çipte ikinci satırda görünür. Boşsa satır etiketi kullanılır."
+            >
+              <input
+                id={titleId}
+                type="text"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                maxLength={80}
+                autoComplete="off"
+                disabled={loading}
+                className={inputClass}
+              />
+            </Field>
           </>
         ) : null}
 

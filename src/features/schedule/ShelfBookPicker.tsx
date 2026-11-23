@@ -1,6 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Field } from '@/components/ui/Field';
 import { cn } from '@/components/ui/cn';
 import type { ShelfBook } from '@/db/bookRepositories';
 import { matchesTokens, tokenizeTr } from '@/lib/normalize';
@@ -68,6 +67,14 @@ export function ShelfBookPicker({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === 'Enter') {
+      // A focused search input inside the task form must never submit it.
+      event.preventDefault();
+      if (activeResult) {
+        choose(activeResult);
+      }
+      return;
+    }
     if (results.length === 0) {
       return;
     }
@@ -77,9 +84,6 @@ export function ShelfBookPicker({
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       setActiveIndex((index) => Math.max(index - 1, 0));
-    } else if (event.key === 'Enter' && activeResult) {
-      event.preventDefault();
-      choose(activeResult);
     }
   }
 
@@ -120,29 +124,29 @@ export function ShelfBookPicker({
         </p>
       ) : null}
 
-      <Field label="Kitap ara" htmlFor={id}>
-        <input
-          ref={inputRef}
-          id={id}
-          type="search"
-          aria-label="Kitap ara"
-          placeholder="Kitap veya yayınevi ara"
-          autoComplete="off"
-          value={query}
-          disabled={disabled}
-          aria-controls={listboxId}
-          aria-autocomplete="list"
-          aria-activedescendant={
-            activeResult ? `${id}-option-${activeResult.userBook.id}` : undefined
-          }
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setActiveIndex(0);
-          }}
-          onKeyDown={handleKeyDown}
-          className="min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]"
-        />
-      </Field>
+      <input
+        ref={inputRef}
+        id={id}
+        type="search"
+        role="combobox"
+        aria-label="Kitap ara"
+        placeholder="Kitap veya yayınevi ara"
+        autoComplete="off"
+        value={query}
+        disabled={disabled}
+        aria-expanded={results.length > 0}
+        aria-controls={listboxId}
+        aria-autocomplete="list"
+        aria-activedescendant={
+          activeResult ? `${id}-option-${activeResult.userBook.id}` : undefined
+        }
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setActiveIndex(0);
+        }}
+        onKeyDown={handleKeyDown}
+        className="min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]"
+      />
 
       {results.length > 0 ? (
         <ul
@@ -158,7 +162,7 @@ export function ShelfBookPicker({
                 key={book.userBook.id}
                 id={`${id}-option-${book.userBook.id}`}
                 role="option"
-                aria-selected={isActive}
+                aria-selected={book.userBook.id === value}
                 onMouseEnter={() => setActiveIndex(index)}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(book)}

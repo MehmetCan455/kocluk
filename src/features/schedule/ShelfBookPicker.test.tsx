@@ -82,6 +82,7 @@ test('kitap adı veya yayıneviyle arar ve tıklanan kitabı seçer', async () =
   );
 
   const input = screen.getByLabelText('Kitap ara');
+  expect(screen.queryByText('Kitap ara')).not.toBeInTheDocument();
   await userEvent.type(input, 'bilgi');
 
   expect(
@@ -96,16 +97,59 @@ test('kitap adı veya yayıneviyle arar ve tıklanan kitabı seçer', async () =
   expect(onChange).toHaveBeenCalledWith(books[0].userBook.id);
 });
 
-test('klavyeyle gezinip Enter ile kitabı seçer', async () => {
+test('klavyeyle gezinip Enter ile ikinci sonucu seçer', async () => {
   const onChange = vi.fn();
   render(
     <ShelfBookPicker id="kitap" books={books} value="" onChange={onChange} />,
   );
 
-  await userEvent.type(screen.getByLabelText('Kitap ara'), 'sarmal');
+  await userEvent.type(screen.getByLabelText('Kitap ara'), 'soru bankası');
+  expect(screen.getAllByRole('option')).toHaveLength(2);
+
   await userEvent.keyboard('{ArrowDown}{Enter}');
 
-  expect(onChange).toHaveBeenCalledWith(books[0].userBook.id);
+  expect(onChange).toHaveBeenCalledWith(books[1].userBook.id);
+});
+
+test('aria-selected seçili kitabı işaretler, combobox durumunu bildirir', () => {
+  render(
+    <ShelfBookPicker
+      id="kitap"
+      books={books}
+      value={books[1].userBook.id}
+      onChange={() => {}}
+    />,
+  );
+
+  const input = screen.getByRole('combobox', { name: 'Kitap ara' });
+  expect(input).toHaveAttribute('aria-expanded', 'true');
+  expect(
+    screen.getByRole('option', { name: /Bilgi Sarmal/ }),
+  ).toHaveAttribute('aria-selected', 'false');
+  expect(
+    screen.getByRole('option', { name: /3D Yayınları/ }),
+  ).toHaveAttribute('aria-selected', 'true');
+});
+
+test('sonuç yokken Enter formu göndermez ve seçim yapmaz', async () => {
+  const onChange = vi.fn();
+  const onSubmit = vi.fn();
+  render(
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <ShelfBookPicker id="kitap" books={books} value="" onChange={onChange} />
+    </form>,
+  );
+
+  await userEvent.type(screen.getByLabelText('Kitap ara'), 'zzz');
+  await userEvent.keyboard('{Enter}');
+
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(onChange).not.toHaveBeenCalled();
 });
 
 test('seçili kitabın özetini ve Değiştir düğmesini gösterir', async () => {

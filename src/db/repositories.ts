@@ -99,8 +99,16 @@ export async function listSubjects(exam?: ExamType): Promise<Subject[]> {
   return db.subjects.orderBy('order').toArray();
 }
 
+export function getSubject(id: string): Promise<Subject | undefined> {
+  return db.subjects.get(id);
+}
+
 export async function listTopics(subjectId: string): Promise<Topic[]> {
   return db.topics.where('subjectId').equals(subjectId).sortBy('order');
+}
+
+export function getTopic(id: string): Promise<Topic | undefined> {
+  return db.topics.get(id);
 }
 
 export async function listTopicBooks(topicId: string): Promise<TopicBook[]> {

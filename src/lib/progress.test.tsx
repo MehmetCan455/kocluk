@@ -87,6 +87,8 @@ test('ders ilerlemesi biten konu sayısından gelir, legacy test kayıtlarından
     { id: polinomlar.id, done: false, reviewCount: 0, legacyTestRecordCount: 0 },
   ]);
   expect(result.current?.continuingTopic).toBeUndefined();
+  expect(result.current?.bookEstimate).toBe(0);
+  expect(result.current?.manualDoneCount).toBe(1);
 });
 
 test('konu tekrarı konuyu başlatır ama bitirmez', async () => {

@@ -39,8 +39,8 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
 - **Kitaplar** sayfasında katalogdan kitap seçip rafına ekleyebilirsin. Her kitap
   okunan sayfa / toplam sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir; toplam
   sayfa girilmemiş kitaplarda yüzde yerine **Sayfa sayısını gir** uyarısı çıkar.
-  Katalog, farklı yayınevlerinden TYT Türkçe; TYT ve AYT matematik, geometri,
-  fizik, kimya, biyoloji, tarih, coğrafya, felsefe, din kültürü ve edebiyat
+  Katalog, farklı yayınevlerinden TYT Türkçe; AYT edebiyat; TYT ve AYT matematik,
+  geometri, fizik, kimya, biyoloji, tarih, coğrafya, felsefe ve din kültürü
   kitaplarından oluşan 500+ kitaplık (528 kitap) bir set içerir; fasikül,
   problemler ve paragraf kitapları da bu kapsamdadır. Listede olmayan kitapları
   kendi başlık, yayınevi ve sayfa sayısıyla rafına ekleyebilirsin.
@@ -64,11 +64,12 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
 
 **Ders ilerlemesi** elle işaretlediğin konu tamamlamaları ile kitap ilerlemenden
 tahmini olarak hesaplanır. Bir kitabın okunan yüzdesi, dersin konularına sırayla
-dağıtılır ve tek bir konuya en fazla %50 katkı verir; biten bir kitap dersin tüm
-konularına %50 ekler, iki biten kitap konuyu tamamlar. Konu sayfasından elle
-**Bitti** işaretlenen konu her zaman %100 kalır ve kitap tahmini bunu düşürmez.
-Arşivlenen kitaplar ile toplam sayfası girilmemiş kitaplar bu tahmine katılmaz;
-TYT ve AYT ayrı dersler olarak değerlendirilir.
+dağıtılır ve tek bir konuya en fazla %50 katkı verir; biten bir kitap her konuya en
+fazla %50 ekler, iki biten kitap konuyu tamamlar. Bu tahmin ders kartında ve ders
+sayfasında **Kitap tahmini** olarak görünür. Konu sayfasından elle **Bitti**
+işaretlenen konu her zaman %100 kalır ve kitap tahmini bunu düşürmez. Arşivlenen
+kitaplar ile toplam sayfası girilmemiş kitaplar bu tahmine katılmaz; TYT ve AYT ayrı
+dersler olarak değerlendirilir.
 
 PWA ikonlarını `public/favicon.svg` kaynağından yeniden üretmek için:
 

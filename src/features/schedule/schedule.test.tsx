@@ -787,10 +787,9 @@ test('iki yayınevinden kitap varken arama eşleşeni bırakır ve doğru kitap 
   expect(bilgiSarmal.userBook.id).not.toBe(threeD.userBook.id);
 });
 
-test('raftan kaldırılan kitabın görevi düzenlenirken uyarır ve kaydetmeyi engeller', async () => {
+test('rafta başka aktif kitap yokken de raf dışı kitabı uyarır ve kaydetmeyi engeller', async () => {
   const { weekId, rowId } = await seedPlanRow();
   const archived = await seedBilgiSarmalBook();
-  await seedShelfBook('3D Yayınları', 'TYT Matematik Soru Bankası');
   await addTask({
     weekId,
     rowId,
@@ -801,6 +800,7 @@ test('raftan kaldırılan kitabın görevi düzenlenirken uyarır ve kaydetmeyi 
     toPage: 20,
   });
   await updateUserBook(archived.userBook.id, { status: 'archived' });
+  const before = await db.scheduleTasks.toArray();
   await openSchedule();
 
   const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
@@ -812,6 +812,13 @@ test('raftan kaldırılan kitabın görevi düzenlenirken uyarır ve kaydetmeyi 
   );
   const dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
 
+  // The active shelf is empty, so the picker shows its empty-shelf message;
+  // the task's missing book still needs its own warning.
+  expect(
+    within(dialog).getByText(
+      'Rafında kitap yok. Kitaplar sayfasından ekleyebilirsin.',
+    ),
+  ).toBeInTheDocument();
   expect(
     within(dialog).getByText('Seçili kitap rafında bulunamadı.'),
   ).toBeInTheDocument();
@@ -823,7 +830,7 @@ test('raftan kaldırılan kitabın görevi düzenlenirken uyarır ve kaydetmeyi 
       screen.queryByRole('dialog', { name: 'Görevi düzenle' }),
     ).not.toBeInTheDocument();
   });
-  expect(await db.scheduleTasks.count()).toBe(1);
+  expect(await db.scheduleTasks.toArray()).toEqual(before);
 });
 
 test('ondalık sayfa girişi kırpılmadan reddedilir', async () => {

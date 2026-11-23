@@ -224,6 +224,16 @@ export function ScheduleTaskModal({
                 onChange={setSelectedBookId}
                 disabled={loading}
               />
+              {!loading &&
+              selectedBookId !== '' &&
+              selectedBook === undefined &&
+              (books?.length ?? 0) === 0 ? (
+                // The picker short-circuits to its empty-shelf message, so an
+                // orphaned task book needs this warning here.
+                <p role="status" className="text-xs text-danger">
+                  Seçili kitap rafında bulunamadı.
+                </p>
+              ) : null}
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">

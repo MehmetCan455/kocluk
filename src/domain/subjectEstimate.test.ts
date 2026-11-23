@@ -88,3 +88,59 @@ test('iki yarım kitap yalnızca ilk konuyu tamamlar', () => {
   ]).values()];
   expect(values).toEqual([100, 0, 0, 0]);
 });
+
+test('birleşik AYT Tarih kitabı iki alt derse de sayılır', () => {
+  const book = { title: 'AYT Tarih Soru Bankası', exam: 'AYT' as const, subjectSlug: 'tarih-1' };
+  expect(countsForSubject(book, { exam: 'AYT', slug: 'tarih-1' })).toBe(true);
+  expect(countsForSubject(book, { exam: 'AYT', slug: 'tarih-2' })).toBe(true);
+});
+
+test('Tarih-1/2 ayrımı olan kitap kardeş alt derse sayılmaz', () => {
+  expect(countsForSubject(
+    { title: 'AYT Tarih-1 Soru Bankası', exam: 'AYT', subjectSlug: 'tarih-1' },
+    { exam: 'AYT', slug: 'tarih-2' },
+  )).toBe(false);
+  expect(countsForSubject(
+    { title: 'AYT Tarih-2 Soru Bankası', exam: 'AYT', subjectSlug: 'tarih-2' },
+    { exam: 'AYT', slug: 'tarih-1' },
+  )).toBe(false);
+});
+
+test('birleşik AYT Coğrafya kitabı iki alt derse de sayılır', () => {
+  const book = { title: 'AYT Coğrafya Soru Bankası', exam: 'AYT' as const, subjectSlug: 'cografya-1' };
+  expect(countsForSubject(book, { exam: 'AYT', slug: 'cografya-1' })).toBe(true);
+  expect(countsForSubject(book, { exam: 'AYT', slug: 'cografya-2' })).toBe(true);
+});
+
+test('Coğrafya-1/2 ayrımı olan kitap kardeş alt derse sayılmaz', () => {
+  expect(countsForSubject(
+    { title: 'AYT Coğrafya-2 Soru Bankası', exam: 'AYT', subjectSlug: 'cografya-2' },
+    { exam: 'AYT', slug: 'cografya-1' },
+  )).toBe(false);
+  expect(countsForSubject(
+    { title: 'AYT Coğrafya-1 Soru Bankası', exam: 'AYT', subjectSlug: 'cografya-1' },
+    { exam: 'AYT', slug: 'cografya-2' },
+  )).toBe(false);
+});
+
+test('birleşik AYT kitabı TYT dersine sızmaz', () => {
+  expect(countsForSubject(
+    { title: 'AYT Tarih Soru Bankası', exam: 'AYT', subjectSlug: 'tarih-1' },
+    { exam: 'TYT', slug: 'tarih' },
+  )).toBe(false);
+  expect(countsForSubject(
+    { title: 'TYT Tarih Soru Bankası', exam: 'TYT', subjectSlug: 'tarih' },
+    { exam: 'AYT', slug: 'tarih-1' },
+  )).toBe(false);
+});
+
+test('Türkçe büyük harfli birleşik başlık eşleşir', () => {
+  expect(countsForSubject(
+    { title: 'AYT TARİH SORU BANKASI', exam: 'AYT', subjectSlug: 'tarih-1' },
+    { exam: 'AYT', slug: 'tarih-2' },
+  )).toBe(true);
+  expect(countsForSubject(
+    { title: 'AYT COĞRAFYA SORU BANKASI', exam: 'AYT', subjectSlug: 'cografya-2' },
+    { exam: 'AYT', slug: 'cografya-1' },
+  )).toBe(true);
+});

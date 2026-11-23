@@ -6,6 +6,38 @@ const MAX_TOPIC_CONTRIBUTION = 50;
 /** `TYT-AYT` / `TYT - AYT` gibi ortak tek cilt kitapların başlık deseni. */
 const COMMON_EXAM_TITLE = /TYT\s*[-–]\s*AYT/i;
 
+type AytSubjectGroup = 'tarih' | 'cografya';
+
+/** Tek cilt AYT Tarih/Coğrafya kitaplarının kapsadığı alt ders slug'ları. */
+const AYT_GROUP_BY_SLUG: Record<string, AytSubjectGroup> = {
+  'tarih-1': 'tarih',
+  'tarih-2': 'tarih',
+  'cografya-1': 'cografya',
+  'cografya-2': 'cografya',
+};
+
+/** Türkçe büyük harfleri doğru küçültür; `TARIH` yazımını da `tarih`e indirger. */
+function normalizeTitle(title: string): string {
+  return title.toLocaleLowerCase('tr').replaceAll('ı', 'i');
+}
+
+/** "AYT Tarih" / "AYT Coğrafya" gibi alt ders ayrımı olmayan birleşik başlıklar. */
+const COMBINED_AYT_TITLE: Record<AytSubjectGroup, RegExp> = {
+  tarih: /(^|[^a-zçğıöşü])ayt\s+tarih(?!\w)/u,
+  cografya: /(^|[^a-zçğıöşü])ayt\s+co[ğg]rafya(?!\w)/u,
+};
+
+/** "Tarih-1", "Tarih 2", "Coğrafya-1" gibi alt ders ayrımını belirten başlıklar. */
+const EXPLICIT_AYT_SUB_SUBJECT = /(?:tarih|co[ğg]rafya)\s*(?:[-–—]\s*)?[12](?!\d)/u;
+
+function combinedAytGroup(slug: string | undefined): AytSubjectGroup | undefined {
+  if (!slug) {
+    return undefined;
+  }
+  const key = slug.trim().toLowerCase();
+  return Object.hasOwn(AYT_GROUP_BY_SLUG, key) ? AYT_GROUP_BY_SLUG[key] : undefined;
+}
+
 export interface SubjectBookMatch {
   title: string;
   exam?: ExamType;
@@ -31,15 +63,28 @@ function sameSlug(left: string | undefined, right: string): boolean {
 /**
  * Kitap, dersin sınavına ve slug'ına uyuyorsa sayılır. `TYT-AYT` ortak
  * kitapları katalogda tek sınavla işaretli olsa da iki sınava da katkı verir.
+ * Ayrıca alt ders ayrımı olmayan tek cilt AYT Tarih/Coğrafya kitapları, aynı
+ * grubun kardeş alt dersine (Tarih-1 ↔ Tarih-2, Coğrafya-1 ↔ Coğrafya-2) de
+ * sayılır; başlıkta açık `-1`/`-2` ayrımı varsa sayılmaz.
  */
 export function countsForSubject(book: SubjectBookMatch, subject: SubjectRef): boolean {
-  if (!sameSlug(book.subjectSlug, subject.slug)) {
+  if (sameSlug(book.subjectSlug, subject.slug)) {
+    return book.exam === subject.exam || COMMON_EXAM_TITLE.test(book.title);
+  }
+
+  const bookGroup = combinedAytGroup(book.subjectSlug);
+  if (!bookGroup || bookGroup !== combinedAytGroup(subject.slug)) {
     return false;
   }
-  if (book.exam === subject.exam) {
-    return true;
+  if (book.exam !== 'AYT' || subject.exam !== 'AYT') {
+    return false;
   }
-  return COMMON_EXAM_TITLE.test(book.title);
+
+  const title = normalizeTitle(book.title);
+  if (EXPLICIT_AYT_SUB_SUBJECT.test(title)) {
+    return false;
+  }
+  return COMBINED_AYT_TITLE[bookGroup].test(title);
 }
 
 /**

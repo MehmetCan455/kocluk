@@ -98,8 +98,25 @@ dosyası derlenmiş `dist/` klasörünü `/home/u2964068/public_html/` altına k
 alan adının belge kökü farklıysa `.cpanel.yml` içindeki `DEPLOYPATH` değerini
 güncelle. Sunucuda Node.js gerekmez, çünkü çıktı depoda hazır durur.
 
-`dist/` depoya commit edilir. Kod değişikliğinden sonra `npm run build` çalıştır ve
-yenilenen `dist/` klasörünü de commit et; cPanel yalnızca kopyalama yapar.
+### İlk cPanel kurulumu
+
+1. cPanel → **Git Version Control** → **Create** ile bu depoyu (GitHub URL'si,
+   `main` dalı) ekle.
+2. Depoyu oluşturduktan sonra **Update from Remote** ile kodu çek.
+3. **Deploy HEAD Commit** düğmesine bas; `.cpanel.yml` `dist/` içeriğini belge
+   köküne kopyalar.
+4. cPanel'de alan adının belge kökünü kontrol et; farklıysa `.cpanel.yml`
+   içindeki `DEPLOYPATH` değerini düzeltip yeniden deploy et.
+
+### Her yayında
+
+1. `npm run build`
+2. `git add dist && git commit -m "build: refresh dist"`
+3. Değişiklikleri GitHub'a push et.
+4. cPanel → Git Version Control → **Update from Remote** → **Deploy HEAD Commit**.
+
+`dist/` depoya commit edilir; cPanel yalnızca kopyalama yapar. `.gitattributes`
+sayesinde `dist/` dosyaları checkout sırasında satır sonu dönüşümüne uğramaz.
 
 GitHub Pages desteği isteğe bağlı/eski yol olarak korunur: `.github/workflows/deploy.yml`
 iş akışı derleme adımında `VITE_BASE=/kocluk/` kullanır, yani Pages yayını eski

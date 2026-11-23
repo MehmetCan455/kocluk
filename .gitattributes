@@ -1,0 +1,2 @@
+# Keep the committed production build byte-stable for cPanel deployments.
+dist/** -text

@@ -229,9 +229,13 @@ export function DashboardPage() {
 
   // Every subject's shelf books are distributed over its topic list, so a book
   // that has not been finished by hand still moves the dashboard percentages.
+  // Topics and books use the same deterministic order as the subject pages;
+  // `listAllTopics` is primary-key order, not curriculum order.
   const bookPercentByTopic = new Map<string, number>();
   for (const subject of data.subjects) {
-    const subjectTopics = data.topics.filter((topic) => topic.subjectId === subject.id);
+    const subjectTopics = data.topics
+      .filter((topic) => topic.subjectId === subject.id)
+      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
     if (subjectTopics.length === 0) {
       continue;
     }
@@ -247,6 +251,11 @@ export function DashboardPage() {
             },
             subject,
           ),
+      )
+      .sort(
+        (a, b) =>
+          a.userBook.createdAt.localeCompare(b.userBook.createdAt) ||
+          a.userBook.id.localeCompare(b.userBook.id),
       )
       .map((book) => ({
         totalPages: book.totalPages,
@@ -272,17 +281,20 @@ export function DashboardPage() {
         : visibleTopics.filter(
             (topic) => subjectById.get(topic.subjectId)?.exam === exam,
           );
-    const percentages = topics.map((topic) =>
-      effectiveTopicPercent(
-        doneTopicIds.has(topic.id),
-        bookPercentByTopic.get(topic.id) ?? 0,
-      ),
+    const bookPercents = topics.map(
+      (topic) => bookPercentByTopic.get(topic.id) ?? 0,
     );
-    const estimated = percentages.some((percent) => percent > 0);
+    const percentages = topics.map((topic, index) =>
+      effectiveTopicPercent(doneTopicIds.has(topic.id), bookPercents[index]!),
+    );
+    const hasBookEstimate = bookPercents.some((percent) => percent > 0);
     return {
-      progress: calculateSubjectProgress(percentages, estimated),
+      progress: calculateSubjectProgress(
+        percentages,
+        percentages.some((percent) => percent > 0),
+      ),
       topicCount: topics.length,
-      estimated,
+      estimated: hasBookEstimate,
     };
   }
 

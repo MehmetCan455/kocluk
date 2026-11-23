@@ -215,6 +215,26 @@ test('ana sayfa konu yüzdelerini, sayfa tabanlı kitapları, net grafiğini ve 
   );
   expect(screen.getByText('3/4 konu')).toBeInTheDocument();
 
+  const overallStatCard = screen.getByRole('progressbar', {
+    name: 'Genel konu ilerlemesi',
+  }).parentElement as HTMLElement;
+  expect(
+    within(overallStatCard).getByText('4 konu · kitap tahmini dahil'),
+  ).toBeInTheDocument();
+  const tytStatCard = screen.getByRole('progressbar', {
+    name: 'TYT konu ilerlemesi',
+  }).parentElement as HTMLElement;
+  expect(
+    within(tytStatCard).getByText('2 konu · kitap tahmini dahil'),
+  ).toBeInTheDocument();
+  const aytStatCard = screen.getByRole('progressbar', {
+    name: 'AYT konu ilerlemesi',
+  }).parentElement as HTMLElement;
+  expect(within(aytStatCard).getByText('2 konu')).toBeInTheDocument();
+  expect(
+    within(aytStatCard).queryByText('2 konu · kitap tahmini dahil'),
+  ).not.toBeInTheDocument();
+
   const bilgiLink = screen.getByRole('link', { name: /Bilgi Sarmal TYT Matematik/ });
   expect(within(bilgiLink).getByText('220/400 sayfa')).toBeInTheDocument();
   expect(within(bilgiLink).getByText('%55')).toBeInTheDocument();
@@ -531,6 +551,41 @@ test('dersini bitirmemiş kitap konu ilerlemesini sıfıra düşürmez', async (
   const bookLink = screen.getByRole('link', { name: /AYT Matematik Soru Bankası/ });
   expect(within(bookLink).getByText('%99')).toBeInTheDocument();
   expect(within(bookLink).getByText('415/416 sayfa')).toBeInTheDocument();
+});
+
+test('konu sırası bozuk olsa da kitap sayfaları müfredat sırasına dağıtılır', async () => {
+  const aytMatematik = await subjectId('ayt-matematik');
+  const firstTopic = await topicId('ayt-matematik-turev');
+  // Primary-key order puts this topic before the seeded UUID even though its
+  // curriculum order is 2; the estimate must still follow `order`.
+  await db.topics.add({
+    id: '000-ayt-matematik-ikinci',
+    subjectId: aytMatematik,
+    name: 'İkinci Konu',
+    order: 2,
+    isCustom: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  });
+  await setTopicDone(firstTopic, true);
+
+  const userBook = await addCustomBook({
+    title: 'AYT Matematik Soru Bankası',
+    exam: 'AYT',
+    subjectSlug: 'matematik',
+    totalPages: 100,
+  });
+  await addBookPageRange(userBook.id, 1, 50);
+
+  renderApp('/');
+
+  const aytBar = await screen.findByRole('progressbar', { name: 'AYT konu ilerlemesi' });
+  await waitFor(() => expect(aytBar).toHaveAttribute('aria-valuenow', '33'));
+
+  const aytCard = aytBar.parentElement as HTMLElement;
+  expect(within(aytCard).getByText('1/3 konu')).toBeInTheDocument();
+  expect(
+    within(aytCard).getByText('3 konu · kitap tahmini dahil'),
+  ).toBeInTheDocument();
 });
 
 test.each(['', 'bozuk', '2026-02-31'])(

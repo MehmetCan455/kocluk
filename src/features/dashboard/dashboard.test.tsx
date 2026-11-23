@@ -318,6 +318,35 @@ test('bugünün planı bugünün görevlerini gösterir ve tik kitap ilerlemesin
   expect(shelfBook?.progress.readPages).toBe(20);
 });
 
+test('bugünün planında kitap görevi yayıneviyle görünür', async () => {
+  const userBook = await addCustomBook({
+    title: 'Fizik Soru Bankası',
+    publisher: 'Bilgi Sarmal',
+    exam: 'TYT',
+    subjectSlug: 'fizik',
+    totalPages: 100,
+  });
+  const { week } = await getOrCreateWeek(weekStartOf(new Date()));
+  const row = await addRow(week.id, 'Fizik');
+  await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: todayDayIndex(),
+    type: 'book',
+    userBookId: userBook.id,
+    fromPage: 1,
+    toPage: 20,
+  });
+
+  renderApp('/');
+
+  expect(
+    await screen.findByRole('checkbox', {
+      name: 'Bilgi Sarmal · Fizik Soru Bankası Syf. 1–20 görevini tamamla',
+    }),
+  ).toBeInTheDocument();
+});
+
 test('en yüksek ve ortalama net son beşle sınırlı kalmadan tür bazında tüm denemeleri kapsar', async () => {
   const seed = await seedDashboardData();
   // Üç eski deneme ekle; en yüksek net yapan deneme son beşin dışında kalır.

@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/components/ui/cn';
 import type { ShelfBook } from '@/db/bookRepositories';
 import { listTasksForDay, toggleTask } from '@/db/scheduleRepository';
-import { weekStartOf } from '@/domain/schedule';
+import { scheduleTaskContent, weekStartOf } from '@/domain/schedule';
 import type { ScheduleTask, Topic } from '@/domain/types';
 
 export interface TodayPlanCardProps {
@@ -25,19 +25,19 @@ function taskLabel(
   books: ReadonlyArray<ShelfBook>,
   topics: ReadonlyArray<Topic>,
 ): string {
-  if (task.type === 'book') {
-    const title =
-      books.find((row) => row.userBook.id === task.userBookId)?.catalogBook.title ??
-      'Kitap';
-    if (task.fromPage !== undefined && task.toPage !== undefined) {
-      return `${title} Syf. ${task.fromPage}–${task.toPage}`;
-    }
-    return title;
-  }
-  if (task.type === 'topic') {
-    return topics.find((topic) => topic.id === task.topicId)?.name ?? 'Konu tekrarı';
-  }
-  return task.title ?? 'Serbest görev';
+  const shelfBook =
+    task.type === 'book'
+      ? books.find((row) => row.userBook.id === task.userBookId)
+      : undefined;
+  const content = scheduleTaskContent(task, {
+    bookTitle: shelfBook?.catalogBook.title,
+    bookPublisher: shelfBook?.catalogBook.publisher,
+    topicName:
+      task.type === 'topic'
+        ? topics.find((topic) => topic.id === task.topicId)?.name
+        : undefined,
+  });
+  return content.detail ? `${content.title} ${content.detail}` : content.title;
 }
 
 /** Today's planned tasks with a one-tap tick. */

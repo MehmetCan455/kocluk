@@ -1,0 +1,429 @@
+{
+  "batch": "tyt-kimya",
+  "books": [
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-kimya-soru-bankasi-497.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-kimya-soru-bankasi-497.html",
+        "https://www.bkmkitap.com/arama?q=9786257154024"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye (ISBN 9786257154024) 208 sayfa; Bkm Kitap aynı ISBN'te 208 sayfa veriyor."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Endemik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://endemikyayinlari.com.tr/urun/tyt-kimya-soru-bankasi--yeni--978-625-7430-63-0",
+      "sourceUrls": [
+        "https://endemikyayinlari.com.tr/urun/tyt-kimya-soru-bankasi--yeni--978-625-7430-63-0",
+        "https://www.hepsiburada.com/endemik-tyt-kimya-soru-bankasi-endemik-yayinlari-pm-HBC00006RXSTB",
+        "https://www.bkmkitap.com/arama?q=9786257430630"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786257430630; iki bağımsız mağaza (Hepsiburada, Bkm Kitap) ve yayınevi künyesi 224 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT AYT Kimya Soru Gezegeni",
+      "publisher": "Gezegen Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 440,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/tyt-ayt-kimya-soru-gezegeni",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/tyt-ayt-kimya-soru-gezegeni",
+        "https://www.kitapsec.com/Products/TYT-AYT-Kimya-Soru-Gezegeni-Gezegen-Yayinlari-740250.html"
+      ],
+      "confidence": "high",
+      "notes": "TYT-AYT ortak tek cilt; ISBN 9786057543516. Bkm Kitap ve Kitapsec 440 sayfada anlaşıyor. Truva Kitap 455 sayfa (eski/sahaf baskısı) diyor."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası Orta ve İleri Düzey",
+      "publisher": "Kafa Dengi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/kafa-dengi-yayinlari/serkan-sen/kafa-dengi-yayinlari-tyt-kimya-orta-ve-ileri-duzey-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/kafa-dengi-yayinlari/serkan-sen/kafa-dengi-yayinlari-tyt-kimya-orta-ve-ileri-duzey-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786053809883"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786053809883; Pelikan ve Bkm Kitap 304 sayfada anlaşıyor."
+    },
+    {
+      "title": "TYT Kimya Konu Özetli Soru Bankası",
+      "publisher": "Akıl Fikir Mektebi",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/akil-fikir-mektebi/komisyon/akil-fikir-mektebi-ytyt-kimya-konu-ozetli-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/akil-fikir-mektebi/komisyon/akil-fikir-mektebi-ytyt-kimya-konu-ozetli-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786058031319"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786058031319; iki mağaza 240 sayfada anlaşıyor."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Puza Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/puza-yayinlari/ramazan-kaya/puza-yayinlari-tyt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/puza-yayinlari/ramazan-kaya/puza-yayinlari-tyt-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786058282247"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786058282247; 176 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Madalyon Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 200,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/madalyon-yayinlari/komisyon/madalyon-yayinlari-tyt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/madalyon-yayinlari/komisyon/madalyon-yayinlari-tyt-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786257968409"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786257968409; 200 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "Venüs Serisi Kimya YKS Soru Bankası",
+      "publisher": "Fen Bilimleri Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/fen-bilimleri-yayinlari/komisyon/kampanyali-fen-bilimleri-yayinlari-tyt-ayt-kimya-soru-bankasi-venus-serisi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/fen-bilimleri-yayinlari/komisyon/kampanyali-fen-bilimleri-yayinlari-tyt-ayt-kimya-soru-bankasi-venus-serisi",
+        "https://www.bkmkitap.com/arama?q=9786057538789"
+      ],
+      "confidence": "high",
+      "notes": "TYT-AYT ortak tek cilt; ISBN 9786057538789. 384 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya Soru Kitabı",
+      "publisher": "Yeni Nesil Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 326,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/yeni-nesil-yayinlari/komisyon/yeni-nesil-yayinlari-tyt-kimya-soru-kitabi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/yeni-nesil-yayinlari/komisyon/yeni-nesil-yayinlari-tyt-kimya-soru-kitabi",
+        "https://www.bkmkitap.com/arama?q=9786052826089"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786052826089; 326 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya Venn Serisi Soru Kitabı",
+      "publisher": "Yazıt Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/yazit-yayincilik/mustafa-demirsoy/yazit-yayinlari-tyt-kimya-soru-kitabi-venn-serisi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/yazit-yayincilik/mustafa-demirsoy/yazit-yayinlari-tyt-kimya-soru-kitabi-venn-serisi",
+        "https://www.bkmkitap.com/arama?q=9786057399304"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786057399304; 240 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Ekstrem Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/ekstrem-yayinlari/komisyon/ekstrem-yayinlari-tyt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/ekstrem-yayinlari/komisyon/ekstrem-yayinlari-tyt-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786258091045"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786258091045; 256 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Üçgen Akademi",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/ucgen-akademi-lise/komisyon/ucgen-akademi-yayinlari-tyt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/ucgen-akademi-lise/komisyon/ucgen-akademi-yayinlari-tyt-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786257152679"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786257152679; 256 sayfa iki kaynakta ortak. Bkm Kitap marka alanında 'Üçgen Yayıncılık' geçiyor."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Marsis Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/marsis-yayinlari/komisyon/marsis-yayinlari-tyt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/marsis-yayinlari/komisyon/marsis-yayinlari-tyt-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786256912199"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786256912199; 208 sayfa iki kaynakta ortak. Bkm'de başlık '5 Deneme Hediyeli-Video Çözümlü' ekli."
+    },
+    {
+      "title": "2027 TYT Twins Kimya Soru Bankası",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 128,
+      "edition": "2027",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/kr-akademi/huseyin-cihan-cetinoz/kr-akademi-2027-tyt-twins-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/kr-akademi/huseyin-cihan-cetinoz/kr-akademi-2027-tyt-twins-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786258580426"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786258580426; 128 sayfa iki kaynakta ortak; künyede 2027 baskısı."
+    },
+    {
+      "title": "TYT Kimya Konu Özetleri",
+      "publisher": "Üçgen Akademi",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 96,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-konu-kitaplari-tyt-kimya-konu/ucgen-akademi-lise/hamza-ceylan/ucgen-akademi-tyt-kimya-konu-ozetleri",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-konu-kitaplari-tyt-kimya-konu/ucgen-akademi-lise/hamza-ceylan/ucgen-akademi-tyt-kimya-konu-ozetleri",
+        "https://www.bkmkitap.com/arama?q=9786257152662"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786257152662; 96 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya 10 Günde Temel Atma Garanti",
+      "publisher": "Paraf Akademi",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-kimya/paraf-yayinlari/paraf-yayinlari-tyt-kimya-10-gunde-temel-atma-garanti",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-kimya/paraf-yayinlari/paraf-yayinlari-tyt-kimya-10-gunde-temel-atma-garanti",
+        "https://www.bkmkitap.com/arama?q=9786259613741"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786259613741; 192 sayfa iki kaynakta ortak. Pelikan 'Paraf Yayınları', Bkm 'Paraf Akademi' markasını kullanıyor."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "H2O Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/h2o-yayinlari/h2o-yayinlari-tyt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/h2o-yayinlari/h2o-yayinlari-tyt-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786259643809"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786259643809; 320 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya Maarif Modeline Uyumlu 1. Basamak Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/aydin-yayinlari/ali-dincsonmez/aydin-yayinlari-tyt-kimya-maarif-modeline-uyumlu-1-basamak-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/aydin-yayinlari/ali-dincsonmez/aydin-yayinlari-tyt-kimya-maarif-modeline-uyumlu-1-basamak-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786256142428"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786256142428; 320 sayfa iki kaynakta ortak. Mevcut katalogdaki 'TYT Kimya Konu Özetli Soru Bankası' ile aynı kitap değil."
+    },
+    {
+      "title": "TYT Kimya 5 Günde Genel Tekrar Kampı",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 95,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-kimya/benim-hocam-yayinlari/gorkem-sahin/benim-hocam-yayinlari-2026-tyt-kimya-5-gunde-genel-tekrar-kampi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-kimya/benim-hocam-yayinlari/gorkem-sahin/benim-hocam-yayinlari-2026-tyt-kimya-5-gunde-genel-tekrar-kampi",
+        "https://www.bkmkitap.com/arama?q=9786255761583"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786255761583; 95 sayfa iki kaynakta ortak. Kamp/tekrar kitabı."
+    },
+    {
+      "title": "Meschemy Kimya TYT Kimya 1 Kitap 3 Kamp Soru Bankası",
+      "publisher": "Zeduva Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/zeduva-yayinlari/zeduva-yayinlari-meschemy-kimya-tyt-kimya-1-kitap-3-kamp-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/zeduva-yayinlari/zeduva-yayinlari-meschemy-kimya-tyt-kimya-1-kitap-3-kamp-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786259688992"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786259688992; 192 sayfa iki kaynakta ortak. Üç kampı tek ciltte birleştiren soru bankası."
+    },
+    {
+      "title": "TYT Kimya Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 232,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/sinav-yayincilik/komisyon/sinav-yayinlari-tyt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/sinav-yayincilik/komisyon/sinav-yayinlari-tyt-kimya-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786051239354"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786051239354. Kaynak çelişkisi: Pelikan 231, Bkm Kitap 232 sayfa; 232 esas alındı."
+    },
+    {
+      "title": "Antrenmanlarla Kimya Örnek Çözümlü ve Konu Anlatımlı",
+      "publisher": "Antrenmanlarla Matematik Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 380,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/antrenman-yayincilik/komisyon/antrenmanlarla-kimya-ornek-cozumlu-ve-konu-anlatimli",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/antrenman-yayincilik/komisyon/antrenmanlarla-kimya-ornek-cozumlu-ve-konu-anlatimli",
+        "https://www.bkmkitap.com/arama?q=9786059409414"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786059409414. Kaynak çelişkisi: Pelikan 382, Bkm Kitap 380 sayfa; 380 esas alındı. Konu anlatımlı çözümlü kitap."
+    },
+    {
+      "title": "TYT Kimya Iceberg Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/okyanus-yayincilik/murat-yildiz/okyanus-yayinlari-tyt-kimya-iceberg-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/okyanus-yayincilik/murat-yildiz/okyanus-yayinlari-tyt-kimya-iceberg-soru-bankasi"
+      ],
+      "confidence": "medium",
+      "notes": "ISBN 9786257108720; 176 sayfa yalnızca Pelikan Kitabevi künyesinde doğrulandı, ikinci bağımsız kaynak bulunamadı."
+    },
+    {
+      "title": "TYT Kimya Konsensüs Soru Bankası",
+      "publisher": "Editör Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 205,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/editor-yayinevi/kolektif/editor-yayinlari-tyt-kimya-konsensus-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/editor-yayinevi/kolektif/editor-yayinlari-tyt-kimya-konsensus-soru-bankasi"
+      ],
+      "confidence": "medium",
+      "notes": "ISBN 9786052801758; 205 sayfa tek mağaza künyesi (Pelikan)."
+    },
+    {
+      "title": "TYT AYT Kimya Avantaj Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/limit-yayinlari-yks/komisyon/limit-yayinlari-tyt-ayt-kimya-avantaj-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-kimya-soru/limit-yayinlari-yks/komisyon/limit-yayinlari-tyt-ayt-kimya-avantaj-soru-bankasi"
+      ],
+      "confidence": "medium",
+      "notes": "TYT-AYT ortak tek cilt; ISBN 9786052752463. 256 sayfa tek kaynakta doğrulandı."
+    },
+    {
+      "title": "TYT Kimya Konu Kitabı",
+      "publisher": "Yazıt Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/arama?q=9786057705037",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/arama?q=9786057705037",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-konu-kitaplari-tyt-kimya-konu/yazit-yayincilik/tayfun-sozeren/yazit-yayinlari-tyt-kimya-konu-kitabi"
+      ],
+      "confidence": "medium",
+      "notes": "ISBN 9786057705037. Kaynak çelişkisi: Pelikan 257, Bkm Kitap 272 sayfa; 272 esas alındı. Konu anlatımı."
+    },
+    {
+      "title": "TYT Kimya Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/benim-hocam-yayinlari/gorkem-sahin/benim-hocam-yayinlari-2026-tyt-kimya-video-cozumlu-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-kimya/benim-hocam-yayinlari/gorkem-sahin/benim-hocam-yayinlari-2026-tyt-kimya-video-cozumlu-soru-bankasi",
+        "https://www.bkmkitap.com/arama?q=9786255847553"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786255847553; 320 sayfa iki kaynakta ortak."
+    },
+    {
+      "title": "TYT Kimya Ders İşleyiş Modülleri",
+      "publisher": "Aydın Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "kimya",
+      "totalPages": 376,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-kimya/aydin-yayinlari/komisyon/aydin-yayinlari-universiteye-hazirlik-tyt-kimya-ders-isleyis-modulleri",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-kimya/aydin-yayinlari/komisyon/aydin-yayinlari-universiteye-hazirlik-tyt-kimya-ders-isleyis-modulleri",
+        "https://www.bkmkitap.com/arama?q=9786256412576"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786256412576; modüler set, toplam 376 sayfa iki kaynakta ortak."
+    }
+  ],
+  "gaps": [
+    "28 satırın tamamı doğrulandı; sayısal eksik yok.",
+    "Fasikül seti olarak yalnızca Zeduva '1 Kitap 3 Kamp' ve Aydın 'Ders İşleyiş Modülleri' alındı; Fenomen Okul TYT VAF Kimya Fasikülleri Seti (ISBN 9786257523462, 432 sayfa) ve Çap 2028 Kimya Ders Platosu fasiküllerinin fasikül/modül adedi doğrulanamadığı için başlıkta '(X Fasikül)' yazılamadı ve listeye eklenmedi.",
+    "Bilfen Yayıncılık TYT Kimya Soru Bankası (ISBN 9786057788177, 240 sayfa) yalnızca tek kaynakta sayfa sayısı verdiği ve künyesi 2020 baskısı olduğu için eklenmedi.",
+    "Okyanus Iceberg, Editör Konsensüs ve Limit Avantaj için ikinci bağımsız mağaza künyesi bulunamadı; bu üç satır medium güvenle bırakıldı."
+  ]
+}

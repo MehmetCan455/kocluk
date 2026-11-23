@@ -1,0 +1,547 @@
+{
+  "batch": "tyt-sosyal-1",
+  "books": [
+    {
+      "title": "TYT Tarih Soru Bankası",
+      "publisher": "Bilgi Sarmal",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.bilgisarmal.com/yayinlar/tyt-tarih-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bilgisarmal.com/yayinlar/tyt-tarih-soru-bankasi",
+        "https://www.indekskitap.com/urun/bilgi-sarmal-yks-tyt-tarih-soru-avcilari-soru-bankasi-bilgi-sarmal-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 272 sayfa; İndeks Kitap ve Kitapyurdu aynı değeri doğruluyor."
+    },
+    {
+      "title": "TYT Tarih Soru Bankası",
+      "publisher": "Palme",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 350,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-ayt-tarih-soru/palme-yayinevi-yks/palme-yayinlari-tyt-tarih-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-ayt-tarih-soru/palme-yayinevi-yks/palme-yayinlari-tyt-tarih-soru-bankasi",
+        "https://www.nezih.com.tr/palme-yks-tyt-tarih-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Pelikan Kitabevi ve Nezih 350 sayfada birleşiyor; ISBN 9786052822128."
+    },
+    {
+      "title": "TYT Tarih Soru Bankası",
+      "publisher": "Hız ve Renk Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 268,
+      "edition": "2026",
+      "sourceUrl": "https://www.dr.com.tr/kitap/tyt-tarih-soru-bankasi/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-tarih/urunno=0002137163001",
+      "sourceUrls": [
+        "https://www.dr.com.tr/kitap/tyt-tarih-soru-bankasi/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-tarih/urunno=0002137163001",
+        "https://www.dizgikitap.com/urun/hiz-ve-renk-yayinlari-tyt-tarih-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "D&R ve Dizgi Kitap 268 sayfada anlaşıyor; bazı pazaryerlerinde 285 sayfa bilgisi farklı baskıya ait."
+    },
+    {
+      "title": "TYT Tarih Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 320,
+      "edition": "2027",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-tarih-soru-bankasi-132.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-tarih-soru-bankasi-132.html",
+        "https://www.derskitabim.com.tr/karekok-tyt-tarih-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 320 sayfa ve 2026-2027 müfredat; Derskitabım da 320 sayfa/2027 baskı veriyor."
+    },
+    {
+      "title": "TYT 40 Seans Tarih",
+      "publisher": "Okyanus Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.okyanusyayincilik.com/urun/19875/Tyt-40-Seans-Tarih",
+      "sourceUrls": [
+        "https://www.okyanusyayincilik.com/urun/19875/Tyt-40-Seans-Tarih",
+        "https://www.bkmkitap.com/okyanus-yayinlari-tyt-tarih-40-seans-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Okyanus resmî sayfası 304 sayfa; BKM ve Kitapiste aynı değeri veriyor."
+    },
+    {
+      "title": "2026 TYT Tarih Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/2026-tyt-tarih-video-cozumlu-soru-bankasi/725489.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/2026-tyt-tarih-video-cozumlu-soru-bankasi/725489.html",
+        "https://www.hesapli24.com/benim-hocam-2026-tyt-tarih-video-cozumlu-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786255847447; Kitapyurdu, Hesaplı24 ve Kitapstore 272 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Tarih Analitik Soru Bankası",
+      "publisher": "Merkez Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Tarih-Analitik-Soru-Bankasi-Merkez-Yayinlari-394467.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Tarih-Analitik-Soru-Bankasi-Merkez-Yayinlari-394467.html",
+        "https://www.yediiklim.com.tr/Merkez-Yayinlari-TYT-Tarih-Analitik-Soru-Bankasi_81742.html"
+      ],
+      "confidence": "high",
+      "notes": "Kitapseç ve Yediiklim 240 sayfada anlaşıyor; 352 sayfalık TYT-AYT sürümüyle karıştırılmamalı."
+    },
+    {
+      "title": "Sadettin Hoca TYT Tarih Soru Bankası",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.dr.com.tr/kitap/sadettin-hoca-tyt-tarih-soru-bankasi/sadettin-akyayla/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-tarih/urunno=0002197998001",
+      "sourceUrls": [
+        "https://www.dr.com.tr/kitap/sadettin-hoca-tyt-tarih-soru-bankasi/sadettin-akyayla/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-tarih/urunno=0002197998001",
+        "https://www.bkmkitap.com/kr-akademi-yayinlari-tyt-tarih-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786255599339; D&R, BKM ve Anahtar Kitap 272 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Tarih Soru Bankası",
+      "publisher": "Ulti Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapiste.com/Bes-Yayinlari-TYT-Tarih-Ulti-Serisi-Soru-Bankasi_133682.html",
+      "sourceUrls": [
+        "https://www.kitapiste.com/Bes-Yayinlari-TYT-Tarih-Ulti-Serisi-Soru-Bankasi_133682.html",
+        "https://bbdstore.com.tr/ulti-tyt-soru-bankasi-tarih-2025-26"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786052629253; Kitapiste ve BBD Store 336 sayfada anlaşıyor."
+    },
+    {
+      "title": "Fenomen TYT Tarih Soru Bankası",
+      "publisher": "Fenomen Okul Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 272,
+      "edition": "2027",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-VAF-Tarih-Soru-Bankasi-Fenomen-Okul-Yayinlari-900390.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-VAF-Tarih-Soru-Bankasi-Fenomen-Okul-Yayinlari-900390.html",
+        "https://www.derskitabim.com.tr/fenomen-tyt-tarih-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786256226074; Kitapseç ve Derskitabım 272 sayfa, 2027 baskı veriyor."
+    },
+    {
+      "title": "Sınav Kalitesinde TYT Tarih Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://dijital.sinav.tr/public-document/6204deae-5043-4330-abe4-47838fbd1a44/",
+      "sourceUrls": [
+        "https://dijital.sinav.tr/public-document/6204deae-5043-4330-abe4-47838fbd1a44/",
+        "https://kitapsec.com/Products/TYT-Tarih-Soru-Bankasi-Sinav-Yayinlari-838253.html"
+      ],
+      "confidence": "high",
+      "notes": "Sınav Dijital resmî PDF künyesi 256 sayfa; ürün sayfası ISBN 9786258296174."
+    },
+    {
+      "title": "TYT Tarih Plus Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-tarih/cap-yayinlari/cap-yayinlari-tyt-tarih-plus-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-tarih/cap-yayinlari/cap-yayinlari-tyt-tarih-plus-soru-bankasi",
+        "https://www.savaskitap.com.tr/tyt-tarih-plus-soru-bankasi-cap-yayinlari_63212.html"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786258139617; Pelikan ve Savaş Kitap 240 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Tarih Garanti Konular Soru Bankası",
+      "publisher": "Paraf Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 144,
+      "edition": "2026",
+      "sourceUrl": "https://parafakademi.com/tyt/tyt-tarih-garanti-konular-soru-bankasi",
+      "sourceUrls": [
+        "https://parafakademi.com/tyt/tyt-tarih-garanti-konular-soru-bankasi",
+        "https://www.bkmkitap.com/paraf-yayinlari-paraf-z-takim-tyt-tarih-garanti-konular-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Paraf Akademi resmî künyesi 144 sayfa; BKM ve Palme Kitabevi aynı değeri veriyor."
+    },
+    {
+      "title": "TYT Tarih Soru Bankası",
+      "publisher": "Tudem Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.tudem.com/urun/egitim/1006/tudem_egitim/10992/tyt_tarih_soru_bankasi.aspx",
+      "sourceUrls": [
+        "https://www.tudem.com/urun/egitim/1006/tudem_egitim/10992/tyt_tarih_soru_bankasi.aspx",
+        "https://www.hepsiburada.com/tudem-tyt-tarih-soru-bankasi-pm-HBC00000S24UN"
+      ],
+      "confidence": "high",
+      "notes": "Tudem resmî künyesi 256 sayfa (218 x 275 mm); Hepsiburada aynı ürünü listeliyor."
+    },
+    {
+      "title": "2026 TYT-AYT Tarih Konu Özetli Yeni Nesil Soru Bankası Tamamı Video Çözümlü",
+      "publisher": "Marka Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://www.markayayinlari.com.tr/2026-tyt-ayt-tarih-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu-_10753.html",
+      "sourceUrls": [
+        "https://www.markayayinlari.com.tr/2026-tyt-ayt-tarih-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu-_10753.html",
+        "https://www.kitapyurdu.com/kitap/2025-tyt-ayt-tarih-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu/673088.html"
+      ],
+      "confidence": "high",
+      "notes": "Marka resmî künyesi 208 sayfa; 2025 baskısı da Kitapyurdu'nda 208 sayfa."
+    },
+    {
+      "title": "2026 TYT Tarih Ders Notları",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/2026-tyt-tarih-ders-notlari/725485.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/2026-tyt-tarih-ders-notlari/725485.html"
+      ],
+      "confidence": "medium",
+      "notes": "Tek güvenilir kaynak Kitapyurdu: 224 sayfa, 17.07.2025, ISBN 9786255847430."
+    },
+    {
+      "title": "TYT Tarih Özet Konu Anlatımlı El Kitabı",
+      "publisher": "Kurul Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 160,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/tyt-tarih-ozet-konu-anlatimli-el-kitabi/707512.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/tyt-tarih-ozet-konu-anlatimli-el-kitabi/707512.html",
+        "https://www.kitapsec.com/Products/TYT-Tarih-Ozet-Konu-Anlatimli-El-Kitabi-Kurul-Yayincilik-360035.html"
+      ],
+      "confidence": "high",
+      "notes": "Kitapyurdu ve Kitapseç 160 sayfada anlaşıyor; Kitapseç'te stok kapalı, Kitapyurdu'nda satışta."
+    },
+    {
+      "title": "TYT AYT Tarih 24 Günde Kamp Kitabı",
+      "publisher": "Bilgi Arşivi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "tarih",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/bilgi-arsivi-yks-tyt-ayt-24-gunde-tarih-kamp-kitabi",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/bilgi-arsivi-yks-tyt-ayt-24-gunde-tarih-kamp-kitabi",
+        "https://www.trendruum.com/urunler/bilgi-arsivi-tyt-ayt-tarih-24-gunde-kamp-kitabi-3813576"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786259793641; İndeks Kitap, Trendruum ve Kitapdoldur 288 sayfada birleşiyor. TYT-AYT ortak cilt."
+    },
+    {
+      "title": "TYT Coğrafya Soru Bankası",
+      "publisher": "Bilgi Sarmal",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.bilgisarmal.com/yayinlar/tyt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bilgisarmal.com/yayinlar/tyt-cografya-soru-bankasi",
+        "https://www.indekskitap.com/urun/bilgi-sarmal-yks-tyt-cografya-soru-avcilari-soru-bankasi-bilgi-sarmal-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 240 sayfa; İndeks Kitap ve BKM aynı değeri doğruluyor."
+    },
+    {
+      "title": "TYT Coğrafya Soru Kitabı",
+      "publisher": "Palme",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Cografya-Soru-Kitabi-Palme-Yayinevi-836976.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Cografya-Soru-Kitabi-Palme-Yayinevi-836976.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-ayt-cografya-soru/palme-yayinevi-yks/palme-yks-tyt-cografya-soru-kitabi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786052821312; Kitapseç, Pelikan ve Palme Kitabevi 288 sayfada anlaşıyor."
+    },
+    {
+      "title": "TYT Coğrafya Soru Bankası",
+      "publisher": "Hız ve Renk Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 286,
+      "edition": "2026",
+      "sourceUrl": "https://kitapkapimda.com/kok/hiz-ve-renk-tyt-cografya-soru-bankasi-2022-6312.html",
+      "sourceUrls": [
+        "https://kitapkapimda.com/kok/hiz-ve-renk-tyt-cografya-soru-bankasi-2022-6312.html",
+        "https://www.dr.com.tr/kitap/2022-tyt-cografya-soru-bankasi/kolektif/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-cografya/urunno=0001946096001"
+      ],
+      "confidence": "high",
+      "notes": "İki kaynak 286 sayfada anlaşıyor; Hepsiburada'da 285 sayfa bilgisi var, farklı baskı olarak not edildi."
+    },
+    {
+      "title": "TYT Coğrafya Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 312,
+      "edition": "2027",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-cografya-soru-bankasi-750.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-cografya-soru-bankasi-750.html",
+        "https://www.dr.com.tr/kitap/tyt-cografya-soru-bankasi/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-cografya/urunno=0002098814001"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 312 sayfa, 2026-2027 müfredat; D&R 312 sayfa/2024 baskı veriyor."
+    },
+    {
+      "title": "TYT 40 Seans Coğrafya",
+      "publisher": "Okyanus Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 328,
+      "edition": "2026",
+      "sourceUrl": "https://okyanusokulkitap.com/urun/19904/Tyt-40-Seans-Cografya",
+      "sourceUrls": [
+        "https://okyanusokulkitap.com/urun/19904/Tyt-40-Seans-Cografya",
+        "https://www.kitapsec.com/Products/TYT-40-Seans-Cografya-Okyanus-Yayinlari-810615.html"
+      ],
+      "confidence": "high",
+      "notes": "Okyanus resmî sayfası ve Kitapseç 328 sayfada birleşiyor; son 22 sayfa harita bölümü."
+    },
+    {
+      "title": "2026 TYT Coğrafya Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 222,
+      "edition": "2026",
+      "sourceUrl": "https://www.hesapli24.com/benim-hocam-2026-tyt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.hesapli24.com/benim-hocam-2026-tyt-cografya-soru-bankasi",
+        "https://www.kelepirkitap.com/benim-hocam-2026-tyt-cografya-soru-bankasi-177250"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786255847614; Hesaplı24, Kelepir Kitap ve İlla Kitap 222 sayfada birleşiyor."
+    },
+    {
+      "title": "2026 TYT Coğrafya Ders Notları",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.hesapli24.com/benim-hocam-2026-tyt-cografya-ders-notlari",
+      "sourceUrls": [
+        "https://www.hesapli24.com/benim-hocam-2026-tyt-cografya-ders-notlari",
+        "https://www.kitapstore.com/urun/737540/kitap/benim-hocam-yayinlari/bayram-meral/2026-tyt-cografya-ders-notlari/"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786255847560; Hesaplı24, Kitapstore ve Amazon 192 sayfada anlaşıyor; Hepsiburada'daki 200 sayfa farklı baskı."
+    },
+    {
+      "title": "TYT Coğrafya Analitik Soru Bankası",
+      "publisher": "Merkez Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/tyt-cografya-analitik-soru-bankasi-merkez-yayinlari",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/tyt-cografya-analitik-soru-bankasi-merkez-yayinlari",
+        "https://www.kelepirkitap.com/merkez-yayinlari-tyt-cografya-analitik-soru-bankasi-139848"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786057952189; BKM ve Kelepir Kitap 272 sayfada birleşiyor."
+    },
+    {
+      "title": "2026 TYT Twins Coğrafya Soru Bankası",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 104,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/kr-akademi-yayinlari-tyt-twins-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/kr-akademi-yayinlari-tyt-twins-cografya-soru-bankasi",
+        "https://palmekitabevi.com/2026-tyt-twins-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786255599506; BKM, Palme Kitabevi ve Dahiadam 104 sayfada anlaşıyor."
+    },
+    {
+      "title": "Coğrafyanın Kodları TYT Coğrafya Kamp Kitabı",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 184,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/cografyanin-kodlari-tyt-cografya-kamp-kitabi/688236.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/cografyanin-kodlari-tyt-cografya-kamp-kitabi/688236.html",
+        "https://litopya.com/kitap/cografyanin-kodlari-tyt-cografya-kamp-kitabi-yunus-turan"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786256336537; Kitapyurdu ve Litopya 184 sayfada birleşiyor."
+    },
+    {
+      "title": "2026 TYT Coğrafya Konu Özetli Yeni Nesil Soru Bankası Tamamı Video Çözümlü",
+      "publisher": "Marka Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.markayayinlari.com.tr/2024-tyt-ayt-tarih-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu-marka-yayinlari_10737.html",
+      "sourceUrls": [
+        "https://www.markayayinlari.com.tr/2024-tyt-ayt-tarih-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu-marka-yayinlari_10737.html"
+      ],
+      "confidence": "high",
+      "notes": "Marka resmî künyesi 192 sayfa (ISBN 9786258476439); 2026 TYT Coğrafya konu özetli serisi."
+    },
+    {
+      "title": "TYT Coğrafya Özet Konu Anlatımlı El Kitabı",
+      "publisher": "Kurul Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 136,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Cografya-Ozet-Konu-Anlatimli-El-Kitabi-Kurul-Yayincilik-913188.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Cografya-Ozet-Konu-Anlatimli-El-Kitabi-Kurul-Yayincilik-913188.html",
+        "https://www.amazon.com.tr/Co%C4%9Frafya-%C3%96zet-Konu-Anlat%C4%B1ml%C4%B1-Kitab%C4%B1/dp/6057653084"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786057653086; Kitapseç ve Amazon 136 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Coğrafya El Kitabı",
+      "publisher": "Limit Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 400,
+      "edition": "2026",
+      "sourceUrl": "https://limityayinlari.com.tr/kitaplar/tyt-cografya-el-kitabi",
+      "sourceUrls": [
+        "https://limityayinlari.com.tr/kitaplar/tyt-cografya-el-kitabi",
+        "https://www.hepsiburada.com/limit-yayinlari-tyt-cografya-el-kitabi-universite-hazirlik-icin-400-sayfa-detayli-kaynak-pm-HBC00004CJCWE"
+      ],
+      "confidence": "high",
+      "notes": "Limit resmî künyesi 400 sayfa, ISBN 9786052755914; Hepsiburada aynı değeri veriyor."
+    },
+    {
+      "title": "TYT Coğrafya Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://limityayinlari.com.tr/kitaplar/tyt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://limityayinlari.com.tr/kitaplar/tyt-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Limit resmî künyesi 208 sayfa, ISBN 9786052757291; eski KitapDetay sayfasındaki 320 sayfa önceki baskıya ait."
+    },
+    {
+      "title": "Coğrafyanın Kodları Paraf Z Takımı TYT Coğrafya Soru Bankası",
+      "publisher": "Paraf Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.nobelkitap.com/urun/cografyanin-kodlari-paraf-z-takimi-tyt-cografya-soru-bankasi/9786257423915",
+      "sourceUrls": [
+        "https://www.nobelkitap.com/urun/cografyanin-kodlari-paraf-z-takimi-tyt-cografya-soru-bankasi/9786257423915",
+        "https://www.istanbulkitapcisi.com/cografyanin-kodlari-paraf-z-takimi-tyt-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786257423915; Nobel Kitap, İstanbul Kitapçısı ve Amazon 192 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Coğrafya Püf Soru Bankası",
+      "publisher": "IQ Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/iq-yayinlari-tyt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/iq-yayinlari-tyt-cografya-soru-bankasi",
+        "https://www.kitapsepeti.com/iq-yayinlari-tyt-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786259751801; BKM ve Kitapsepeti 224 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Coğrafya Soru Bankası",
+      "publisher": "Endemik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://endemikyayinlari.com.tr/urun/tyt-cografya-soru-bankas--yeni-978-625-7430-67-8",
+      "sourceUrls": [
+        "https://endemikyayinlari.com.tr/urun/tyt-cografya-soru-bankas--yeni-978-625-7430-67-8",
+        "https://www.ogrenciasistani.com.tr/2022-tyt-cografya-soru-bankasi-endemik-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 256 sayfa, ISBN 9786257430678; Öğrenci Asistanı da 256 sayfa veriyor. Kitapseç'teki 184 sayfa eski ISBN'li baskıya ait."
+    },
+    {
+      "title": "Fenomen TYT Coğrafya Soru Bankası",
+      "publisher": "Fenomen Okul Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "cografya",
+      "totalPages": 224,
+      "edition": "2027",
+      "sourceUrl": "https://www.derskitabim.com.tr/fenomen-tyt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.derskitabim.com.tr/fenomen-tyt-cografya-soru-bankasi",
+        "https://fenomenkitap.com.tr/product/fenomen-vaf-tyt-cografya-soru-bankasi/"
+      ],
+      "confidence": "medium",
+      "notes": "Derskitabım 224 sayfa/2027 baskı veriyor; Fenomen resmî ürün sayfası sayfa sayısı belirtmiyor."
+    }
+  ],
+  "gaps": [
+    "TYT Tarih ve TYT Coğrafya fasikül setlerinin toplam sayfa sayısı güvenilir biçimde doğrulanamadığı için fasikül satırı eklenmedi (Merkez fasikülleri 1 sayfa olarak listeleniyor).",
+    "3D Yayınları TYT Tarih ve TYT Coğrafya için kaynaklar çelişkili sayfa sayıları veriyor (296/319/320 ve 256); güncel baskı künyesi doğrulanamadığı için bu iki kitap eklenmedi.",
+    "Aydın Yayınları TYT Tarih Soru Bankası 304 sayfa ancak yalnızca 2019 baskısı listeleniyor; güncel baskı doğrulanamadığı için eklenmedi."
+  ]
+}

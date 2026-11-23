@@ -1,0 +1,384 @@
+{
+  "batch": "tyt-sosyal-2",
+  "books": [
+    {
+      "title": "TYT Felsefe Soru Bankası",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-felsefe-soru-bankasi-115.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-felsefe-soru-bankasi-115.html",
+        "https://www.akmkitap.com/urun/tyt-felsefe-soru-bankasi-karekok-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 176 sayfa (ISBN 9786257154239, 2026-2027 müfredatı). Bazı mağazalar 172 sayfa yazıyor; resmî künye esas alındı."
+    },
+    {
+      "title": "TYT Felsefe Soru Bankası",
+      "publisher": "Bilgi Sarmal Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.bilgisarmal.com/yayinlar/tyt-felsefe-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bilgisarmal.com/yayinlar/tyt-felsefe-soru-bankasi",
+        "https://www.kitapisler.com/bilgi-sarmal-tyt-felsefe-soru-bankasi_74202.html"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi 192 sayfa, ISBN 9786258070477, YKS 2027 programı. Mağaza künyeleri de 192 sayfada birleşiyor."
+    },
+    {
+      "title": "Miray TYT Felsefe Konu Özetli Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 168,
+      "edition": "2025",
+      "sourceUrl": "https://www.aydinyayinlari.com.tr/miray-tyt-felsefe-konu-ozetli-soru-bankasi",
+      "sourceUrls": [
+        "https://www.aydinyayinlari.com.tr/miray-tyt-felsefe-konu-ozetli-soru-bankasi",
+        "https://pdf.aydinyayinlari.com.tr/yukle/2024-2025%20M%c4%b0RAY%20YAYIN%20KATALO%c4%9eU.pdf"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Aydın/Miray künyesi ve 2024-2025 Miray kataloğu 168 sayfa (ISBN 9786257833721). Baskı 2025 müfredatına uygun."
+    },
+    {
+      "title": "2027 TYT Felsefe Ders Notları ve Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 192,
+      "edition": "2027",
+      "sourceUrl": "https://www.benimhocam.com/2026-tyt-felsefe-ders-notlari-ve-tamami-video-cozumlu-soru-bankasi-benim-hocam-yayinlari",
+      "sourceUrls": [
+        "https://www.benimhocam.com/2026-tyt-felsefe-ders-notlari-ve-tamami-video-cozumlu-soru-bankasi-benim-hocam-yayinlari",
+        "https://www.dr.com.tr/kitap/2026-tyt-felsefe-ders-notlari-ve-tamami-video-cozumlu-soru-bankasi/kolektif/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-felsefe/urunno=0002212603001"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 192 sayfa, ISBN 9786255847744, basım yılı 2027. Mağaza künyesi de 192 sayfa."
+    },
+    {
+      "title": "TYT Felsefe Soru Bankası (DİS Serisi)",
+      "publisher": "Ordinat Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.ordinatyayinlari.com/urun/tyt-felsefe-soru-bankasi-dis-serisi-2025-2026",
+      "sourceUrls": [
+        "https://www.ordinatyayinlari.com/urun/tyt-felsefe-soru-bankasi-dis-serisi-2025-2026",
+        "https://www.kitapzen.com/kolektif/tyt-felsefe-soru-bankasi-dis-serisi.htm"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 176 sayfa, ISBN 9786259812816. Ürün sayfasının alt bölümünde geçen 208 sayfası set/örnek sayfa bilgisiyle çelişiyor; resmî üst künye esas alındı."
+    },
+    {
+      "title": "TYT Felsefe Konu Anlatımlı Ders Föyleri (DİS Serisi)",
+      "publisher": "Ordinat Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.ordinatyayinlari.com/urun/tyt-felsefe-konu-anlatimli-ders-foyleri-dis-serisi-2025-2026",
+      "sourceUrls": [
+        "https://www.ordinatyayinlari.com/urun/tyt-felsefe-konu-anlatimli-ders-foyleri-dis-serisi-2025-2026"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 192 sayfa, ISBN 9786259843254. Sayfa altındaki 200 sayfası bilgisi ile çelişiyor; resmî üst künye esas alındı."
+    },
+    {
+      "title": "TYT-AYT Felsefe Soru Kitabı",
+      "publisher": "Palme Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 232,
+      "edition": "2022",
+      "sourceUrl": "http://www.palmeyayinevi.com/yks-tyt-felsefe-soru-kItabi",
+      "sourceUrls": [
+        "http://www.palmeyayinevi.com/yks-tyt-felsefe-soru-kItabi",
+        "https://www.palmekitabevi.com/yks-felsefe-soru-kitab%C4%B1"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Palme künyesi 232 sayfa (ISBN 9786052826997). Aynı ISBN için Palme Kitabevi ve bazı mağazalar 216 sayfa yazıyor; resmî künye esas alındı."
+    },
+    {
+      "title": "TYT Felsefe Analitik Konu Anlatımı",
+      "publisher": "Merkez Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 144,
+      "edition": "2022",
+      "sourceUrl": "https://www.kitapsepeti.com/tyt-felsefe-analitik-konu-anlatimi",
+      "sourceUrls": [
+        "https://www.kitapsepeti.com/tyt-felsefe-analitik-konu-anlatimi",
+        "https://www.bkmkitap.com/tyt-felsefe-analitik-konu-anlatimi-merkez-yayinlari",
+        "https://www.indekskitap.com/urun/merkez-yks-tyt-analitik-felsefe-konu-anlatimi-merkez-yayinlari-1"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız mağaza 144 sayfa ve ISBN 9786057952271 üzerinde birleşiyor. 2022 baskısı hâlâ satışta."
+    },
+    {
+      "title": "TYT Felsefe Ders Anlatım Föyü",
+      "publisher": "Seviye Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 200,
+      "edition": "2026",
+      "sourceUrl": "https://yayin.seviye.com.tr/urun/tyt-felsefe-ders-anlatim-foyu/",
+      "sourceUrls": [
+        "https://yayin.seviye.com.tr/urun/tyt-felsefe-ders-anlatim-foyu/"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi 200 sayfa, ISBN 978-605-340-884-0. 2026-2027 sezonu için güncel."
+    },
+    {
+      "title": "TYT Felsefe Soru Bankası",
+      "publisher": "Seviye Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 160,
+      "edition": "2026",
+      "sourceUrl": "https://yayin.seviye.com.tr/urun/tyt-felsefe-soru-bankasi/",
+      "sourceUrls": [
+        "https://yayin.seviye.com.tr/urun/tyt-felsefe-soru-bankasi/"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi 160 sayfa, ISBN 978-605-340-892-5. 2026-2027 sezonu için güncel."
+    },
+    {
+      "title": "TYT Felsefe Soru Bankası",
+      "publisher": "Supara Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 160,
+      "edition": "2024",
+      "sourceUrl": "https://www.kitapiste.com/Supara-Yayinlari-TYT-Felsefe-Soru-Bankasi_112941.html",
+      "sourceUrls": [
+        "https://www.kitapiste.com/Supara-Yayinlari-TYT-Felsefe-Soru-Bankasi_112941.html",
+        "https://kitapsec.com/Products/TYT-Felsefe-Soru-Bankasi-Supara-Yayinlari-324544.html",
+        "https://www.indekskitap.com/urun/supara-yks-tyt-felsefe-soru-bankasi-supara-yayinlari-2"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız mağaza 160 sayfa üzerinde birleşiyor. Yayınevi sitesinde 2023-2024 baskısı olarak listeli; bir mağaza farklı ISBN için 154 sayfa yazıyor."
+    },
+    {
+      "title": "TYT Felsefe Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 160,
+      "edition": "2025",
+      "sourceUrl": "https://www.akmkitap.com/urun/tyt-felsefe-soru-bankasi-limit-yayinlari",
+      "sourceUrls": [
+        "https://www.akmkitap.com/urun/tyt-felsefe-soru-bankasi-limit-yayinlari",
+        "https://www.kitapstore.com/urun/460202/kitap/limit-yayinlari/kolektif/tyt-ayt-felsefe-soru-bankasi/",
+        "https://www.sehadetkitap.com/urun/limit-yayinlari-tyt-ayt-felsefe-soru-bankasi-limit"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız mağaza 160 sayfa ve ISBN 9786052756034 üzerinde birleşiyor. Trendyol künyesinde basım yılı 2025."
+    },
+    {
+      "title": "TYT Felsefe Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 144,
+      "edition": "2024",
+      "sourceUrl": "https://dizgikitap.com/urun/cap-yayinlari-tyt-felsefe-soru-bankasi-19583",
+      "sourceUrls": [
+        "https://dizgikitap.com/urun/cap-yayinlari-tyt-felsefe-soru-bankasi-19583",
+        "https://www.kitapdoldur.com/urun/cap-yayinlari-tyt-felsefe-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "İki bağımsız mağaza 144 sayfa ve ISBN 9786258139853 üzerinde birleşiyor. Aynı yayınevinin eski ISBN'li (9786057766076) baskısı 114 sayfa; yeni baskı esas alındı."
+    },
+    {
+      "title": "TYT Felsefe Soru Bankası",
+      "publisher": "Zafer Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://zaferyayinlari.com.tr/product/tyt-felsefe-soru-bankasi-yeni",
+      "sourceUrls": [
+        "https://zaferyayinlari.com.tr/product/tyt-felsefe-soru-bankasi-yeni"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin resmî satış sitesindeki künye: 224 sayfa, yeni müfredat, stoktan kargo. Baskı yılı ayrıca belirtilmiyor."
+    },
+    {
+      "title": "TYT Felsefe Konu Özetli Soru Bankası",
+      "publisher": "4K Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "felsefe",
+      "totalPages": 144,
+      "edition": "2025",
+      "sourceUrl": "https://www.4kyayinlari.com/urunlerimiz/tyt",
+      "sourceUrls": [
+        "https://www.4kyayinlari.com/urunlerimiz/tyt",
+        "https://cdn.karakok.net/root/4ky/E-Katalog/4K_Katalog_B_compressed.pdf",
+        "https://kifidia.com/kitap/40108"
+      ],
+      "confidence": "high",
+      "notes": "4K 2026-2027 kataloğu ve yayınevi ürün listesinde 144 sayfa; Kifidia künyesi de 144 sayfa ve 2025 basım (ISBN 9786051948430)."
+    },
+    {
+      "title": "TYT Din Kültürü ve Ahlak Bilgisi Soru Bankası",
+      "publisher": "Bilgi Sarmal Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 128,
+      "edition": "2026",
+      "sourceUrl": "https://www.bilgisarmal.com/yayinlar/tyt-din-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bilgisarmal.com/yayinlar/tyt-din-soru-bankasi",
+        "https://www.ikmkitap.com/kitap/tyt-din-kulturu-ve-ahlak-bilgisi-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi 128 sayfa, ISBN 9786257905237, YKS 2027 programı. Mağaza künyesi de 128 sayfa."
+    },
+    {
+      "title": "TYT-AYT Din Kültürü ve Ahlak Bilgisi Soru Bankası",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 160,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/tyt-ayt-din-kulturu-ve-ahlak-bilgisi-soru-bankasi-373.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/tyt-ayt-din-kulturu-ve-ahlak-bilgisi-soru-bankasi-373.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 160 sayfa, ISBN 9786257154420, 2026-2027 müfredatı. TYT-AYT ortak tek cilt olduğu için TYT batch'ine yazıldı."
+    },
+    {
+      "title": "TYT-AYT Din Kültürü ve Ahlak Bilgisi Konu Özetli Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 248,
+      "edition": "2026",
+      "sourceUrl": "https://www.aydinyayinlari.com.tr/tyt-ayt-din-kulturu-ve-ahlak-bilgisi-konu-ozetli-soru-bankasi",
+      "sourceUrls": [
+        "https://www.aydinyayinlari.com.tr/tyt-ayt-din-kulturu-ve-ahlak-bilgisi-konu-ozetli-soru-bankasi",
+        "https://www.hepsiburada.com/2026-2027-aydin-yayinlari-tyt-ayt-din-kulturu-ve-ahlak-bilgisi-konu-ozetli-soru-bankasi-pm-HBC0000JK7VXI"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 248 sayfa, ISBN 9786057945198, 2025 müfredatına uygun; Hepsiburada 2026-2027 künyesi de 248 sayfa. TYT-AYT ortak tek cilt."
+    },
+    {
+      "title": "TYT Din Kültürü ve Ahlak Bilgisi Tersyüz Soru Bankası",
+      "publisher": "Nitelik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 184,
+      "edition": "2023",
+      "sourceUrl": "https://www.dr.com.tr/kitap/tyt-din-kulturu-ve-ahlak-bilgisi-tersyuz-soru-bankasi/ayse-nur-kart/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-din-kulturu-ve-ahlak-bilgisi/urunno=0002092551001",
+      "sourceUrls": [
+        "https://www.dr.com.tr/kitap/tyt-din-kulturu-ve-ahlak-bilgisi-tersyuz-soru-bankasi/ayse-nur-kart/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-din-kulturu-ve-ahlak-bilgisi/urunno=0002092551001",
+        "https://www.bkmkitap.com/tyt-din-kulturu-ve-ahlak-bilgisi-tersyuz-soru-bankasi-nitelik-yayinlari",
+        "https://www.indekskitap.com/urun/nitelik-yks-tyt-din-kulturu-ve-ahlak-bilgisi-konu-anlatimi-nitelik-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız mağaza 184 sayfa ve ISBN 9786052723265 üzerinde birleşiyor. İlk baskı 2023."
+    },
+    {
+      "title": "TYT-AYT Din Kültürü ve Ahlak Bilgisi Soru Kitabı",
+      "publisher": "Palme Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 112,
+      "edition": "2022",
+      "sourceUrl": "https://www.indekskitap.com/urun/palme-yks-tyt-ayt-din-kulturu-ve-ahlak-bilgisi-soru-kitabi-palme-yayinlari",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/palme-yks-tyt-ayt-din-kulturu-ve-ahlak-bilgisi-soru-kitabi-palme-yayinlari",
+        "https://www.tdk.com.tr/ayt-806"
+      ],
+      "confidence": "high",
+      "notes": "İki bağımsız kaynak 112 sayfa ve ISBN 9786052828229 üzerinde birleşiyor; TDK Bilim künyesi 2022 baskısı diyor."
+    },
+    {
+      "title": "TYT AYT MSÜ Din Kültürü ve Ahlak Bilgisi Soru Bankası",
+      "publisher": "MUBA Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 112,
+      "edition": "2024",
+      "sourceUrl": "https://mubayayinlari.com/urun/tyt-ayt-msu-din-kulturu-ve-ahlak-bilgisi-soru-bankasi-272",
+      "sourceUrls": [
+        "https://mubayayinlari.com/urun/tyt-ayt-msu-din-kulturu-ve-ahlak-bilgisi-soru-bankasi-272"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi 112 sayfa, 400 soru, ISBN 9789756526057. TYT-AYT-MSÜ ortak tek cilt."
+    },
+    {
+      "title": "2027 TYT-AYT Din Kültürü ve Ahlak Bilgisi Ders Notları ve Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 208,
+      "edition": "2027",
+      "sourceUrl": "https://www.benimhocam.com/2026-tyt-ayt-din-kulturu-ve-ahlak-bilgisi-ders-notlari-ve-tamami-video-cozumlu-soru-bankasi-benim-hocam-yayinlari",
+      "sourceUrls": [
+        "https://www.benimhocam.com/2026-tyt-ayt-din-kulturu-ve-ahlak-bilgisi-ders-notlari-ve-tamami-video-cozumlu-soru-bankasi-benim-hocam-yayinlari",
+        "https://www.indekskitap.com/urun/benim-hocam-yks-tyt-ayt-din-kulturu-ve-ahlak-bilgisi-ders-notlari-soru-bankasi-1"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 208 sayfa, ISBN 9786255847430, basım yılı 2027. Mağaza künyesi de 208 sayfa."
+    },
+    {
+      "title": "TYT-AYT Din Kültürü ve Ahlak Bilgisi Konu Anlatımlı Soru Bankası",
+      "publisher": "Eker Test",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 240,
+      "edition": "2024",
+      "sourceUrl": "https://www.ekertest.com/tyt-ayt-din-kulturu-ve-ahlak-bilgisi-konu-anlatimli-soru-bankasi-eker-test",
+      "sourceUrls": [
+        "https://www.ekertest.com/tyt-ayt-din-kulturu-ve-ahlak-bilgisi-konu-anlatimli-soru-bankasi-eker-test",
+        "https://www.panelkirtasiye.com/tyt-ayt-din-kulturu-ve-ahlak-bilgisi-dinlendiren-soru-bankasi-eker-test-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi 240 sayfa, ISBN 9786059054829, 2024 basım. Panel Kırtasiye de aynı ürünü satıyor."
+    },
+    {
+      "title": "TYT Din Kültürü ve Ahlak Bilgisi Soru Bankası",
+      "publisher": "Üçgen Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 144,
+      "edition": "2022",
+      "sourceUrl": "https://ucgenyayincilik.com/urun/tyt-din-kulturu-ve-ahlak-bilgisi-soru-bankasi/",
+      "sourceUrls": [
+        "https://ucgenyayincilik.com/urun/tyt-din-kulturu-ve-ahlak-bilgisi-soru-bankasi/",
+        "https://fliphtml5.com/oirey/dgnu/TYT_Din_K%C3%BClt%C3%BCr%C3%BC_ve_Ahlak_Bilgisi_-_Soru_Bankas%C4%B1"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi 144 sayfa, Ağustos 2022 basım; dijital örnek nüsha da 144 sayfa. Hâlâ stokta satılıyor."
+    },
+    {
+      "title": "Miray TYT Din Kültürü ve Ahlak Bilgisi Konu Özetli Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 160,
+      "edition": "2022",
+      "sourceUrl": "https://b2b.aydinyayinlari.com.tr/UserFiles/Image/files/Aydin_Miray_Guncel_Fiyat_Listesi.pdf",
+      "sourceUrls": [
+        "https://b2b.aydinyayinlari.com.tr/UserFiles/Image/files/Aydin_Miray_Guncel_Fiyat_Listesi.pdf",
+        "https://kitapburada.net/yayinevi/miray-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Aydın/Miray resmî fiyat listesi 160 sayfa (ISBN 9786257833325); KitapBurada ve Dizgi Kitap ürünü hâlâ satıyor."
+    }
+  ],
+  "gaps": [
+    "TYT Felsefe'ye özel doğrulanmış bir kamp kitabı bulunamadı; Tonguç Kampplus 29 Günde TYT Felsefe Din Kampı felsefe ve din kültürünü birlikte kapsadığı için ayrı ders satırı olarak eklenmedi.",
+    "TYT Felsefe fasikül seti (Miray TYT Felsefe Ders Anlatım Fasikülleri, 264 sayfa) doğrulandı ancak fasikül adedi resmî künyede belirtilmediği için '(X Fasikül)' başlığıyla eklenemedi.",
+    "TYT Din Kültürü'ne özel doğrulanmış fasikül veya kamp kitabı bulunamadı; yayınevleri bu dersi genellikle felsefe ile ortak ciltte veya deneme formatında yayımlıyor."
+  ]
+}

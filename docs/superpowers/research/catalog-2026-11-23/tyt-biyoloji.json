@@ -1,0 +1,464 @@
+{
+  "batch": "tyt-biyoloji",
+  "books": [
+    {
+      "title": "TYT Biyoloji Soru Bankası",
+      "publisher": "Üç Dört Beş Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.ucdortbes.com/tyt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://www.ucdortbes.com/tyt-biyoloji-soru-bankasi",
+        "https://www.kitapyurdu.com/kitap/tyt-biyoloji-soru-bankasi/479344.html",
+        "https://www.kitapsec.com/Products/2027-Model-TYT-Biyoloji-Soru-Bankasi-Uc-Dort-Bes-Yayinlari-325056.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 288 sayfa; Kitapyurdu ve Kitapsec aynı sayıyı doğruluyor."
+    },
+    {
+      "title": "TYT Biyoloji Konu Anlatımlı",
+      "publisher": "Palme Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.palmekitabevi.com/yks-tyt-biyoloji-konu-anlat%C4%B1ml%C4%B1",
+      "sourceUrls": [
+        "https://www.palmekitabevi.com/yks-tyt-biyoloji-konu-anlat%C4%B1ml%C4%B1",
+        "https://www.kitapsec.com/Products/TYT-Biyoloji-Konu-Anlatimli-Palme-Yayinlari-532482.html"
+      ],
+      "confidence": "high",
+      "notes": "Palme künyesi ve Kitapsec 288 sayfada birleşiyor; Bilgehan Peri."
+    },
+    {
+      "title": "TYT Biyoloji Soru Kitabı",
+      "publisher": "Palme Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.palmeyayinevi.com/tyt-biyoloji-soru-kitabi",
+      "sourceUrls": [
+        "https://www.palmeyayinevi.com/tyt-biyoloji-soru-kitabi",
+        "https://www.kitapyurdu.com/kitap/tyt-biyoloji-soru-kitabi/540790.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 240 sayfa; mevcut katalogdaki Palme AYT soru kitabından farklı bir kitap."
+    },
+    {
+      "title": "TYT Enerji Biyoloji Konu Özetli Soru Fasikülleri (2 Fasikül)",
+      "publisher": "Palme Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 200,
+      "edition": "2023",
+      "sourceUrl": "https://www.palmekitabevi.com/palme-yay%C4%B1nevi-tyt-enerji-biyoloji-konu-%C3%B6zetli-2-fasik%C3%BCl-soru-fasik%C3%BClleri",
+      "sourceUrls": [
+        "https://www.palmekitabevi.com/palme-yay%C4%B1nevi-tyt-enerji-biyoloji-konu-%C3%B6zetli-2-fasik%C3%BCl-soru-fasik%C3%BClleri",
+        "https://www.kirtasiyekalesi.com/palme-yks-tyt-enerji-biyoloji-konu-ozetli-soru-fasikulleri-2-fasikul"
+      ],
+      "confidence": "high",
+      "notes": "2 fasiküllük set; toplam 200 sayfa. Palme künyesi ve Kırtasiyekalesi aynı toplamı veriyor."
+    },
+    {
+      "title": "TYT Biyoloji Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-biyoloji-soru-bankasi-483.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-biyoloji-soru-bankasi-483.html",
+        "https://www.pelikankitabevi.com.tr/super-fiyat/karekok-yayinlari/super-fiyat-karekok-yayinlari-tyt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 256 sayfa; Pelikan Kitabevi de 256 doğruluyor."
+    },
+    {
+      "title": "TYT Biyoloji Plus Serisi Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 192,
+      "edition": "2024",
+      "sourceUrl": "https://www.kitapsepeti.com/cap-yayinlari-tyt-biyoloji-plus-serisi-soru-bankasi",
+      "sourceUrls": [
+        "https://www.kitapsepeti.com/cap-yayinlari-tyt-biyoloji-plus-serisi-soru-bankasi",
+        "https://www.kitapsec.com/Products/TYT-Biyoloji-Plus-Serisi-Soru-Bankasi-Cap-Yayincilik-890842.html"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsepeti ve Kitapsec 192 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Biyoloji Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 200,
+      "edition": "2025",
+      "sourceUrl": "https://www.aydinyayinlari.com.tr/tyt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://www.aydinyayinlari.com.tr/tyt-biyoloji-soru-bankasi",
+        "https://www.kitapmarketim.com/aydin-yayinlari-tyt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 200 sayfa, 2025 müfredat baskısı; Kitapmarketim aynı ISBN ile satıyor."
+    },
+    {
+      "title": "TYT Biyoloji Soru Bankası",
+      "publisher": "Endemik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 192,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Biyoloji-Soru-Bankasi-Endemik-Yayinlari-626464.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Biyoloji-Soru-Bankasi-Endemik-Yayinlari-626464.html",
+        "https://www.sehadetkitap.com/urun/endemik-yayinlari-tyt-biyoloji-soru-bankasi",
+        "https://www.kitapmarketim.com/tyt-biyoloji-soru-bankasi-2025-endemik-yayinlari"
+      ],
+      "confidence": "medium",
+      "notes": "Yeni ISBN 9786257430647 için sayfa sayısı yayımlanmamış; önceki baskı (9786257430159) üç bağımsız kaynakta 192 sayfa. Bu nedenle medium."
+    },
+    {
+      "title": "TYT Biyoloji KOZ Serisi Soru Bankası",
+      "publisher": "Eis Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 224,
+      "edition": "2023",
+      "sourceUrl": "https://www.kitapsepeti.com/eis-yayinlari-tyt-biyoloji-koz-serisi-soru-bankasi",
+      "sourceUrls": [
+        "https://www.kitapsepeti.com/eis-yayinlari-tyt-biyoloji-koz-serisi-soru-bankasi",
+        "https://www.bkmkitap.com/eis-yayinlari-tyt-biyoloji-koz-serisi-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsepeti ve Bkmkitap 224 sayfada birleşiyor. Eis'in 9786257199223 ISBN'li 'TYT Hazırlık Biyoloji Soru Bankası' ayrı bir kitap (176 sayfa), karıştırılmamalı."
+    },
+    {
+      "title": "TYT Biyoloji Özet",
+      "publisher": "Delta Kültür Yayınevi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 104,
+      "edition": "2026",
+      "sourceUrl": "https://kitapsec.com/Products/TYT-Biyoloji-Ozet-YKS-1-Oturum-Delta-Kultur-654301.html",
+      "sourceUrls": [
+        "https://kitapsec.com/Products/TYT-Biyoloji-Ozet-YKS-1-Oturum-Delta-Kultur-654301.html",
+        "https://www.yediiklim.com.tr/Delta-Kultur-TYT-Biyoloji-ozet_97647.html",
+        "https://www.akmkitap.com/urun/tyt-biyoloji-ozet-delta-kultur-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsec, Yediiklim ve Akm Kitap 104 sayfada birleşiyor; Melek Yılmaz."
+    },
+    {
+      "title": "TYT Biyoloji Ders Notları",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 224,
+      "edition": "2027",
+      "sourceUrl": "https://www.benimhocam.com/2026-tyt-biyoloji-ders-notlari",
+      "sourceUrls": [
+        "https://www.benimhocam.com/2026-tyt-biyoloji-ders-notlari",
+        "https://www.kitapsec.com/Products/2025-TYT-Biyoloji-Video-Ders-Notlari-Benim-Hocam-Yayinlari-370779.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 224 sayfa, 2027 basım. Eski baskılarda 240 sayfa görülüyor; resmî künye esas alındı."
+    },
+    {
+      "title": "Betül Biyoloji Konu Anlatımı 28 Günde TYT Biyoloji Video Kamp Kitabı",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 128,
+      "edition": "2024",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/betul-biyoloji-konu-anlatimi-28-gunde-tyt-biyoloji-video-kamp-kitabi/690891.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/betul-biyoloji-konu-anlatimi-28-gunde-tyt-biyoloji-video-kamp-kitabi/690891.html",
+        "https://www.palmekitabevi.com/betul-biyoloji-konu-anlatimi_28-gunde-tyt-biyoloji-video-kamp-kitabi",
+        "https://www.n11.com/urun/betul-biyoloji-konu-anlatimi-28-gunde-tyt-biyoloji-video-kampi-kr-akademi-yayinlari-41175063"
+      ],
+      "confidence": "high",
+      "notes": "Kitapyurdu, Palme Kitabevi ve N11 128 sayfada birleşiyor; 2026 yeniden baskısı satışta."
+    },
+    {
+      "title": "TYT Biyoloji Pro Konu Anlatımı El Kitabı",
+      "publisher": "Yayın Denizi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kolaykitap.com/urun/yayin-denizi-tyt-biyoloji-pro-konu-anlatimi-el-kitabi",
+      "sourceUrls": [
+        "https://www.kolaykitap.com/urun/yayin-denizi-tyt-biyoloji-pro-konu-anlatimi-el-kitabi",
+        "https://www.kitapsec.com/Products/TYT-Biyoloji-Pro-Konu-Anlatimi-El-Kitabi-Yayin-Denizi-657337.html",
+        "https://www.yediiklim.com.tr/Yayin-Denizi-TYT-Biyoloji-Pro-Konu-Anlatimi-El-Kitabi_98103.html"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız mağaza 192 sayfada birleşiyor; Fatih Sarı."
+    },
+    {
+      "title": "Miray TYT Biyoloji Konu Özetli Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 240,
+      "edition": "2025",
+      "sourceUrl": "https://www.mirayyayinlari.com.tr/miray-tyt-biyoloji-konu-ozetli-soru-bankasi",
+      "sourceUrls": [
+        "https://www.mirayyayinlari.com.tr/miray-tyt-biyoloji-konu-ozetli-soru-bankasi",
+        "https://www.aydinyayinlari.com.tr/miray-tyt-biyoloji-soru-bankasi",
+        "https://derskitabim.com.tr/miray-tyt-biyoloji-konu-ozetli-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye ve Miray fiyat listesi 240 sayfa. Kitapsec'teki 209 sayfa 2020 baskısına ait, güncel baskı 240."
+    },
+    {
+      "title": "FUNDAmentals Biyoloji TYT Konu Anlatımlı Soru Bankası",
+      "publisher": "Tonguç Akademi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 200,
+      "edition": "2026",
+      "sourceUrl": "https://www.akmkitap.com/urun/fundamentals-biyoloji-tyt-konu-anlatimli-soru-bankasi-tonguc-akademi",
+      "sourceUrls": [
+        "https://www.akmkitap.com/urun/fundamentals-biyoloji-tyt-konu-anlatimli-soru-bankasi-tonguc-akademi",
+        "https://www.kitapsec.com/Products/FUNDAmentals-Biyoloji-TYT-Konu-Anlatimli-Soru-Bankasi-Tonguc-Akademi-326707.html",
+        "https://www.idefix.com/fundamentals-biyoloji-tyt-konu-anlatimli-soru-bankasi-p-1292803"
+      ],
+      "confidence": "high",
+      "notes": "Akm Kitap, Kitapsec ve İdefix 200 sayfada birleşiyor."
+    },
+    {
+      "title": "TYT Biyoloji Kampı 25 Günde Kampplus",
+      "publisher": "Tonguç Akademi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 136,
+      "edition": "2026",
+      "sourceUrl": "https://www.akmkitap.com/urun/tyt-biyoloji-kampi-25-gunde-kampplus-tonguc-akademi",
+      "sourceUrls": [
+        "https://www.akmkitap.com/urun/tyt-biyoloji-kampi-25-gunde-kampplus-tonguc-akademi",
+        "https://www.idefix.com/tonguc-yayinlari-kampplus-25-gunde-tyt-biyoloji-kampi-p-9559538"
+      ],
+      "confidence": "high",
+      "notes": "Akm Kitap ve İdefix künyeleri 136 sayfa; 789 soru."
+    },
+    {
+      "title": "TYT Dr. Biyoloji Video Ders Kitabı",
+      "publisher": "Oksijen Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 158,
+      "edition": "2025",
+      "sourceUrl": "https://www.oksijensatis.com/oksijen-tyt-dr-biyoloji-video-ders-kitabi-",
+      "sourceUrls": [
+        "https://www.oksijensatis.com/oksijen-tyt-dr-biyoloji-video-ders-kitabi-",
+        "https://www.indekskitap.com/urun/oksijen-yks-tyt-dr-biyoloji-video-ders-kitabi",
+        "https://www.kitapisler.com/oksijen-yayinlari-tyt-dr-biyoloji-video-ders-kitabi_101431.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî satış sitesi 158 sayfa; Kitap İşler 160 diyor. Resmî künye esas alındı."
+    },
+    {
+      "title": "TYT Biyoloji Soru Bankası",
+      "publisher": "Apotemi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://kitapsec.com/Products/TYT-Biyoloji-Soru-Bankasi-Apotemi-Yayinlari-667415.html",
+      "sourceUrls": [
+        "https://kitapsec.com/Products/TYT-Biyoloji-Soru-Bankasi-Apotemi-Yayinlari-667415.html",
+        "https://www.kitapdoldur.com/urun/apotemi-yayinlari-tyt-biyoloji-soru-bankasi",
+        "https://www.kitapanka.com/urun/apotemi-yayinlari-tyt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Üç mağaza 272 sayfada birleşiyor; Dizgi Kitap 271 diyor."
+    },
+    {
+      "title": "TYT Biyoloji Soru Bankası (DİS Serisi)",
+      "publisher": "Ordinat Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 192,
+      "edition": "2025",
+      "sourceUrl": "https://www.ordinatyayinlari.com/urun/tyt-biyoloji-soru-bankasi-dis-serisi-2025-2026",
+      "sourceUrls": [
+        "https://www.ordinatyayinlari.com/urun/tyt-biyoloji-soru-bankasi-dis-serisi-2025-2026"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 192 sayfa; 2025-2026 DİS serisi."
+    },
+    {
+      "title": "Dilek Hocayla 32 Günde TYT Biyoloji Video Ders Kitabı",
+      "publisher": "F10 Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 224,
+      "edition": "2025",
+      "sourceUrl": "https://palmekitabevi.com/f10-yayinlari_2025-tyt-biyoloji-dilek-hocayla_32-gunde-video-ders-kitabi",
+      "sourceUrls": [
+        "https://palmekitabevi.com/f10-yayinlari_2025-tyt-biyoloji-dilek-hocayla_32-gunde-video-ders-kitabi",
+        "https://www.dr.com.tr/kitap/dilek-hocayla-32-gunde-tyt-biyoloji-video-ders-kitabi/dilek-kuvvet/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-konu-anlatim-kitaplari/tyt-biyoloji/urunno=0002128519001",
+        "https://www.kitapsepeti.com/f10-yayinlari-dilek-hocayla-32-gunde-tyt-biyoloji-video-ders-kitabi"
+      ],
+      "confidence": "high",
+      "notes": "D&R, Palme Kitabevi, Kitapsepeti ve Kitapsec 224 sayfada birleşiyor."
+    },
+    {
+      "title": "Biosem TYT Biyoloji 1 Kitap 3 Kamp Video Ders Kitabı",
+      "publisher": "Zeduva Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 128,
+      "edition": "2026",
+      "sourceUrl": "https://www.akmkitap.com/urun/biosem-tyt-biyoloji-1-kitap-3-kamp-video-ders-kitabi-zeduva-yayinlari",
+      "sourceUrls": [
+        "https://www.akmkitap.com/urun/biosem-tyt-biyoloji-1-kitap-3-kamp-video-ders-kitabi-zeduva-yayinlari",
+        "https://www.kitapsec.com/Products/Biosem-TYT-Biyoloji-1-Kitap-3-Kamp-Video-Ders-Kitabi-Zeduva-Yayinlari-920182.html",
+        "https://www.n11.com/urun/zeduva-biosem-tyt-biyoloji-1-kitap-3-kamp-video-ders-kitabi-84950968"
+      ],
+      "confidence": "high",
+      "notes": "N11, Kitapsec ve Akm Kitap 128 sayfada birleşiyor; Semih Akpınar."
+    },
+    {
+      "title": "TYT Biyoloji 0",
+      "publisher": "Karekök",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 248,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/sifir-serisi/tyt-biyoloji-0-485.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/sifir-serisi/tyt-biyoloji-0-485.html",
+        "https://karekokoutlet.com/urun/tyt-biyoloji-0"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 248 sayfa; sıfırdan başlayanlar serisi."
+    },
+    {
+      "title": "TYT Biyoloji Konu Kitabı",
+      "publisher": "Yazıt Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 231,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Biyoloji-Konu-Kitabi-Yazit-Yayinlari-374554.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Biyoloji-Konu-Kitabi-Yazit-Yayinlari-374554.html",
+        "https://www.akmkitap.com/urun/tyt-biyoloji-konu-kitabi-yazit-yayinlari",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-konu-kitaplari-tyt-ayt-biyoloji-konu/yazit-yayincilik/m-gunturkun-ozmen/yazit-yayinlari-tyt-biyoloji-konu-kitabi"
+      ],
+      "confidence": "high",
+      "notes": "Akm Kitap, Pelikan ve Kitapsec 231 sayfada birleşiyor; M. Güntürkün Özmen."
+    },
+    {
+      "title": "TYT Biyoloji Ders İşleme Föyü",
+      "publisher": "Pegem Akademi Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 164,
+      "edition": "2023",
+      "sourceUrl": "https://pegem.net/urun/TYT-Biyoloji-Ders-Isleme-Foyu-261888",
+      "sourceUrls": [
+        "https://pegem.net/urun/TYT-Biyoloji-Ders-Isleme-Foyu-261888",
+        "https://www.kitapsec.com/Products/TYT-Biyoloji-Ders-Isleme-Foyu-Pegem-Akademi-Yayincilik-856725.html",
+        "https://dizgikitap.com/urun/tyt-biyoloji-ders-isleme-foyu-9876"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 164 sayfa (2. baskı, Kasım 2023). 2022 baskısı 168 sayfaydı."
+    },
+    {
+      "title": "TYT Biyoloji Soru Bankası",
+      "publisher": "Bilfen Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 200,
+      "edition": "2022",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Biyoloji-Soru-Bankasi-Bilfen-Yayincilik-374102.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Biyoloji-Soru-Bankasi-Bilfen-Yayincilik-374102.html",
+        "https://www.sehadetkitap.com/urun/bilfen-yayinlari-tyt-biyoloji-soru-bankasi-bilfen",
+        "https://www.faykitabevi.com.tr/bilfen-tyt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Dört bağımsız mağaza 200 sayfada birleşiyor; Bilfen kendi mağazasında hâlâ satıyor."
+    },
+    {
+      "title": "TYT TersYüz Biyoloji Soru Bankası",
+      "publisher": "Nitelik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 168,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-TersYuz-Biyoloji-Soru-Bankasi-Nitelik-Yayinlari-549061.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-TersYuz-Biyoloji-Soru-Bankasi-Nitelik-Yayinlari-549061.html",
+        "https://www.yediiklim.com.tr/Nitelik-Yayinlari-TYT-Biyoloji-Tersyuz-Soru-Bankasi_97792.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-ayt-biyoloji-soru/nitelik-yayinlari-tyt-ayt/nitelik-yayinlari-tyt-biyoloji-tersyuz-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Yediiklim, Pelikan ve Kitapsec 168 sayfada birleşiyor; iki yüzli (TersYüz) soru bankası."
+    },
+    {
+      "title": "TYT 28 Saatte Biyoloji Soru Bankası",
+      "publisher": "Paraf Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 224,
+      "edition": "2025",
+      "sourceUrl": "https://parafyayinlari.com/tyt/tyt-28-saatte-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://parafyayinlari.com/tyt/tyt-28-saatte-biyoloji-soru-bankasi",
+        "https://www.akmkitap.com/urun/z-takimi-tyt-biyoloji-soru-bankasi-paraf-yayinlari",
+        "https://www.bkmkitap.com/paraf-yayinlari-paraf-yayinlari-biosem-z-takimi-tyt-biyoloji-video-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Paraf künyesi ISBN 9786257423977; mağazalar aynı ISBN'i 'Z Takımı TYT Biyoloji Soru Bankası' adıyla 224 sayfa satıyor. Resmî ad esas alındı."
+    },
+    {
+      "title": "TYT Biyoloji Soru Bankası",
+      "publisher": "Üçgen Akademi",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 240,
+      "edition": "2022",
+      "sourceUrl": "https://ucgenyayincilik.com/urun/tyt-biyoloji-soru-bankasi/",
+      "sourceUrls": [
+        "https://ucgenyayincilik.com/urun/tyt-biyoloji-soru-bankasi/",
+        "https://www.boradagitim.com/Istem/Urun/Detay.aspx?Id=70904",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-ayt-biyoloji-soru/ucgen-akademi-lise/mehmet-goksel-gurler/ucgen-akademi-yayinlari-tyt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Üçgen künyesi ve Bora Dağıtım 240 sayfada birleşiyor; Nisan 2022 baskısı hâlâ satışta."
+    },
+    {
+      "title": "Görev TYT Biyoloji Yeni Nesil Çalışma Föyleri",
+      "publisher": "Armada Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 296,
+      "edition": "2022",
+      "sourceUrl": "https://www.kitapzen.com/murat-dogan/gorev-tyt-biyoloji-yeni-nesil-calisma-foyleri.htm",
+      "sourceUrls": [
+        "https://www.kitapzen.com/murat-dogan/gorev-tyt-biyoloji-yeni-nesil-calisma-foyleri.htm",
+        "https://www.bkmkitap.com/gorev-tyt-biyoloji-yeni-nesil-calisma-foyleri",
+        "https://www.sehadetkitap.com/urun/gorev-tyt-biyoloji-calisma-foyleri"
+      ],
+      "confidence": "high",
+      "notes": "Üç mağaza 296 sayfada birleşiyor; 36 haftalık çalışma föyü formatında, defter değil."
+    }
+  ],
+  "gaps": [
+    "Hız ve Renk Yayınları TYT Biyoloji Soru Bankası: kaynaklarda 202, 224 ve 288 sayfa çelişkisi var; doğrulanamadı.",
+    "Limit Yayınları TYT Biyoloji Ders Notları: 112, 150 ve 232 sayfa olarak üç farklı değer veriliyor; doğrulanamadı.",
+    "Kafa Dengi TYT Biyoloji Soru Bankası: 184, 256 ve 272 sayfa çelişkisi; güncel baskı künyesi netleşmedi.",
+    "Biyotik TYT Biyoloji Konu Anlatım Föyleri: künyede sayfa sayısı 'Föy' olarak veriliyor, sayısal doğrulama yok (tek kaynak 256 diyor).",
+    "Bilgi Sarmal ve 3D'nin TYT biyoloji konu anlatımı/fasikül ürünleri mevcut katalogdaki soru bankalarıyla aynı başlıkta olduğu için ayrı satır açılmadı."
+  ]
+}

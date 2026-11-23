@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,8 @@ import { CustomBookModal } from './CustomBookModal';
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-line bg-canvas py-2 pl-9 pr-3 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]';
+
+const PAGE_SIZE = 60;
 
 function catalogButtonLabel(book: CatalogBook): string {
   const publisher = book.publisher ? ` (${book.publisher})` : '';
@@ -28,6 +30,12 @@ export function BookCatalogModal({ onClose }: BookCatalogModalProps) {
   const [view, setView] = useState<'catalog' | 'custom'>('catalog');
   const [addingId, setAddingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // A new search starts from the first page again.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [query]);
 
   // Empty query lists the whole starter catalog; the repository search only
   // runs for real input, because searching an empty string returns nothing.
@@ -61,6 +69,8 @@ export function BookCatalogModal({ onClose }: BookCatalogModalProps) {
 
   const loading = books === undefined;
   const trimmedQuery = query.trim();
+  const visibleBooks = books?.slice(0, visibleCount) ?? [];
+  const remaining = (books?.length ?? 0) - visibleCount;
   const resultLabel = trimmedQuery
     ? `"${trimmedQuery}" için katalog sonuçları`
     : 'Katalogdaki kitaplar';
@@ -115,34 +125,50 @@ export function BookCatalogModal({ onClose }: BookCatalogModalProps) {
           }
         />
       ) : (
-        <ul aria-label={resultLabel} className="space-y-2">
-          {books.map((book) => (
-            <li
-              key={book.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-line bg-canvas p-3"
-            >
-              <div className="min-w-0 space-y-1">
-                <p className="truncate text-sm font-semibold">{book.title}</p>
-                <p className="truncate text-xs text-muted">
-                  {book.publisher ?? 'Yayınevi belirtilmedi'} ·{' '}
-                  {book.totalPages > 0
-                    ? `${book.totalPages} sayfa`
-                    : 'Sayfa sayısı belirtilmedi'}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                aria-label={catalogButtonLabel(book)}
-                onClick={() => void handleAdd(book)}
-                disabled={addingId !== null}
-                className="shrink-0"
+        <>
+          <p className="text-xs text-muted">
+            {trimmedQuery
+              ? `"${trimmedQuery}" için ${books.length} sonuç`
+              : `${books.length} kitap`}
+          </p>
+          <ul aria-label={resultLabel} className="space-y-2">
+            {visibleBooks.map((book) => (
+              <li
+                key={book.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-line bg-canvas p-3"
               >
-                {addingId === book.id ? 'Ekleniyor…' : 'Rafa ekle'}
-              </Button>
-            </li>
-          ))}
-        </ul>
+                <div className="min-w-0 space-y-1">
+                  <p className="truncate text-sm font-semibold">{book.title}</p>
+                  <p className="truncate text-xs text-muted">
+                    {book.publisher ?? 'Yayınevi belirtilmedi'} ·{' '}
+                    {book.edition ?? 'Baskı yok'} ·{' '}
+                    {book.totalPages > 0
+                      ? `${book.totalPages} sayfa`
+                      : 'Sayfa sayısı belirtilmedi'}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  aria-label={catalogButtonLabel(book)}
+                  onClick={() => void handleAdd(book)}
+                  disabled={addingId !== null}
+                  className="shrink-0"
+                >
+                  {addingId === book.id ? 'Ekleniyor…' : 'Rafa ekle'}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {remaining > 0 ? (
+            <Button
+              variant="secondary"
+              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+            >
+              Daha fazla göster ({remaining} kaldı)
+            </Button>
+          ) : null}
+        </>
       )}
     </Modal>
   );

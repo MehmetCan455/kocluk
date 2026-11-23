@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
+import { CATALOG_SEED } from '@/data/catalogBooks';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import { listCatalogBooks, seedCatalog } from '@/db/catalogRepository';
@@ -229,6 +230,21 @@ test('katalog araması yayıneviyle eşleşir ve aynı yayınevinin sınav kitap
   expect(within(list).getByText('AYT Kimya Soru Bankası')).toBeInTheDocument();
   expect(within(list).getByText('Organik Kimya Konu Özetli Soru Bankası')).toBeInTheDocument();
   expect(within(list).getByText('Kimya Maarif Model 1. Aşama Soru Bankası')).toBeInTheDocument();
+  expect(within(dialog).getAllByText(/2026/).length).toBeGreaterThan(0);
+});
+
+test('katalog 500+ kitapta ilk 60 satırı gösterir ve daha fazlasını açar', async () => {
+  await seedCatalog();
+  renderApp('/kitaplar');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Kitap ekle' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Kitap ekle' });
+
+  await within(dialog).findByText(`${CATALOG_SEED.length} kitap`);
+  expect(within(dialog).getAllByRole('listitem')).toHaveLength(60);
+
+  await userEvent.click(within(dialog).getByRole('button', { name: /Daha fazla göster/ }));
+  expect(within(dialog).getAllByRole('listitem')).toHaveLength(120);
 });
 
 test('kendi kitabını ekler ve ders seçilmeyince Genel gösterir', async () => {

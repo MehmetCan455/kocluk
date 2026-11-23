@@ -1,0 +1,435 @@
+{
+  "batch": "tyt-fizik",
+  "books": [
+    {
+      "title": "TYT Fizik Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-fizik-soru-bankasi-474.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-soru-bankalari/tyt-fizik-soru-bankasi-474.html",
+        "https://www.bkmkitap.com/tyt-fizik-soru-bankasi-karekok-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 256 sayfa (ISBN 9786257154017, 2025-2026 müfredatı). Mağazaların çoğu aynı ISBN için 262 sayfa yazıyor; resmî künye esas alındı."
+    },
+    {
+      "title": "TYT Fizik Soru Bankası",
+      "publisher": "Endemik",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 272,
+      "edition": "2025",
+      "sourceUrl": "https://endemikyayinlari.com.tr/urun/tyt-fizik-soru-bankasi--yeni--978-625-7430-62-3",
+      "sourceUrls": [
+        "https://endemikyayinlari.com.tr/urun/tyt-fizik-soru-bankasi--yeni--978-625-7430-62-3",
+        "https://www.bkmkitap.com/endemik-yayinlari-tyt-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 272 sayfa, 131 test, 1147 soru (ISBN 9786257430623). Basım Ağustos 2024; 2025 sezonu baskısı olarak satılıyor."
+    },
+    {
+      "title": "Sınav Kalitesinde TYT Fizik Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.sinavyayin.com/urun/sinav-yayinlari-sinav-kalitesinde-tyt-fizik-soru-bankasi",
+      "sourceUrls": [
+        "https://www.sinavyayin.com/urun/sinav-yayinlari-sinav-kalitesinde-tyt-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi künyesi: 304 sayfa, 1136 soru, ISBN 9786258296198. Yeni baskı."
+    },
+    {
+      "title": "2026 TYT Fizik Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://www.benimhocam.com/2026-tyt-fizik-video-cozumlu-soru-bankasi-benim-hocam-yayinlari",
+      "sourceUrls": [
+        "https://www.benimhocam.com/2026-tyt-fizik-video-cozumlu-soru-bankasi-benim-hocam-yayinlari",
+        "https://www.indekskitap.com/urun/benim-hocam-yks-tyt-fizik-soru-bankasi-video-cozumlu"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 336 sayfa, ISBN 9786255847454, basım yılı 2026, yazar Barış Akıncıoğlu. Mikro konu anlatımlı soru bankası."
+    },
+    {
+      "title": "TYT Fizik Soru Kitabı",
+      "publisher": "Nihat Bilgin Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.nihatbilginyayincilik.com/kitaplar/tyt-fizik-soru-kitabi",
+      "sourceUrls": [
+        "https://www.nihatbilginyayincilik.com/kitaplar/tyt-fizik-soru-kitabi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye: 272 sayfa, tamamı video çözümlü, renkli, ISBN 9786056968150."
+    },
+    {
+      "title": "TYT 40 Seans Fizik",
+      "publisher": "Okyanus Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://okyanusyayincilik.com/product/urun?barkod=9786052286111%2FTyt-40-Seans-Fizik",
+      "sourceUrls": [
+        "https://okyanusyayincilik.com/product/urun?barkod=9786052286111%2FTyt-40-Seans-Fizik",
+        "https://www.kitapsec.com/Products/TYT-Fizik-40-Seans-Soru-Bankasi-Okyanus-Yayinlari-284217.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 336 sayfa (18. baskı, ISBN 9786052286111); iki mağaza aynı ISBN için 368 sayfa gösteriyor, resmî değer esas alındı. Konu anlatımı + soru bankası."
+    },
+    {
+      "title": "YKS TYT Fizik Konu Anlatımlı",
+      "publisher": "Palme",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 320,
+      "edition": "2018",
+      "sourceUrl": "https://www.palmeyayinevi.com/yks-tyt-fIzIk-konu-anlatimli",
+      "sourceUrls": [
+        "https://www.palmeyayinevi.com/yks-tyt-fIzIk-konu-anlatimli",
+        "https://www.kitapsec.com/Products/YKS-TYT-Fizik-Konu-Anlatimli-Palme-Yayinevi-313942.html",
+        "https://www.bkmkitap.com/yks-tyt-fizik-konu-anlatimli-palme-yayinevi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye ve üç mağaza 320 sayfada birleşiyor (ISBN 9786052821220). Baskı 2018; Palme hâlâ satışta tutuyor."
+    },
+    {
+      "title": "TYT Fizik 0'dan Başlayanlara",
+      "publisher": "Aktif Öğrenme Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 352,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/aktif-ogrenme-yayinlari-tyt-fizik-0-dan-baslayanlara",
+      "sourceUrls": [
+        "https://www.kitapiste.com/Aktif-ogrenme-Yayinlari-TYT-Fizik-0-dan-Baslayanlara_124720.html",
+        "https://www.kitapsec.com/Products/TYT-Fizik-0-dan-Baslayanlara-Aktif-Ogrenme-Yayinlari-374743.html"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız mağaza 352 sayfada birleşiyor (ISBN 9786057071682). Sıfırdan başlayanlar için konu anlatımlı soru bankası."
+    },
+    {
+      "title": "Kampplus 29 Günde TYT Fizik Kampı",
+      "publisher": "Tonguç Akademi",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 144,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/Kampplus-29-Gunde-TYT-Fizik-Kampi-Tonguc-Akademi-839759.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Kampplus-29-Gunde-TYT-Fizik-Kampi-Tonguc-Akademi-839759.html",
+        "https://www.bkmkitap.com/kampplus-29-gunde-tyt-fizik-kampi-tonguc-akademi"
+      ],
+      "confidence": "high",
+      "notes": "144 sayfa; iki farklı ISBN (9786254224454 ve 9786254221224) aynı kitabın eski/yeni baskısı, ikisi de 144 sayfa gösteriyor. Kamp kitabı, konu anlatımı dijital platformda."
+    },
+    {
+      "title": "YKS TYT 1. Oturum Fizik Özet",
+      "publisher": "Delta Kültür Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 128,
+      "edition": "2017",
+      "sourceUrl": "https://www.kitapsec.com/Products/YKS-TYT-1-Oturum-Fizik-Ozet-Delta-Kultur-Yayinlari-268656.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/YKS-TYT-1-Oturum-Fizik-Ozet-Delta-Kultur-Yayinlari-268656.html",
+        "https://www.palmekitabevi.com/yks-tyt-1-oturum-fizik-%C3%B6zet"
+      ],
+      "confidence": "high",
+      "notes": "Konu özeti kitabı; iki bağımsız kaynak 128 sayfa (ISBN 9786059716802). Baskı 2017, hâlâ satışta."
+    },
+    {
+      "title": "TYT Fizik Soru Bankası",
+      "publisher": "Bilfen Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 248,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Fizik-Soru-Bankasi-Bilfen-Yayincilik-374104.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Fizik-Soru-Bankasi-Bilfen-Yayincilik-374104.html",
+        "https://www.faykitabevi.com.tr/bilfen-tyt-fizik-soru-bankasi",
+        "https://onlinesatis.bilfenyayincilik.com/kategori/soru-bankasi-4"
+      ],
+      "confidence": "high",
+      "notes": "248 sayfa (ISBN 9786057788160); Bilfen'in kendi satış sitesinde de aynı ürün listeli. Bkmkitap sayfa alanını boş bırakmış."
+    },
+    {
+      "title": "TYT Fizik Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 304,
+      "edition": "2024",
+      "sourceUrl": "https://hizyayinlari.com/urun/tyt-fizik-soru-bankasi/",
+      "sourceUrls": [
+        "https://hizyayinlari.com/urun/tyt-fizik-soru-bankasi/",
+        "https://www.kitapsec.com/Products/TYT-Fizik-Soru-Bankasi-Hiz-Yayinlari-891795.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 304 sayfa, 147 test, 1210 soru (ISBN 9786256950702), Temmuz 2024 baskısı. Bkmkitap 302 yazıyor."
+    },
+    {
+      "title": "TYT Fizik Temel ve Orta Düzey Soru Bankası",
+      "publisher": "Kafa Dengi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://kafadengiyayinlari.com/urun.php?id=164",
+      "sourceUrls": [
+        "https://kafadengiyayinlari.com/urun.php?id=164",
+        "https://www.kitapsec.com/Products/TYT-Fizik-Temel-ve-Orta-Duzey-Soru-Bankasi-Kafadengi-Yayinlari-374115.html"
+      ],
+      "confidence": "high",
+      "notes": "Süper Öğreten Sistem, 10 bölüm 37 ders. Resmî sitede 224 sayfa (ISBN 9786053809791); mağazaların çoğu 176 gösteriyor, resmî künye esas alındı."
+    },
+    {
+      "title": "TYT Fizik Multi Soru Bankası",
+      "publisher": "Eğitim Vadisi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 296,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/egitim-vadisi-yks-tyt-fizik-msb-multi-soru-bankasi-video-cozumlu-egitim-vadisi-yayinlari",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/egitim-vadisi-yks-tyt-fizik-msb-multi-soru-bankasi-video-cozumlu-egitim-vadisi-yayinlari",
+        "https://www.kitapsec.com/Products/TYT-Fizik-Multi-Soru-Bankasi-Egitim-Vadisi-Yayinlari-743087.html"
+      ],
+      "confidence": "high",
+      "notes": "296 sayfa; iki bağımsız kaynak aynı değeri veriyor (ISBN 9786256911055 / 9786051948294 eski baskı). Modüler zorluk testleri."
+    },
+    {
+      "title": "TYT Fizik Plus Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 288,
+      "edition": "2025",
+      "sourceUrl": "https://dizgikitap.com/urun/cap-yayinlari-tyt-fizik-plus-soru-bankasi-19605",
+      "sourceUrls": [
+        "https://dizgikitap.com/urun/cap-yayinlari-tyt-fizik-plus-soru-bankasi-19605",
+        "https://www.kitapdoldur.com/urun/cap-yayinlari-tyt-fizik-plus-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "288 sayfa (ISBN 9786258139372), iki bağımsız mağaza aynı değeri veriyor. ÇapPlus hibrit seri, 2025 baskısı."
+    },
+    {
+      "title": "TYT Fizik Seti (5 Fasikül)",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 656,
+      "edition": "2026",
+      "sourceUrl": "https://www.akmkitap.com/urun/tyt-fizik-seti-cap-yayinlari",
+      "sourceUrls": [
+        "https://www.akmkitap.com/urun/tyt-fizik-seti-cap-yayinlari",
+        "https://www.kitapdoldur.com/urun/cap-yayinlari-tyt-fizik-seti",
+        "https://dizgikitap.com/urun/cap-yayinlari-tyt-fizik-seti-19610"
+      ],
+      "confidence": "high",
+      "notes": "Fasikül seti: Madde ve Özellikleri, Hareket ve Enerji, Elektrik, Dalgalar, Optik (5 fasikül), toplam 656 sayfa, ISBN 9786258139075. Üç bağımsız kaynak aynı toplamı veriyor."
+    },
+    {
+      "title": "TYT Fizik Sıfırmatik Konu Anlatımlı Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-fizik/cap-yayinlari/cap-yayinlari-tyt-fizik-sifirmatik-konu-anlatimli-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-konu-anlatim-fizik/cap-yayinlari/cap-yayinlari-tyt-fizik-sifirmatik-konu-anlatimli-soru-bankasi",
+        "https://kitapsatinal.com/product/cap-yayinlari-tyt-fizik-sifirmatik-konu-anlatimli-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "320 sayfa (ISBN 9786259026336), iki bağımsız mağaza ve yayınevinin tanıtım videosu aynı değeri veriyor. Konu anlatımı + soru bankası."
+    },
+    {
+      "title": "TYT Fizik Maarif Birinci Aşama Soru Bankası",
+      "publisher": "Orijinal Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.akmkitap.com/urun/tyt-fizik-maarif-birinci-asama-soru-bankasi-orijinal-yayinlari",
+      "sourceUrls": [
+        "https://www.akmkitap.com/urun/tyt-fizik-maarif-birinci-asama-soru-bankasi-orijinal-yayinlari",
+        "https://www.indekskitap.com/urun/orijinal-yks-tyt-fizik-orijinal-soru-bankasi-1-asama",
+        "https://www.kitapdoldur.com/urun/orijinal-yayinlari-tyt-fizik-maarif-birinci-asama-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "288 sayfa, ISBN 9786255708311; üç bağımsız kaynak aynı değeri veriyor. 2028 Maarif Model birinci aşama."
+    },
+    {
+      "title": "Analitik TYT Fizik Konu-Soru Fasikülleri (11 Fasikül)",
+      "publisher": "Merkez Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 312,
+      "edition": "2026",
+      "sourceUrl": "https://merkezyayinlari.com/product/analitik-tyt-fizik-konu-soru-fasikulleri/",
+      "sourceUrls": [
+        "https://merkezyayinlari.com/product/analitik-tyt-fizik-konu-soru-fasikulleri/"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye: 312 sayfa / 11 fasikül, 2556 soru, ISBN 9786057952745."
+    },
+    {
+      "title": "Fizikfinito TYT Fizik Soru Bankası",
+      "publisher": "Zeduva Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 216,
+      "edition": "2026",
+      "sourceUrl": "https://zeduva.com/products/zeduva-fizikfinito-tyt-fizik-1-kitap-3-kamp-soru-bankasi",
+      "sourceUrls": [
+        "https://zeduva.com/products/zeduva-fizikfinito-tyt-fizik-1-kitap-3-kamp-soru-bankasi",
+        "https://www.indekskitap.com/urun/zeduva-yks-tyt-fizikfinito-soru-bankasi",
+        "https://www.kitapisler.com/zeduva-yayinlari-fizikfinito-tyt-fizik-1-kitap-3-kamp-soru-bankasi_101968.html"
+      ],
+      "confidence": "high",
+      "notes": "216 sayfa, 9 bölüm 93 test (ISBN 9786259688923). Didar Baskın / Fizikfinito; 2026-2027 müfredatı."
+    },
+    {
+      "title": "2026 TYT Fizik Konu Özetli Yeni Nesil Soru Bankası",
+      "publisher": "Marka Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/2026-TYT-Fizik-Konu-Ozetli-Yeni-Nesil-Soru-Bankasi-Tamami-Video-Cozumlu-Marka-Yayinlari-652634.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/2026-TYT-Fizik-Konu-Ozetli-Yeni-Nesil-Soru-Bankasi-Tamami-Video-Cozumlu-Marka-Yayinlari-652634.html",
+        "https://dizgikitap.com/urun/2024-tyt-fizik-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu-9484"
+      ],
+      "confidence": "high",
+      "notes": "192 sayfa (ISBN 9786258476378); dörtten fazla mağaza aynı değeri veriyor. Konu özetli, tamamı video çözümlü."
+    },
+    {
+      "title": "TYT Fizik Tersyüz Soru Kitabı",
+      "publisher": "Nitelik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 248,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Fizik-Tersyuz-Soru-Kitabi-Nitelik-Yayinlari-554375.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Fizik-Tersyuz-Soru-Kitabi-Nitelik-Yayinlari-554375.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-fizik-soru/nitelik-yayinlari-tyt-ayt/nitelik-yayinlari-tyt-fizik-tersyuz-soru-kitabi"
+      ],
+      "confidence": "high",
+      "notes": "248 sayfa, ISBN 9786052723081; iki bağımsız mağaza aynı değeri veriyor. Tersyüz (konu anlatımı + soru) formatı."
+    },
+    {
+      "title": "TYT VAF Fizik Fasikülleri Seti (4 Fasikül)",
+      "publisher": "Fenomen Okul Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 400,
+      "edition": "2024",
+      "sourceUrl": "https://www.bkmkitap.com/fenomen-yayinlari-tyt-vaf-fizik-fasikulleri-seti",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/fenomen-yayinlari-tyt-vaf-fizik-fasikulleri-seti",
+        "https://www.kitapiste.com/Fenomen-Okul-Yayinlari-TYT-VAF-Fizik-Fasikulleri-Seti_140525.html",
+        "https://fenomenkitap.com.tr/product-category/fenomenokul/fenomen-vaf-tyt/"
+      ],
+      "confidence": "high",
+      "notes": "4 fasikül (Madde ve Özellikleri / Doğrusal Hareket-Enerji / Elektrik / Dalgalar-Optik), toplam 400 sayfa ve 1274 soru. Basım Eylül 2024."
+    },
+    {
+      "title": "TYT Fizik Kamp Kitabı",
+      "publisher": "Karaağaç Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 472,
+      "edition": "2026",
+      "sourceUrl": "https://www.mehmetkaraagac.com.tr/tyt-kamp-kitabi/",
+      "sourceUrls": [
+        "https://www.mehmetkaraagac.com.tr/tyt-kamp-kitabi/",
+        "https://www.mehmetkaraagac.com.tr/magaza/"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin kendi satış sitesi: 472 sayfa, 5024 soru, 220x297 mm, 2026 YKS baskısı."
+    },
+    {
+      "title": "Gelişim Serisi Fizik B Orta Düzey Soru Bankası",
+      "publisher": "Birey Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 368,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/birey-yks-tyt-ayt-fizik-b-orta-duzey-soru-bankasi-gelisim-serisi-birey-yayinlari",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/birey-yks-tyt-ayt-fizik-b-orta-duzey-soru-bankasi-gelisim-serisi-birey-yayinlari",
+        "https://www.kitapsec.com/Products/Gelisim-Serisi-Fizik-B-Serisi-Soru-Bankasi-Birey-Yayinlari-539966.html"
+      ],
+      "confidence": "high",
+      "notes": "TYT-AYT ortak; 368 sayfa, ISBN 9786057900630, video çözümlü. İki bağımsız mağaza aynı değeri veriyor."
+    },
+    {
+      "title": "TYT Fizik Analitik Soru Bankası",
+      "publisher": "Merkez Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.yediiklim.com.tr/Merkez-Yayinlari-TYT-Fizik-Analitik-Soru-Bankasi_81763.html",
+      "sourceUrls": [
+        "https://www.yediiklim.com.tr/Merkez-Yayinlari-TYT-Fizik-Analitik-Soru-Bankasi_81763.html",
+        "https://www.bkmkitap.com/tyt-fizik-analitik-soru-bankasi-merkez-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "240 sayfa, ISBN 9786057952165; iki bağımsız kaynak aynı değeri veriyor. Ünite özetleri ve video konu anlatımı destekli."
+    },
+    {
+      "title": "DM Serisi TYT Fizik Soru Bankası",
+      "publisher": "Sonuç Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.sonucyayinlari.com.tr/brans/fizik",
+      "sourceUrls": [
+        "https://www.sonucyayinlari.com.tr/brans/fizik",
+        "https://www.kitapisler.com/sonuc-yayinlari-tyt-fizik-soru-bankasi_56002.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 304 sayfa, video çözümlü DM serisi. Eski TYT Fizik Soru Bankası baskıları 248-296 sayfa aralığında; DM serisi güncel ürün."
+    },
+    {
+      "title": "TYT Fizik Konu Anlatımı El Kitabı",
+      "publisher": "Yayın Denizi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "fizik",
+      "totalPages": 286,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/tyt-fizik-konu-anlatimi-el-kitabi",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/tyt-fizik-konu-anlatimi-el-kitabi",
+        "https://www.indekskitap.com/urun/yayin-denizi-pro-yks-tyt-fizik-konu-anlatimi-el-kitabi-yayin-denizi-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "286 sayfa, ISBN 9786051974033, 14x21 cm pratik konu anlatımı. İki bağımsız mağaza aynı değeri veriyor."
+    }
+  ],
+  "gaps": [
+    "Limit Yayınları TYT Fizik Soru Bankası: aynı başlık için üç farklı ISBN ve 216/264/270/320 sayfa değerleri çeliştiği, resmî künye bulunamadığı için eklenmedi.",
+    "Karekök TYT Fizik Sıfır: resmî künye bulunamadı; mağazalar aynı ISBN için 464/468/488 sayfa veriyor, bu yüzden eklenmedi.",
+    "Puan Yayınları TYT Fizik Soru Bankası: 192 sayfa yalnızca tek mağazada doğrulandı, ikinci bağımsız kaynak bulunamadı.",
+    "Esen, Final ve Pegem'in TYT Fizik konu anlatımı/soru bankası baskıları 2017-2021 tarihli; güncel baskı doğrulanamadığı için alınmadı.",
+    "TYT Fizik kamp kitabı alternatifi sınırlı: yalnızca Tonguç Kampplus ve Karaağaç kamp kitapları doğrulanabildi; diğer kamp setleri deneme/planlayıcı ağırlıklı çıktı."
+  ]
+}

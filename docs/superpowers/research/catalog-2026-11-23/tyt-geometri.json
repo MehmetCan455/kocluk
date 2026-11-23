@@ -1,0 +1,401 @@
+{
+  "batch": "tyt-geometri",
+  "books": [
+    {
+      "title": "TYT-AYT Geometri Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 320,
+      "edition": "2025",
+      "sourceUrl": "https://www.aydinyayinlari.com.tr/tyt-ayt-geometri-soru-bankasi",
+      "sourceUrls": [
+        "https://www.aydinyayinlari.com.tr/tyt-ayt-geometri-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Aydın künyesi: 320 sayfa, 2025 müfredat baskısı."
+    },
+    {
+      "title": "Kenan Kara ile TYT-AYT Geometri Soru Bankası",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 272,
+      "edition": "2025",
+      "sourceUrl": "https://www.dr.com.tr/kitap/kenan-kara-ile-tyt-ayt-geometri-soru-bankasi/kenan-kara/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-ayt-soru-bankasi-kitaplari/tyt-ayt-geometri/urunno=0002197986001",
+      "sourceUrls": [
+        "https://www.dr.com.tr/kitap/kenan-kara-ile-tyt-ayt-geometri-soru-bankasi/kenan-kara/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-ayt-soru-bankasi-kitaplari/tyt-ayt-geometri/urunno=0002197986001",
+        "https://www.hepsiburada.com/kr-akademi-yayinlari-kenan-kara-ile-tyt-ayt-geometri-soru-bankasi-pm-HBC00004VNSL0",
+        "https://www.kitapisler.com/kr-akademi-kenan-kara-ile-tyt-ayt-geometri-soru-bankasi_102109.html"
+      ],
+      "confidence": "high",
+      "notes": "dr.com, Hepsiburada ve Kitapİşler 272 sayfada birleşiyor; 2025 ilk baskı."
+    },
+    {
+      "title": "Eyüp B. TYT AYT Geometri Soru Bankası",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 328,
+      "edition": "2026",
+      "sourceUrl": "https://www.n11.com/urun/eyup-b-tyt-ayt-geometri-soru-bankasi-kr-akademi-yayinlari-114998650",
+      "sourceUrls": [
+        "https://www.n11.com/urun/eyup-b-tyt-ayt-geometri-soru-bankasi-kr-akademi-yayinlari-114998650",
+        "https://www.hepsiburada.com/kr-akademi-yayinlari-eyup-b-tyt-ayt-geometri-soru-bankasi-pm-HBC0000BFXVOI",
+        "https://www.dr.com.tr/kitap/eyup-b-tyt-ayt-geometri-soru-bankasi/eyup-boncuk/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-soru-bankasi-kitaplari/tyt-matematik/urunno=0002248760001",
+        "https://krakademi.com/urun/eyup-b-tyt-ayt-geometri-soru-bankasi-9051"
+      ],
+      "confidence": "high",
+      "notes": "Dört bağımsız listede 328 sayfa; 2026 baskısı."
+    },
+    {
+      "title": "TYT-AYT Geometri Soru Bankası",
+      "publisher": "Endemik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 288,
+      "edition": "2025",
+      "sourceUrl": "https://endemikyayinlari.com.tr/urun/tyt-ayt-geometri-soru-bankasi--yeni--978-625-7430-61-6",
+      "sourceUrls": [
+        "https://endemikyayinlari.com.tr/urun/tyt-ayt-geometri-soru-bankasi--yeni--978-625-7430-61-6",
+        "https://www.kitapsec.com/Products/TYT-AYT-Geometri-Soru-Bankasi-Endemik-Yayinlari-889898.html",
+        "https://palmekitabevi.com/endemik-yayinlari-tyt-ayt-geometri-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye ve Kitapsec 288 sayfa; 2025 baskısı."
+    },
+    {
+      "title": "TYT-AYT Geometri Yeni Nesil Soru Bankası",
+      "publisher": "Nitelik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 384,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-AYT-Geometri-Yeni-Nesil-Soru-Bankasi-Nitelik-Yayinlari-540520.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-AYT-Geometri-Yeni-Nesil-Soru-Bankasi-Nitelik-Yayinlari-540520.html",
+        "https://www.pazarama.com/nitelik-yks-tyt-ayt-yeni-nesil-geometri-soru-kitabi-yeni-p-9786052722923",
+        "https://www.kitapcidayim.com.tr/nitelik-yayinlari-tyt-ayt-geometri-yeni-nesil-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız listede 384 sayfa."
+    },
+    {
+      "title": "TYT-AYT Geometri Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 368,
+      "edition": "2024",
+      "sourceUrl": "https://hizyayinlari.com/urun/tyt-ayt-geometri-soru-bankasi/",
+      "sourceUrls": [
+        "https://hizyayinlari.com/urun/tyt-ayt-geometri-soru-bankasi/",
+        "https://dizgikitap.com/index.php/urun/hiz-yayinlari-tyt-ayt-geometri-soru-bankasi-19814"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Hız künyesi ve Dizgi Kitap 368 sayfa; Temmuz 2024 baskısı."
+    },
+    {
+      "title": "TYT-AYT Geometri Soru Bankası",
+      "publisher": "Toprak Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 432,
+      "edition": "2023",
+      "sourceUrl": "https://www.toprakyayincilik.com/urun?urun=tyt_ayt_geometri_soru_bankasi_guncel",
+      "sourceUrls": [
+        "https://www.toprakyayincilik.com/urun?urun=tyt_ayt_geometri_soru_bankasi_guncel",
+        "https://www.kitapsec.com/Products/TYT-AYT-Geometri-Soru-Bankasi-Toprak-Yayinlari-431899.html",
+        "https://palmekitabevi.com/tyt-ayt-geometri-soru-bankasi-23"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 432 sayfa ve 2023 basım tarihi; mağazalar aynı sayıyı veriyor."
+    },
+    {
+      "title": "TYT-AYT Geometri Soru Bankası (2. Kitap)",
+      "publisher": "ÜçDörtBeş Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 330,
+      "edition": "2025",
+      "sourceUrl": "https://www.hepsiburada.com/ucdortbes-yayinlari-345-tyt-ayt-geometri-2-kitap-soru-bankasi-pm-HBC00007FNYID",
+      "sourceUrls": [
+        "https://www.hepsiburada.com/ucdortbes-yayinlari-345-tyt-ayt-geometri-2-kitap-soru-bankasi-pm-HBC00007FNYID",
+        "https://www.pttavm.com/345-tyt-ayt-geometri-2-kitap-soru-bankasi-p-1096496441",
+        "https://ucdortbes.com/tyt-ayt-geometri-soru-bankasi-2-kitap.html"
+      ],
+      "confidence": "high",
+      "notes": "Hepsiburada ve PTT AVM 330 sayfa; resmî künye başlığı (2. Kitap) olarak doğruluyor."
+    },
+    {
+      "title": "TYT-AYT Geometri 0'dan Başlayanlara",
+      "publisher": "Aktif Öğrenme Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-AYT-Geometri-0-dan-Baslayanlara-Aktif-Ogrenme-Yayinlari-375027.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-AYT-Geometri-0-dan-Baslayanlara-Aktif-Ogrenme-Yayinlari-375027.html",
+        "https://www.kitapisler.com/aktif-ogrenme-yayinlari-tyt-ayt-geometri-0-dan-baslayanlara_54474.html",
+        "https://www.indekskitap.com/urun/aktif-ogrenme-yks-tyt-ayt-aktif-geometri-0-dan-baslayanlara-cozumlu-aktif-ogrenme-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Dört bağımsız listede 384 sayfa; 2026 baskısı."
+    },
+    {
+      "title": "TYT-AYT Geometri Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 396,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-AYT-Geometri-Soru-Bankasi-Cap-Yayinlari-385154.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-AYT-Geometri-Soru-Bankasi-Cap-Yayinlari-385154.html",
+        "https://www.hepsiburada.com/cap-yayinlari-tyt-ayt-geometri-soru-bankasi-pm-HB00000Q9ZT9"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsec ve Hepsiburada 396 sayfa; 2026 güncel baskı."
+    },
+    {
+      "title": "Miray TYT-AYT Geometri Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 384,
+      "edition": "2025",
+      "sourceUrl": "https://www.mirayyayinlari.com.tr/miray-tyt-ayt-geometri-soru-bankasi",
+      "sourceUrls": [
+        "https://www.mirayyayinlari.com.tr/miray-tyt-ayt-geometri-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Miray künyesi: 384 sayfa, 2025 baskısı."
+    },
+    {
+      "title": "TYT-AYT Geometrinin İlacı Soru Bankası",
+      "publisher": "Acil Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 286,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-AYT-Geometrinin-Ilaci-Soru-Bankasi-Acil-Yayinlari-535869.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-AYT-Geometrinin-Ilaci-Soru-Bankasi-Acil-Yayinlari-535869.html",
+        "https://kitapkapimda.com/kok/acil-yayinlari-tyt-ayt-geometrinin-ilaci-soru-bankasi-1273.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-ayt-soru-bankasi-geometri/acil-yayinlari/acil-yayinlari-tyt-ayt-geometrinin-ilaci-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Beş listede 286 sayfa; Kitapİşler 288 diyor, çoğunluk 286."
+    },
+    {
+      "title": "TYT-AYT Iceberg Geometri Soru Bankası",
+      "publisher": "Okyanus Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 288,
+      "edition": "2025",
+      "sourceUrl": "https://okyanusyayincilik.com/Urun/20008/tyt---ayt-iceberg-geometri-soru-bankasi",
+      "sourceUrls": [
+        "https://okyanusyayincilik.com/Urun/20008/tyt---ayt-iceberg-geometri-soru-bankasi",
+        "https://www.n11.com/urun/okyanus-yayinlari-2025-tyt-ayt-iceberg-geometri-soru-bankasi-58876124"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 288 sayfa; TYT-only Iceberg ayrı kitap olup 192 sayfadır."
+    },
+    {
+      "title": "2026 TYT-AYT Geometri Soru Bankası",
+      "publisher": "Mert Hoca Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 408,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-ayt-soru-bankasi-geometri/mert-hoca-yayinlari/mert-hoca-2026-tyt-ayt-geometri-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-ayt-soru-bankasi-geometri/mert-hoca-yayinlari/mert-hoca-2026-tyt-ayt-geometri-soru-bankasi",
+        "https://dizgikitap.com/urun/tyt-ayt-geometri-soru-bankasi-mert-hoca-15296",
+        "https://www.indekskitap.com/urun/mert-hoca-yks-tyt-ayt-60-gunde-geometri-kampi-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız listede 408 sayfa; 2026 baskısı."
+    },
+    {
+      "title": "Start Geometri",
+      "publisher": "ÜçDörtBeş Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 312,
+      "edition": "2025",
+      "sourceUrl": "https://ucdortbes.com/start-geometri",
+      "sourceUrls": [
+        "https://ucdortbes.com/start-geometri",
+        "https://www.indekskitap.com/urun/uc-dort-bes-0-dan-basla-start-geometri",
+        "https://www.acilkitap.com/345-start-geometri-soru-bankas%C4%B1-g%C3%BCncel-baski-resmi-345-start-geometri-soru-bankas%C4%B1-g%C3%BCncel-baski"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 312 sayfa; sıfırdan başlayanlar için soru bankası."
+    },
+    {
+      "title": "TYT 40 Seans Geometri Soru Bankası",
+      "publisher": "Okyanus Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 364,
+      "edition": "2020",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-40-Seans-Geometri-Soru-Bankasi-Okyanus-Yayinlari-375073.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-40-Seans-Geometri-Soru-Bankasi-Okyanus-Yayinlari-375073.html",
+        "https://www.kitapisler.com/okyanus-yayinlari-tyt-40-seans-geometri-soru-bankasi_54425.html",
+        "https://okyanusyayincilik.com/product/urun?barkod=9786057832771/Tyt-40-Seans-Geometri"
+      ],
+      "confidence": "high",
+      "notes": "İki mağaza 364 sayfada birleşiyor; 2020 baskısı hâlen resmî sitede satışta."
+    },
+    {
+      "title": "Kenan Kara ile TYT-AYT Geometri Video Ders Kitabı",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 288,
+      "edition": "2025",
+      "sourceUrl": "https://krakademi.com/urun/kenan-kara-ile-tyt-ayt-geometri-video-ders-kitabi-kr-akademi-163",
+      "sourceUrls": [
+        "https://krakademi.com/urun/kenan-kara-ile-tyt-ayt-geometri-video-ders-kitabi-kr-akademi-163",
+        "https://www.kitapsec.com/Products/Kenan-Kara-ile-TYT-AYT-Geometri-Video-Ders-Kitabi-KR-Akademi-920506.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 288 sayfa diyor; Kitapsec 280 gösteriyor, resmî künye esas alındı."
+    },
+    {
+      "title": "TYT Geometri Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 224,
+      "edition": "2024",
+      "sourceUrl": "https://onlinesatis.hizyayinlari.com/tyt-geometri-soru-bankasi",
+      "sourceUrls": [
+        "https://onlinesatis.hizyayinlari.com/tyt-geometri-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Hız mağazası 224 sayfa; TYT-AYT sürümünden ayrı, yalnız TYT kapsamlı."
+    },
+    {
+      "title": "49 Günde TYT Geometri Video Ders Notları",
+      "publisher": "Tonguç Akademi",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 264,
+      "edition": "2023",
+      "sourceUrl": "https://www.idefix.com/tonguc-akademi-49-gunde-tyt-matematik-geometri-turkce-video-ders-notlari-kampi-4lu-set-p-1146145",
+      "sourceUrls": [
+        "https://www.idefix.com/tonguc-akademi-49-gunde-tyt-matematik-geometri-turkce-video-ders-notlari-kampi-4lu-set-p-1146145",
+        "https://www.dr.com.tr/kitap/49-gunde-tyt-geometri-video-ders-notlari/kolektif/egitim-ve-sinav-kitaplari/universiteye-hazirlik/tyt-konu-anlatim-kitaplari/tyt-geometri/urunno=0002056103001",
+        "https://www.ekinkitap.com/49-gunde-tyt-geometri-video-ders-notlari"
+      ],
+      "confidence": "high",
+      "notes": "Dört listede 264 sayfa; N11 200 diyor, çoğunluk 264."
+    },
+    {
+      "title": "60 Günde TYT-AYT Geometri Kampı Video Ders Kitabı",
+      "publisher": "Mert Hoca Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 360,
+      "edition": "2024",
+      "sourceUrl": "https://www.merthoca.com/60-gunde-tyt-ayt-geometri-kampi-video-ders-kitabi-2024",
+      "sourceUrls": [
+        "https://www.merthoca.com/60-gunde-tyt-ayt-geometri-kampi-video-ders-kitabi-2024",
+        "https://www.kitapfoni.net/2027-60-gunde-tyt-ayt-geometri-video-ders-kitabi-soru-bankasi-seti-mert-hoca/"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 360 sayfa, 1505 soru; set sayfası toplam 816 sayfa olduğunu doğruluyor."
+    },
+    {
+      "title": "58 Günde TYT-AYT Geometri Kampı Video Ders Kitabı",
+      "publisher": "Bıyıklı Matematik Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 336,
+      "edition": "2023",
+      "sourceUrl": "https://www.kitapsec.com/Products/58-Gunde-TYT-AYT-Geometri-Kampi-Video-Ders-Kitabi-Biyikli-Matematik-Yayinlari-826420.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/58-Gunde-TYT-AYT-Geometri-Kampi-Video-Ders-Kitabi-Biyikli-Matematik-Yayinlari-826420.html",
+        "https://www.kitapisler.com/biyikli-matematik-58-gunde-tyt-ayt-geometri-kampi-video-ders-kitabi_90970.html",
+        "https://www.n11.com/urun/biyikli-matematik-58-gunde-tyt-ayt-geometri-video-ders-kitabi-40425660"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız listede 336 sayfa; 1615 soru içeriyor."
+    },
+    {
+      "title": "TYT Geometri Konu Özetli Soru Bankası",
+      "publisher": "4K Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.ucuzkitapal.com/tyt-geometri-konu-ozetli-soru-bankasi-4k-yayinlari-p218894/",
+      "sourceUrls": [
+        "https://www.ucuzkitapal.com/tyt-geometri-konu-ozetli-soru-bankasi-4k-yayinlari-p218894/",
+        "https://www.hepsiburada.com/4k-yayinlari-tyt-geometri-konu-ozetli-soru-bankasi-pm-HBC000067H122",
+        "https://www.kitantik.com/product/4K-YAYINLARI-TYT-GEOMETRI-KONU-OZETLI-SORU-BANKASI_1br9qfwm9x5f2mw1ks3"
+      ],
+      "confidence": "high",
+      "notes": "İki listede 256 sayfa; Kitantik 240 diyor, çoğunluk 256."
+    },
+    {
+      "title": "Analitik TYT-AYT Geometri Konu-Soru Fasikülleri (22 Fasikül)",
+      "publisher": "Merkez Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 400,
+      "edition": "2025",
+      "sourceUrl": "http://merkezyayinlari.com/product/analitik-merkez-yayinlari-tyt-ayt-geometri-konu-soru-fasikulleri/",
+      "sourceUrls": [
+        "http://merkezyayinlari.com/product/analitik-merkez-yayinlari-tyt-ayt-geometri-konu-soru-fasikulleri/",
+        "https://www.trendyol.com/merkez-yayinlari/merkez-yayinlari-tyt-ayt-geometri-analitik-konu-anlatimli-soru-bankasi-fasikulleri-p-51430109"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 400 sayfa / 22 fasikül; toplam sayfa setin tamamıdır."
+    },
+    {
+      "title": "TYT Geometri Tematik Maarif Modeli Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Geometri-Tematik-Maarif-Modeli-Soru-Bankasi-Miray-Yayinlari-953029.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Geometri-Tematik-Maarif-Modeli-Soru-Bankasi-Miray-Yayinlari-953029.html",
+        "https://pdf.aydinyayinlari.com.tr/yukle/fiyatmiray.pdf"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsec 320 sayfa; Miray resmî fiyat listesi de 320 sayfayı doğruluyor."
+    },
+    {
+      "title": "TYT-AYT Geometri 24 Adımda Konu Anlatımlı Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "geometri",
+      "totalPages": 384,
+      "edition": "2024",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-AYT-Geometri-24-Adimda-Konu-Anlatimli-Soru-Bankasi-Sinav-Yayinlari-561725.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-AYT-Geometri-24-Adimda-Konu-Anlatimli-Soru-Bankasi-Sinav-Yayinlari-561725.html",
+        "https://www.kitapiste.com/Sinav-Yayinlari-TYT-AYT-Geometri-24-Adimda-Konu-Anlatimli-Soru-Bankasi_142992.html",
+        "https://www.trendruum.com/urunler/sinav-yayinlari-tyt-ayt-geometri-24-adimda-konu-anlatimli-soru-bankasi-3793555"
+      ],
+      "confidence": "high",
+      "notes": "Üç listede 384 sayfa; Kitantik 352 diyor, çoğunluk 384."
+    }
+  ],
+  "gaps": [
+    "Bilfen TYT-AYT Geometri Soru Bankası: kaynaklarda 240/300/344 sayfa çelişkisi nedeniyle alınmadı.",
+    "Kafa Dengi TYT Geometri Temel ve Orta Düzey Süper Öğreten Soru Bankası: 204/206/208 sayfa çelişkisi nedeniyle alınmadı.",
+    "Final Yayınları TYT-AYT Geometri Soru Bankası: 279/320 sayfa çelişkisi nedeniyle alınmadı.",
+    "Limit Yayınları TYT-AYT Geometri El Kitabı: 280/293/296 sayfa çelişkisi nedeniyle alınmadı.",
+    "Miray TYT-AYT Geometri Ders Anlatım Fasikülleri: 424 sayfa doğrulandı ancak fasikül adedi doğrulanamadığı için başlık kuralı gereği alınmadı.",
+    "Aydın TYT-AYT Geometri Ders İşleyiş Modülleri: 400 sayfa doğrulandı ancak modül adedi doğrulanamadığı için alınmadı."
+  ]
+}

@@ -1,0 +1,529 @@
+{
+  "batch": "tyt-matematik",
+  "books": [
+    {
+      "title": "TYT Problemler Soru Bankası",
+      "publisher": "Bilgi Sarmal",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/tyt-problemler-soru-bankasi-757801",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/tyt-problemler-soru-bankasi-757801",
+        "https://www.kitapisler.com/bilgi-sarmal-tyt-problemler-soru-bankasi_73709.html",
+        "https://www.kitapsec.com/Products/TYT-Problemler-Soru-Bankasi-Bilgi-Sarmal-Yayinlari-372173.html"
+      ],
+      "confidence": "high",
+      "notes": "bkmkitap ve Kitapİşler 176 sayfada hemfikir; Kitapseç aynı ISBN için 175 sayfa veriyor."
+    },
+    {
+      "title": "TYT Problemler Soru Bankası",
+      "publisher": "Hız ve Renk Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/hiz-ve-renk-tyt-problemler-soru-bankasi_96815.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/hiz-ve-renk-tyt-problemler-soru-bankasi_96815.html",
+        "https://www.hizverenk.com/yayinlar/kitap/tyt-problemler-soru-bankasi",
+        "https://www.hepsiburada.com/hizverenkyayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Kitapİşler ve Hepsiburada 192 sayfada hemfikir; resmî sitede sayfa sayısı belirtilmemiş."
+    },
+    {
+      "title": "Hiç Problem Değil",
+      "publisher": "Antrenman Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 312,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/Hic-Problem-Degil-Antrenman-Yayinlari-288297.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Hic-Problem-Degil-Antrenman-Yayinlari-288297.html",
+        "https://antrenmanyayincilik.com/yayinlar/hic-problem-degil"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapseç 312 sayfa; resmî sitede sayfa sayısı yok, eski baskı PDF'i 308 sayfa."
+    },
+    {
+      "title": "Çıtır Çerez Problemler Soru Bankası",
+      "publisher": "Şenol Hoca Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 144,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-matematik/senol-hoca-yayinlari/senol-aydin/senol-hoca-citir-cerez-problemler",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-matematik/senol-hoca-yayinlari/senol-aydin/senol-hoca-citir-cerez-problemler",
+        "https://www.kitapisler.com/senol-hoca-yayinlari-citir-cerez-problemler_96765.html"
+      ],
+      "confidence": "high",
+      "notes": "Pelikan ve Kitapİşler 144 sayfada hemfikir."
+    },
+    {
+      "title": "TYT Matematik Acil Problemler",
+      "publisher": "Acil Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 191,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Matematik-Acil-Problemler-Acil-Yayinlari-379071.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Matematik-Acil-Problemler-Acil-Yayinlari-379071.html",
+        "https://acilmatematik.com.tr/kitaplar/problemler-fasikul"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapseç 191 sayfa; resmî künyede sayfa sayısı belirtilmemiş."
+    },
+    {
+      "title": "TYT KPSS ALES DGS MSÜ Problemler",
+      "publisher": "Apotemi Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/apotemi-tyt-kpss-problemler-apotemi-yayinlari",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/apotemi-tyt-kpss-problemler-apotemi-yayinlari",
+        "https://www.kitapisler.com/apotemi-problemler_79291.html"
+      ],
+      "confidence": "high",
+      "notes": "İndeks Kitap ve Kitapİşler 240 sayfada hemfikir."
+    },
+    {
+      "title": "TYT KPSS ALES MSÜ DGS Sıfır Risk Problemler",
+      "publisher": "ÜçDörtBeş Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/ucdortbes-yayinlari-tyt-kpss-ales-msu-dgs-sifir-risk-problemler_108279.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ucdortbes-yayinlari-tyt-kpss-ales-msu-dgs-sifir-risk-problemler_108279.html",
+        "https://www.ucdortbes.com/",
+        "https://www.kitapsec.com/Products/TYT-KPSS-ALES-MSU-DGS-Sifir-Risk-Problemler-UcDortBes-Yayinlari-947553.html"
+      ],
+      "confidence": "high",
+      "notes": "ÜçDörtBeş resmî sitesi ve Kitapİşler 280 sayfada hemfikir."
+    },
+    {
+      "title": "Orijinal Mikro TYT Problemler Fasikülü Soru Bankası",
+      "publisher": "Orijinal Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/orijinal-mikro-tyt-problemler-fasikulu-soru-bankasi_102053.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/orijinal-mikro-tyt-problemler-fasikulu-soru-bankasi_102053.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 208 sayfa."
+    },
+    {
+      "title": "TYT Problemler Konu Anlatımlı Eğitim Seti",
+      "publisher": "Orijinal Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/orijinal-yayinlari-tyt-problemler-konu-anlatimli-egitim-seti_102586.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/orijinal-yayinlari-tyt-problemler-konu-anlatimli-egitim-seti_102586.html",
+        "https://www.hepsiburada.com/orijinal-yayinlari-tyt-problemler-konu-anlatimli-egitim-pm-HBC000037ZSQE"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 208 sayfa; Hepsiburada'nın sayfa alanı hatalı (100)."
+    },
+    {
+      "title": "Problemler Soru Bankası",
+      "publisher": "Toprak Yayıncılık",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.toprakyayincilik.com/urun?urun=Problemler%20Soru%20Bankas%C4%B1",
+      "sourceUrls": [
+        "https://www.toprakyayincilik.com/urun?urun=Problemler%20Soru%20Bankas%C4%B1",
+        "https://bundaniyisi.com/problemler-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Toprak resmî sitesi ve bayi listesi 176 sayfada hemfikir."
+    },
+    {
+      "title": "Matematik Problemler",
+      "publisher": "Çap Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/cap-yayinlari-matematik-problemler_82235.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/cap-yayinlari-matematik-problemler_82235.html",
+        "https://www.bkmkitap.com/tyt-problem-kitaplari"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 192 sayfa."
+    },
+    {
+      "title": "Problemler Kuvvet Serisi",
+      "publisher": "Aktif Öğrenme Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/aktif-ogrenme-yayinlari-problemler-kuvvet-serisi_84412.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/aktif-ogrenme-yayinlari-problemler-kuvvet-serisi_84412.html",
+        "https://www.bkmkitap.com/tyt-problem-kitaplari"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 192 sayfa."
+    },
+    {
+      "title": "TYT Problemler Soru Bankası",
+      "publisher": "ENS Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.sehadetkitap.com/urun/ens-tyt-problemler-soru-bankasi",
+      "sourceUrls": [
+        "https://www.sehadetkitap.com/urun/ens-tyt-problemler-soru-bankasi",
+        "https://www.hepsiburada.com/ens-yayincilik-yayinlari-tyt-problemler-soru-bankasi-2022-pm-HBC00002BGJS8"
+      ],
+      "confidence": "medium",
+      "notes": "Şehadet Kitap 24.03.2026 baskısı için 176 sayfa ve ISBN 9786258160826 veriyor; Hepsiburada kaydı 2022 baskısına ait, sayfa sayısı aynı."
+    },
+    {
+      "title": "2027 TYT Sıfırdan Sonsuza Problemler Soru Bankası",
+      "publisher": "Doktrin Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 248,
+      "edition": "2027",
+      "sourceUrl": "https://www.doktrinkitap.com/urun/2027-tyt-sifirdan-sonsuza-problemler-soru-bankasi",
+      "sourceUrls": [
+        "https://www.doktrinkitap.com/urun/2027-tyt-sifirdan-sonsuza-problemler-soru-bankasi",
+        "https://www.kitapsec.com/Products/TYT-Sifirdan-Sonsuza-Problemler-Konu-Ozetli-Video-Cozumlu-Soru-Bankasi-Doktrin-Yayinlari-775976.html"
+      ],
+      "confidence": "high",
+      "notes": "Doktrin resmî sitesi 248 sayfa ve 2027 baskısı; eski 320 sayfalık baskıyla karıştırılmamalı."
+    },
+    {
+      "title": "Matematik Karavanı TYT Matematik Tarz Problemler",
+      "publisher": "KR Akademi",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 128,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/kr-akademi-matematik-karavani-tyt-matematik-tarz-problemler_105621.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/kr-akademi-matematik-karavani-tyt-matematik-tarz-problemler_105621.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 128 sayfa."
+    },
+    {
+      "title": "TYT Matematik Konu Anlatımlı",
+      "publisher": "Palme Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 640,
+      "edition": "2026",
+      "sourceUrl": "http://palmeyayinevi.com/yks-tyt-matematIk-konu-anlatimli",
+      "sourceUrls": [
+        "http://palmeyayinevi.com/yks-tyt-matematIk-konu-anlatimli",
+        "https://www.hepsiburada.com/palme-yayincilik-tyt-matematik-konu-anlatimi-pm-HB00000J3IRY"
+      ],
+      "confidence": "high",
+      "notes": "Palme resmî sitesi 640 sayfa."
+    },
+    {
+      "title": "TYT Matematik 40 Seans Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 368,
+      "edition": "2026",
+      "sourceUrl": "https://okyanusyayincilik.com/product/urun?barkod=9786059565905",
+      "sourceUrls": [
+        "https://okyanusyayincilik.com/product/urun?barkod=9786059565905",
+        "https://www.bkmkitap.com/tyt-matematik-40-seans-soru-bankasi-okyanus-yayincilik-339529",
+        "https://www.kitapisler.com/okyanus-yayinlari-tyt-40-seans-matematik-soru-bankasi_85388.html"
+      ],
+      "confidence": "high",
+      "notes": "Okyanus resmî sitesi ve bkmkitap 368 sayfada hemfikir; Kitapİşler 352 sayfa (eski baskı) veriyor."
+    },
+    {
+      "title": "TYT Matematik MPS Konu Anlatımı Soru Bankası 1. Kitap",
+      "publisher": "Karekök Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 374,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/karekok-yayinlari-tyt-matematik-mps-konu-anlatimi-soru-bankasi-1-kitap",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/karekok-yayinlari-tyt-matematik-mps-konu-anlatimi-soru-bankasi-1-kitap",
+        "https://www.scribd.com/document/823151187/TYT-Matematik-Konu-Anlat%C4%B1ml%C4%B1-1-Kitap-Karekok-Yay%C4%B1nlar%C4%B1"
+      ],
+      "confidence": "medium",
+      "notes": "bkmkitap 374 sayfa; 1. Kitap PDF'i 375 sayfa. 374 esas alındı."
+    },
+    {
+      "title": "TYT Matematik 2 (MPS Konu Anlatımlı Soru Bankası)",
+      "publisher": "Karekök Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-mps-kitaplari/tyt-matematik-2-732.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/tyt/tyt-mps-kitaplari/tyt-matematik-2-732.html"
+      ],
+      "confidence": "high",
+      "notes": "Karekök resmî künyesi 384 sayfa, ISBN 9786258419436, 2026-2027 müfredatı."
+    },
+    {
+      "title": "TYT Matematik El Yazısı Konu Anlatım (8 Fasikül)",
+      "publisher": "KR Akademi",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 1236,
+      "edition": "2026",
+      "sourceUrl": "https://krakademi.com/urun/tyt-matematik-el-yazisi-konu-anlatim-4-fasikul-kr-akademi-yayinlari-37",
+      "sourceUrls": [
+        "https://krakademi.com/urun/tyt-matematik-el-yazisi-konu-anlatim-4-fasikul-kr-akademi-yayinlari-37",
+        "https://www.akmkitap.com/urun/tyt-matematik-el-yazisi-konu-anlatim-4-fasikul-kr-akademi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî fasikül sayfaları toplamı: 160+152+140+152+128+144+168+192=1236."
+    },
+    {
+      "title": "Merhaba TYT Matematik Soru Bankası",
+      "publisher": "Şenol Hoca Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 221,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/senol-hoca-yks-tyt-merhaba-tyt-matematik-kolay-baslangic-soru-bankasi-video-cozumlu",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/senol-hoca-yks-tyt-merhaba-tyt-matematik-kolay-baslangic-soru-bankasi-video-cozumlu",
+        "https://www.pelikankitabevi.com.tr/senol-aydin"
+      ],
+      "confidence": "medium",
+      "notes": "İndeks Kitap 221 sayfa."
+    },
+    {
+      "title": "TYT Matematik Soru Bankası",
+      "publisher": "Acil Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 447,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/TYT-Acil-Matematik-Soru-Bankasi-Acil-Yayinlari-368509.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/TYT-Acil-Matematik-Soru-Bankasi-Acil-Yayinlari-368509.html",
+        "https://www.kitapyurdu.com/kitap/tyt-matematik-soru-bankasi/656560.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapseç 447 sayfa; Kitapyurdu aynı ISBN için 414 sayfa veriyor, 447 esas alındı."
+    },
+    {
+      "title": "TYT Matematik Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 447,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/limit-yayinlari-tyt-matematik-soru-bankasi_87490.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/limit-yayinlari-tyt-matematik-soru-bankasi_87490.html",
+        "https://www.indekskitap.com/urun/limit-yks-tyt-matematik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Kitapİşler ve İndeks Kitap 447 sayfada hemfikir."
+    },
+    {
+      "title": "TYT Matematik Soru Bankası",
+      "publisher": "Hoca Kafası Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/hoca-kafasi-yks-tyt-matematik-soru-bankasi",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/hoca-kafasi-yks-tyt-matematik-soru-bankasi"
+      ],
+      "confidence": "medium",
+      "notes": "İndeks Kitap 336 sayfa."
+    },
+    {
+      "title": "TYT Matematik Soru Bankası",
+      "publisher": "İrde Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 319,
+      "edition": "2026",
+      "sourceUrl": "https://irdeyayinlari.com/tyt-matematik",
+      "sourceUrls": [
+        "https://irdeyayinlari.com/tyt-matematik"
+      ],
+      "confidence": "high",
+      "notes": "İrde resmî sitesi 319 sayfa."
+    },
+    {
+      "title": "Sıfırdan Özel Matematik Konu Anlatımı",
+      "publisher": "Bilgi Pusulası Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 430,
+      "edition": "2026",
+      "sourceUrl": "https://www.indekskitap.com/urun/bilgi-pusulasi-tyt-kpss-meb-ags-ales-dgs-msu-sifirdan-ozel-matematik-konu-anlatimi",
+      "sourceUrls": [
+        "https://www.indekskitap.com/urun/bilgi-pusulasi-tyt-kpss-meb-ags-ales-dgs-msu-sifirdan-ozel-matematik-konu-anlatimi"
+      ],
+      "confidence": "medium",
+      "notes": "İndeks Kitap 430 sayfa."
+    },
+    {
+      "title": "2027 49 Günde TYT Matematik Soru Bankası",
+      "publisher": "Rehber Matematik",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 240,
+      "edition": "2027",
+      "sourceUrl": "https://www.kitapisler.com/rehber-matematik-2027-49-gunde-tyt-matematik-soru-bankasi_108017.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/rehber-matematik-2027-49-gunde-tyt-matematik-soru-bankasi_108017.html",
+        "https://www.bkmkitap.com/rehber-matematik"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 2027 baskısı için 240 sayfa; video ders kitabı olan 264 sayfalık ürünle karıştırılmamalı."
+    },
+    {
+      "title": "TYT Twins Matematik Soru Bankası",
+      "publisher": "KR Akademi",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/kr-akademi-tyt-twins-matematik-soru-bankasi_108432.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/kr-akademi-tyt-twins-matematik-soru-bankasi_108432.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 224 sayfa."
+    },
+    {
+      "title": "TYT Matematik Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 440,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/hiz-yayinlari-tyt-matematik-soru-bankasi_103625.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/hiz-yayinlari-tyt-matematik-soru-bankasi_103625.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 440 sayfa."
+    },
+    {
+      "title": "TYT Matematik Alıştıran Soru Kütüphanesi",
+      "publisher": "Paraf Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 408,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/paraf-yayinlari-tyt-matematik-alistiran-soru-kutuphanesi_92222.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/paraf-yayinlari-tyt-matematik-alistiran-soru-kutuphanesi_92222.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 408 sayfa."
+    },
+    {
+      "title": "TYT Matematik Eyüp Hoca Soru Bankası",
+      "publisher": "KR Akademi",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/kr-akademi-tyt-matematik-eyup-hoca-soru-bankasi_102791.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/kr-akademi-tyt-matematik-eyup-hoca-soru-bankasi_102791.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 384 sayfa."
+    },
+    {
+      "title": "TYT Matematik Mikro Soru Bankası",
+      "publisher": "Orijinal Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 400,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/orijinal-yayinlari-tyt-matematik-mikro-soru-bankasi_91742.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/orijinal-yayinlari-tyt-matematik-mikro-soru-bankasi_91742.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapİşler 400 sayfa."
+    },
+    {
+      "title": "TYT Matematiğin İlacı Soru Bankası",
+      "publisher": "Acil Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 318,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/acil-yayinlari-acil-yayinlari-tyt-matematigin-ilaci-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/acil-yayinlari-acil-yayinlari-tyt-matematigin-ilaci-soru-bankasi",
+        "https://www.indekskitap.com/urun/acil-yks-tyt-matematigin-ilaci-1-soru-bankasi-acil-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "bkmkitap ve İndeks Kitap 318 sayfada hemfikir."
+    },
+    {
+      "title": "DM TYT Matematik Soru Bankası",
+      "publisher": "Sonuç Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 488,
+      "edition": "2026",
+      "sourceUrl": "https://sonucyayinlari.com.tr/",
+      "sourceUrls": [
+        "https://sonucyayinlari.com.tr/",
+        "https://www.kitapsec.com/Products/TYT-Matematik-Soru-Bankasi-Sonuc-Yayinlari-541020.html"
+      ],
+      "confidence": "high",
+      "notes": "Sonuç Yayınları resmî sitesi DM TYT Matematik Soru Bankası için 488 sayfa veriyor."
+    },
+    {
+      "title": "TYT Iceberg Matematik Konu Anlatımı",
+      "publisher": "Okyanus Yayınları",
+      "exam": "TYT",
+      "subjectSlug": "matematik",
+      "totalPages": 408,
+      "edition": "2026",
+      "sourceUrl": "https://www.idefix.com/okyanus-yks-tyt-matematik-iceberg-konu-anlatimi-okyanus-yayinlari-p-3704383",
+      "sourceUrls": [
+        "https://www.idefix.com/okyanus-yks-tyt-matematik-iceberg-konu-anlatimi-okyanus-yayinlari-p-3704383",
+        "https://www.hepsiburada.com/okyanus-yayinlari-tyt-iceberg-matematik-konu-anlatimi-pm-HB0000116LTL"
+      ],
+      "confidence": "medium",
+      "notes": "idefix 408 sayfa; Hepsiburada listinginde sayfa alanı yok."
+    }
+  ],
+  "gaps": [
+    "TYT Problemler (Pion, Yarı Çap, Full Matematik, Paraf Güncel Yaşam Problemleri, Viral) sayfa sayıları iki bağımsız kaynakla doğrulanamadığı için eklenmedi.",
+    "3D, Bilgi Sarmal, Karekök, Orijinal, Barış, Hız ve Renk, Toprak ve Aydın markalarının TYT Matematik Soru Bankası kitapları mevcut katalogda bulunduğu için tekrar eklenmedi.",
+    "0'dan Problemler (Rehber Matematik) için Kitapseç 120, Tonguç kataloğu 184/296 sayfa verdiğinden çelişki çözülemedi ve kitap eklenmedi.",
+    "Hedeflenen 35 satır tamamlandı; 15 problem kitabı doğrulandı."
+  ]
+}

@@ -51,3 +51,14 @@ test('katalog tohumu idempotenttir ve arama yapar', async () => {
   const book = await getCatalogBook(results[0].id);
   expect(book?.totalPages).toBeGreaterThan(0);
 });
+
+test('tohum mevcut satırı ezmez ve yalnızca eksikleri ekler', async () => {
+  await seedCatalog();
+  const first = (await listCatalogBooks())[0];
+  await db.catalogBooks.update(first.id, { title: 'Kullanıcı düzenlemesi' });
+
+  await seedCatalog();
+
+  expect((await db.catalogBooks.get(first.id))?.title).toBe('Kullanıcı düzenlemesi');
+  expect(await db.catalogBooks.count()).toBe(CATALOG_SEED.length);
+});

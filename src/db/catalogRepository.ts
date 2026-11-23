@@ -23,26 +23,26 @@ function catalogHaystack(book: CatalogBook): string {
  */
 export async function seedCatalog(): Promise<void> {
   const now = new Date().toISOString();
+  const rows: CatalogBook[] = CATALOG_SEED.map((seed) => ({
+    id: catalogBookId(seed.title, seed.publisher, seed.edition),
+    title: seed.title,
+    publisher: seed.publisher,
+    exam: seed.exam,
+    subjectSlug: seed.subjectSlug,
+    totalPages: seed.totalPages,
+    edition: seed.edition,
+    createdAt: now,
+    updatedAt: now,
+  }));
 
   await db.transaction('rw', db.catalogBooks, async () => {
-    for (const seed of CATALOG_SEED) {
-      const id = catalogBookId(seed.title, seed.publisher, seed.edition);
-      const existing = await db.catalogBooks.get(id);
-      if (existing) {
-        continue;
-      }
-
-      await db.catalogBooks.add({
-        id,
-        title: seed.title,
-        publisher: seed.publisher,
-        exam: seed.exam,
-        subjectSlug: seed.subjectSlug,
-        totalPages: seed.totalPages,
-        edition: seed.edition,
-        createdAt: now,
-        updatedAt: now,
-      });
+    const existing = await db.catalogBooks.bulkGet(rows.map((row) => row.id));
+    const existingIds = new Set(
+      existing.filter((row): row is CatalogBook => row !== undefined).map((row) => row.id),
+    );
+    const missing = rows.filter((row) => !existingIds.has(row.id));
+    if (missing.length > 0) {
+      await db.catalogBooks.bulkAdd(missing);
     }
   });
 }

@@ -7,13 +7,13 @@
  *
  * Kurallar:
  * - Zorunlu alanlar ve `confidence` high/medium doğrulanır; hata varsa hiçbir dosya yazılmaz.
- * - `mevcut.ts` içindeki `title|publisher` çifti reddedilir.
+ * - `mevcut.ts` içindeki `title|publisher` çifti reddedilir; dosya çözümlenemezse build durur.
  * - Raporlar arası `title|publisher` tekrarı listelenir, ilk satır korunur, sonrakiler çıkarılır.
  * - `src/data/catalog/mevcut.ts` dosyasına hiçbir koşulda yazılmaz.
  */
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /**
  * @typedef {object} BookRow
@@ -159,29 +159,265 @@ function validateBook(book, where) {
   return errors;
 }
 
+const MEVCUT_ROW_COUNT = 80;
+const MEVCUT_FIELDS = ['title', 'publisher', 'exam', 'subjectSlug', 'totalPages', 'edition'];
+const MEVCUT_FIELD_SET = new Set(MEVCUT_FIELDS);
+
+/**
+ * Metin sabitini (tek/çift tırnak) atlayıp bir sonraki konumu döndürür.
+ * @param {string} text
+ * @param {number} start
+ * @param {string} quote
+ * @returns {number}
+ */
+function skipStringLiteral(text, start, quote) {
+  let index = start + 1;
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === quote) return index + 1;
+    index += 1;
+  }
+  throw new Error('metin sabiti kapanmadan dosya bitti');
+}
+
+/**
+ * Yorumları boşlukla değiştirir; metin sabitlerine dokunmaz.
+ * @param {string} text
+ * @returns {string}
+ */
+function stripComments(text) {
+  let out = '';
+  let index = 0;
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '/' && text[index + 1] === '/') {
+      const newline = text.indexOf('\n', index);
+      const end = newline === -1 ? text.length : newline;
+      out += ' '.repeat(end - index);
+      index = end;
+      continue;
+    }
+    if (char === '/' && text[index + 1] === '*') {
+      const close = text.indexOf('*/', index + 2);
+      if (close === -1) throw new Error('yorum kapanmadan dosya bitti');
+      out += ' '.repeat(close + 2 - index);
+      index = close + 2;
+      continue;
+    }
+    if (char === "'" || char === '"' || char === '`') {
+      const end = skipStringLiteral(text, index, char);
+      out += text.slice(index, end);
+      index = end;
+      continue;
+    }
+    out += char;
+    index += 1;
+  }
+  return out;
+}
+
+/**
+ * Tek tırnaklı/çift tırnaklı TS metin gövdesindeki kaçış dizilerini çözer.
+ * @param {string} raw
+ * @param {string} where
+ * @returns {string}
+ */
+function unescapeTsString(raw, where) {
+  let value = '';
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (char !== '\\') {
+      value += char;
+      continue;
+    }
+    index += 1;
+    if (index >= raw.length) throw new Error(`${where}: metin kaçışı eksik`);
+    const escape = raw[index];
+    if (escape === 'n') value += '\n';
+    else if (escape === 'r') value += '\r';
+    else if (escape === 't') value += '\t';
+    else if (escape === 'b') value += '\b';
+    else if (escape === 'f') value += '\f';
+    else if (escape === 'v') value += '\v';
+    else if (escape === '0') value += '\0';
+    else if (escape === 'x') {
+      const hex = raw.slice(index + 1, index + 3);
+      if (!/^[0-9a-fA-F]{2}$/.test(hex)) throw new Error(`${where}: geçersiz \\x kaçışı`);
+      value += String.fromCharCode(Number.parseInt(hex, 16));
+      index += 2;
+    } else if (escape === 'u') {
+      if (raw[index + 1] === '{') {
+        const close = raw.indexOf('}', index + 2);
+        if (close === -1) throw new Error(`${where}: geçersiz \\u kaçışı`);
+        const hex = raw.slice(index + 2, close);
+        if (!/^[0-9a-fA-F]{1,6}$/.test(hex) || Number.parseInt(hex, 16) > 0x10ffff) {
+          throw new Error(`${where}: geçersiz \\u kaçışı`);
+        }
+        value += String.fromCodePoint(Number.parseInt(hex, 16));
+        index = close;
+      } else {
+        const hex = raw.slice(index + 1, index + 5);
+        if (!/^[0-9a-fA-F]{4}$/.test(hex)) throw new Error(`${where}: geçersiz \\u kaçışı`);
+        value += String.fromCharCode(Number.parseInt(hex, 16));
+        index += 4;
+      }
+    } else if (escape === '\n') {
+      // satır devamı: değere bir şey eklenmez
+    } else if (escape === '\r') {
+      if (raw[index + 1] === '\n') index += 1;
+    } else {
+      // \\, \', \" ve bilinmeyen kaçışlar: kaçış karakteri düşer
+      value += escape;
+    }
+  }
+  return value;
+}
+
+/**
+ * Tek bir `{ ... }` satırını çözümler.
+ * @param {string} block
+ * @param {number} rowIndex
+ * @returns {{ title: string, publisher: string }}
+ */
+function parseMevcutBlock(block, rowIndex) {
+  const where = `mevcut.ts satır ${rowIndex + 1}`;
+  const fieldPattern =
+    /([A-Za-z_$][\w$]*)\s*:\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|(-?\d+(?:\.\d+)?))/g;
+  /** @type {Record<string, string | number>} */
+  const values = {};
+  let match;
+  while ((match = fieldPattern.exec(block)) !== null) {
+    const key = match[1];
+    if (Object.hasOwn(values, key)) throw new Error(`${where}: "${key}" alanı iki kez tanımlı`);
+    if (match[2] !== undefined) values[key] = unescapeTsString(match[2], where);
+    else if (match[3] !== undefined) values[key] = unescapeTsString(match[3], where);
+    else values[key] = Number(match[4]);
+  }
+
+  const rest = block.replace(fieldPattern, '');
+  if (!/^[\s{},]*$/.test(rest)) throw new Error(`${where}: çözümlenemeyen alan var`);
+
+  const keys = Object.keys(values);
+  const missing = MEVCUT_FIELDS.filter((field) => !Object.hasOwn(values, field));
+  const extra = keys.filter((field) => !MEVCUT_FIELD_SET.has(field));
+  if (missing.length > 0 || extra.length > 0) {
+    throw new Error(
+      `${where}: beklenen alanlar eksik/fazla${missing.length > 0 ? ` (eksik: ${missing.join(', ')})` : ''}${extra.length > 0 ? ` (fazla: ${extra.join(', ')})` : ''}`,
+    );
+  }
+
+  const title = values.title;
+  const publisher = values.publisher;
+  if (typeof title !== 'string' || title.trim() === '') {
+    throw new Error(`${where}: "title" boş olamaz`);
+  }
+  if (typeof publisher !== 'string' || publisher.trim() === '') {
+    throw new Error(`${where}: "publisher" boş olamaz`);
+  }
+  return { title: title.trim(), publisher: publisher.trim() };
+}
+
+/**
+ * `mevcut.ts` kaynağını nesne blokları hâlinde çözümler. Yorumları atlar,
+ * kaçış dizilerini çözer ve tanınmayan biçimde hata verir (fail-closed).
+ * @param {string} source
+ * @returns {Array<{ title: string, publisher: string }>}
+ */
+export function parseMevcutSource(source) {
+  const text = stripComments(source.replace(/^\uFEFF/, ''));
+  const match = /export\s+const\s+MEVCUT\b[^=]*=\s*\[/.exec(text);
+  if (!match) throw new Error('MEVCUT dizisi bulunamadı');
+
+  let index = match.index + match[0].length;
+  let arrayDepth = 1;
+  let inObject = false;
+  let objectDepth = 0;
+  let objectStart = -1;
+  /** @type {string[]} */
+  const blocks = [];
+
+  while (index < text.length) {
+    const char = text[index];
+    if (char === "'" || char === '"' || char === '`') {
+      index = skipStringLiteral(text, index, char);
+      continue;
+    }
+    if (char === '{') {
+      if (inObject) {
+        objectDepth += 1;
+      } else {
+        inObject = true;
+        objectDepth = 1;
+        objectStart = index;
+      }
+      index += 1;
+      continue;
+    }
+    if (char === '}') {
+      if (!inObject) throw new Error('MEVCUT dizisinde beklenmeyen "}"');
+      objectDepth -= 1;
+      if (objectDepth === 0) {
+        blocks.push(text.slice(objectStart, index + 1));
+        inObject = false;
+        objectStart = -1;
+      }
+      index += 1;
+      continue;
+    }
+    if (!inObject && char === '[') {
+      arrayDepth += 1;
+      index += 1;
+      continue;
+    }
+    if (!inObject && char === ']') {
+      arrayDepth -= 1;
+      if (arrayDepth === 0) {
+        if (blocks.length === 0) throw new Error('MEVCUT dizisinde satır yok');
+        return blocks.map((block, blockIndex) => parseMevcutBlock(block, blockIndex));
+      }
+      index += 1;
+      continue;
+    }
+    index += 1;
+  }
+
+  throw new Error('MEVCUT dizisi kapanmadan dosya bitti');
+}
+
+/**
+ * Satırlardan `title|publisher` kümesi üretir; tam 80 benzersiz çift ister.
+ * @param {Array<{ title: string, publisher: string }>} rows
+ * @returns {Set<string>}
+ */
+export function mevcutKeySet(rows) {
+  if (rows.length !== MEVCUT_ROW_COUNT) {
+    throw new Error(`${MEVCUT_ROW_COUNT} satır bekleniyordu, ${rows.length} bulundu`);
+  }
+  const keys = new Set(rows.map((row) => `${row.title}|${row.publisher}`));
+  if (keys.size !== rows.length) {
+    throw new Error(`${rows.length - keys.size} tekrar eden title|publisher çifti var`);
+  }
+  return keys;
+}
+
 /**
  * `mevcut.ts` içindeki title + publisher çiftlerini okur. Dosya değişmez.
+ * Çözümleme başarısızsa veya 80 benzersiz çift yoksa build durur.
  * @returns {Promise<Set<string>>}
  */
 async function readMevcutKeys() {
-  const source = (await readFile(MEVCUT_FILE, 'utf8')).replace(/^\uFEFF/, '');
-  const titles = [...source.matchAll(/title:\s*'((?:[^'\\]|\\.)*)'/g)].map((match) => match[1]);
-  const publishers = [...source.matchAll(/publisher:\s*'((?:[^'\\]|\\.)*)'/g)].map(
-    (match) => match[1],
-  );
-
-  if (titles.length === 0 || titles.length !== publishers.length) {
-    console.warn(
-      'UYARI: src/data/catalog/mevcut.ts okunamadı; mevcut çakışma kontrolü atlandı.',
+  const source = await readFile(MEVCUT_FILE, 'utf8');
+  try {
+    return mevcutKeySet(parseMevcutSource(source));
+  } catch (error) {
+    throw new Error(
+      `src/data/catalog/mevcut.ts okunamadı: ${/** @type {Error} */ (error).message}`,
     );
-    return new Set();
   }
-
-  const keys = new Set();
-  for (let index = 0; index < titles.length; index += 1) {
-    keys.add(`${titles[index].trim()}|${publishers[index].trim()}`);
-  }
-  return keys;
 }
 
 /**
@@ -396,7 +632,13 @@ async function main() {
   console.log('src/data/catalog/index.ts yeniden üretildi; mevcut.ts değiştirilmedi.');
 }
 
-main().catch((error) => {
-  console.error(`HATA: ${/** @type {Error} */ (error).message}`);
-  process.exitCode = 1;
-});
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+
+if (invokedDirectly) {
+  main().catch((error) => {
+    console.error(`HATA: ${/** @type {Error} */ (error).message}`);
+    process.exitCode = 1;
+  });
+}

@@ -63,7 +63,7 @@ beforeEach(async () => {
   await seedOnboarded(FIXTURE, { seedVersion: CURRICULUM.version });
 });
 
-test('kitap ilerlemesi konulara sırayla yansır', async () => {
+test('kitap sayfaları konu dilimlerine yansır', async () => {
   const subject = await fizikSubject();
   const userBook = await addFizikBook('Fizik Soru Bankası', 100);
   await addBookPageRange(userBook.id, 1, 25);
@@ -71,10 +71,45 @@ test('kitap ilerlemesi konulara sırayla yansır', async () => {
   const { result } = renderHook(() => useSubjectOverview(subject.id));
 
   await waitFor(() => {
-    expect(result.current?.bookEstimate).toBe(6);
-    expect(result.current?.topics.map((row) => row.progress.percent)).toEqual([25, 0, 0, 0]);
-    expect(result.current?.topics.map((row) => row.bookPercent)).toEqual([25, 0, 0, 0]);
-    expect(result.current?.progress.percent).toBe(6);
+    expect(result.current?.bookEstimate).toBe(12);
+    expect(result.current?.topics.map((row) => row.progress.percent)).toEqual([50, 0, 0, 0]);
+    expect(result.current?.topics.map((row) => row.bookPercent)).toEqual([50, 0, 0, 0]);
+    expect(result.current?.progress.percent).toBe(12);
+  });
+});
+
+test('1-99 okunduğunda son konu kendi diliminden kısmi pay alır', async () => {
+  const subject = await fizikSubject();
+  const userBook = await addFizikBook('Fizik Soru Bankası', 100);
+  await addBookPageRange(userBook.id, 1, 99);
+
+  const { result } = renderHook(() => useSubjectOverview(subject.id));
+
+  await waitFor(() => {
+    expect(result.current?.topics.map((row) => row.progress.percent)).toEqual([50, 50, 50, 48]);
+    expect(result.current?.bookEstimate).toBe(49);
+    expect(result.current?.progress.percent).toBe(49);
+  });
+});
+
+test('son sayfa toplu sıçrama yapmaz', async () => {
+  const subject = await fizikSubject();
+  const userBook = await addFizikBook('Fizik Soru Bankası', 100);
+  await addBookPageRange(userBook.id, 1, 99);
+
+  const { result } = renderHook(() => useSubjectOverview(subject.id));
+  await waitFor(() => {
+    expect(result.current?.progress.percent).toBe(49);
+  });
+
+  await act(async () => {
+    await addBookPageRange(userBook.id, 100, 100);
+  });
+
+  await waitFor(() => {
+    expect(result.current?.topics.map((row) => row.progress.percent)).toEqual([50, 50, 50, 50]);
+    expect(result.current?.bookEstimate).toBe(50);
+    expect(result.current?.progress.percent).toBe(50);
   });
 });
 
@@ -120,7 +155,7 @@ test('manuel biten konu kitap yüzdesinden etkilenmez', async () => {
   await waitFor(() => {
     expect(result.current?.topics[0]?.progress.percent).toBe(100);
     expect(result.current?.topics[0]?.manualDone).toBe(true);
-    expect(result.current?.topics[0]?.bookPercent).toBe(25);
+    expect(result.current?.topics[0]?.bookPercent).toBe(50);
     expect(result.current?.manualDoneCount).toBe(1);
     expect(result.current?.progress.percent).toBe(25);
   });
@@ -204,10 +239,10 @@ test('kitap tahmini raftaki updatedAt sırası değişince bozulmaz', async () =
   const { result } = renderHook(() => useSubjectOverview(subject.id));
 
   await waitFor(() => {
-    expect(result.current?.bookEstimate).toBe(67);
+    expect(result.current?.bookEstimate).toBe(72);
   });
   const before = result.current;
-  expect(before?.topics.map((row) => row.progress.percent)).toEqual([100, 70, 50, 50]);
+  expect(before?.topics.map((row) => row.progress.percent)).toEqual([100, 90, 50, 50]);
 
   await act(async () => {
     await db.userBooks.update(completed.id, {
@@ -237,12 +272,12 @@ test('useTopicEstimate konu katkısını döndürür', async () => {
       progress: {
         solved: 0,
         total: 1,
-        percent: 25,
+        percent: 50,
         remaining: 1,
         started: true,
         done: false,
       },
-      bookPercent: 25,
+      bookPercent: 50,
       manualDone: false,
     });
   });

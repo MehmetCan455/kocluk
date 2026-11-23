@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { listShelfBooks, type ShelfBook } from '@/db/bookRepositories';
+import { listBookReadRanges, listShelfBooks, type ShelfBook } from '@/db/bookRepositories';
 import {
   getSubject,
   getTopic,
@@ -124,9 +124,15 @@ export function useSubjectOverview(subjectId: string): SubjectOverview | undefin
     }
 
     const subjectBooks = shelfBooksForSubject(shelfBooks, subject);
+    const readRanges = await listBookReadRanges(
+      subjectBooks.map((book) => book.userBook.id),
+    );
     const { byTopic, estimate: bookEstimate } = subjectBookEstimate(
       topics.map((topic) => topic.id),
-      subjectBooks.map((book) => ({ percent: book.progress.percent })),
+      subjectBooks.map((book) => ({
+        totalPages: book.totalPages,
+        ranges: readRanges.get(book.userBook.id) ?? [],
+      })),
     );
 
     const rows = topics.map((topic) => {
@@ -188,9 +194,15 @@ export function useTopicEstimate(topicId: string): TopicEstimate | undefined {
     ]);
 
     const subjectBooks = shelfBooksForSubject(shelfBooks, subject);
+    const readRanges = await listBookReadRanges(
+      subjectBooks.map((book) => book.userBook.id),
+    );
     const { byTopic } = subjectBookEstimate(
       topics.map((item) => item.id),
-      subjectBooks.map((book) => ({ percent: book.progress.percent })),
+      subjectBooks.map((book) => ({
+        totalPages: book.totalPages,
+        ranges: readRanges.get(book.userBook.id) ?? [],
+      })),
     );
     const bookPercent = byTopic.get(topicId) ?? 0;
     const effective = effectiveTopicPercent(manualDone, bookPercent);

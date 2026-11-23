@@ -2,12 +2,15 @@ import { expect, test } from 'vitest';
 import {
   calculateSubjectProgress,
   countsForSubject,
-  distributeBookPercent,
+  distributeBookPages,
   effectiveTopicPercent,
   subjectBookEstimate,
+  topicPageChunks,
 } from './subjectEstimate';
 
 const TOPICS = ['t1', 't2', 't3', 't4'];
+const TEN_TOPICS = Array.from({ length: 10 }, (_, index) => `t${index + 1}`);
+const TOPICS_21 = Array.from({ length: 21 }, (_, index) => `t${index + 1}`);
 
 test('ders eşleşmesi sınav ve slug üzerinden çalışır', () => {
   expect(countsForSubject(
@@ -26,33 +29,115 @@ test('TYT-AYT ortak kitabı iki sınava da sayılır', () => {
   expect(countsForSubject(book, { exam: 'AYT', slug: 'geometri' })).toBe(true);
 });
 
-test('kitap yüzdesi konulara sırayla dağıtılır', () => {
-  expect([...distributeBookPercent(TOPICS, [{ percent: 25 }]).values()]).toEqual([25, 0, 0, 0]);
-  expect([...distributeBookPercent(TOPICS, [{ percent: 50 }]).values()]).toEqual([50, 0, 0, 0]);
-  expect([...distributeBookPercent(TOPICS, [{ percent: 75 }]).values()]).toEqual([50, 25, 0, 0]);
-  expect([...distributeBookPercent(TOPICS, [{ percent: 100 }]).values()]).toEqual([50, 50, 50, 50]);
+test('kitap sayfaları konulara eşit dilimler hâlinde dağıtılır', () => {
+  expect(topicPageChunks(TOPICS, 100)).toEqual([25, 25, 25, 25]);
+  expect(topicPageChunks(TOPICS, 101)).toEqual([26, 25, 25, 25]);
+  expect(topicPageChunks(TOPICS, 0)).toEqual([0, 0, 0, 0]);
+  expect(topicPageChunks([], 100)).toEqual([]);
 });
 
-test('iki kitap bir konuyu tamamlar', () => {
-  const values = [...distributeBookPercent(TOPICS, [{ percent: 100 }, { percent: 100 }]).values()];
-  expect(values).toEqual([100, 100, 100, 100]);
+test('100 sayfa 10 konuda ilk 10 sayfa yalnızca ilk konuya katkı verir', () => {
+  const { byTopic, estimate } = subjectBookEstimate(TEN_TOPICS, [
+    { totalPages: 100, ranges: [{ fromPage: 1, toPage: 10 }] },
+  ]);
+
+  expect([...byTopic.values()]).toEqual([50, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  expect(estimate).toBe(5);
 });
 
-test('dolu konular atlanır', () => {
-  const values = [...distributeBookPercent(TOPICS, [
-    { percent: 100 },
-    { percent: 50 },
-    { percent: 50 },
-  ]).values()];
-  expect(values).toEqual([100, 100, 50, 50]);
+test('100 sayfa 10 konuda 1-99 okununca son konu kısmi kalır', () => {
+  const { byTopic, estimate } = subjectBookEstimate(TEN_TOPICS, [
+    { totalPages: 100, ranges: [{ fromPage: 1, toPage: 99 }] },
+  ]);
+
+  expect([...byTopic.values()]).toEqual([50, 50, 50, 50, 50, 50, 50, 50, 50, 45]);
+  expect(estimate).toBe(49);
 });
 
-test('kitap tahmini konu ortalamasının floor değeridir', () => {
-  expect(subjectBookEstimate(TOPICS, [{ percent: 25 }])).toEqual({
-    byTopic: new Map([['t1', 25], ['t2', 0], ['t3', 0], ['t4', 0]]),
-    estimate: 6,
-  });
-  expect(subjectBookEstimate(TOPICS, [{ percent: 100 }]).estimate).toBe(50);
+test('100 sayfa 10 konu tamamlanınca her konu 50 alır', () => {
+  const { byTopic, estimate } = subjectBookEstimate(TEN_TOPICS, [
+    { totalPages: 100, ranges: [{ fromPage: 1, toPage: 100 }] },
+  ]);
+
+  expect([...byTopic.values()]).toEqual(Array.from({ length: 10 }, () => 50));
+  expect(estimate).toBe(50);
+});
+
+test('416 sayfa 21 konuda 415 sayfa son konuyu kısmi bırakır', () => {
+  const chunks = topicPageChunks(TOPICS_21, 416);
+  expect(chunks.reduce((sum, pages) => sum + pages, 0)).toBe(416);
+  expect(chunks.slice(0, 17)).toEqual(Array.from({ length: 17 }, () => 20));
+  expect(chunks.slice(17)).toEqual([19, 19, 19, 19]);
+
+  const { byTopic, estimate } = subjectBookEstimate(TOPICS_21, [
+    { totalPages: 416, ranges: [{ fromPage: 1, toPage: 415 }] },
+  ]);
+  const values = [...byTopic.values()];
+  expect(values.slice(0, 20)).toEqual(Array.from({ length: 20 }, () => 50));
+  expect(values[20]).toBe(47);
+  expect(estimate).toBe(49);
+});
+
+test('416 sayfada son sayfa sıçrama yapmaz', () => {
+  const before = subjectBookEstimate(TOPICS_21, [
+    { totalPages: 416, ranges: [{ fromPage: 1, toPage: 415 }] },
+  ]);
+  const after = subjectBookEstimate(TOPICS_21, [
+    { totalPages: 416, ranges: [{ fromPage: 1, toPage: 416 }] },
+  ]);
+
+  expect(before.estimate).toBe(49);
+  expect([...after.byTopic.values()]).toEqual(Array.from({ length: 21 }, () => 50));
+  expect(after.estimate).toBe(50);
+});
+
+test('iki biten kitap tüm konuları 100 yapar', () => {
+  const { byTopic, estimate } = subjectBookEstimate(TOPICS, [
+    { totalPages: 100, ranges: [{ fromPage: 1, toPage: 100 }] },
+    { totalPages: 200, ranges: [{ fromPage: 1, toPage: 200 }] },
+  ]);
+
+  expect([...byTopic.values()]).toEqual([100, 100, 100, 100]);
+  expect(estimate).toBe(100);
+});
+
+test('dağınık ve örtüşen aralıklar her dilimde bir kez sayılır', () => {
+  const byTopic = distributeBookPages(TOPICS, [
+    {
+      totalPages: 100,
+      ranges: [
+        { fromPage: 1, toPage: 10 },
+        { fromPage: 5, toPage: 15 },
+        { fromPage: 20, toPage: 30 },
+        { fromPage: 50, toPage: 60 },
+      ],
+    },
+  ]);
+
+  // 4 konu x 25 sayfa. İlk dilim: 1-15 + 20-25 = 21 sayfa (42); ikinci dilim:
+  // 26-30 + 50 = 6 sayfa (12); üçüncü dilim: 51-60 = 10 sayfa (20).
+  expect([...byTopic.values()]).toEqual([42, 12, 20, 0]);
+});
+
+test('konu yoksa kitap tahmini sıfırdır', () => {
+  const { byTopic, estimate } = subjectBookEstimate([], [
+    { totalPages: 100, ranges: [{ fromPage: 1, toPage: 100 }] },
+  ]);
+
+  expect(byTopic.size).toBe(0);
+  expect(estimate).toBe(0);
+});
+
+test('sayfası olmayan veya aralığı olmayan kitap katkı vermez', () => {
+  const zeroPages = subjectBookEstimate(TOPICS, [
+    { totalPages: 0, ranges: [{ fromPage: 1, toPage: 50 }] },
+  ]);
+  expect([...zeroPages.byTopic.values()]).toEqual([0, 0, 0, 0]);
+  expect(zeroPages.estimate).toBe(0);
+
+  const noRanges = subjectBookEstimate(TOPICS, [{ totalPages: 100, ranges: [] }]);
+  expect([...noRanges.byTopic.values()]).toEqual([0, 0, 0, 0]);
+  expect(noRanges.estimate).toBe(0);
 });
 
 test('manuel bitirme kitap katkısını düşürmez', () => {
@@ -71,22 +156,6 @@ test('ders yüzdesi ortalamadır ve tümü bitmeden 99u geçmez', () => {
   expect(calculateSubjectProgress([99, 100, 100, 100], true)).toMatchObject({
     percent: 99, solved: 3, done: false,
   });
-});
-
-test('bitmiş kitap her konuya %50 verir, kısmi kitap sırayla dağıtır', () => {
-  const values = [...distributeBookPercent(TOPICS, [
-    { percent: 100 },
-    { percent: 25 },
-  ]).values()];
-  expect(values).toEqual([75, 50, 50, 50]);
-});
-
-test('iki yarım kitap yalnızca ilk konuyu tamamlar', () => {
-  const values = [...distributeBookPercent(TOPICS, [
-    { percent: 50 },
-    { percent: 50 },
-  ]).values()];
-  expect(values).toEqual([100, 0, 0, 0]);
 });
 
 test('birleşik AYT Tarih kitabı iki alt derse de sayılır', () => {

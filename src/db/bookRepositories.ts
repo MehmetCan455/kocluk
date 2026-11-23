@@ -402,6 +402,56 @@ export async function addBookPageRange(
   });
 }
 
+/** One inclusive page range read in a book. */
+export interface BookPageRange {
+  fromPage: number;
+  toPage: number;
+}
+
+/**
+ * Active `book_pages` ranges for the given shelf books, grouped by book id.
+ * Legacy `page_set` rows record a position rather than read pages, and deleted
+ * logs never count, so both are skipped.
+ */
+export async function listBookReadRanges(
+  userBookIds: readonly string[],
+): Promise<Map<string, BookPageRange[]>> {
+  const uniqueIds = [...new Set(userBookIds)];
+  const rangesByBook = new Map<string, BookPageRange[]>();
+  if (uniqueIds.length === 0) {
+    return rangesByBook;
+  }
+
+  const logs = await db.activityLogs.where('userBookId').anyOf(uniqueIds).toArray();
+  for (const log of logs) {
+    if (log.deletedAt || log.type !== 'book_pages' || !log.userBookId) {
+      continue;
+    }
+    const { fromPage, toPage } = log;
+    if (
+      fromPage === undefined ||
+      toPage === undefined ||
+      !Number.isInteger(fromPage) ||
+      !Number.isInteger(toPage) ||
+      fromPage < 1 ||
+      toPage < fromPage
+    ) {
+      continue;
+    }
+    const bucket = rangesByBook.get(log.userBookId);
+    if (bucket) {
+      bucket.push({ fromPage, toPage });
+    } else {
+      rangesByBook.set(log.userBookId, [{ fromPage, toPage }]);
+    }
+  }
+
+  for (const ranges of rangesByBook.values()) {
+    ranges.sort((left, right) => left.fromPage - right.fromPage || left.toPage - right.toPage);
+  }
+  return rangesByBook;
+}
+
 /** Active activity for one book, newest first. */
 export async function listBookActivity(userBookId: string): Promise<ActivityLog[]> {
   const logs = await db.activityLogs.where('userBookId').equals(userBookId).toArray();

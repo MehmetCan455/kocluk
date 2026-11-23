@@ -11,6 +11,7 @@ import {
   deleteShelfBook,
   getShelfBook,
   listBookActivity,
+  listBookReadRanges,
   listShelfBooks,
   updateUserBook,
 } from './bookRepositories';
@@ -308,6 +309,76 @@ test('silinen aktivite kaydı birleşimden düşer ve durumu yeniler', async () 
     readPages: 220,
     percent: 55,
   });
+});
+
+test('okuma aralıkları kitaba göre gruplanır, silinen ve page_set kayıtları atlanır', async () => {
+  const first = await addCustomBook({ title: 'Birinci Kitap', totalPages: 200 });
+  const second = await addCustomBook({ title: 'İkinci Kitap', totalPages: 100 });
+  await addBookPageRange(first.id, 1, 20);
+  await addBookPageRange(first.id, 30, 40);
+  await addBookPageRange(second.id, 5, 10);
+  await addBookPageRange(second.id, 50, 60);
+
+  const deleted = (await listBookActivity(second.id)).find((log) => log.fromPage === 50);
+  await deleteActivityLog(deleted!.id);
+
+  await db.activityLogs.bulkAdd([
+    {
+      id: 'legacy-page-set',
+      type: 'page_set',
+      userBookId: first.id,
+      fromPage: 1,
+      toPage: 199,
+      source: 'manual',
+      createdAt: '2026-11-02T09:00:00.000Z',
+    },
+    {
+      id: 'legacy-page-set-second',
+      type: 'page_set',
+      userBookId: second.id,
+      fromPage: 1,
+      toPage: 99,
+      source: 'manual',
+      createdAt: '2026-11-02T09:00:01.000Z',
+    },
+    {
+      id: 'unassigned-log',
+      type: 'book_pages',
+      fromPage: 1,
+      toPage: 5,
+      source: 'manual',
+      createdAt: '2026-11-02T09:00:02.000Z',
+    },
+    {
+      id: 'zero-based-range',
+      type: 'book_pages',
+      userBookId: first.id,
+      fromPage: 0,
+      toPage: 10,
+      source: 'manual',
+      createdAt: '2026-11-02T09:00:03.000Z',
+    },
+    {
+      id: 'reversed-range',
+      type: 'book_pages',
+      userBookId: first.id,
+      fromPage: 30,
+      toPage: 20,
+      source: 'manual',
+      createdAt: '2026-11-02T09:00:04.000Z',
+    },
+  ]);
+
+  const ranges = await listBookReadRanges([first.id, second.id, first.id]);
+
+  expect(ranges.get(first.id)).toEqual([
+    { fromPage: 1, toPage: 20 },
+    { fromPage: 30, toPage: 40 },
+  ]);
+  expect(ranges.get(second.id)).toEqual([{ fromPage: 5, toPage: 10 }]);
+  expect(ranges.size).toBe(2);
+
+  expect(await listBookReadRanges([])).toEqual(new Map());
 });
 
 test('kitap silme kitabı, kayıtlarını ve plan görevlerini tombstone eder', async () => {

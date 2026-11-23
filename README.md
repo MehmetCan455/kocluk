@@ -63,13 +63,15 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
   Eski test kayıtları ve eski serbest metin çizelgesi salt okunur olarak korunur.
 
 **Ders ilerlemesi** elle işaretlediğin konu tamamlamaları ile kitap ilerlemenden
-tahmini olarak hesaplanır. Bir kitabın okunan yüzdesi, dersin konularına sırayla
-dağıtılır ve tek bir konuya en fazla %50 katkı verir; biten bir kitap her konuya en
-fazla %50 ekler, iki biten kitap konuyu tamamlar. Bu tahmin ders kartında ve ders
-sayfasında **Kitap tahmini** olarak görünür. Konu sayfasından elle **Bitti**
-işaretlenen konu her zaman %100 kalır ve kitap tahmini bunu düşürmez. Arşivlenen
-kitaplar ile toplam sayfası girilmemiş kitaplar bu tahmine katılmaz; TYT ve AYT ayrı
-dersler olarak değerlendirilir.
+tahmini olarak hesaplanır. Her kitabın sayfaları dersin konularına mümkün olduğunca
+eşit bölünür; her konu yalnızca kendi sayfa diliminde okunan oran kadar, tek bir
+kitaptan en fazla %50 katkı alır. Böylece kısmi okumada konular sırayla dolmaz ve
+son sayfada toplu sıçrama olmaz: 416 sayfalık kitabın 415 sayfası okunduğunda 21
+konulu ders %49'da kalır, son sayfa okunduğunda %50 olur. İki biten kitap konuları
+%100 yapar. Bu tahmin ders kartında ve ders sayfasında **Kitap tahmini** olarak
+görünür. Konu sayfasından elle **Bitti** işaretlenen konu her zaman %100 kalır ve
+kitap tahmini bunu düşürmez. Arşivlenen kitaplar ile toplam sayfası girilmemiş
+kitaplar bu tahmine katılmaz; TYT ve AYT ayrı dersler olarak değerlendirilir.
 
 PWA ikonlarını `public/favicon.svg` kaynağından yeniden üretmek için:
 

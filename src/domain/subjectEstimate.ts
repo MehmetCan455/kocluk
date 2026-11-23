@@ -63,13 +63,6 @@ export interface SubjectRef {
   slug: string;
 }
 
-function clampPercent(percent: number): number {
-  if (!Number.isFinite(percent)) {
-    return 0;
-  }
-  return Math.min(100, Math.max(0, percent));
-}
-
 function sameSlug(left: string | undefined, right: string): boolean {
   return (left ?? '').trim().toLowerCase() === right.trim().toLowerCase();
 }
@@ -126,64 +119,125 @@ export function countsForSubject(book: SubjectBookMatch, subject: SubjectRef): b
 }
 
 /**
- * Her kitabın yüzdesini konu sırasına göre dağıtır. Kısmi kitap konu başına en
- * fazla %50 verir ve dolu konuları atlar. Bitmiş (%100) kitap dersin tamamını
- * kapsadığı için her konuya %50 verir; böylece iki kitap bir dersi tamamlar.
+ * One book's page history. Pages are split evenly across the subject's topics,
+ * so a partial read advances the topics whose page chunks it touches instead of
+ * pouring everything into the first topics.
  */
-export function distributeBookPercent(
+export interface BookPageRead {
+  totalPages: number;
+  ranges: ReadonlyArray<{ fromPage: number; toPage: number }>;
+}
+
+/**
+ * Splits `totalPages` (1..totalPages) across the topics as evenly as possible.
+ * The first `totalPages % topicCount` topics get one extra page.
+ */
+export function topicPageChunks(
   topicIds: readonly string[],
-  books: ReadonlyArray<{ percent: number }>,
-): Map<string, number> {
-  const byTopic = new Map<string, number>();
-  for (const topicId of topicIds) {
-    if (!byTopic.has(topicId)) {
-      byTopic.set(topicId, 0);
+  totalPages: number,
+): number[] {
+  const topicCount = new Set(topicIds).size;
+  if (topicCount === 0) {
+    return [];
+  }
+  const pages = Number.isFinite(totalPages) ? Math.max(0, Math.floor(totalPages)) : 0;
+  const base = Math.floor(pages / topicCount);
+  const extra = pages % topicCount;
+  return Array.from(
+    { length: topicCount },
+    (_, index) => base + (index < extra ? 1 : 0),
+  );
+}
+
+/** Unique page count of the read ranges clipped to `[fromPage, toPage]`, overlaps once. */
+function coveredPagesIn(
+  ranges: ReadonlyArray<{ fromPage: number; toPage: number }>,
+  fromPage: number,
+  toPage: number,
+): number {
+  const intervals: Array<[number, number]> = [];
+  for (const range of ranges) {
+    const start = Math.max(fromPage, Math.ceil(range.fromPage));
+    const end = Math.min(toPage, Math.floor(range.toPage));
+    if (Number.isFinite(start) && Number.isFinite(end) && start <= end) {
+      intervals.push([start, end]);
     }
   }
-  const uniqueTopicIds = [...byTopic.keys()];
+  if (intervals.length === 0) {
+    return 0;
+  }
+
+  intervals.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+  let covered = 0;
+  let [currentStart, currentEnd] = intervals[0]!;
+  for (let index = 1; index < intervals.length; index += 1) {
+    const [start, end] = intervals[index]!;
+    if (start <= currentEnd + 1) {
+      currentEnd = Math.max(currentEnd, end);
+      continue;
+    }
+    covered += currentEnd - currentStart + 1;
+    currentStart = start;
+    currentEnd = end;
+  }
+  return covered + currentEnd - currentStart + 1;
+}
+
+/**
+ * Assigns each book's read pages to the topic whose chunk contains them. A
+ * topic gets at most 50 per book and at most 100 across books, so two finished
+ * books complete it. Finished books touch every chunk and therefore give every
+ * topic 50; partial reads only advance the chunks they reach.
+ */
+export function distributeBookPages(
+  topicIds: readonly string[],
+  books: readonly BookPageRead[],
+): Map<string, number> {
+  const uniqueTopicIds = [...new Set(topicIds)];
+  const byTopic = new Map<string, number>(
+    uniqueTopicIds.map((topicId) => [topicId, 0]),
+  );
+  if (uniqueTopicIds.length === 0) {
+    return byTopic;
+  }
 
   for (const book of books) {
-    const percent = clampPercent(book.percent);
-    if (percent <= 0) {
+    const totalPages = Number.isFinite(book.totalPages)
+      ? Math.max(0, Math.floor(book.totalPages))
+      : 0;
+    if (totalPages === 0) {
       continue;
     }
 
-    if (percent >= 100) {
-      for (const topicId of uniqueTopicIds) {
-        const current = byTopic.get(topicId) ?? 0;
-        const room = Math.min(MAX_TOPIC_CONTRIBUTION, 100 - current);
-        if (room > 0) {
-          byTopic.set(topicId, current + room);
+    const chunks = topicPageChunks(uniqueTopicIds, totalPages);
+    let cursor = 1;
+    for (let index = 0; index < uniqueTopicIds.length; index += 1) {
+      const chunkPages = chunks[index] ?? 0;
+      const chunkEnd = cursor + chunkPages - 1;
+      if (chunkPages > 0) {
+        const topicId = uniqueTopicIds[index]!;
+        const covered = coveredPagesIn(book.ranges, cursor, chunkEnd);
+        const contribution = Math.min(
+          MAX_TOPIC_CONTRIBUTION,
+          Math.round((covered / chunkPages) * MAX_TOPIC_CONTRIBUTION),
+        );
+        if (contribution > 0) {
+          byTopic.set(topicId, Math.min(100, (byTopic.get(topicId) ?? 0) + contribution));
         }
       }
-      continue;
-    }
-
-    let remaining = percent;
-    for (const topicId of uniqueTopicIds) {
-      const current = byTopic.get(topicId) ?? 0;
-      const room = Math.min(MAX_TOPIC_CONTRIBUTION, 100 - current);
-      const pay = Math.min(remaining, room);
-      if (pay <= 0) {
-        continue;
-      }
-      byTopic.set(topicId, current + pay);
-      remaining -= pay;
-      if (remaining === 0) {
-        break;
-      }
+      cursor = chunkEnd + 1;
     }
   }
 
   return byTopic;
 }
 
-/** Konu bazlı tahmin haritası ve bunun ders tahminine yuvarlanmış ortalaması. */
+/** Topic-by-topic estimate map and its rounded-down subject average. */
 export function subjectBookEstimate(
   topicIds: readonly string[],
-  books: ReadonlyArray<{ percent: number }>,
+  books: readonly BookPageRead[],
 ): { byTopic: Map<string, number>; estimate: number } {
-  const byTopic = distributeBookPercent(topicIds, books);
+  const byTopic = distributeBookPages(topicIds, books);
   const values = [...byTopic.values()];
   if (values.length === 0) {
     return { byTopic, estimate: 0 };

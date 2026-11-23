@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
+import { addBookPageRange, addCustomBook } from '@/db/bookRepositories';
 import { db } from '@/db/db';
 import { createBook, upsertTopicBook } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
@@ -103,6 +104,31 @@ test('konuyu bitirince ders sayfası 1/2 konu gösterir', async () => {
   expect(await screen.findByText('1/2 konu · 1 konu kaldı')).toBeInTheDocument();
   expect(screen.getByText('Bitti')).toBeInTheDocument();
   expect(screen.getByText('Başlanmadı')).toBeInTheDocument();
+});
+
+test('kitap ilerlemesi konu yüzdesine yansır, elle bitirmeyi ezmez', async () => {
+  const subject = await subjectByKey('tyt-mat');
+  const topic = await topicByKey('tyt-mat-turev');
+  const userBook = await addCustomBook({
+    title: 'TYT Matematik Soru Bankası',
+    exam: 'TYT',
+    subjectSlug: 'matematik',
+    totalPages: 100,
+  });
+  await addBookPageRange(userBook.id, 1, 100);
+
+  renderApp(path(subject, topic));
+
+  expect(
+    await screen.findByText(
+      'Kitap ilerlemesi bu konuya %50 ekliyor; kutu yalnızca elle bitirme kaydıdır.',
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('checkbox', { name: 'Bu konuyu bitirdim' })).not.toBeChecked();
+  expect(screen.getByRole('progressbar', { name: 'Türev ilerlemesi' })).toHaveAttribute(
+    'aria-valuenow',
+    '50',
+  );
 });
 
 test('tekrar geçmişini ve tekrar sayısını gösterir', async () => {

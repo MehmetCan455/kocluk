@@ -18,8 +18,11 @@ function cardMessage(overview: SubjectOverview): string {
   if (topics.length === 0) {
     return 'Henüz konu yok';
   }
-  if (topics.every((row) => row.progress.done)) {
+  if (overview.progress.done) {
     return 'Tüm konular tamam';
+  }
+  if (overview.bookEstimate > 0) {
+    return `Kitap tahmini: %${overview.bookEstimate}`;
   }
   if (overview.continuingTopic) {
     return `Devam eden: ${overview.continuingTopic.name}`;

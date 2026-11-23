@@ -20,10 +20,11 @@ function sourceLabel(log: ActivityLog): string {
 
 export interface TopicStatusTabProps {
   topicId: string;
+  bookPercent?: number;
 }
 
 /** Explicit completion flag plus the read-only review history for one topic. */
-export function TopicStatusTab({ topicId }: TopicStatusTabProps) {
+export function TopicStatusTab({ topicId, bookPercent }: TopicStatusTabProps) {
   const checkboxId = useId();
   const hintId = useId();
   const [saving, setSaving] = useState(false);
@@ -75,9 +76,11 @@ export function TopicStatusTab({ topicId }: TopicStatusTabProps) {
             <span className="block text-sm font-medium">Bu konuyu bitirdim</span>
           </label>
           <p id={hintId} className="mt-2 pl-8 text-xs text-muted">
-            {data.done
-              ? 'Bu konu bitti olarak işaretli.'
-              : 'Konuyu tamamladığında işaretle; ders ilerlemesi bu duruma göre hesaplanır.'}
+            {bookPercent && bookPercent > 0
+              ? `Kitap ilerlemesi bu konuya %${bookPercent} ekliyor; kutu yalnızca elle bitirme kaydıdır.`
+              : data.done
+                ? 'Bu konu bitti olarak işaretli.'
+                : 'Konuyu tamamladığında işaretle; ders ilerlemesi bu duruma göre hesaplanır.'}
           </p>
         </div>
         {error ? (

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { computeHiddenSubjects } from '@/data/alanSubjects';
+import { addBookPageRange, addCustomBook } from '@/db/bookRepositories';
 import { db } from '@/db/db';
 import {
   addCustomTopic,
@@ -165,6 +166,26 @@ test('konu listesini ve ilerlemeyi gösterir', async () => {
 
   expect(await screen.findByText('Türev')).toBeInTheDocument();
   expect(screen.getByText('0/2 konu · 2 konu kaldı')).toBeInTheDocument();
+});
+
+test('kitap ilerlemesi ders ve konu yüzdesine yansır', async () => {
+  const subject = await subjectByKey('ayt-matematik');
+  const userBook = await addCustomBook({
+    title: 'AYT Matematik Soru Bankası',
+    exam: 'AYT',
+    subjectSlug: 'matematik',
+    totalPages: 100,
+  });
+  await addBookPageRange(userBook.id, 1, 100);
+
+  renderApp(`/ayt/${subject.id}`);
+
+  expect(await screen.findByText(/Kitap tahmini %50/)).toBeInTheDocument();
+  expect(screen.getByRole('progressbar', { name: 'Matematik genel ilerlemesi' })).toHaveAttribute(
+    'aria-valuenow',
+    '50',
+  );
+  expect(screen.getAllByText('%50').length).toBeGreaterThan(0);
 });
 
 test('özel konu ekler, yeniden adlandırır ve siler', async () => {

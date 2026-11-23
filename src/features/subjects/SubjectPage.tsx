@@ -112,9 +112,11 @@ export function SubjectPage({ exam }: SubjectPageProps) {
             <p className="mt-1 text-sm text-muted">
               {progress.total === 0
                 ? 'Henüz konu yok'
-                : progress.remaining > 0
-                  ? `${progress.solved}/${progress.total} konu · ${progress.remaining} konu kaldı`
-                  : `${progress.solved}/${progress.total} konu · Tümü bitti`}
+                : progress.done
+                  ? `${progress.solved}/${progress.total} konu · Tümü bitti`
+                  : overview.bookEstimate > 0
+                    ? `${progress.solved}/${progress.total} konu · Kitap tahmini %${overview.bookEstimate}`
+                    : `${progress.solved}/${progress.total} konu · ${progress.remaining} konu kaldı`}
             </p>
           </div>
         </div>

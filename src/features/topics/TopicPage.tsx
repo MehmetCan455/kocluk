@@ -11,7 +11,7 @@ import { listSubjects, listTopics } from '@/db/repositories';
 import { listTopicReviews } from '@/db/topicProgressRepository';
 import type { ExamType } from '@/domain/types';
 import { formatPercent } from '@/lib/format';
-import { useTopicProgress } from '@/lib/progress';
+import { useTopicEstimate } from '@/lib/progress';
 import { examBasePath, examTitle } from '@/features/subjects/exam';
 import { NotesTab } from '@/features/notes/NotesTab';
 import { TopicPhotosTab } from '@/features/photos/PhotoThumb';
@@ -29,7 +29,7 @@ export function TopicPage({ exam }: TopicPageProps) {
   const [tab, setTab] = useState<TopicTab>('durum');
   const subjects = useLiveQuery(() => listSubjects(exam), [exam]);
   const topics = useLiveQuery(() => listTopics(subjectId), [subjectId]);
-  const progress = useTopicProgress(topicId);
+  const estimate = useTopicEstimate(topicId);
   const reviewCount = useLiveQuery(async () => {
     const reviews = await listTopicReviews(topicId);
     return reviews.length;
@@ -64,13 +64,15 @@ export function TopicPage({ exam }: TopicPageProps) {
     );
   }
 
-  if (!progress || reviewCount === undefined) {
+  if (!estimate || reviewCount === undefined) {
     return (
       <p role="status" className="py-16 text-center text-sm text-muted">
         Konu yükleniyor…
       </p>
     );
   }
+
+  const progress = estimate.progress;
 
   return (
     <div className="space-y-5">
@@ -119,7 +121,7 @@ export function TopicPage({ exam }: TopicPageProps) {
             label: 'Durum',
             content: (
               <div className="space-y-6">
-                <TopicStatusTab topicId={topic.id} />
+                <TopicStatusTab topicId={topic.id} bookPercent={estimate.bookPercent} />
                 <LegacyTestsSection topicId={topic.id} />
               </div>
             ),

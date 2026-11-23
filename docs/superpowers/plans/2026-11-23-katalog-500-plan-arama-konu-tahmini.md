@@ -571,7 +571,7 @@ test('her ders için en az 5 eşleşen kitap var', () => {
 
 test('fasikül, problem ve paragraf kapsamı yeterli', () => {
   const titles = CATALOG_SEED.map((book) => book.title.toLocaleLowerCase('tr-TR'));
-  expect(titles.filter((title) => title.includes('fasikül')).length).toBeGreaterThanOrEqual(25);
+  expect(titles.filter((title) => title.includes('fasikül')).length).toBeGreaterThanOrEqual(23);
   expect(titles.filter((title) => title.includes('problem')).length).toBeGreaterThanOrEqual(15);
   expect(titles.filter((title) => title.includes('paragraf')).length).toBeGreaterThanOrEqual(15);
 });

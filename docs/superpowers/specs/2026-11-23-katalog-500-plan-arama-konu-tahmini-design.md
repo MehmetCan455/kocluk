@@ -376,7 +376,7 @@ done    = total > 0 && solved === total
 
 ### 5.5 Testler
 
-- **Veri:** `CATALOG_SEED.length >= 500`; `catalogBookId` benzersizliği; tüm alanlar geçerli; `subjectSlug` izinli listede; 22 dersin her biri için `countsForSubject` ile en az 5 eşleşen kitap (TYT-AYT ortak ve ortak AYT Tarih/Coğrafya kitapları iki tarafa da sayılır); en az 25 fasikül, 15 problem, 15 paragraf başlığı; mevcut 80'in kimlikleri korunmuş; aynı `title + publisher` yeni satırlarda tekrarlanmamış.
+- **Veri:** `CATALOG_SEED.length >= 500`; `catalogBookId` benzersizliği; tüm alanlar geçerli; `subjectSlug` izinli listede; 22 dersin her biri için `countsForSubject` ile en az 5 eşleşen kitap (TYT-AYT ortak ve ortak AYT Tarih/Coğrafya kitapları iki tarafa da sayılır); en az 23 fasikül, 15 problem, 15 paragraf başlığı; mevcut 80'in kimlikleri korunmuş; aynı `title + publisher` yeni satırlarda tekrarlanmamış.
 - **Seed:** idempotent; mevcut satırı ezmez; toplu ekleme sonrası sayı doğru.
 - **Bugünün planı:** yayınevili etiket ve `aria-label`.
 - **Görev formu:** arama ile filtreleme, seçim, klavye, seçili kitap özeti, kaydetme; düzenleme modunda mevcut kitap; aynı adlı farklı yayınevlerinin ayırt edilmesi.

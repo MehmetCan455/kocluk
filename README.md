@@ -39,10 +39,11 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
 - **Kitaplar** sayfasında katalogdan kitap seçip rafına ekleyebilirsin. Her kitap
   okunan sayfa / toplam sayfa, kalan sayfa ve yüzde ilerleme ile gösterilir; toplam
   sayfa girilmemiş kitaplarda yüzde yerine **Sayfa sayısını gir** uyarısı çıkar.
-  Bu aşamada katalog, farklı yayınevlerinden TYT/AYT matematik, geometri, fizik,
-  kimya, biyoloji, Türkçe ve edebiyat kitaplarından oluşan 80 kitaplık bir
-  başlangıç seti içerir; listede olmayan
-  kitapları kendi başlık, yayınevi ve sayfa sayısıyla rafına ekleyebilirsin.
+  Katalog, farklı yayınevlerinden TYT Türkçe; TYT ve AYT matematik, geometri,
+  fizik, kimya, biyoloji, tarih, coğrafya, felsefe, din kültürü ve edebiyat
+  kitaplarından oluşan 500+ kitaplık (528 kitap) bir set içerir; fasikül,
+  problemler ve paragraf kitapları da bu kapsamdadır. Listede olmayan kitapları
+  kendi başlık, yayınevi ve sayfa sayısıyla rafına ekleyebilirsin.
   Baskıya göre değişen sayfa sayılarını kitap detayından düzeltebilirsin.
 - Kitap detayında **Başlangıç sayfası** ve **Bitiş sayfası** alanlarıyla okuduğun
   sayfa aralığını ekleyebilir, geçmişi görebilir ve plandaki kitap görevlerini
@@ -51,14 +52,23 @@ npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatı
   Aynı veya örtüşen aralıklar çift sayılmaz.
 - **Ders Çalışma Çizelgesi** sayfasında haftalık plan tarihli olarak tutulur. Haftalar
   arasında geçiş yapabilir, satır ekleyebilir ve her hücreye kitap sayfası, konu
-  tekrarı veya serbest görev ekleyebilirsin. Değişiklikler kısa bir gecikmeyle
-  otomatik kaydedilir; haftanın notu da aynı şekilde saklanır.
+  tekrarı veya serbest görev ekleyebilirsin. Kitap görevinde rafındaki kitaplar
+  arasında kitap veya yayınevi adıyla arama yapabilirsin. Değişiklikler kısa bir
+  gecikmeyle otomatik kaydedilir; haftanın notu da aynı şekilde saklanır.
 - Plan görevini tiklemek kitap görevinde okuma kaydını oluşturur ve kitap
   ilerlemesini otomatik günceller. Tiki geri almak kaydı geri alır, böylece ilerleme
   çift sayılmaz. Konu görevi tiklenince tekrar geçmişine kayıt eklenir; konunun
   **Bitti** durumu ayrıca konu sayfasındaki **Durum** sekmesinden işaretlenir.
 - **Genel Bakış** sayfası bugünün planını ve kitap ilerlemesini bir arada gösterir.
   Eski test kayıtları ve eski serbest metin çizelgesi salt okunur olarak korunur.
+
+**Ders ilerlemesi** elle işaretlediğin konu tamamlamaları ile kitap ilerlemenden
+tahmini olarak hesaplanır. Bir kitabın okunan yüzdesi, dersin konularına sırayla
+dağıtılır ve tek bir konuya en fazla %50 katkı verir; biten bir kitap dersin tüm
+konularına %50 ekler, iki biten kitap konuyu tamamlar. Konu sayfasından elle
+**Bitti** işaretlenen konu her zaman %100 kalır ve kitap tahmini bunu düşürmez.
+Arşivlenen kitaplar ile toplam sayfası girilmemiş kitaplar bu tahmine katılmaz;
+TYT ve AYT ayrı dersler olarak değerlendirilir.
 
 PWA ikonlarını `public/favicon.svg` kaynağından yeniden üretmek için:
 

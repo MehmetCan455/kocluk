@@ -13,7 +13,7 @@ import type { CurriculumSeed } from '@/db/repositories';
 import { addRow, addTask, getOrCreateWeek } from '@/db/scheduleRepository';
 import { setTopicDone } from '@/db/topicProgressRepository';
 import { weekStartOf } from '@/domain/schedule';
-import type { Exam } from '@/domain/types';
+import type { Exam, ExamType } from '@/domain/types';
 import { seedOnboarded } from '@/test/fixtures';
 import { renderApp } from '@/test/renderApp';
 
@@ -94,8 +94,9 @@ async function addShelfBook(
   title: string,
   totalPages: number,
   updatedAt: string,
+  catalog: { exam?: ExamType; subjectSlug?: string } = {},
 ): Promise<string> {
-  const userBook = await addCustomBook({ title, totalPages });
+  const userBook = await addCustomBook({ title, totalPages, ...catalog });
   await db.userBooks.update(userBook.id, { updatedAt });
   return userBook.id;
 }
@@ -133,15 +134,23 @@ async function seedDashboardData(): Promise<DashboardSeed> {
     'Bilgi Sarmal TYT Matematik',
     400,
     '2026-11-20T10:00:00.000Z',
+    { exam: 'TYT', subjectSlug: 'matematik' },
   );
   await seedPage(bilgi, 220, '2026-11-20T10:00:00.000Z');
   const fizik = await addShelfBook(
     '3D AYT Fizik',
     320,
     '2026-11-19T10:00:00.000Z',
+    { exam: 'AYT', subjectSlug: 'fizik' },
   );
-  await addShelfBook('Palme TYT Türkçe', 384, '2026-11-18T10:00:00.000Z');
-  await addShelfBook('Karekök AYT Matematik', 392, '2026-11-17T10:00:00.000Z');
+  await addShelfBook('Palme TYT Türkçe', 384, '2026-11-18T10:00:00.000Z', {
+    exam: 'TYT',
+    subjectSlug: 'turkce',
+  });
+  await addShelfBook('Karekök AYT Matematik', 392, '2026-11-17T10:00:00.000Z', {
+    exam: 'AYT',
+    subjectSlug: 'matematik',
+  });
   await addShelfBook('Limit TYT Deneme', 200, '2026-11-16T10:00:00.000Z');
   await addShelfBook('Eski Kitap', 100, '2026-10-01T10:00:00.000Z');
 
@@ -485,15 +494,43 @@ test('gizlenen dersler konu yüzdelerine katılmaz', async () => {
 
   expect(
     await screen.findByRole('progressbar', { name: 'Genel konu ilerlemesi' }),
-  ).toHaveAttribute('aria-valuenow', '67');
+  ).toHaveAttribute('aria-valuenow', '76');
   expect(screen.getByRole('progressbar', { name: 'TYT konu ilerlemesi' })).toHaveAttribute(
     'aria-valuenow',
-    '50',
+    '64',
   );
   expect(screen.getByRole('progressbar', { name: 'AYT konu ilerlemesi' })).toHaveAttribute(
     'aria-valuenow',
     '100',
   );
+});
+
+test('dersini bitirmemiş kitap konu ilerlemesini sıfıra düşürmez', async () => {
+  const userBook = await addCustomBook({
+    title: 'AYT Matematik Soru Bankası',
+    exam: 'AYT',
+    subjectSlug: 'matematik',
+    totalPages: 416,
+  });
+  await addBookPageRange(userBook.id, 1, 415);
+
+  renderApp('/');
+
+  const aytBar = await screen.findByRole('progressbar', { name: 'AYT konu ilerlemesi' });
+  await waitFor(() => expect(aytBar).toHaveAttribute('aria-valuenow', '25'));
+
+  const aytCard = aytBar.parentElement;
+  expect(aytCard).not.toBeNull();
+  expect(
+    within(aytCard as HTMLElement).getByText('2 konu · kitap tahmini dahil'),
+  ).toBeInTheDocument();
+  expect(within(aytCard as HTMLElement).getByText('0/2 konu')).toBeInTheDocument();
+
+  // Sayfa ilerlemesi %99'da kalsa da ders kartı sıfıra düşmez; AYT Matematik
+  // konusu kitaptan %50 alır.
+  const bookLink = screen.getByRole('link', { name: /AYT Matematik Soru Bankası/ });
+  expect(within(bookLink).getByText('%99')).toBeInTheDocument();
+  expect(within(bookLink).getByText('415/416 sayfa')).toBeInTheDocument();
 });
 
 test.each(['', 'bozuk', '2026-02-31'])(

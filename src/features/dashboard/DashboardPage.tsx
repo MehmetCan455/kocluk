@@ -16,7 +16,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { RingProgress } from '@/components/ui/RingProgress';
 import { db } from '@/db/db';
-import { listShelfBooks, type ShelfBook } from '@/db/bookRepositories';
+import {
+  listBookReadRanges,
+  listShelfBooks,
+  type BookPageRange,
+  type ShelfBook,
+} from '@/db/bookRepositories';
 import {
   listAllExamResults,
   listAllTopics,
@@ -24,7 +29,12 @@ import {
   listSubjects,
 } from '@/db/repositories';
 import { listAllTopicProgress } from '@/db/topicProgressRepository';
-import { calculateCountProgress } from '@/domain/calculations';
+import {
+  calculateSubjectProgress,
+  countsForSubject,
+  effectiveTopicPercent,
+  subjectBookEstimate,
+} from '@/domain/subjectEstimate';
 import type {
   Exam,
   ExamResult,
@@ -82,6 +92,7 @@ interface DashboardData {
   topics: Topic[];
   topicProgress: TopicProgress[];
   shelfBooks: ShelfBook[];
+  readRanges: Map<string, BookPageRange[]>;
   exams: Exam[];
   results: ExamResult[];
   photosSinceBackup: number;
@@ -156,8 +167,9 @@ export function DashboardPage() {
   const reminderDismissed = dismissedSignature === reminderSignature;
 
   const data = useLiveQuery(async (): Promise<DashboardData> => {
-    // One read per table: no per-book or per-exam query on the dashboard.
-    // Percentages come from explicit topic completion, the book cards from the
+    // One read per table plus one grouped read for active page ranges: no
+    // per-book or per-exam query on the dashboard. Percentages combine explicit
+    // topic completion with the shelf-book estimate, the book cards use the
     // page-based shelf, and the backup reminder counts only photos added after
     // the last export.
     const lastBackupAt = settings.lastBackupAt;
@@ -180,11 +192,15 @@ export function DashboardPage() {
         ? db.photos.where('createdAt').above(lastBackupAt).count()
         : db.photos.count(),
     ]);
+    const readRanges = await listBookReadRanges(
+      shelfBooks.map((book) => book.userBook.id),
+    );
     return {
       subjects,
       topics,
       topicProgress,
       shelfBooks,
+      readRanges,
       exams,
       results,
       photosSinceBackup,
@@ -211,19 +227,62 @@ export function DashboardPage() {
     data.topicProgress.filter((row) => row.done).map((row) => row.topicId),
   );
 
-  // `started` from calculateCountProgress only sees explicit completions, so it
-  // is intentionally not used for status decisions on the dashboard.
-  function progressForExam(exam?: ExamType): { progress: Progress; topicCount: number } {
+  // Every subject's shelf books are distributed over its topic list, so a book
+  // that has not been finished by hand still moves the dashboard percentages.
+  const bookPercentByTopic = new Map<string, number>();
+  for (const subject of data.subjects) {
+    const subjectTopics = data.topics.filter((topic) => topic.subjectId === subject.id);
+    if (subjectTopics.length === 0) {
+      continue;
+    }
+    const pageReads = data.shelfBooks
+      .filter(
+        (book) =>
+          book.progress.hasTotalPages &&
+          countsForSubject(
+            {
+              title: book.catalogBook.title,
+              exam: book.catalogBook.exam,
+              subjectSlug: book.catalogBook.subjectSlug,
+            },
+            subject,
+          ),
+      )
+      .map((book) => ({
+        totalPages: book.totalPages,
+        ranges: data.readRanges.get(book.userBook.id) ?? [],
+      }));
+    const { byTopic } = subjectBookEstimate(
+      subjectTopics.map((topic) => topic.id),
+      pageReads,
+    );
+    for (const [topicId, percent] of byTopic) {
+      bookPercentByTopic.set(topicId, percent);
+    }
+  }
+
+  function progressForExam(exam?: ExamType): {
+    progress: Progress;
+    topicCount: number;
+    estimated: boolean;
+  } {
     const topics =
       exam === undefined
         ? visibleTopics
         : visibleTopics.filter(
             (topic) => subjectById.get(topic.subjectId)?.exam === exam,
           );
-    const done = topics.filter((topic) => doneTopicIds.has(topic.id)).length;
+    const percentages = topics.map((topic) =>
+      effectiveTopicPercent(
+        doneTopicIds.has(topic.id),
+        bookPercentByTopic.get(topic.id) ?? 0,
+      ),
+    );
+    const estimated = percentages.some((percent) => percent > 0);
     return {
-      progress: calculateCountProgress(done, topics.length),
+      progress: calculateSubjectProgress(percentages, estimated),
       topicCount: topics.length,
+      estimated,
     };
   }
 
@@ -304,17 +363,17 @@ export function DashboardPage() {
         <StatCard
           label="Genel konu ilerlemesi"
           progress={overall.progress}
-          extra={`${overall.topicCount} konu`}
+          extra={`${overall.topicCount} konu${overall.estimated ? ' · kitap tahmini dahil' : ''}`}
         />
         <StatCard
           label="TYT konu ilerlemesi"
           progress={tytProgress.progress}
-          extra={`${tytProgress.topicCount} konu`}
+          extra={`${tytProgress.topicCount} konu${tytProgress.estimated ? ' · kitap tahmini dahil' : ''}`}
         />
         <StatCard
           label="AYT konu ilerlemesi"
           progress={aytProgress.progress}
-          extra={`${aytProgress.topicCount} konu`}
+          extra={`${aytProgress.topicCount} konu${aytProgress.estimated ? ' · kitap tahmini dahil' : ''}`}
         />
       </div>
 

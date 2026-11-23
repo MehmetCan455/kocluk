@@ -4,10 +4,11 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
-export default defineConfig(({ mode }) => {
-  // Production builds (and `vite preview`, which also uses production mode)
-  // live under the GitHub Pages project path. `vite dev` stays at the root.
-  const base = mode === 'production' ? '/kocluk/' : '/';
+export default defineConfig(() => {
+  // Production builds default to the domain root for zirveacademy.com; GitHub
+  // Pages can opt into its project path with `VITE_BASE=/kocluk/`. `vite dev`
+  // stays at the root.
+  const base = process.env.VITE_BASE || '/';
 
   return {
     base,

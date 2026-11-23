@@ -19,8 +19,8 @@ npm install
 npm run dev
 ```
 
-Geliştirme sunucusu uygulamayı kök adreste (`/`) açar. Üretim derlemesi GitHub
-Pages için `/kocluk/` taban yolunu kullanır.
+Geliştirme sunucusu uygulamayı kök adreste (`/`) açar. Üretim derlemesinin
+varsayılan taban yolu da `/`'dir; GitHub Pages için `VITE_BASE=/kocluk/` ayarlanır.
 
 ## Komutlar
 
@@ -30,7 +30,7 @@ npm run typecheck  # TypeScript tip kontrolü
 npm test           # Vitest izleme modu
 npm run test:run   # Vitest tek seferlik
 npm run build      # tip kontrolü + üretim derlemesi (dist/)
-npm run preview    # üretim derlemesini /kocluk/ altında önizle
+npm run preview    # üretim derlemesini kök adreste önizle
 npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatır)
 ```
 
@@ -85,24 +85,25 @@ Playwright ilk kullanımda Chromium'u indirmen gerekir:
 npx playwright install chromium
 ```
 
-## Yayınlama (GitHub Pages)
+## Yayınlama (cPanel / zirveacademy.com)
 
-Depo adı **`kocluk`** olacak şekilde yayın tasarlanmıştır. Farklı bir depo adı
-kullanırsan `vite.config.ts` içindeki `base` değerini ve bu README'deki adresleri
-güncelle.
-
-1. Kodu `main` dalına gönder.
-2. GitHub'da **Settings → Pages** sayfasını aç.
-3. **Build and deployment → Source** altında **GitHub Actions** seç.
-4. `Deploy to GitHub Pages` iş akışı her `main` push'unda testleri çalıştırır,
-   derler ve `dist/` klasörünü yayınlar. İlk yayın için **Actions** sekmesinden
-   iş akışını elle de çalıştırabilirsin.
-
-Yayın adresi:
+Üretim adresi:
 
 ```
-https://mehmetcan455.github.io/kocluk/
+https://zirveacademy.com/
 ```
+
+Yayın cPanel **Git Version Control** ile bu depodan yapılır. Depodaki `.cpanel.yml`
+dosyası derlenmiş `dist/` klasörünü `/home/u2964068/public_html/` altına kopyalar;
+alan adının belge kökü farklıysa `.cpanel.yml` içindeki `DEPLOYPATH` değerini
+güncelle. Sunucuda Node.js gerekmez, çünkü çıktı depoda hazır durur.
+
+`dist/` depoya commit edilir. Kod değişikliğinden sonra `npm run build` çalıştır ve
+yenilenen `dist/` klasörünü de commit et; cPanel yalnızca kopyalama yapar.
+
+GitHub Pages desteği isteğe bağlı/eski yol olarak korunur: `.github/workflows/deploy.yml`
+iş akışı derleme adımında `VITE_BASE=/kocluk/` kullanır, yani Pages yayını eski
+`/kocluk/` taban yolunda çalışmaya devam eder.
 
 Uygulama `HashRouter` kullandığı için alt sayfalar (`#/tyt`, `#/denemeler` gibi)
 sunucuda 404 üretmez. Aynı statik `dist/` çıktısı Cloudflare Pages veya Netlify'a
@@ -110,7 +111,7 @@ da taşınabilir; yalnızca taban yolunu ortama göre ayarlaman gerekir.
 
 ## Arkadaşlarınla paylaşma
 
-Yayınlanan bağlantıyı (`https://mehmetcan455.github.io/kocluk/`) göndermen yeterli.
+Yayınlanan bağlantıyı (`https://zirveacademy.com/`) göndermen yeterli.
 Herkes uygulamayı kendi cihazında, kendi verisiyle kullanır. Ayarlar → **Uygulama
 linkini paylaş** düğmesi cihazın paylaşım menüsünü veya panoyu kullanır.
 

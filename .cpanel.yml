@@ -1,0 +1,7 @@
+---
+# cPanel Git Version Control deployment for zirveacademy.com.
+# Adjust DEPLOYPATH if the domain's document root differs.
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/u2964068/public_html/
+    - /bin/cp -R dist/. $DEPLOYPATH

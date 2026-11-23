@@ -9,7 +9,7 @@ test('manifest kurulabilir ve uygulama ilk yüklemeden sonra çevrimdışı aç�
   await finishOnboarding(page, TEST_NAME, 'Tümü');
 
   const manifestHref = await page.locator('link[rel="manifest"]').getAttribute('href');
-  expect(manifestHref).toBe('/kocluk/manifest.webmanifest');
+  expect(manifestHref).toBe('/manifest.webmanifest');
 
   const manifest = await page.evaluate(async () => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');

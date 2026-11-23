@@ -2,13 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Kataloğu 500+ doğrulanmış kitaba çıkar, görev formuna aranabilir kitap seçici ekle, bugünün planında yayınevi göster ve kitap ilerlemesini ders konularına sıralı tahmin olarak yansıt.
+**Goal:** Kataloğu 500+ doğrulanmış kitaba çıkar, görev formuna aranabilir kitap seçici ekle, bugünün planında yayınevi göster ve kitap ilerlemesini ders konularına sayfa-konu eşlemesiyle yansıt.
 
-**Architecture:** Katalog verisi ders bazlı seed modüllerine ayrılır; araştırma subagent'ları JSON raporu üretir, reviewer doğrular, bir build script'i raporları TS modüllerine çevirir. UI tarafında `ShelfBookPicker` raf kitaplarını arar; `subjectEstimate` saf domain fonksiyonu kitap yüzdelerini konulara sırayla dağıtır ve `progress.ts` hook'ları bunu kullanır.
+**Architecture:** Katalog verisi ders bazlı seed modüllerine ayrılır; araştırma subagent'ları JSON raporu üretir, reviewer doğrular, bir build script'i raporları TS modüllerine çevirir. UI tarafında `ShelfBookPicker` raf kitaplarını arar; `subjectEstimate` saf domain fonksiyonu kitabın sayfalarını dersin konularına eşit böler ve `progress.ts` hook'ları bunu kullanır.
 
 **Tech Stack:** React 19, TypeScript, Vite, Dexie, Vitest, Testing Library, Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-11-23-katalog-500-plan-arama-konu-tahmini-design.md`
+
+> **Not (2026-11-23 final review sonrası):** Tahmin modeli sıralı yüzde dağıtımından **sayfa→konu eşlemesine** çevrildi. Bağlayıcı model design §5.4.1'dir; bu plandaki eski `distributeBookPercent` anlatımı tarihseldir.
 
 ## Global Constraints
 

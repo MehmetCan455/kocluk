@@ -287,31 +287,25 @@ Bir dersin rafındaki kitapları:
 - AYT Tarih/Coğrafya ortak tek ciltleri: kitap `tarih-1`/`cografya-1` slug'ıyla saklansa bile başlığında `Tarih-1/2` veya `Coğrafya-1/2` ayrımı yoksa hem `tarih-1` hem `tarih-2` (veya her iki coğrafya) tahminine sayılır. Bu eşleşme başlık üzerinden yapılır; şema değişmez.
 - `totalPages > 0` (toplam sayfası bilinmeyen kitap katkı vermez).
 
-**Dağıtım kuralı:** her kitap, kendi `progress.percent` değerini konu sırasına göre baştan dağıtır. Bir kitap bir konuya **en fazla %50** katkı verir; konu %50'ye gelince o kitabın katkısı sıradaki konuya geçer. Zaten %100 dolu konular atlanır; böylece 3. kitabın katkısı boşa gitmez. İki kitap aynı konuya %50'şer katkı verince konu %100 olur. **Bitmiş (%100) kitap dersin tamamını kapsar; bu yüzden her konuya %50 verir.** Kısmi kitap sırayla dağıtılır ve yüzdesi bitince durur.
+**Sayfa-konu eşlemesi:** dersin N konusu, kitabın T sayfası vardır. 1..T sayfaları N konuya mümkün olduğunca eşit bölünür: ilk `T % N` konu `ceil(T/N)`, kalanlar `floor(T/N)` sayfa alır. Bir kitabın aktif `book_pages` aralıkları her konu dilimiyle kesiştirilir; dilimde okunan benzersiz sayfa oranı o konuya **en fazla %50** katkı verir. İki kitap aynı konuya %50'şer katkı verince konu %100 olur. Kitap bittiğinde her dilim tamamen okunduğu için tüm konular %50 alır; kısmi okumada dilimler kısmi katkı verir, sıçrama olmaz.
 
 ```
-bookContribution = konu başına 0 ile başlayan katkı dizisi
+topicCount = dersin konu sayısı
+pagesPerTopic[i] = floor(T / N) + (i < T % N ? 1 : 0)
 
 for her eşleşen kitap:
-  percent = kitap.progress.percent       // 0–100 tam sayı
-  if percent >= 100:
-    for konu in müfredat sırası:
-      oda = min(50, 100 - bookContribution[konu])
-      if oda > 0: bookContribution[konu] += oda
-    continue
+  for konu i:
+    chunk = kitabın i. konuya düşen sayfa aralığı
+    covered = aktif book_pages aralıklarının chunk içindeki birleşimi
+    topicBookPercent[i] += round(coveredPages / pagesPerTopic[i] * 50)  // 0–50
 
-  kalan = percent
-  for konu in müfredat sırası:
-    oda = min(50, 100 - bookContribution[konu])
-    pay = min(kalan, oda)              // bir kitap bir konuya en fazla 50
-    if pay <= 0: continue              // dolu konuyu atla
-    bookContribution[konu] += pay
-    kalan -= pay
-    if kalan === 0: break
-
-bookPercent[konu] = min(100, bookContribution[konu])
-bookEstimate      = min(100, floor(ortalama(bookPercent)))   // "Kitap tahmini"
+bookContribution[i] = min(100, topicBookPercent[i])
+bookEstimate        = min(100, floor(ortalama(bookContribution)))   // "Kitap tahmini"
 ```
+
+- `coveredPages` tekrar eden sayfaları bir kez sayar; `page_set` eski konum işaretidir, katkı vermez.
+- `pagesPerTopic[i] === 0` ise o konuya bu kitaptan katkı yoktur.
+- Toplam sayfası 0, arşivli/silinmiş veya aktif okuma aralığı olmayan kitap katkı vermez.
 
 Konu satırı:
 
@@ -335,24 +329,21 @@ started = en az bir konu started
 done    = total > 0 && solved === total
 ```
 
-**4 konulu bir derste 1 kitap örneği:**
+**Örnekler:**
 
-| Kitap ilerlemesi | 1. konu | 2. konu | 3. konu | 4. konu | Ders |
-|---|---:|---:|---:|---:|---:|
-| %25 | %25 | %0 | %0 | %0 | %6 |
-| %50 | %50 | %0 | %0 | %0 | %12 |
-| %75 | %50 | %25 | %0 | %0 | %18 |
-| %100 | %50 | %50 | %50 | %50 | %50 |
-| 2. kitap da %100 | %100 | %100 | %100 | %100 | %100 |
-
-Örnekler ve sonuçlar:
+| Senaryo | Konu katkıları | Ders |
+|---|---|---:|
+| 100 sayfa, 10 konu, 1–10 okundu | 1. konu %50, diğerleri %0 | %5 |
+| 100 sayfa, 10 konu, 1–99 okundu | ilk 9 konu %50, 10. konu %45 | %49 |
+| 100 sayfa, 10 konu, 1–100 okundu | tüm konular %50 | %50 |
+| 416 sayfa, 21 konu, 1–415 okundu | ilk 20 konu %50, 21. konu %47 | %49 |
+| Aynı kitabın son sayfası da okundu | tüm konular %50 | %50 |
+| 2 kitap da %100 | tüm konular %100 | %100 |
 
 - 1 kitap bitti → tüm konular %50; 2 kitap bitti → tümü %100. "Bir dersi bitirmek için 2 kitap" kuralı korunur.
-- 1 kitap %100, 2. kitap %25 → ilk konu %75, diğerleri %50; ders %56 (4 konu).
-- 2 kitap da %50 → her ikisi de ilk konuya %50 verir; ilk konu %100, diğerleri %0; ders %25. Bu, seçilen sıralı modelin doğal sonucudur; yarım iki kitap, tam bir kitaptan daha düşük görünebilir.
-- "TYT-AYT Geometri" ortak kitabı TYT Geometri ve AYT Geometri tahminlerinin ikisine de sayılır.
+- Kısmi okumada her konu kendi sayfa diliminden pay alır; son sayfada toplu sıçrama olmaz.
+- "TYT-AYT Geometri" ortak kitabı TYT Geometri ve AYT Geometri tahminlerinin ikisine de sayılır; ortak AYT Tarih/Coğrafya ciltleri iki alt derse de sayılır.
 - Manuel bitirilmiş konu her zaman %100 kalır; kitap katkısı onu düşürmez.
-- 3. ve sonraki kitaplar dolu konuları atlar, sıradaki eksik konuya katkı verir; bir konunun toplamı %100'ü geçemez.
 - Toplam sayfası bilinmeyen, arşivli veya silinmiş kitap katkı vermez.
 
 #### 5.4.2 Arayüz
@@ -366,13 +357,13 @@ done    = total > 0 && solved === total
   - `bookEstimate > 0` → `${solved}/${total} konu · Kitap tahmini %NN`
   - aksi halde mevcut `${solved}/${total} konu · ${remaining} konu kaldı`
 - `TopicRow`: yüzde ve çubuk etkin değeri kullanır. Durum metni: `done` → "Bitti"; `started` → "Devam ediyor"; değilse "Başlanmadı". Manuel kutu ayrı kaldığı için kitap tahminiyle %100 olan konu "Bitti" görünür.
-- `useTopicProgress`: konunun dersini bulup sıralı dağıtımı uygular; konu sayfasındaki ring ve durum etkin değeri gösterir.
+- `useTopicProgress`: konunun dersini bulup sayfa-konu eşlemesini uygular; konu sayfasındaki ring ve durum etkin değeri gösterir.
 - `TopicStatusTab`: manuel kutu davranışı değişmez. İpucu metnine, konunun kitap katkısı varsa "Kitap ilerlemesi bu konuya %NN ekliyor; kutu yalnızca elle bitirme kaydıdır." eklenir.
 - Manuel işaretleme hiçbir zaman otomatik değiştirilmez veya silinmez.
 
 #### 5.4.3 Performans
 
-`useSubjectOverview` her ders kartında çalışır. Kitap tahmini için `listShelfBooks()` çağrısı eklenecek; raf küçük olduğu için kabul edilebilir. Ölçümde sorun çıkarsa tahminler tek bir üst seviye hook ile paylaşılır; bu tasarımın ilk sürümünde ek karmaşıklık eklenmez.
+`useSubjectOverview` her ders kartında çalışır. Kitap tahmini için `listShelfBooks()` ve kitapların aktif sayfa aralıklarını veren `listBookReadRanges()` çağrıları eklenecek; raf küçük olduğu için kabul edilebilir. Ölçümde sorun çıkarsa tahminler tek bir üst seviye hook ile paylaşılır; bu tasarımın ilk sürümünde ek karmaşıklık eklenmez.
 
 ### 5.5 Testler
 
@@ -381,7 +372,7 @@ done    = total > 0 && solved === total
 - **Bugünün planı:** yayınevili etiket ve `aria-label`.
 - **Görev formu:** arama ile filtreleme, seçim, klavye, seçili kitap özeti, kaydetme; düzenleme modunda mevcut kitap; aynı adlı farklı yayınevlerinin ayırt edilmesi.
 - **Katalog modalı:** 500+ kitapta ilk 60, "Daha fazla göster", arama sonucu sayısı, edition gösterimi.
-- **Tahmin:** 4 konulu derste 1 kitap %25 → 1. konu %25, ders %6; 1 kitap %100 → tüm konular %50, ders %50; 2 kitap %100 → tümü %100; 1 kitap %100 + 1 kitap %25 → ilk konu %75, diğerleri %50, ders %56; iki kitap da %50 → ilk konu %100, ders %25; "TYT-AYT" ortak kitabı hem TYT hem AYT tahminine sayılır; manuel biten konu %100 kalır; arşivli/silinmiş/toplam sayfası bilinmeyen kitap katkı vermez; TYT ve AYT ayrı hesaplanır; kitapsız derslerde mevcut davranış birebir korunur.
+- **Tahmin:** 100 sayfa/10 konu: 1–10 okundu → 1. konu %50, ders %5; 1–99 → ilk 9 konu %50, 10. konu %45, ders %49; 1–100 → tümü %50; 416 sayfa/21 konu 1–415 → ilk 20 konu %50, 21. konu %47, ders %49; son sayfa → %50 (sıçrama yok); 2 kitap %100 → tümü %100; "TYT-AYT" ortak kitabı hem TYT hem AYT tahminine sayılır; manuel biten konu %100 kalır; arşivli/silinmiş/toplam sayfası bilinmeyen kitap katkı vermez; TYT ve AYT ayrı hesaplanır; kitapsız derslerde mevcut davranış birebir korunur.
 - **Regresyon:** mevcut `subjects.test.tsx`, `progress.test.tsx`, `schedule.test.tsx`, `dashboard.test.tsx`, `books.test.tsx`, `catalogRepository.test.ts`, `backup.test.ts` güncellenir ve geçer.
 
 ### 5.6 Local preview ve yayın
@@ -415,7 +406,7 @@ done    = total > 0 && solved === total
 - Veri ders bazlı modüllere bölünecek; mevcut 80 korunacak.
 - Görev formunda satır içi aramalı seçici olacak; yalnızca raf kitapları aranacak.
 - Bugünün planında `Yayınevi · Kitap` biçimi kullanılacak.
-- Kitap tahmini: her kitap kendi yüzdesini konu sırasına göre dağıtır; bir kitap bir konuya en fazla %50, iki kitap bir konuyu %100 yapar; tüm konular bitmeden ders %99'u geçmez.
+- Kitap tahmini: her kitabın sayfaları dersin konularına eşit bölünür; her konu kendi sayfa diliminde okunan oran kadar, en fazla %50 alır; iki kitap bir konuyu %100 yapar; tüm konular bitmeden ders %99'u geçmez.
 - Konu yüzdesi = max(manuel %100, kitap katkısı); manuel kutu yalnızca elle işaretlemeyi tutar.
 - "TYT-AYT" ortak kitaplar hem TYT hem AYT tahminine sayılır; tek alt dersi kapsayan AYT Tarih/Coğrafya kitapları ayrı hedeflenir.
 - Baskı farkı yüzünden aynı `title + publisher` çift kayıt olarak eklenmez; mevcut 80 satır korunur.

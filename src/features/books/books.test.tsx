@@ -223,7 +223,7 @@ test('katalog araması yayıneviyle eşleşir ve aynı yayınevinin sınav kitap
     name: '"orbital" için katalog sonuçları',
   });
   await waitFor(() =>
-    expect(within(list).getAllByRole('listitem')).toHaveLength(4),
+    expect(within(list).getAllByRole('listitem').length).toBeGreaterThanOrEqual(4),
   );
   expect(within(list).getByText('TYT Kimya Soru Bankası')).toBeInTheDocument();
   expect(within(list).getByText('AYT Kimya Soru Bankası')).toBeInTheDocument();

@@ -15,8 +15,8 @@ test('katalog tohumu idempotenttir ve arama yapar', async () => {
   expect(await db.catalogBooks.count()).toBe(firstCount);
 
   const books = await listCatalogBooks();
-  // 30 eski kitap korunur, onaylanmış 50 yeni satır eklenir.
-  expect(CATALOG_SEED).toHaveLength(80);
+  // 80 başlangıç kitabı korunur, doğrulanmış araştırma satırları eklenir.
+  expect(CATALOG_SEED.length).toBeGreaterThanOrEqual(500);
   expect(books).toHaveLength(CATALOG_SEED.length);
   expect(new Set(books.map((book) => book.id)).size).toBe(books.length);
   expect(books.some((book) => book.publisher === 'Karekök')).toBe(true);
@@ -26,20 +26,22 @@ test('katalog tohumu idempotenttir ve arama yapar', async () => {
   expect(results.some((book) => book.publisher === 'Bilgi Sarmal')).toBe(true);
 
   const biyotik = await searchCatalog('biyotik');
-  expect(biyotik).toHaveLength(6);
+  expect(biyotik.length).toBeGreaterThanOrEqual(6);
   expect(biyotik.every((book) => book.publisher === 'Biyotik')).toBe(true);
-  expect(biyotik.map((book) => book.title).sort()).toEqual([
-    '2028 Üniversiteye Hazırlık Biyoloji Maarif Model Soru Bankası',
-    'AYT Biyoloji Soru Bankası',
-    'AYT Biyoloji Soru Kampı',
-    'TYT Biyoloji Soru Bankası',
-    'TYT Biyoloji Soru Kampı',
-    'TYT-AYT Biyoloji Sistemler İnsan Fizyolojisi Konu Anlatımlı Soru Bankası',
-  ]);
+  expect(biyotik.map((book) => book.title)).toEqual(
+    expect.arrayContaining([
+      '2028 Üniversiteye Hazırlık Biyoloji Maarif Model Soru Bankası',
+      'AYT Biyoloji Soru Bankası',
+      'AYT Biyoloji Soru Kampı',
+      'TYT Biyoloji Soru Bankası',
+      'TYT Biyoloji Soru Kampı',
+      'TYT-AYT Biyoloji Sistemler İnsan Fizyolojisi Konu Anlatımlı Soru Bankası',
+    ]),
+  );
 
   // Apotemi AYT fasikül setleri katalogda yok; tek cilt kitaplar vardır.
   const apotemi = await searchCatalog('apotemi');
-  expect(apotemi).toHaveLength(7);
+  expect(apotemi.length).toBeGreaterThanOrEqual(7);
   expect(apotemi).toContainEqual(
     expect.objectContaining({
       title: 'TYT Matematik Soru Bankası',

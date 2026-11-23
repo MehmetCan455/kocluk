@@ -1,3 +1,76 @@
 import type { CatalogBookSeed } from './types';
 
-export const AYT_TARIH_2: readonly CatalogBookSeed[] = [];
+export const AYT_TARIH_2: readonly CatalogBookSeed[] = [
+  {
+    title: 'AYT Çağdaş Türk ve Dünya Tarihi Az Konu Çok Soru Bir Arada',
+    publisher: 'Doğru Cevap Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 136,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Çağdaş Türk Ve Dünya Tarihi Soru Bankası',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 192,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Çağdaş Türk ve Dünya Tarihi YKS 2. Oturum',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 285,
+    edition: '2026',
+  },
+  {
+    title: 'TYT AYT İnkılap Tarihi ve Atatürkçülük Çek - Kopar Fasikülleri',
+    publisher: 'İMES Eğitim Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 176,
+    edition: '2026',
+  },
+  {
+    title: 'TYT AYT T.C. İnkılap Tarihi ve Atatürkçülük Soru Bankası',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 200,
+    edition: '2026',
+  },
+  {
+    title: 'TYT-AYT T.C. İnkılap Tarihi ve Atatürkçülük',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 448,
+    edition: '2026',
+  },
+  {
+    title: 'YKS Çağdaş Türk ve Dünya Tarihi Soru Bankası 2. Oturum',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 190,
+    edition: '2026',
+  },
+  {
+    title: 'YKS T.C. İnkılap Tarihi ve Atatürkçülük',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 344,
+    edition: '2026',
+  },
+  {
+    title: 'YKS T.C. İnkılap Tarihi ve Atatürkçülük Soru Bankası 2. Oturum',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-2',
+    totalPages: 158,
+    edition: '2026',
+  },
+];

@@ -1,3 +1,76 @@
 import type { CatalogBookSeed } from './types';
 
-export const AYT_TARIH_1: readonly CatalogBookSeed[] = [];
+export const AYT_TARIH_1: readonly CatalogBookSeed[] = [
+  {
+    title: 'AYT 3D Tarih Tamamı Video Çözümlü Soru Bankası',
+    publisher: '3D Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 272,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Iceberg Tarih Soru Bankası',
+    publisher: 'Okyanus Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 256,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Tarih Atak Soru Bankası',
+    publisher: 'Delta Kültür Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 240,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Tarih Plus Soru Bankası',
+    publisher: 'Çap Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 286,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Tarih Soru Bankası',
+    publisher: 'Bilgi Sarmal Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 287,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Tarih Soru Bankası',
+    publisher: 'Karekök Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 365,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Tarih Soru Bankası',
+    publisher: 'Toprak Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 288,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Tarih Soru Kitabı',
+    publisher: 'Palme Yayınevi',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 359,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Tarih Video Çözümlü Soru Bankası',
+    publisher: 'Benim Hocam Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'tarih-1',
+    totalPages: 304,
+    edition: '2027',
+  },
+];

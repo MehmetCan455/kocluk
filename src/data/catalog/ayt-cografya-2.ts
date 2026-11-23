@@ -1,3 +1,76 @@
 import type { CatalogBookSeed } from './types';
 
-export const AYT_COGRAFYA_2: readonly CatalogBookSeed[] = [];
+export const AYT_COGRAFYA_2: readonly CatalogBookSeed[] = [
+  {
+    title: 'AYT 3D Coğrafya Soru Bankası',
+    publisher: '3D Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 224,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Konu Anlatımlı Ders Föyleri (DİS Serisi) 2025-2026',
+    publisher: 'Ordinat Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 240,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Plus Soru Bankası',
+    publisher: 'Çap Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 237,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Açı Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 224,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Endemik Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 188,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Limit Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 192,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası (Güncel)',
+    publisher: 'Toprak Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 224,
+    edition: '2026',
+  },
+  {
+    title: 'YKS DAF Coğrafya 1. Kitap',
+    publisher: 'Eis Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 352,
+    edition: '2026',
+  },
+  {
+    title: 'YKS DAF Coğrafya 2. Kitap',
+    publisher: 'Eis Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-2',
+    totalPages: 400,
+    edition: '2026',
+  },
+];

@@ -1,3 +1,76 @@
 import type { CatalogBookSeed } from './types';
 
-export const AYT_COGRAFYA_1: readonly CatalogBookSeed[] = [];
+export const AYT_COGRAFYA_1: readonly CatalogBookSeed[] = [
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Bilgi Sarmal',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 208,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Hız Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 208,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Karekök',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 264,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Palme Yayınevi',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 208,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Pegem Akademi Yayıncılık',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 192,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'Tudem Yayınevi',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 240,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Coğrafya Soru Bankası',
+    publisher: 'VİP Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 208,
+    edition: '2026',
+  },
+  {
+    title: 'AYT Iceberg Coğrafya Konu Anlatımı',
+    publisher: 'Okyanus Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 216,
+    edition: '2026',
+  },
+  {
+    title: 'DM Serisi AYT Coğrafya Soru Bankası',
+    publisher: 'Sonuç Yayınları',
+    exam: 'AYT',
+    subjectSlug: 'cografya-1',
+    totalPages: 280,
+    edition: '2026',
+  },
+];

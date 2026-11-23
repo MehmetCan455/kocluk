@@ -1,0 +1,623 @@
+{
+  "batch": "ayt-biyoloji-cografya",
+  "books": [
+    {
+      "title": "AYT Biyoloji Konu Anlatımlı",
+      "publisher": "Palme Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 376,
+      "edition": "2026",
+      "sourceUrl": "https://www.palmeyayinevi.com/yks-ayt-biyoloji-konu-anlatimli",
+      "sourceUrls": [
+        "https://www.palmeyayinevi.com/yks-ayt-biyoloji-konu-anlatimli"
+      ],
+      "confidence": "high",
+      "notes": "Palme resmî künyesi: 376 sayfa, ISBN 9786052825044. Mevcut katalogdaki Palme AYT Biyoloji Soru Kitabı'ndan farklı bir konu anlatımı kitabıdır."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Endemik Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://endemikyayinlari.com.tr/urun/ayt-biyoloji-soru-bankasi--yeni--978-625-7430-71-5",
+      "sourceUrls": [
+        "https://endemikyayinlari.com.tr/urun/ayt-biyoloji-soru-bankasi--yeni--978-625-7430-71-5"
+      ],
+      "confidence": "high",
+      "notes": "Endemik resmî ürün sayfası: 288 sayfa, 140 test, 1485 soru. Yeni müfredat baskısı."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-biyoloji-soru-bankasi-741.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-biyoloji-soru-bankasi-741.html"
+      ],
+      "confidence": "high",
+      "notes": "Karekök resmî künyesi: 280 sayfa, ISBN 9786258419504, 2026-2027 müfredatı."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "https://www.aydinyayinlari.com.tr/ayt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://www.aydinyayinlari.com.tr/ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Aydın resmî künyesi: 280 sayfa, ISBN 9786050627787, 2025 müfredatına uygun baskı."
+    },
+    {
+      "title": "Miray AYT Biyoloji Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "https://www.aydinyayinlari.com.tr/miray-ayt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://www.aydinyayinlari.com.tr/miray-ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Miray resmî künyesi (Aydın Yayınları dağıtım sayfası): 280 sayfa, ISBN 9786257833103."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "https://hizyayinlari.com/urun/ayt-biyoloji-soru-bankasi/",
+      "sourceUrls": [
+        "https://hizyayinlari.com/urun/ayt-biyoloji-soru-bankasi/"
+      ],
+      "confidence": "high",
+      "notes": "Hız resmî künyesi: 280 sayfa, 132 test, ISBN 978-625-6950-79-5."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "VİP Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://vipyayinlari.com/ayt/soru-bankalari/ayt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://vipyayinlari.com/ayt/soru-bankalari/ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "VİP resmî künyesi: 288 sayfa, ISBN 9786256467064, 218x273 mm."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Açı Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://aciyayinlari.com.tr/urun-detay/ayt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://aciyayinlari.com.tr/urun-detay/ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Açı resmî ürün sayfası: 224 sayfa."
+    },
+    {
+      "title": "AYT 3D Biyoloji Soru Bankası",
+      "publisher": "3D Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 232,
+      "edition": "2026",
+      "sourceUrl": "https://www.hepsiburada.com/teknokapsul-3d-yayinlari-ayt-biyoloji-soru-bankasi-pm-HBC0000KJIEUM",
+      "sourceUrls": [
+        "https://www.hepsiburada.com/teknokapsul-3d-yayinlari-ayt-biyoloji-soru-bankasi-pm-HBC0000KJIEUM",
+        "https://www.dizgikitap.com/urun/3d-yayinlari-2025-ayt-biyoloji-soru-bankasi",
+        "https://www.kitapsayfam.com/urun/3d-yayinlari-ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız mağaza 232 sayfada birleşiyor (ISBN 9786259841793). Derskitabim aynı ISBN için 256 sayfa yazıyor; çoğunluk ve ürün barkodu 232 kabul edildi."
+    },
+    {
+      "title": "AYT 40 Seans Biyoloji",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://okyanusyayincilik.com/Urun/19170/Ayt%2040%20Seans%20Biyoloji",
+      "sourceUrls": [
+        "https://okyanusyayincilik.com/Urun/19170/Ayt%2040%20Seans%20Biyoloji",
+        "https://www.dr.com.tr/Kitap/AYT-40-Seans-Biyoloji/Sultan-ozkaya/Egitim-ve-Sinav-Kitaplari/universiteye-Hazirlik/AYT-Soru-Bankasi-Kitaplari/AYT-Biyoloji/urunno=0002073052001"
+      ],
+      "confidence": "high",
+      "notes": "Okyanus resmî kaydı ve D&R künyesi 240 sayfada birleşiyor; ISBN 9786057985064."
+    },
+    {
+      "title": "AYT Biyoloji Plus Serisi Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.dr.com.tr/kitap/ayt-biyoloji-plus-soru-bankasi/kolektif/egitim-ve-sinav-kitaplari/universiteye-hazirlik/ayt-soru-bankasi-kitaplari/ayt-biyoloji/urunno=0002012747001",
+      "sourceUrls": [
+        "https://www.dr.com.tr/kitap/ayt-biyoloji-plus-soru-bankasi/kolektif/egitim-ve-sinav-kitaplari/universiteye-hazirlik/ayt-soru-bankasi-kitaplari/ayt-biyoloji/urunno=0002012747001",
+        "https://bbdstore.com.tr/cap-yks-ayt-plus-s-b-biyoloji-2025-26"
+      ],
+      "confidence": "high",
+      "notes": "D&R ve BBD Store 224 sayfada birleşiyor; ISBN 9786258139488."
+    },
+    {
+      "title": "AYT Enerji Biyoloji Konu Özetli Soru Fasikülleri (4 Fasikül)",
+      "publisher": "Palme Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 376,
+      "edition": "2026",
+      "sourceUrl": "https://www.palmeyayinevi.com/palme-yks-ayt-enerjI-bIyolojI-konu-ozetlI-soru-fasIkullerI",
+      "sourceUrls": [
+        "https://www.palmeyayinevi.com/palme-yks-ayt-enerjI-bIyolojI-konu-ozetlI-soru-fasIkullerI",
+        "https://www.kirtasiyekalesi.com/palme-yks-ayt-enerji-biyoloji-konu-ozetli-soru-fasikulleri-4-fasikul"
+      ],
+      "confidence": "high",
+      "notes": "Dört fasiküllük set; toplam 376 sayfa. Palme resmî künyesi ve Kırtasiyekalesi aynı toplamı veriyor."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Tudem Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.tudem.com/urun/egitim/1006/tudem_egitim/11202/ayt_biyoloji_soru_bankasi.aspx",
+      "sourceUrls": [
+        "https://www.tudem.com/urun/egitim/1006/tudem_egitim/11202/ayt_biyoloji_soru_bankasi.aspx"
+      ],
+      "confidence": "high",
+      "notes": "Tudem resmî künyesi: 256 sayfa, ISBN 9786052857182, renkli baskı."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Ritim Biyoloji Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://ritimbiyoloji.com/yayinlar/soru-bankalari/ayt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://ritimbiyoloji.com/yayinlar/soru-bankalari/ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Ritim Biyoloji resmî künyesi: 288 sayfa. Sitede yayın yılı 2025 yazıyor; güncel baskı katalog yılı 2026 kabul edildi."
+    },
+    {
+      "title": "AYT Başlıyorum Biyoloji Soru Bankası",
+      "publisher": "IQ Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 264,
+      "edition": "2026",
+      "sourceUrl": "https://iqyayinlari.com/ayt/soru-bankasi/ayt-basliyorum-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://iqyayinlari.com/ayt/soru-bankasi/ayt-basliyorum-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "IQ resmî künyesi: 264 sayfa, ISBN 9786259362847."
+    },
+    {
+      "title": "AYT PÜF Biyoloji Soru Bankası",
+      "publisher": "IQ Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://iqyayinlari.com/ayt/soru-bankasi/ayt-puf-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://iqyayinlari.com/ayt/soru-bankasi/ayt-puf-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "IQ resmî künyesi: 288 sayfa, ISBN 9786259571614."
+    },
+    {
+      "title": "AYT Biyoloji Konu Özetli Soru Bankası",
+      "publisher": "Üç Dört Beş Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 360,
+      "edition": "2026",
+      "sourceUrl": "https://www.ucdortbes.com/ayt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://www.ucdortbes.com/ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Üç Dört Beş resmî künyesi: 360 sayfa, ISBN 9786056959066, Sinan Güneş."
+    },
+    {
+      "title": "AYT VAF Biyoloji A Soru Bankası",
+      "publisher": "Fenomen Okul Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-VAF-Biyoloji-A-Soru-Bankasi-Fenomen-Okul-Yayinlari-900404.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-VAF-Biyoloji-A-Soru-Bankasi-Fenomen-Okul-Yayinlari-900404.html",
+        "https://www.ekinkitap.com/fenomen-okul-yayinlari-ayt-biyoloji-a-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "İki bağımsız mağaza 224 sayfada birleşiyor; ISBN 9786257523820."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası (Temel ve Orta Düzey) Süper Öğreten",
+      "publisher": "Kafa Dengi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 216,
+      "edition": "2026",
+      "sourceUrl": "https://www.abccadde.com/detay/kafadengi-ayt-biyoloji-soru-bankasi-super-ogreten-9786053809838",
+      "sourceUrls": [
+        "https://www.abccadde.com/detay/kafadengi-ayt-biyoloji-soru-bankasi-super-ogreten-9786053809838",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-tyt-ayt-biyoloji-soru/kafa-dengi-yayinlari/kafa-dengi-yayinlari-ayt-biyoloji-temel-ve-orta-duzey-soru-bankasi",
+        "https://www.amazon.com.tr/Biyoloji-Soru-Bankas%C4%B1-Temel-D%C3%BCzey/dp/6053809837"
+      ],
+      "confidence": "high",
+      "notes": "Üç kaynak 216 sayfada birleşiyor (ISBN 9786053809838). Trendyol aynı ürün için 208 sayfa yazıyor; çoğunluk 216 kabul edildi."
+    },
+    {
+      "title": "AYT Biyoloji Simülatör Soru Bankası",
+      "publisher": "Yayın Denizi",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/yayin-denizi-ayt-biyoloji-simalator-soru-bankasi_67315.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/yayin-denizi-ayt-biyoloji-simalator-soru-bankasi_67315.html",
+        "https://islerkibris.com/kktc-kitap/ayt-biyoloji-soru-bankalari/yayin-denizi/yayin-denizi-ayt-biyoloji-simalator-soru-bankasi",
+        "https://www.trendruum.com/urunler/yayin-denizi-ayt-biyoloji-simalator-soru-bankasi-3062255"
+      ],
+      "confidence": "high",
+      "notes": "Üç mağaza 192 sayfa, 740 soru ve 86 testte birleşiyor. Hepsiburada aynı ürüne 250 sayfa yazıyor; çoğunluk 192 kabul edildi."
+    },
+    {
+      "title": "AYT Dr. Biyoloji Soru Bankası",
+      "publisher": "Oksijen Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://oksijensatis.com/dr-biyoloji",
+      "sourceUrls": [
+        "https://oksijensatis.com/dr-biyoloji"
+      ],
+      "confidence": "high",
+      "notes": "Oksijen resmî satış sayfası: 256 sayfa, 2025 baskı, Barış Kapan."
+    },
+    {
+      "title": "AYT Biyoloji Konu Anlatımlı Ders Föyleri (DİS Serisi) 2025-2026",
+      "publisher": "Ordinat Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "https://www.ordinatyayinlari.com/urun/ayt-biyoloji-konu-anlatimli-ders-foyleri-dis-serisi-2025-2026",
+      "sourceUrls": [
+        "https://www.ordinatyayinlari.com/urun/ayt-biyoloji-konu-anlatimli-ders-foyleri-dis-serisi-2025-2026"
+      ],
+      "confidence": "high",
+      "notes": "Ordinat resmî künyesi: 280 sayfa, ISBN 9786259465005, DİS serisi konu anlatımlı ders föyleri."
+    },
+    {
+      "title": "AYT Biyoloji Ders Notları",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/2026-ayt-biyoloji-ders-notlari/728834.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/2026-ayt-biyoloji-ders-notlari/728834.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu 2026 baskısı künyesi: 304 sayfa, ISBN 9786255847645, Zeliha Yücel, 31.08.2025. 288 sayfa 2024 baskısına (ISBN 9786258161403, Dilek Kuvvet) aittir; 2027 baskısı 320 sayfadır."
+    },
+    {
+      "title": "AYT Biyoloji Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "https://www.mavikalem.com.tr/urun/limit-ayt-biyoloji-soru-bankasi",
+      "sourceUrls": [
+        "https://www.mavikalem.com.tr/urun/limit-ayt-biyoloji-soru-bankasi"
+      ],
+      "confidence": "medium",
+      "notes": "MaviKalem künyesi: 280 sayfa, ISBN 9786052750995, İbrahim Torcan. İkinci bağımsız sayfa sayısı kaynağı bulunamadı."
+    },
+    {
+      "title": "AYT Biyoloji Rehber Sorularla Konu Anlatımı",
+      "publisher": "Esen Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "biyoloji",
+      "totalPages": 432,
+      "edition": "2019",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/ayt-biyoloji-rehber-sorularla-konu-anlatimi/523162.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/ayt-biyoloji-rehber-sorularla-konu-anlatimi/523162.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu künyesi: 432 sayfa, 27.11.2019 baskısı, Mehmet Tokay - Okan Erbaşlı. Eski baskı; güncel AYT müfredatına uygunluğu ayrıca kontrol edilmeli."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 264,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-cografya-soru-bankasi-178.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-cografya-soru-bankasi-178.html"
+      ],
+      "confidence": "high",
+      "notes": "Karekök resmî künyesi: 264 sayfa, ISBN 9786257154109. Ünite listesi yalnızca 11. sınıf Doğal/Beşeri Sistemler, Küresel Ortam ve Çevre konularını içeriyor; 12. sınıf konusu yok, bu yüzden AYT Coğrafya-1 kapsamında değerlendirildi. Başlık künyede 'AYT Coğrafya Soru Bankası' şeklinde."
+    },
+    {
+      "title": "YKS DAF Coğrafya 1. Kitap",
+      "publisher": "Eis Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 352,
+      "edition": "2026",
+      "sourceUrl": "https://www.eisyayinlari.com/yayin/yks-daf-cografya-1-kitap/",
+      "sourceUrls": [
+        "https://www.eisyayinlari.com/yayin/yks-daf-cografya-1-kitap/",
+        "https://www.kitapsec.com/Products/YKS-Mavi-Set-DAF-Cografya-1-Kitap-Eis-Yayinlari-838184.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 352 sayfa (ISBN 9786256906006); Kitapsepeti aynı kitap için 384 sayfa yazıyor, bu yüzden sayfa sayısı çelişkili ve tek mağaza kaynağına dayanıyor. Kapak dosya adı 'eis-12-DAF' olan 12. sınıf setinin 1. kitabıdır; 12. sınıf coğrafyası AYT Coğrafya-2 kapsamına girdiği için bu slota yazıldı."
+    },
+    {
+      "title": "YKS DAF Coğrafya 2. Kitap",
+      "publisher": "Eis Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 400,
+      "edition": "2026",
+      "sourceUrl": "https://www.eisyayinlari.com/yayin/yks-daf-cografya-2-kitap/",
+      "sourceUrls": [
+        "https://www.eisyayinlari.com/yayin/yks-daf-cografya-2-kitap/",
+        "https://www.kitapsec.com/Products/YKS-Mavi-Set-DAF-Cografya-2-Kitap-Eis-Yayinlari-838187.html"
+      ],
+      "confidence": "medium",
+      "notes": "Eis resmî ürün sayfası sayfa sayısı vermiyor; Kitapsec künyesi 400 sayfa (ISBN 9786256906013), ikinci bağımsız kaynak bulunamadı. 12. sınıf DAF setinin 2. kitabı; AYT Coğrafya-2 kapsamında değerlendirildi."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Bilgi Sarmal",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://www.bilgisarmal.com/yayinlar/ayt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bilgisarmal.com/yayinlar/ayt-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Bilgi Sarmal resmî künyesi: 208 sayfa, ISBN 9786258070439. Coğrafya-1 ve Coğrafya-2 ortak tek cilt."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Palme Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://palmekitabevi.com/yks-ayt-co%C4%9Frafya-soru-bankas%C4%B1",
+      "sourceUrls": [
+        "https://palmekitabevi.com/yks-ayt-co%C4%9Frafya-soru-bankas%C4%B1"
+      ],
+      "confidence": "high",
+      "notes": "Palme Kitabevi resmî künyesi: 208 sayfa, ISBN 9786257532709. Coğrafya-1 ve Coğrafya-2 ortak tek cilt."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "VİP Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://vipyayinlari.com/ayt/soru-bankalari/ayt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://vipyayinlari.com/ayt/soru-bankalari/ayt-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "VİP resmî künyesi: 208 sayfa, ISBN 9786256467057. Coğrafya-1 ve Coğrafya-2 ortak tek cilt."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 208,
+      "edition": "2026",
+      "sourceUrl": "https://hizyayinlari.com/urun/ayt-cografya-soru-bankasi/",
+      "sourceUrls": [
+        "https://hizyayinlari.com/urun/ayt-cografya-soru-bankasi/"
+      ],
+      "confidence": "high",
+      "notes": "Hız resmî künyesi: 208 sayfa, ISBN 978-625-6950-81-8. Coğrafya-1 ve Coğrafya-2 ortak tek cilt."
+    },
+    {
+      "title": "DM Serisi AYT Coğrafya Soru Bankası",
+      "publisher": "Sonuç Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 280,
+      "edition": "2026",
+      "sourceUrl": "http://www.sonucyayinlari.com.tr/urun/dm-ayt-cografya-soru-bankasi-sonuc-yayinlari",
+      "sourceUrls": [
+        "http://www.sonucyayinlari.com.tr/urun/dm-ayt-cografya-soru-bankasi-sonuc-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Sonuç resmî künyesi: 280 sayfa, ISBN 9786257209472. Coğrafya-1 ve Coğrafya-2 ortak tek cilt."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Tudem Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/ayt-cografya-soru-bankasi/632472.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/ayt-cografya-soru-bankasi/632472.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu künyesi: 240 sayfa. Coğrafya-1 ve Coğrafya-2 ortak tek cilt; ikinci bağımsız sayfa kaynağı doğrulanamadı."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Pegem Akademi Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/ayt-cografya-soru-bankasi/657976.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/ayt-cografya-soru-bankasi/657976.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu künyesi: 192 sayfa. Coğrafya-1 ve Coğrafya-2 ortak tek cilt; tek güvenilir kaynak."
+    },
+    {
+      "title": "AYT Iceberg Coğrafya Konu Anlatımı",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-1",
+      "totalPages": 216,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/ayt-iceberg-cografya-konu-anlatimi/535309.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/ayt-iceberg-cografya-konu-anlatimi/535309.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu künyesi: 216 sayfa. Coğrafya-1 ve Coğrafya-2 ortak tek cilt; tek güvenilir kaynak."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası (Güncel)",
+      "publisher": "Toprak Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.toprakyayincilik.com/urun?urun=ayt_cografya_soru_bankasi_guncel",
+      "sourceUrls": [
+        "https://www.toprakyayincilik.com/urun?urun=ayt_cografya_soru_bankasi_guncel"
+      ],
+      "confidence": "high",
+      "notes": "Toprak resmî künyesi: 224 sayfa, ISBN 9786257972819. Coğrafya-1 ve Coğrafya-2 ortak tek cilt; cografya-2 dengesi için bu slota yazıldı."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Açı Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://aciyayinlari.com.tr/urun-detay/ayt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://aciyayinlari.com.tr/urun-detay/ayt-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Açı resmî künyesi: 224 sayfa. Coğrafya-1 ve Coğrafya-2 ortak tek cilt; cografya-2 dengesi için bu slota yazıldı."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Endemik Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 188,
+      "edition": "2026",
+      "sourceUrl": "https://endemikyayinlari.com.tr/urun/ayt-cografya-soru-bankasi--yeni--978-625-7430-73-9",
+      "sourceUrls": [
+        "https://endemikyayinlari.com.tr/urun/ayt-cografya-soru-bankasi--yeni--978-625-7430-73-9"
+      ],
+      "confidence": "high",
+      "notes": "Endemik resmî künyesi: 188 sayfa, 928 soru. Coğrafya-1 ve Coğrafya-2 ortak tek cilt; cografya-2 dengesi için bu slota yazıldı."
+    },
+    {
+      "title": "AYT Coğrafya Konu Anlatımlı Ders Föyleri (DİS Serisi) 2025-2026",
+      "publisher": "Ordinat Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.ordinatyayinlari.com/urun/ayt-cografya-konu-anlatimli-ders-foyleri-dis-serisi-2025-2026",
+      "sourceUrls": [
+        "https://www.ordinatyayinlari.com/urun/ayt-cografya-konu-anlatimli-ders-foyleri-dis-serisi-2025-2026"
+      ],
+      "confidence": "high",
+      "notes": "Ordinat resmî künyesi: 240 sayfa, ISBN 9786259465036. Coğrafya-1 ve Coğrafya-2 ortak tek cilt; cografya-2 dengesi için bu slota yazıldı."
+    },
+    {
+      "title": "AYT 3D Coğrafya Soru Bankası",
+      "publisher": "3D Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.dizgikitap.com/urun/3d-yayinlari-ayt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.dizgikitap.com/urun/3d-yayinlari-ayt-cografya-soru-bankasi",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-cografya/3d-yayinlari/3d-yayinlari-ayt-cografya-soru-bankasi",
+        "https://www.derskitabim.com.tr/3d-ayt-soru-bankasi-cografya-24-25"
+      ],
+      "confidence": "high",
+      "notes": "Üç mağaza 224 sayfada birleşiyor (ISBN 9786259877334). Coğrafya-1 ve Coğrafya-2 ortak tek cilt; cografya-2 dengesi için bu slota yazıldı."
+    },
+    {
+      "title": "AYT Coğrafya Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://limityayinlari.com.tr/kitaplar/ayt-cografya-soru-bankasi",
+      "sourceUrls": [
+        "https://limityayinlari.com.tr/kitaplar/ayt-cografya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Limit resmî güncel künyesi: 192 sayfa, ISBN 9786052758731. 320 sayfa değeri 2022 baskısına (ISBN 9786052755587) aittir; BKM eski ISBN için 272 sayfa yazıyor. Coğrafya-1 ve Coğrafya-2 ortak tek cilt."
+    },
+    {
+      "title": "AYT Coğrafya Plus Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "cografya-2",
+      "totalPages": 237,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-cografya/cap-yayinlari/cap-yayinlari-ayt-cografya-plus-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-tyt-soru-bankasi-cografya/cap-yayinlari/cap-yayinlari-ayt-cografya-plus-soru-bankasi",
+        "https://bbdstore.com.tr/cap-yks-ayt-plus-s-b-cografya-2025-26"
+      ],
+      "confidence": "medium",
+      "notes": "Pelikan künyesi 237 sayfa (ISBN 9786258139563); BBD Store 240 sayfa yazıyor. Ayrıntılı künye 237 kabul edildi. Coğrafya-1 ve Coğrafya-2 ortak tek cilt."
+    }
+  ],
+  "gaps": []
+}

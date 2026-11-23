@@ -1,0 +1,774 @@
+{
+  "batch": "ayt-fizik-kimya",
+  "books": [
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Apotemi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 400,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/apotemi-yayinlari-ayt-fizik-soru-bankasi_106084.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/apotemi-yayinlari-ayt-fizik-soru-bankasi_106084.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/apotemi-yayinlari/apotemi-yayinlari-ayt-fizik-soru-bankasi",
+        "https://dizgikitap.com/urun/apotemi-yayinlari-ayt-fizik-soru-bankasi-19014"
+      ],
+      "confidence": "high",
+      "notes": "Üç bağımsız kaynak aynı ISBN 9786256648555 için 400 sayfa veriyor. Tamamı video çözümlü, 19x27 cm."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Orijinal Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/orijinal-yayinlari-ayt-fizik-soru-bankasi_106993.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/orijinal-yayinlari-ayt-fizik-soru-bankasi_106993.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/orijinal-yayinlari/orijinal-yayinlari-ayt-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "İki bağımsız mağaza aynı ISBN 9786259003801 için 384 sayfa veriyor; yazarlar Tolga Bilgin ve Fethi Erbay Büyük."
+    },
+    {
+      "title": "AYT Fizik Iceberg Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/okyanus-yayinlari-ayt-fizik-iceberg-soru-bankasi_97942.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/okyanus-yayinlari-ayt-fizik-iceberg-soru-bankasi_97942.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-fizik-soru/okyanus-yayincilik/okyanus-yayinlari-ayt-fizik-iceberg-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "288 sayfa, ISBN 9786256537576; iki bağımsız kaynak aynı değeri veriyor. Iceberg serisi, video çözümlü."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 328,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/hiz-yayinlari-ayt-fizik-soru-bankasi_103586.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/hiz-yayinlari-ayt-fizik-soru-bankasi_103586.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/hiz-yayinlari/hiz-yayinlari-ayt-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "328 sayfa, ISBN 9786256950788; iki bağımsız mağaza aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Ertan Sinan Şahin",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 216,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/ertan-sinan-sahin-ayt-fizik-soru-bankasi_103735.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ertan-sinan-sahin-ayt-fizik-soru-bankasi_103735.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/kr-akademi/ertan-sinan-sahin-ayt-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "216 sayfa, ISBN 9786255599568; yazarın kendi yayını, iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "Fizikfinito AYT Fizik 1 Kitap 3 Kamp Soru Bankası",
+      "publisher": "Zeduva Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/zeduva-yayinlari-fizikfinito-ayt-fizik-1-kitap-3-kamp-soru-bankasi_105430.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/zeduva-yayinlari-fizikfinito-ayt-fizik-1-kitap-3-kamp-soru-bankasi_105430.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/zeduva-yayinlari/zeduva-yayinlari-fizikfinito-ayt-fizik-1-kitap-3-kamp-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "240 sayfa, ISBN 9786259269931, yazar Didar Baskın. Tek kitapta üç kamp planı; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Retro Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/retro-yayincilik-ayt-fizik-soru-bankasi_103060.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/retro-yayincilik-ayt-fizik-soru-bankasi_103060.html",
+        "https://www.pelikankitabevi.com.tr/retro-yayincilik/omer-gullu/retro-yayincilik-ayt-fizik-soru-bankasi-cozumlu"
+      ],
+      "confidence": "high",
+      "notes": "256 sayfa, ISBN 9786259625065; iki bağımsız kaynak aynı değeri veriyor. Tamamı çözümlü."
+    },
+    {
+      "title": "AYT Fizik Püf Soru Bankası",
+      "publisher": "IQ Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/iq-yayinlari-ayt-fizik-puf-soru-bankasi_102307.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/iq-yayinlari-ayt-fizik-puf-soru-bankasi_102307.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/iq-yayinlari/iq-yayinlari-ayt-fizik-puf-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "304 sayfa, ISBN 9786259559872; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Twins Fizik Soru Bankası",
+      "publisher": "KR Akademi",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 144,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/kr-akademi-ayt-twins-fizik-soru-bankasi_110531.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/kr-akademi-ayt-twins-fizik-soru-bankasi_110531.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/kr-akademi/huseyin-gazi-yucel/kr-akademi-2027-ayt-twins-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "144 sayfa, ISBN 9786258580594; 2027 sezonu Twins serisi. İki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Bilgi Sarmal",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 352,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/bilgi-sarmal-yayinlari/bilgi-sarmal-yayinlari-ayt-fizik-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/bilgi-sarmal-yayinlari/bilgi-sarmal-yayinlari-ayt-fizik-soru-bankasi",
+        "https://dizgikitap.com/urun/bilgi-sarmal-yayinlari-ayt-fizik-soru-bankasi-19319"
+      ],
+      "confidence": "high",
+      "notes": "352 sayfa, ISBN 9786258070309; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 292,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/karekok-yayinlari/super-fiayt-karekok-yayinlari-ayt-fizik-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/karekok-yayinlari/super-fiayt-karekok-yayinlari-ayt-fizik-soru-bankasi",
+        "https://dizgikitap.com/urun/karekok-yayinlari-ayt-fizik-soru-bankasi-18834"
+      ],
+      "confidence": "high",
+      "notes": "292 sayfa, ISBN 9786257154772; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Fizik Konu Özetli Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 408,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-fizik-soru/aydin-yayinlari/suleyman-tahanci/aydin-yayinlari-ayt-fizik-konu-ozetli-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-fizik-soru/aydin-yayinlari/suleyman-tahanci/aydin-yayinlari-ayt-fizik-konu-ozetli-soru-bankasi",
+        "https://dizgikitap.com/urun/aydin-yayinlari-ayt-fizik-konu-ozetli-soru-bankasi-20482"
+      ],
+      "confidence": "high",
+      "notes": "408 sayfa, ISBN 9786256412286; iki bağımsız kaynak aynı değeri veriyor. Konu özeti + soru bankası."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Hız ve Renk Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 316,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/hiz-ve-renk-yayinlari/hiz-ve-renk-yayinlari-ayt-fizik-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/hiz-ve-renk-yayinlari/hiz-ve-renk-yayinlari-ayt-fizik-soru-bankasi",
+        "https://dizgikitap.com/urun/hiz-ve-renk-yayinlari-ayt-fizik-soru-bankasi-19401"
+      ],
+      "confidence": "high",
+      "notes": "316 sayfa, ISBN 9786257532457; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "2027 AYT Fizik Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/benim-hocam-yayinlari/veli-ipekci/benim-hocam-yayinlari-2027-ayt-fizik-video-cozumlu-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/benim-hocam-yayinlari/veli-ipekci/benim-hocam-yayinlari-2027-ayt-fizik-video-cozumlu-soru-bankasi",
+        "https://dizgikitap.com/urun/benim-hocam-yayinlari-ayt-fizik-soru-bankasi-video-cozumlu-1000121"
+      ],
+      "confidence": "high",
+      "notes": "320 sayfa, ISBN 9786258906455, yazar Veli İpekçi; 2027 sezonu. İki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "2027 AYT Fizik Ders Notları",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 432,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/benim-hocam-2027-ayt-fizik-ders-notlari_109927.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/benim-hocam-2027-ayt-fizik-ders-notlari_109927.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-konu-anlatim-fizik/benim-hocam-yayinlari/veli-ipekci/benim-hocam-yayinlari-2027-ayt-fizik-ders-notlari",
+        "https://dizgikitap.com/urun/benim-hocam-yayinlari-ayt-fizik-ders-notlari-1000122"
+      ],
+      "confidence": "high",
+      "notes": "432 sayfa, ISBN 9786258906486; üç bağımsız kaynak aynı değeri veriyor. Konu anlatımı + ders notu formatı."
+    },
+    {
+      "title": "AYT Fizik Plus Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/cap-yayinlari-ayt-fizik-plus-soru-bankasi_97172.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/cap-yayinlari-ayt-fizik-plus-soru-bankasi_97172.html",
+        "https://dizgikitap.com/urun/cap-yayinlari-ayt-fizik-plus-soru-bankasi-19544"
+      ],
+      "confidence": "high",
+      "notes": "320 sayfa, ISBN 9786256040212. Dizgi Kitap aynı ISBN için 319 sayfa yazıyor; iki kaynağın çoğunluğu ve künye değeri 320 esas alındı."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Vip Fizik Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/vip-fizik-yayinlari-ayt-fizik-soru-bankasi_103822.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/vip-fizik-yayinlari-ayt-fizik-soru-bankasi_103822.html",
+        "https://dizgikitap.com/urun/vip-fizik-ayt-fizik-soru-bankasi-vip-fizik-yayinlari-15294",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/vip-fizik-yayinlari/vip-fizik-yayinlari-ayt-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786259487861. İki kaynak 336, Pelikan 368 sayfa veriyor; mağaza çoğunluğu (2/3) esas alındı, fark not edildi."
+    },
+    {
+      "title": "AYT Fizik Soru Bankası",
+      "publisher": "Ulti Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/ulti-yayinlari-ayt-fizik-soru-bankasi_96547.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ulti-yayinlari-ayt-fizik-soru-bankasi_96547.html",
+        "https://dizgikitap.com/urun/ulti-yayinlari-ayt-fizik-soru-bankasi-21314"
+      ],
+      "confidence": "high",
+      "notes": "384 sayfa, ISBN 9786259477558; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT 3D Fizik Tamamı Video Çözümlü Soru Bankası",
+      "publisher": "3D Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 312,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-3D-Fizik-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-550599.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-3D-Fizik-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-550599.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-fizik/3d-yayinlari/3d-yayinlari-ayt-fizik-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "312 sayfa, ISBN 9786051949543, yazar Alper Emrah Gümüş; iki bağımsız kaynak aynı değeri veriyor. Dizgi Kitap 296 sayfa gösteriyor (eski baskı), künye değeri esas alındı."
+    },
+    {
+      "title": "Sınav Kalitesinde AYT Fizik Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 352,
+      "edition": "2026",
+      "sourceUrl": "https://www.sinavyayin.com/urun/sinav-yayinlari-sinav-kalitesinde-ayt-fizik-soru-bankasi",
+      "sourceUrls": [
+        "https://www.sinavyayin.com/urun/sinav-yayinlari-sinav-kalitesinde-ayt-fizik-soru-bankasi",
+        "https://www.kitapisler.com/sinav-yayinlari-sinav-kalitesinde-ayt-fizik-soru-bankasi_94208.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye: 352 sayfa, 1349 soru, ISBN 9786258296259. Yayınevinin kendi sitesi ile mağaza aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Fizik GİS Soru Bankası",
+      "publisher": "Özdebir Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/ozdebir-yayinlari-ayt-fizik-gis-soru-bankasi_93354.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ozdebir-yayinlari-ayt-fizik-gis-soru-bankasi_93354.html",
+        "https://www.kitapiste.com/ozdebir-Yayinlari-AYT-Fizik-GiS-Soru-Bankasi_135239.html"
+      ],
+      "confidence": "high",
+      "notes": "272 sayfa, ISBN 9786051383613; iki bağımsız mağaza aynı değeri veriyor. Gelişim İzleme Serisi."
+    },
+    {
+      "title": "AYT Fizik Konu Anlatımlı",
+      "publisher": "Palme",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 360,
+      "edition": "2018",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-konu-kitaplari-ayt-fizik-konu/palme-yayinevi-yks/kampanyali-palme-yayinlari-ayt-fizik-konu-anlatimli",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-konu-kitaplari-ayt-fizik-konu/palme-yayinevi-yks/kampanyali-palme-yayinlari-ayt-fizik-konu-anlatimli",
+        "https://pegem.net/urun/YKS-AYT-Fizik-Konu-Anlatimli-8888",
+        "https://www.hepsiburada.com/palme-yayinevi-yks-ayt-fizik-konu-anlatimli-kitap-360-sayfa-universite-hazirlik-icin-pm-HB00000EEGEA"
+      ],
+      "confidence": "high",
+      "notes": "360 sayfa, ISBN 9786052821459, yazar Cemil Ayan. Baskı 2018; Palme hâlâ satışta tutuyor, sayfa sayısı üç kaynakta aynı."
+    },
+    {
+      "title": "AYT Fizik Video Ders Kitabı",
+      "publisher": "Ertan Sinan Şahin",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 272,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/ertan-sinan-sahin-ayt-fizik-video-ders-kitabi_106194.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ertan-sinan-sahin-ayt-fizik-video-ders-kitabi_106194.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-konu-anlatim-fizik/ertan-sinan-sahin/ertan-sinan-sahin-ayt-fizik-video-ders-kitabi"
+      ],
+      "confidence": "high",
+      "notes": "272 sayfa, ISBN 9786255599940; iki bağımsız kaynak aynı değeri veriyor. Video ders kitabı formatında konu anlatımı."
+    },
+    {
+      "title": "AYT Fizik Konu Anlatımlı",
+      "publisher": "Yazıt Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 487,
+      "edition": "2019",
+      "sourceUrl": "https://www.kitapisler.com/yazit-yayinlari-ayt-fizik-konu-anlatimli_58264.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/yazit-yayinlari-ayt-fizik-konu-anlatimli_58264.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-fizik-soru/yazit-yayincilik/ahmet-oztuncer/yazit-yayinlari-ayt-fizik-konu-anlatimli",
+        "https://pegem.net/urun/AYT-Fizik-Konu-Kitabi-9393"
+      ],
+      "confidence": "high",
+      "notes": "487 sayfa, ISBN 9786057705167, yazar Ahmet Öztunç. Pegem künyesinde basım yılı 2019; üç kaynak sayfa sayısında birleşiyor."
+    },
+    {
+      "title": "Analitik AYT Fizik Konu-Soru Fasikülleri (17 Fasikül)",
+      "publisher": "Merkez Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "fizik",
+      "totalPages": 376,
+      "edition": "2026",
+      "sourceUrl": "https://merkezyayinlari.com/product/analitik-ayt-fizik-konu-soru-fasikulleri",
+      "sourceUrls": [
+        "https://merkezyayinlari.com/product/analitik-ayt-fizik-konu-soru-fasikulleri",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-konu-anlatim-fizik/merkez-yayinlari/merkez-yayinlari-ayt-analitik-fizik-konu-soru-fasikulleri",
+        "https://www.kitapiste.com/Merkez-Yayinlari-AYT-Analitik-Fizik-Konu-Soru-Fasikulleri_115806.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye: 376 sayfa / 17 fasikül, 2556 soru, ISBN 9786057952769. Fasikül seti olduğu için başlıkta fasikül sayısı belirtildi."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Bilgi Sarmal",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 368,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/bilgi-sarmal-yayinlari/bilgi-sarmal-yayinlari-ayt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/bilgi-sarmal-yayinlari/bilgi-sarmal-yayinlari-ayt-kimya-soru-bankasi",
+        "https://dizgikitap.com/urun/bilgi-sarmal-yayinlari-ayt-kimya-soru-bankasi-19330"
+      ],
+      "confidence": "high",
+      "notes": "368 sayfa, ISBN 9786258070286; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "3D Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/3d-yayinlari/ali-dindar/3d-yayinlari-ayt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/3d-yayinlari/ali-dindar/3d-yayinlari-ayt-kimya-soru-bankasi",
+        "https://dizgikitap.com/urun/3d-yayinlari-ayt-kimya-soru-bankasi-1-19146"
+      ],
+      "confidence": "high",
+      "notes": "288 sayfa, ISBN 9786259841779, yazar Ali Dindar; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 294,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/super-fiyat/karekok-yayinlari/super-fiyat-karekok-yayinlari-ayt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/super-fiyat/karekok-yayinlari/super-fiyat-karekok-yayinlari-ayt-kimya-soru-bankasi",
+        "https://dizgikitap.com/urun/karekok-yayinlari-ayt-kimya-soru-bankasi-18813"
+      ],
+      "confidence": "high",
+      "notes": "294 sayfa, ISBN 9786257154086; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Apotemi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/apotemi-yayinlari/apotemi-yayinlari-ayt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/apotemi-yayinlari/apotemi-yayinlari-ayt-kimya-soru-bankasi",
+        "https://dizgikitap.com/urun/apotemi-yayinlari-ayt-kimya-soru-bankasi-19040"
+      ],
+      "confidence": "high",
+      "notes": "272 sayfa, ISBN 9786057355911; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "2027 AYT Kimya Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/benim-hocam-yayinlari/gorkem-sahin/benim-hocam-yayinlari-2027-ayt-kimya-video-cozumlu-soru-bankasi",
+      "sourceUrls": [
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/benim-hocam-yayinlari/gorkem-sahin/benim-hocam-yayinlari-2027-ayt-kimya-video-cozumlu-soru-bankasi",
+        "https://dizgikitap.com/urun/benim-hocam-yayinlari-ayt-kimya-soru-bankasi-20143"
+      ],
+      "confidence": "high",
+      "notes": "304 sayfa, ISBN 9786255847621, yazar Görkem Şahin; 2027 sezonu. İki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Plus Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 400,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/cap-yayinlari-ayt-kimya-plus-soru-bankasi_96898.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/cap-yayinlari-ayt-kimya-plus-soru-bankasi_96898.html",
+        "https://dizgikitap.com/urun/cap-yayinlari-ayt-kimya-plus-soru-bankasi-19547"
+      ],
+      "confidence": "high",
+      "notes": "400 sayfa, ISBN 9786256040076; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Iceberg Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 264,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/okyanus-yayinlari-ayt-kimya-iceberg-soru-bankasi_97943.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/okyanus-yayinlari-ayt-kimya-iceberg-soru-bankasi_97943.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/okyanus-yayincilik/okyanus-yayinlari-ayt-kimya-iceberg-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "264 sayfa, ISBN 9786256537583; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Oktet Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/oktet-yayinlari-ayt-kimya-soru-bankasi_102131.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/oktet-yayinlari-ayt-kimya-soru-bankasi_102131.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/oktet-yayinlari/oktet-yayinlari-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "384 sayfa, ISBN 9786259779232; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 328,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/hiz-yayinlari-ayt-kimya-soru-bankasi_103591.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/hiz-yayinlari-ayt-kimya-soru-bankasi_103591.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/hiz-yayinlari/hiz-yayinlari-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "328 sayfa, ISBN 9786256071421; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Madalyon Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/madalyon-yayinlari-ayt-kimya-soru-bankasi_103282.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/madalyon-yayinlari-ayt-kimya-soru-bankasi_103282.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/madalyon-yayinlari/komisyon/madalyon-yayinlari-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "272 sayfa, ISBN 9786257968508; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Püf Soru Bankası",
+      "publisher": "IQ Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 328,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/iq-yayinlari-ayt-kimya-puf-soru-bankasi_102308.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/iq-yayinlari-ayt-kimya-puf-soru-bankasi_102308.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/iq-yayinlari/iq-yayinlari-ayt-kimya-puf-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "328 sayfa, ISBN 9786259559896; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "H2O Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/h2o-yayinlari-ayt-kimya-soru-bankasi_109254.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/h2o-yayinlari-ayt-kimya-soru-bankasi_109254.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/h2o-yayinlari/umut-boz/h2o-yayinlari-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "320 sayfa, ISBN 9786259643830; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Parlayan Projeler",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 248,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/sinan-ihtiyaroglu-ayt-kimya-soru-bankasi_107321.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/sinan-ihtiyaroglu-ayt-kimya-soru-bankasi_107321.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/parlayan-projeler/sinan-ihtiyaroglu/parlayan-projeler-ayt-kimya-soru-bankasi-cozumlu"
+      ],
+      "confidence": "high",
+      "notes": "248 sayfa, ISBN 9786256391994, yazar Sinan İhtiyaroğlu; tamamı çözümlü. İki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "Celal Hoca AYT Kimya Soru Bankası",
+      "publisher": "KR Akademi",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 160,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/kr-akademi-celal-hoca-ayt-kimya-soru-bankasi_106941.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/kr-akademi-celal-hoca-ayt-kimya-soru-bankasi_106941.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/kr-akademi/celal-hoca-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "160 sayfa, ISBN 9786255599254, yazar Celal Gündüz; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "Kimya Adası AYT Kimya Soru Bankası",
+      "publisher": "KR Akademi",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/kr-akademi-kimya-adasi-ayt-kimya-soru-bankasi_99278.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/kr-akademi-kimya-adasi-ayt-kimya-soru-bankasi_99278.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/kr-akademi/kimya-adasi-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "192 sayfa, ISBN 9786256336728, yazar Murat Namlı; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Ferrum Tekrar Soru Kampı",
+      "publisher": "Orbital Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 160,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/orbital-yayinlari-ayt-kimya-ferrum-tekrar-soru-kampi_106288.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/orbital-yayinlari-ayt-kimya-ferrum-tekrar-soru-kampi_106288.html",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/orbital-yayinlari/orbital-yayinlari-ayt-kimya-ferrum-tekrar-soru-kampi"
+      ],
+      "confidence": "high",
+      "notes": "160 sayfa, ISBN 9786256331549; iki bağımsız kaynak aynı değeri veriyor. Kamp/tekrar formatında soru bankası."
+    },
+    {
+      "title": "AYT Kimya Konu Özetli Yeni Nesil Soru Bankası",
+      "publisher": "Marka Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 224,
+      "edition": "2024",
+      "sourceUrl": "https://www.kitapisler.com/marka-yayinlari-ayt-kimya-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu-_94038.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/marka-yayinlari-ayt-kimya-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu-_94038.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/marka-yayinlari/komisyon/marka-yayinlari-2024-ayt-kimya-konu-ozetli-yeni-nesil-soru-bankasi-tamami-video-cozumlu"
+      ],
+      "confidence": "high",
+      "notes": "224 sayfa, ISBN 9786258476484; iki bağımsız kaynak aynı değeri veriyor. Baskı 2024, hâlâ satışta."
+    },
+    {
+      "title": "AYT Kimya Venn Serisi Soru Kitabı",
+      "publisher": "Yazıt Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/yazit-yayinlari-ayt-kimya-venn-serisi-soru-kitabi_90234.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/yazit-yayinlari-ayt-kimya-venn-serisi-soru-kitabi_90234.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/yazit-yayincilik/serhat-yildiz/yazit-yayinlari-ayt-kimya-venn-serisi-soru-kitabi"
+      ],
+      "confidence": "high",
+      "notes": "320 sayfa, ISBN 9786257475327, yazar Serhat Yıldız; iki bağımsız kaynak aynı değeri veriyor."
+    },
+    {
+      "title": "12. Sınıf AYT Kimya Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 160,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/miray-yayinlari-12-sinif-ayt-kimya-soru-bankasi-_95003.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/miray-yayinlari-12-sinif-ayt-kimya-soru-bankasi-_95003.html",
+        "https://www.pelikankitabevi.com.tr/lise-9-12-sinif-kitaplari-12-sinif/miray-yayinlari/ali-dincsonmez/miray-yayinlari-12-sinif-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "160 sayfa, ISBN 9786256412453; iki bağımsız kaynak aynı değeri veriyor. 12. sınıf AYT kimya müfredatına özel."
+    },
+    {
+      "title": "AYT Enerji Kimya Konu Özetli Soru Fasikülleri (8 Fasikül)",
+      "publisher": "Palme",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 464,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/palme-yayinlari-ayt-enerji-kimya-konu-ozetli-soru-fasikulleri_96656.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/palme-yayinlari-ayt-enerji-kimya-konu-ozetli-soru-fasikulleri_96656.html",
+        "https://www.pelikankitabevi.com.tr/tyt-ayt-soru-kitaplari-ayt-kimya-soru/palme-yayinevi-yks/palme-yayinlari-ayt-enerji-kimya-konu-ozetli-soru-fasikulleri",
+        "https://dizgikitap.com/urun/palme-yayinlari-ayt-enerji-kimya-konu-ozetli-soru-fasikulleri-21592"
+      ],
+      "confidence": "high",
+      "notes": "8 fasikül, toplam 464 sayfa, ISBN 9786256672345; üç bağımsız kaynak aynı toplamı veriyor. Fasikül sayısı Palme satış listesinde 8 olarak geçiyor."
+    },
+    {
+      "title": "AYT Kimya Soru Bankası",
+      "publisher": "Ulti Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 368,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/ulti-yayinlari-ayt-kimya-soru-bankasi_102166.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ulti-yayinlari-ayt-kimya-soru-bankasi_102166.html",
+        "https://dizgikitap.com/urun/ulti-yayinlari-ayt-kimya-soru-bankasi-21272",
+        "https://www.pelikankitabevi.com.tr/universite-hazirlik-yks-ayt-soru-bankasi-kimya/ulti-yayinlari/ulti-yayinlari-ayt-kimya-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "ISBN 9786259767260. İki kaynak 368, Pelikan 288 sayfa veriyor; mağaza çoğunluğu (2/3) esas alındı, fark not edildi."
+    },
+    {
+      "title": "Sınav Kalitesinde AYT Kimya Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.sinavyayin.com/urun/sinav-yayinlari-sinav-kalitesinde-ayt-kimya-soru-bankasi",
+      "sourceUrls": [
+        "https://www.sinavyayin.com/urun/sinav-yayinlari-sinav-kalitesinde-ayt-kimya-soru-bankasi",
+        "https://www.kitapisler.com/sinav-yayinlari-sinav-kalitesinde-ayt-kimya-soru-bankasi_94210.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye: 272 sayfa, 1335 soru, ISBN 9786258296266. Yayınevinin kendi sitesi ile mağaza aynı değeri veriyor."
+    },
+    {
+      "title": "AYT Kimya Konu Özetli Soru Bankası",
+      "publisher": "Üç Dört Beş Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/ucdortbes-yayinlari-ayt-kimya-soru-bankasi_97140.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ucdortbes-yayinlari-ayt-kimya-soru-bankasi_97140.html",
+        "https://www.kitapsec.com/Products/2027-AYT-Kimya-Konu-Ozetli-Soru-Bankasi-Uc-Dort-Bes-Yayinlari-398651.html",
+        "https://www.hepsiburada.com/uc-dort-bes-yayincilik-345-ayt-kimya-soru-bankasi-pm-HBC0000MJWPPX"
+      ],
+      "confidence": "high",
+      "notes": "336 sayfa, ISBN 9786056959035, yazar Bülent Demir; üç bağımsız kaynak aynı değeri veriyor. 2027 baskısında başlık 'Konu Özetli Soru Bankası' olarak geçiyor."
+    },
+    {
+      "title": "AYT Kimya Orta ve İleri Düzey Soru Bankası",
+      "publisher": "Kafa Dengi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Kimya-Orta-ve-Ileri-Duzey-Soru-Bankasi-Kafadengi-Yayinlari-371963.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Kimya-Orta-ve-Ileri-Duzey-Soru-Bankasi-Kafadengi-Yayinlari-371963.html",
+        "https://www.kitapisler.com/kafa-dengi-yayinlari-ayt-kimya-soru-bankasi_94467.html"
+      ],
+      "confidence": "high",
+      "notes": "304 sayfa, ISBN 9786052217610; iki bağımsız kaynak aynı değeri veriyor. Aynı yayınevinin 'Temel ve Orta Düzey' kitabı ayrı bir ürün (288 sayfa)."
+    },
+    {
+      "title": "AYT Kimya GİS Soru Bankası",
+      "publisher": "Özdebir Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "kimya",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/ozdebir-yayinlari-ayt-kimya-gis-soru-bankasi_93350.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/ozdebir-yayinlari-ayt-kimya-gis-soru-bankasi_93350.html",
+        "https://www.kitapsec.com/Products/AYT-Kimya-GIS-Gelisim-Izleme-Soru-Bankasi-Ozdebir-Yayinlari-569203.html",
+        "https://www.trendruum.com/urunler/ozdebir-yayinlari-ayt-kimya-gis-soru-bankasi-3062083"
+      ],
+      "confidence": "high",
+      "notes": "224 sayfa, ISBN 9786051383606; üç bağımsız kaynak aynı değeri veriyor. Gelişim İzleme Serisi."
+    }
+  ],
+  "gaps": [
+    "Üç Dört Beş AYT Fizik Soru Bankası: Kitapİşler 389, KitapSec 392 sayfa veriyor; resmî künye doğrulanamadığı için eklenmedi.",
+    "Fizipedia AYT Fizik Soru Bankası: yalnızca tek mağazada 368 sayfa görüldü, ikinci bağımsız kaynakta sayfa alanı boştu; eklenmedi.",
+    "Madalyon ve Paraf'ın AYT Fizik soru bankaları ile Özdebir dışındaki bazı GİS serileri tek kaynakta kaldı; ikinci doğrulama olmadığı için alınmadı.",
+    "Fizipedia AYT Fizik Kavramsal Dergileri (456 sayfa) dergi formatında olduğu ve fasikül seti künyesi net olmadığı için kapsam dışı bırakıldı.",
+    "Çap AYT Fizik Seti ve Palme AYT Fizik fasikül setlerinin toplam sayfa sayısı güvenilir şekilde doğrulanamadı; yalnızca Merkez'in 17 fasiküllük seti eklenebildi.",
+    "Orbital AYT Kimya Ders Anlatım Modülleri: 624 sayfa doğrulandı ancak modül sayısı kaynaklarda 5 ile 12 arasında çeliştiği için başlıklandırma yapılamadı ve eklenmedi.",
+    "Çap AYT Kimya Video Anlatımlı Fasikül Seti'nin toplam sayfa sayısı hiçbir kaynakta yayımlanmamış; bu yüzden fasikül seti satırı yazılamadı."
+  ]
+}

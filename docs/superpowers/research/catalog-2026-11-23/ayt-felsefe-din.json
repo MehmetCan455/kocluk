@@ -1,0 +1,260 @@
+{
+  "batch": "ayt-felsefe-din",
+  "books": [
+    {
+      "title": "AYT Felsefe Grubu Soru Bankası",
+      "publisher": "Bilgi Sarmal Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://www.bilgisarmal.com/yayinlar/ayt-felsefe-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bilgisarmal.com/yayinlar/ayt-felsefe-soru-bankasi",
+        "https://www.ikmkitap.com/kitap/2026-ayt-felsefe-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 224 sayfa (ISBN 9786057532633, YKS 2027 programı). İki mağaza 223 sayfa yazıyor; resmî künye esas alındı."
+    },
+    {
+      "title": "AYT Felsefe Grubu Soru Bankası",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 392,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-felsefe-grubu-soru-bankasi-95.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-felsefe-grubu-soru-bankasi-95.html",
+        "https://www.pazarama.com/ayt-felsefe-grubu-soru-bankasi-karekok-yayinlari-p-9786257154376"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 392 sayfa (ISBN 9786257154376, 2026-2027 müfredatı). Mağazalarda 385 ve 224 sayfa bilgisi çelişiyor; resmî künye esas alındı."
+    },
+    {
+      "title": "Miray AYT Felsefe Konu Özetli Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 240,
+      "edition": "2025",
+      "sourceUrl": "https://www.aydinyayinlari.com.tr/miray-ayt-felsefe-konu-ozetli-soru-bankasi",
+      "sourceUrls": [
+        "https://www.aydinyayinlari.com.tr/miray-ayt-felsefe-konu-ozetli-soru-bankasi",
+        "https://pdf.aydinyayinlari.com.tr/yukle/2024-2025%20M%c4%b0RAY%20YAYIN%20KATALO%c4%9eU.pdf"
+      ],
+      "confidence": "high",
+      "notes": "Miray resmî künyesi ve 2024-2025 Miray kataloğu 240 sayfa (ISBN 9786258104127). Başlıkta 'Felsefe' geçse de psikoloji, sosyoloji ve mantık bölümlerini kapsar."
+    },
+    {
+      "title": "AYT Felsefe Soru Bankası",
+      "publisher": "Hız ve Renk Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 160,
+      "edition": "2025",
+      "sourceUrl": "https://www.hizverenk.com/yayinlar/kitap/ayt-felsefe-soru-bankasi",
+      "sourceUrls": [
+        "https://www.hizverenk.com/yayinlar/kitap/ayt-felsefe-soru-bankasi",
+        "https://www.kitapisler.com/hiz-ve-renk-ayt-felsefe-soru-bankasi_73999.html",
+        "https://www.kitapdoldur.com/urun/hiz-ve-renk-ayt-felsefe-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "İki bağımsız mağaza 160 sayfa ve ISBN 9786057530974 üzerinde birleşiyor. Eski ISBN'li baskı 132 sayfa; güncel baskı esas alındı. Yayınevi sayfasında sayfa sayısı yazmıyor."
+    },
+    {
+      "title": "AYT Felsefe Grubu Soru Bankası",
+      "publisher": "Zafer Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 224,
+      "edition": "2026",
+      "sourceUrl": "https://zaferyayinlari.com.tr/product/ayt-felsefe-grubu-soru-bankasi-yeni-1",
+      "sourceUrls": [
+        "https://zaferyayinlari.com.tr/product/ayt-felsefe-grubu-soru-bankasi-yeni-1"
+      ],
+      "confidence": "high",
+      "notes": "Yayınevinin resmî satış künyesi 224 sayfa; psikoloji, sosyoloji ve mantık bölümlerini kapsıyor. Baskı yılı ayrıca belirtilmiyor."
+    },
+    {
+      "title": "AYT Felsefe Soru Bankası (DİS Serisi)",
+      "publisher": "Ordinat Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.ordinatyayinlari.com/urun/ayt-felsefe-soru-bankasi-dis-serisi-2025-2026",
+      "sourceUrls": [
+        "https://www.ordinatyayinlari.com/urun/ayt-felsefe-soru-bankasi-dis-serisi-2025-2026"
+      ],
+      "confidence": "high",
+      "notes": "Resmî künye 192 sayfa (ISBN 9786259786230), 2025-2026 DİS serisi."
+    },
+    {
+      "title": "AYT Felsefe Grubu Soru Kitabı",
+      "publisher": "YZ Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 192,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/yz-yayinlari-ayt-felsefe-grubu-soru-kitabi_77301.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/yz-yayinlari-ayt-felsefe-grubu-soru-kitabi_77301.html",
+        "https://www.akmkitap.com/urun/ayt-felsefe-grubu-soru-kitabi-yz-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "İki bağımsız mağaza 192 sayfa ve ISBN 9786052828175 üzerinde birleşiyor."
+    },
+    {
+      "title": "2027 AYT Felsefe Grubu Ders Notları ve Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 208,
+      "edition": "2027",
+      "sourceUrl": "https://www.kitapisler.com/benim-hocam-2027-ayt-felsefe-grubu-ders-notlari-video-cozumlu-soru-bankasi_110054.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/benim-hocam-2027-ayt-felsefe-grubu-ders-notlari-video-cozumlu-soru-bankasi_110054.html",
+        "https://www.indekskitap.com/urun/benim-hocam-yks-ayt-felsefe-grubu-ders-notlari-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "İki bağımsız mağaza 208 sayfa üzerinde birleşiyor (ISBN 9786255847430); 2027 basımı."
+    },
+    {
+      "title": "AYT Felsefe Atölyesi Felsefe Grubu Soru Bankası",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 208,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/kr-akademi-ayt-felsefe-atolyesi-felsefe-grubu-soru-bankasi_99221.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/kr-akademi-ayt-felsefe-atolyesi-felsefe-grubu-soru-bankasi_99221.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapişler künyesi 208 sayfa (ISBN 9786256336865); tek güvenilir kaynak."
+    },
+    {
+      "title": "AYT Felsefe Grubu Analitik Soru Bankası",
+      "publisher": "Merkez Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 192,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/merkez-yayinlari-ayt-felsefe-grubu-analitik-soru-bankasi_63361.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/merkez-yayinlari-ayt-felsefe-grubu-analitik-soru-bankasi_63361.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapişler künyesi 192 sayfa (ISBN 9786057952004); tek güvenilir kaynak."
+    },
+    {
+      "title": "AYT Felsefe Grubu Soru Kütüphanesi",
+      "publisher": "Paraf Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 320,
+      "edition": "2025",
+      "sourceUrl": "https://parafyayinlari.com/ayt/ayt-felsefe-grubu-soru-kutuphanesi",
+      "sourceUrls": [
+        "https://parafyayinlari.com/ayt/ayt-felsefe-grubu-soru-kutuphanesi",
+        "https://www.kitapisler.com/paraf-yayinlari-ayt-felsefe-grubu-osym-tarzinda-hazirlanmis-soru-kutuphanesi_52314.html"
+      ],
+      "confidence": "medium",
+      "notes": "Resmî Paraf sayfasında sayfa sayısı yazmıyor; Kitapişler künyesi 320 sayfa (ISBN 9786057984715)."
+    },
+    {
+      "title": "AYT Felsefe Grubu Soru Bankası",
+      "publisher": "Ulti Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 208,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/bes-yayinlari-ayt-felsefe-grubu-ulti-serisi-soru-bankasi_79473.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/bes-yayinlari-ayt-felsefe-grubu-ulti-serisi-soru-bankasi_79473.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapişler künyesi 208 sayfa; tek güvenilir kaynak."
+    },
+    {
+      "title": "AYT Üçrenk Felsefe Grubu Soru Bankası",
+      "publisher": "Esen Üçrenk Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 448,
+      "edition": "2019",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/ayt-ucrenk-felsefe-grubu-soru-bankasi/523192.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/ayt-ucrenk-felsefe-grubu-soru-bankasi/523192.html",
+        "https://www.akakce.com/yks-kitaplari/en-ucuz-esen-yayinlari-ucrenk-ayt-felsefe-grubu-soru-bankasi-fiyati,256270251.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu künyesi 448 sayfa; 2019 baskısı hâlâ satışta. Kapağında 'Felsefe Grubu' ibaresi var."
+    },
+    {
+      "title": "AYT Felsefe Plus Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 192,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/cap-yayinlari-ayt-felsefe-plus-soru-bankasi_85404.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/cap-yayinlari-ayt-felsefe-plus-soru-bankasi_85404.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapişler künyesi 192 sayfa (ISBN 9786258139860); tek güvenilir kaynak."
+    },
+    {
+      "title": "AYT Felsefe Atak Soru Bankası",
+      "publisher": "Delta Kültür Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "felsefe-grubu",
+      "totalPages": 208,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapisler.com/delta-kultur-ayt-felsefe-atak-soru-bankasi_53523.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/delta-kultur-ayt-felsefe-atak-soru-bankasi_53523.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapişler künyesi 208 sayfa (ISBN 9786052267752); tek güvenilir kaynak."
+    },
+    {
+      "title": "YKS AYT Din Kültürü ve Ahlak Bilgisi Soru Kitabı",
+      "publisher": "Palme Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 80,
+      "edition": "2019",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/yks-ayt-din-kulturu-ve-ahlak-bilgisi-soru-kitabi/513800.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/yks-ayt-din-kulturu-ve-ahlak-bilgisi-soru-kitabi/513800.html",
+        "https://www.akakce.com/yks-kitaplari/en-ucuz-ayt-din-kulturu-ve-ahlak-bilgisi-soru-kitabi-palme-yayinlari-fiyati,1416706127.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu künyesi 80 sayfa, yayın tarihi 13.09.2019 (ISBN 9786052822524). AYT'ye özel; TYT-AYT ortak cilt değil."
+    },
+    {
+      "title": "AYT Üçrenk Din Kültürü ve Ahlak Bilgisi Soru Bankası",
+      "publisher": "Esen Üçrenk Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "din-kulturu",
+      "totalPages": 176,
+      "edition": "2019",
+      "sourceUrl": "https://www.kitapyurdu.com/kitap/ayt-ucrenk-din-kulturu-ve-ahlak-bilgisi-soru-bankasi/523191.html",
+      "sourceUrls": [
+        "https://www.kitapyurdu.com/kitap/ayt-ucrenk-din-kulturu-ve-ahlak-bilgisi-soru-bankasi/523191.html",
+        "https://www.idefix.com/esen-ucrenk-ayt-din-kulturu-soru-bankasi-p-31917616"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapyurdu künyesi 176 sayfa, yayın tarihi 27.11.2019 (ISBN 9786057927248). Idefix sayfa aralığını 151-200 veriyor; AYT'ye özel."
+    }
+  ],
+  "gaps": [
+    "AYT Din Kültürü için 10 kitap hedeflendi; yalnızca 2 AYT'ye özel kitap (Palme ve Esen Üçrenk) doğrulandı. Kalan 8 kitap için AYT'ye özel başka baskı bulunamadı.",
+    "DDY, Puan, Çap, Delta, Yayın Denizi, Katyon, Armada, Bilgi Sarmal, Aydın, Karekök, Benim Hocam, Eker Test, MUBA ve KR Akademi'nin Din Kültürü kitapları TYT-AYT ortak tek cilt olduğu için TYT batch'ine bırakıldı; AYT batch'ine eklenmedi.",
+    "Limit AYT Felsefe Grubu Soru Bankası ve Palme AYT Felsefe Grubu kitapları tespit edildi; güncel künye ve sayfa sayısı doğrulanamadığı için eklenmedi.",
+    "Esen Üçrenk AYT Felsefe Grubu ve AYT Din Kültürü 2019 baskısıdır; daha yeni bir baskı künyesi bulunamadı."
+  ]
+}

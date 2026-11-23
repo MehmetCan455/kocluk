@@ -1,0 +1,612 @@
+{
+  "batch": "ayt-edebiyat-tarih",
+  "books": [
+    {
+      "title": "AYT Edebiyat Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/2026-AYT-Edebiyat-Soru-Bankasi-Aydin-Yayinlari-336501.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/2026-AYT-Edebiyat-Soru-Bankasi-Aydin-Yayinlari-336501.html"
+      ],
+      "confidence": "medium",
+      "notes": "Sayfa sayısı KitapSec künyesinde 336; tek bağımsız kaynak."
+    },
+    {
+      "title": "AYT Edebiyat Soru Bankası",
+      "publisher": "Karekök Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-edebiyat-soru-bankasi-247.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-edebiyat-soru-bankasi-247.html",
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Bankasi-Karekok-Yayinlari-553812.html"
+      ],
+      "confidence": "high",
+      "notes": "Karekök resmî künyesi ile KitapSec 320 sayfada uyumlu."
+    },
+    {
+      "title": "AYT 3D Edebiyat Tamamı Video Çözümlü Soru Bankası",
+      "publisher": "3D Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-3D-Edebiyat-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-245292.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-3D-Edebiyat-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-245292.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 304 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Fulleten Soru Bankası",
+      "publisher": "Pelikan Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 400,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Fulleten-Soru-Bankasi-Pelikan-Yayinlari-404131.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Fulleten-Soru-Bankasi-Pelikan-Yayinlari-404131.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 400 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Soru Kitabı",
+      "publisher": "Palme Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 384,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Kitabi-Palme-Yayinevi-317051.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Kitabi-Palme-Yayinevi-317051.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 384 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Soru Bankası",
+      "publisher": "Bilgi Sarmal Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 416,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/bilgi-sarmal-ayt-edebiyat-soru-bankasi_84817.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/bilgi-sarmal-ayt-edebiyat-soru-bankasi_84817.html",
+        "https://www.indekskitap.com/urun/bilgi-sarmal-yks-ayt-edebiyat-soru-avcilari-soru-bankasi-bilgi-sarmal-yayinlari"
+      ],
+      "confidence": "medium",
+      "notes": "Aynı ISBN için Kitapİşler 416, İndeks Kitap 415 sayfa; 1 sayfalık fark nedeniyle 416 esas alındı."
+    },
+    {
+      "title": "AYT Edebiyat Ultimate Soru Bankası",
+      "publisher": "Retro Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 216,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Ultimate-Soru-Bankasi-Retro-Yayincilik-923258.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Ultimate-Soru-Bankasi-Retro-Yayincilik-923258.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 216 sayfa."
+    },
+    {
+      "title": "AYT Türk Edebiyatı Özel Ders Konseptli Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 367,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Turk-Edebiyati-Ozel-Ders-Konseptli-Soru-Bankasi-Okyanus-Yayinlari-319785.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Turk-Edebiyati-Ozel-Ders-Konseptli-Soru-Bankasi-Okyanus-Yayinlari-319785.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 367 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Resimli Notlu Soru Bankası",
+      "publisher": "Editör Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 223,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Resimli-Notlu-Soru-Bankasi-Editor-Yayinevi-647854.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Resimli-Notlu-Soru-Bankasi-Editor-Yayinevi-647854.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 223 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Soru Bankası",
+      "publisher": "Puan Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Bankasi-Puan-Yayinlari-372526.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Bankasi-Puan-Yayinlari-372526.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 240 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Analitik Soru Bankası",
+      "publisher": "Merkez Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 416,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Analitik-Soru-Bankasi-Merkez-Yayinlari-371502.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Analitik-Soru-Bankasi-Merkez-Yayinlari-371502.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 416 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat 24 Adımda Konu Anlatımlı Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 424,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-24-Adimda-Konu-Anlatimli-Soru-Bankasi-Sinav-Yayinlari-552039.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-24-Adimda-Konu-Anlatimli-Soru-Bankasi-Sinav-Yayinlari-552039.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 424 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.istanbulkitapcisi.com/ayt-edebiyat-soru-bankasi-1028607",
+      "sourceUrls": [
+        "https://www.istanbulkitapcisi.com/ayt-edebiyat-soru-bankasi-1028607"
+      ],
+      "confidence": "medium",
+      "notes": "2026 yeni baskı (ISBN 9786259994819) 320 sayfa; KitapSec'teki eski baskı 384 sayfa. Yeni baskı esas alındı."
+    },
+    {
+      "title": "AYT Edebiyat Soru Bankası",
+      "publisher": "Toprak Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 400,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Bankasi-Toprak-Yayincilik-827288.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Bankasi-Toprak-Yayincilik-827288.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 400 sayfa."
+    },
+    {
+      "title": "AYT Türk Dili ve Edebiyatı Plus Serisi Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Turk-Dili-ve-Edebiyati-Plus-Serisi-Soru-Bankasi-Cap-Yayinlari-761851.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Turk-Dili-ve-Edebiyati-Plus-Serisi-Soru-Bankasi-Cap-Yayinlari-761851.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 320 sayfa."
+    },
+    {
+      "title": "AYT Türk Dili ve Edebiyatı Konu Özetli Yeni Nesil Video Çözümlü Soru Bankası",
+      "publisher": "Marka Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/2026-AYT-Turk-Dili-ve-Edebiyati-Konu-Ozetli-Yeni-Nesil-Video-Cozumlu-Soru-Bankasi-Marka-Yayinlari-770570.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/2026-AYT-Turk-Dili-ve-Edebiyati-Konu-Ozetli-Yeni-Nesil-Video-Cozumlu-Soru-Bankasi-Marka-Yayinlari-770570.html"
+      ],
+      "confidence": "medium",
+      "notes": "2026 baskı; KitapSec künyesi 240 sayfa."
+    },
+    {
+      "title": "AYT 40 Seans Edebiyat",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 312,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-40-Seans-Edebiyat-Okyanus-Yayinlari-766971.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-40-Seans-Edebiyat-Okyanus-Yayinlari-766971.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 312 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat Soru Bankası",
+      "publisher": "Oksijen Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 420,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Bankasi-Oksijen-Yayinlari-773614.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-Soru-Bankasi-Oksijen-Yayinlari-773614.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 420 sayfa."
+    },
+    {
+      "title": "AYT Türk Dili ve Edebiyatı Tahminmatik Soru Bankası",
+      "publisher": "Altın Karma",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 300,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Turk-Dili-ve-Edebiyati-Tahminmatik-Soru-Bankasi-Altin-Karma-688786.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Turk-Dili-ve-Edebiyati-Tahminmatik-Soru-Bankasi-Altin-Karma-688786.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 300 sayfa."
+    },
+    {
+      "title": "DM Serisi AYT Edebiyat Soru Bankası",
+      "publisher": "Sonuç Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 432,
+      "edition": "2026",
+      "sourceUrl": "https://sonucyayinlari.com.tr/urun/dm-ayt-edebiyat-soru-bankasi-sonuc-yayinlari",
+      "sourceUrls": [
+        "https://sonucyayinlari.com.tr/urun/dm-ayt-edebiyat-soru-bankasi-sonuc-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Sonuç Yayınları resmî künyesi 432 sayfa; internet satışı yasak, bayilerde satılıyor."
+    },
+    {
+      "title": "AYT Edebiyat 49 Günde Video Ders Kitabı",
+      "publisher": "Bilgi Sarmal Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Edebiyat-49-Gunde-Video-Ders-Kitabi-Bilgi-Sarmal-913989.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Edebiyat-49-Gunde-Video-Ders-Kitabi-Bilgi-Sarmal-913989.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 304 sayfa."
+    },
+    {
+      "title": "YKS-AYT Edebiyat Başucu Kitabı",
+      "publisher": "Palme Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 512,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/YKS-AYT-Edebiyat-Basucu-Kitabi-Palme-Yayinevi-319072.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/YKS-AYT-Edebiyat-Basucu-Kitabi-Palme-Yayinevi-319072.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 512 sayfa."
+    },
+    {
+      "title": "AYT Iceberg Türk Edebiyatı Konu Anlatımı",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 336,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/Ayt-Iceberg-Turk-Edebiyati-Konu-Anlatimi-Okyanus-Yayinlari-377941.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Ayt-Iceberg-Turk-Edebiyati-Konu-Anlatimi-Okyanus-Yayinlari-377941.html"
+      ],
+      "confidence": "medium",
+      "notes": "KitapSec künyesi 336 sayfa."
+    },
+    {
+      "title": "AYT Türk Dili ve Edebiyatı Ders Notları",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 336,
+      "edition": "2027",
+      "sourceUrl": "https://www.kitapsec.com/Products/2027-AYT-Turk-Dili-ve-Edebiyati-Ders-Notlari-Benim-Hocam-922640.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/2027-AYT-Turk-Dili-ve-Edebiyati-Ders-Notlari-Benim-Hocam-922640.html"
+      ],
+      "confidence": "medium",
+      "notes": "2027 basım; KitapSec künyesi 336 sayfa."
+    },
+    {
+      "title": "AYT Edebiyat El Kitabı",
+      "publisher": "Limit Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "edebiyat",
+      "totalPages": 488,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapisler.com/limit-yayinlari-ayt-edebiyat-el-kitabi_42637.html",
+      "sourceUrls": [
+        "https://www.kitapisler.com/limit-yayinlari-ayt-edebiyat-el-kitabi_42637.html",
+        "https://www.indekskitap.com/urun/limit-yks-ayt-edebiyat-el-kitabi-limit-yayinlari"
+      ],
+      "confidence": "high",
+      "notes": "Kitapİşler ve İndeks Kitap 488 sayfada uyumlu."
+    },
+    {
+      "title": "AYT 3D Tarih Tamamı Video Çözümlü Soru Bankası",
+      "publisher": "3D Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 272,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-3D-Tarih-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-271955.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-3D-Tarih-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-271955.html"
+      ],
+      "confidence": "medium",
+      "notes": "Tarih-1 ve Tarih-2 ortak; KitapSec künyesi 272 sayfa."
+    },
+    {
+      "title": "AYT Tarih Soru Bankası",
+      "publisher": "Bilgi Sarmal Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 287,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Tarih-Soru-Bankasi-Bilgi-Sarmal-Yayinlari-317545.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Tarih-Soru-Bankasi-Bilgi-Sarmal-Yayinlari-317545.html",
+        "https://www.bkmkitap.com/2022-ayt-tarih-soru-bankasi"
+      ],
+      "confidence": "high",
+      "notes": "Tarih-1 ve Tarih-2 ortak; KitapSec ve BKM 287 sayfada uyumlu (Kitapİşler 288)."
+    },
+    {
+      "title": "AYT Tarih Soru Bankası",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 365,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/ayt-tarih-soru-bankasi-karekok-yayinlari-1",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/ayt-tarih-soru-bankasi-karekok-yayinlari-1"
+      ],
+      "confidence": "medium",
+      "notes": "Tarih-1 ve Tarih-2 ortak; BKM künyesi 365 sayfa."
+    },
+    {
+      "title": "AYT Tarih Video Çözümlü Soru Bankası",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 304,
+      "edition": "2027",
+      "sourceUrl": "https://www.kitapsec.com/Products/2027-AYT-Tarih-Video-Cozumlu-Soru-Bankasi-Benim-Hocam-Yayinlari-922247.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/2027-AYT-Tarih-Video-Cozumlu-Soru-Bankasi-Benim-Hocam-Yayinlari-922247.html"
+      ],
+      "confidence": "medium",
+      "notes": "2027 basım; Tarih-1 ve Tarih-2 ortak; KitapSec künyesi 304 sayfa."
+    },
+    {
+      "title": "AYT Tarih Soru Kitabı",
+      "publisher": "Palme Yayınevi",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 359,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Tarih-Soru-Kitabi-Palme-Yayinlari-391831.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Tarih-Soru-Kitabi-Palme-Yayinlari-391831.html"
+      ],
+      "confidence": "medium",
+      "notes": "Tarih-1 ve Tarih-2 ortak; KitapSec künyesi 359 sayfa."
+    },
+    {
+      "title": "AYT Tarih Atak Soru Bankası",
+      "publisher": "Delta Kültür Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 240,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Tarih-Atak-Soru-Bankasi-Delta-Kultur-Yayinlari-373642.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Tarih-Atak-Soru-Bankasi-Delta-Kultur-Yayinlari-373642.html"
+      ],
+      "confidence": "medium",
+      "notes": "Tarih-1 ve Tarih-2 ortak; KitapSec künyesi 240 sayfa."
+    },
+    {
+      "title": "AYT Tarih Soru Bankası",
+      "publisher": "Toprak Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Tarih-Soru-Bankasi-Toprak-Yayincilik-827289.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Tarih-Soru-Bankasi-Toprak-Yayincilik-827289.html"
+      ],
+      "confidence": "medium",
+      "notes": "Tarih-1 ve Tarih-2 ortak; KitapSec künyesi 288 sayfa."
+    },
+    {
+      "title": "AYT Tarih Plus Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 286,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Tarih-Plus-Soru-Bankasi-Cap-Yayinlari-775205.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Tarih-Plus-Soru-Bankasi-Cap-Yayinlari-775205.html"
+      ],
+      "confidence": "medium",
+      "notes": "Tarih-1 ve Tarih-2 ortak; KitapSec künyesi 286 sayfa."
+    },
+    {
+      "title": "AYT Iceberg Tarih Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-1",
+      "totalPages": 256,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Iceberg-Tarih-Soru-Bankasi-Okyanus-Yayinlari-651859.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Iceberg-Tarih-Soru-Bankasi-Okyanus-Yayinlari-651859.html"
+      ],
+      "confidence": "medium",
+      "notes": "Tarih-1 ve Tarih-2 ortak; KitapSec künyesi 256 sayfa."
+    },
+    {
+      "title": "AYT Çağdaş Türk Ve Dünya Tarihi Soru Bankası",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 192,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/ayt-cagdas-turk-ve-dunya-tarihi-soru-bankasi-karekok-yayinlari-696278",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/ayt-cagdas-turk-ve-dunya-tarihi-soru-bankasi-karekok-yayinlari-696278"
+      ],
+      "confidence": "medium",
+      "notes": "Yalnızca AYT Tarih-2 kapsamı (Çağdaş Türk ve Dünya Tarihi); BKM künyesi 192 sayfa."
+    },
+    {
+      "title": "AYT Çağdaş Türk ve Dünya Tarihi YKS 2. Oturum",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 285,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/ayt-cagdas-turk-ve-dunya-tarihi-karekok-yayinlari",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/ayt-cagdas-turk-ve-dunya-tarihi-karekok-yayinlari"
+      ],
+      "confidence": "medium",
+      "notes": "Yalnızca AYT Tarih-2 kapsamı; BKM künyesi 285 sayfa."
+    },
+    {
+      "title": "AYT Çağdaş Türk ve Dünya Tarihi Az Konu Çok Soru Bir Arada",
+      "publisher": "Doğru Cevap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 136,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/ayt-cagdas-turk-ve-dunya-tarihi-az-konu-cok-soru-bir-arada-dogru-cevap-yayinlari",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/ayt-cagdas-turk-ve-dunya-tarihi-az-konu-cok-soru-bir-arada-dogru-cevap-yayinlari"
+      ],
+      "confidence": "medium",
+      "notes": "Yalnızca AYT Tarih-2 kapsamı; BKM künyesi 136 sayfa."
+    },
+    {
+      "title": "YKS Çağdaş Türk ve Dünya Tarihi Soru Bankası 2. Oturum",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 190,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/karekok-yayincilik-yks-cagdas-turk-ve-dunya-tarihi-soru-bankasi-2oturum",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/karekok-yayincilik-yks-cagdas-turk-ve-dunya-tarihi-soru-bankasi-2oturum"
+      ],
+      "confidence": "medium",
+      "notes": "Yalnızca AYT Tarih-2 kapsamı; BKM künyesi 190 sayfa."
+    },
+    {
+      "title": "YKS T.C. İnkılap Tarihi ve Atatürkçülük",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 344,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/yks-tc-inkilap-tarihi-ve-ataturkculuk",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/yks-tc-inkilap-tarihi-ve-ataturkculuk"
+      ],
+      "confidence": "medium",
+      "notes": "Yalnızca T.C. İnkılap Tarihi ve Atatürkçülük, yani AYT Tarih-2 kapsamı; BKM künyesi 344 sayfa."
+    },
+    {
+      "title": "YKS T.C. İnkılap Tarihi ve Atatürkçülük Soru Bankası 2. Oturum",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 158,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/yks-tc-inkilap-tarihi-ve-ataturkculuk-soru-bankasi-2-oturum",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/yks-tc-inkilap-tarihi-ve-ataturkculuk-soru-bankasi-2-oturum"
+      ],
+      "confidence": "medium",
+      "notes": "Yalnızca AYT Tarih-2 kapsamı; BKM künyesi 158 sayfa."
+    },
+    {
+      "title": "TYT-AYT T.C. İnkılap Tarihi ve Atatürkçülük",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 448,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/tyt-ayt-tc-inkilap-tarihi-ve-ataturkculuk-mps-konu-anlatimli-soru-bankasi-karekok-yayinlari",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/tyt-ayt-tc-inkilap-tarihi-ve-ataturkculuk-mps-konu-anlatimli-soru-bankasi-karekok-yayinlari"
+      ],
+      "confidence": "medium",
+      "notes": "MPS konu anlatımlı soru bankası. Kapakta TYT-AYT ibaresi var; içerik yalnızca T.C. İnkılap Tarihi ve Atatürkçülük (AYT Tarih-2), Tarih-1 kapsamı yok. BKM künyesi 448 sayfa."
+    },
+    {
+      "title": "TYT AYT T.C. İnkılap Tarihi ve Atatürkçülük Soru Bankası",
+      "publisher": "Karekök Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 200,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/karekok-yayincilik-tyt-ayt-tc-inkilap-tarihi-ve-ataturkculuk-soru-bankasi",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/karekok-yayincilik-tyt-ayt-tc-inkilap-tarihi-ve-ataturkculuk-soru-bankasi"
+      ],
+      "confidence": "medium",
+      "notes": "Kapakta TYT-AYT ibaresi var; içerik yalnızca T.C. İnkılap Tarihi ve Atatürkçülük (AYT Tarih-2). BKM künyesi 200 sayfa."
+    },
+    {
+      "title": "TYT AYT İnkılap Tarihi ve Atatürkçülük Çek - Kopar Fasikülleri",
+      "publisher": "İMES Eğitim Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "tarih-2",
+      "totalPages": 176,
+      "edition": "2026",
+      "sourceUrl": "https://www.bkmkitap.com/tyt-ayt-inkilap-tarihi-ve-ataturkculuk-cek-kopar-fasikulleri-imes-egitim-yayinlari",
+      "sourceUrls": [
+        "https://www.bkmkitap.com/tyt-ayt-inkilap-tarihi-ve-ataturkculuk-cek-kopar-fasikulleri-imes-egitim-yayinlari"
+      ],
+      "confidence": "medium",
+      "notes": "Fasikül seti; BKM künyesinde toplam 176 sayfa, fasikül adedi belirtilmemiş. İçerik yalnızca T.C. İnkılap Tarihi ve Atatürkçülük (AYT Tarih-2)."
+    }
+  ],
+  "gaps": []
+}

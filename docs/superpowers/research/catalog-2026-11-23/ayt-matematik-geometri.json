@@ -1,0 +1,780 @@
+{
+  "batch": "ayt-matematik-geometri",
+  "books": [
+    {
+      "title": "AYT Matematik Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 376,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-matematik-soru-bankasi-486.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-matematik-soru-bankasi-486.html",
+        "https://www.kitapsec.com/Products/AYT-Matematik-Guncel-Soru-Bankasi-Karekok-Yayinlari-539539.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Karekök künyesi 376 sayfa ve 2026-2027 müfredat; Kitapsec aynı ISBN'de 368 sayfa gösteriyor, resmî künye esas alındı."
+    },
+    {
+      "title": "AYT Türev İntegral Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 184,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Turev-Integral-Soru-Bankasi-Karekok-Yayinlari-322076.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Turev-Integral-Soru-Bankasi-Karekok-Yayinlari-322076.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 184 sayfa; Karekök'ün AYT türev-integral konu soru bankası."
+    },
+    {
+      "title": "AYT Matematik 1. Kitap Konu Anlatımlı ve Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 414,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-1Kitap-Konu-Anlatimli-ve-Soru-Bankasi-Karekok-Yayinlari-857059.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-1Kitap-Konu-Anlatimli-ve-Soru-Bankasi-Karekok-Yayinlari-857059.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 414 sayfa; iki kitaplık AYT matematik serisinin 1. kitabı."
+    },
+    {
+      "title": "AYT Matematik Soru Bankası",
+      "publisher": "Endemik Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 352,
+      "edition": "2026",
+      "sourceUrl": "https://endemikyayinlari.com.tr/urun/-ayt-matematik-soru-bankasi--yeni--978-625-7430-68-5",
+      "sourceUrls": [
+        "https://endemikyayinlari.com.tr/urun/-ayt-matematik-soru-bankasi--yeni--978-625-7430-68-5",
+        "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Endemik-Yayinlari-889895.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Endemik künyesi 352 sayfa, 1815 soru; Kitapsec de 352 sayfada birleşiyor."
+    },
+    {
+      "title": "AYT Matematik Limit ve Süreklilik Konu Anlatımlı Soru Bankası",
+      "publisher": "Apotemi",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 128,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Limit-ve-Sureklilik-Konu-Anlatimli-Soru-Bankasi-Apotemi-Yayinlari-321900.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Limit-ve-Sureklilik-Konu-Anlatimli-Soru-Bankasi-Apotemi-Yayinlari-321900.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 128 sayfa; Apotemi AYT konu anlatımlı fasikülü."
+    },
+    {
+      "title": "Türev Konu Anlatımlı Soru Bankası",
+      "publisher": "Apotemi",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 224,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/Turev-Konu-Anlatimli-Soru-Bankasi-Apotemi-Yayinlari-335853.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Turev-Konu-Anlatimli-Soru-Bankasi-Apotemi-Yayinlari-335853.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 224 sayfa; AYT türev konu anlatımlı soru bankası."
+    },
+    {
+      "title": "AYT Matematik Soru Bankası",
+      "publisher": "Çap Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 400,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Cap-Yayinlari-389509.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Cap-Yayinlari-389509.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 400 sayfa; modüler fasikül yapısında AYT soru bankası."
+    },
+    {
+      "title": "Eyüp B. AYT Matematik Soru Bankası",
+      "publisher": "KR Akademi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 320,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/Eyup-B-AYT-Matematik-Soru-Bankasi-Kr-Akademi-Yayinlari-890473.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Eyup-B-AYT-Matematik-Soru-Bankasi-Kr-Akademi-Yayinlari-890473.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 320 sayfa; Eyüp B. imzalı AYT matematik soru bankası."
+    },
+    {
+      "title": "AYT Matematik Soru Bankası",
+      "publisher": "Limit Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 276,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Limit-Yayinlari-336402.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Limit-Yayinlari-336402.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 276 sayfa."
+    },
+    {
+      "title": "AYT Matematik Tamamı Video Çözümlü Soru Bankası",
+      "publisher": "Miray Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 392,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Tamami-Video-Cozumlu-Soru-Bankasi-Miray-Yayinlari-420339.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Tamami-Video-Cozumlu-Soru-Bankasi-Miray-Yayinlari-420339.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 392 sayfa; tamamı video çözümlü."
+    },
+    {
+      "title": "AYT Aktif Matematik 0'dan Başlayanlara",
+      "publisher": "Aktif Öğrenme Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 416,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Aktif-Matematik-0-dan-Baslayanlara-Aktif-Ogrenme-Yayinlari-397233.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Aktif-Matematik-0-dan-Baslayanlara-Aktif-Ogrenme-Yayinlari-397233.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 416 sayfa; sıfırdan başlayanlar için AYT matematik."
+    },
+    {
+      "title": "AYT 40 Seans Matematik Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 382,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-40-Seans-Matematik-Soru-Bankasi-Okyanus-Yayinlari-256926.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-40-Seans-Matematik-Soru-Bankasi-Okyanus-Yayinlari-256926.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 382 sayfa; 40 seanslık programlı AYT matematik."
+    },
+    {
+      "title": "AYT Master Matematik Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 256,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Master-Matematik-Soru-Bankasi-Okyanus-Yayinlari-340985.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Master-Matematik-Soru-Bankasi-Okyanus-Yayinlari-340985.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 256 sayfa."
+    },
+    {
+      "title": "AYT Matematiğin İlacı Soru Bankası",
+      "publisher": "Acil Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 334,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematigin-Ilaci-Soru-Bankasi-Acil-Yayinlari-246624.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematigin-Ilaci-Soru-Bankasi-Acil-Yayinlari-246624.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 334 sayfa."
+    },
+    {
+      "title": "AYT Sıfırdan Sonsuza Matematik Konu Özetli Video Çözümlü Soru Bankası",
+      "publisher": "Doktrin Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 384,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Sifirdan-Sonsuza-Matematik-Konu-Ozetli-Video-Cozumlu-Soru-Bankasi-Doktrin-yayinlari-348745.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Sifirdan-Sonsuza-Matematik-Konu-Ozetli-Video-Cozumlu-Soru-Bankasi-Doktrin-yayinlari-348745.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 384 sayfa; konu özetli ve video çözümlü."
+    },
+    {
+      "title": "AYT Matematik Soru Kütüphanesi",
+      "publisher": "Paraf Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 392,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Kutuphanesi-Prf-Paraf-Yayinlari-375634.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Kutuphanesi-Prf-Paraf-Yayinlari-375634.html",
+        "https://www.amazon.com.tr/dp/625742304X"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec sayfa sayısı vermiyor; Amazon künyesi 392 sayfa."
+    },
+    {
+      "title": "AYT Matematik Soru Bankası Yeni Temel ve Orta Düzey",
+      "publisher": "Kafadengi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 256,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Yeni-Temel-ve-Orta-Duzey-Kafadengi-Yayinlari-382440.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Yeni-Temel-ve-Orta-Duzey-Kafadengi-Yayinlari-382440.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 256 sayfa; temel ve orta düzey."
+    },
+    {
+      "title": "AYT Matematik Spotlu Soru Bankası",
+      "publisher": "Sadık Uygun Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 352,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Spotlu-Soru-Bankasi-Sadik-Uygun-Yayinlari-242347.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Spotlu-Soru-Bankasi-Sadik-Uygun-Yayinlari-242347.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 352 sayfa; spot bilgili soru bankası."
+    },
+    {
+      "title": "2026 AYT Matematik Soru Bankası",
+      "publisher": "Mert Hoca Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 416,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/2026-AYT-Matematik-Soru-Bankasi-Mert-Hoca-Yayinlari-924117.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/2026-AYT-Matematik-Soru-Bankasi-Mert-Hoca-Yayinlari-924117.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 416 sayfa; 2026 baskısı."
+    },
+    {
+      "title": "AYT Baştan Sona Matematik Soru Bankası",
+      "publisher": "Yanıt Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 344,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Yanit-Yayinlari-393140.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Yanit-Yayinlari-393140.html",
+        "https://www.amazon.com.tr/dp/6057587650"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec sayfa sayısı vermiyor; Amazon künyesi 344 sayfa."
+    },
+    {
+      "title": "AYT Matematik 24 Adımda Konu Anlatımlı Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 312,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-24-Adimda-Konu-Anlatimli-Soru-Bankasi-Sinav-Yayinlari-551549.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-24-Adimda-Konu-Anlatimli-Soru-Bankasi-Sinav-Yayinlari-551549.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 312 sayfa; 24 adımda konu anlatımlı."
+    },
+    {
+      "title": "AYT Matematik Soru Bankası",
+      "publisher": "Puan Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 246,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Puan-Yayinlari-371782.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Soru-Bankasi-Puan-Yayinlari-371782.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 246 sayfa."
+    },
+    {
+      "title": "AYT Grafikliyorum Soru Bankası",
+      "publisher": "Etkili Matematik Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 144,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Grafikliyorum-Soru-Bankasi-Etkili-Matematik-Yayinlari-898984.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Grafikliyorum-Soru-Bankasi-Etkili-Matematik-Yayinlari-898984.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 144 sayfa; grafik yorumlama odaklı."
+    },
+    {
+      "title": "AYT Adayları ve Ara Sınıflar İçin Taktiklerle 2. Dereceden Eşitsizlikler Parabol Konu Anlatımlı Soru Fasikülü",
+      "publisher": "Benim Hocam Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 112,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Adaylari-ve-Ara-Siniflar-Icin-Taktiklerle-2-Dereceden-Esitsizlikler-Parabol-Konu-Anlatimli-Soru-Fasikulu-Benim-Hocam-Yayinlari-743920.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Adaylari-ve-Ara-Siniflar-Icin-Taktiklerle-2-Dereceden-Esitsizlikler-Parabol-Konu-Anlatimli-Soru-Fasikulu-Benim-Hocam-Yayinlari-743920.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 112 sayfa; tek konulu AYT fasikülü."
+    },
+    {
+      "title": "İntegral Matematik Fasikülleri",
+      "publisher": "Barış Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 160,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/Integral-Matematik-Fasikulleri-Baris-Celenk-903112.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Integral-Matematik-Fasikulleri-Baris-Celenk-903112.html",
+        "https://www.amazon.com.tr/dp/6259793901"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec sayfa sayısı vermiyor; Amazon künyesi 160 sayfa."
+    },
+    {
+      "title": "AYT Matematik Fasikülleri Logaritma-Dizi Eko",
+      "publisher": "Tonguç Akademi",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 72,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Fasikulleri-Logaritma-Dizi-Eko-Tonguc-Akademi-571096.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Fasikulleri-Logaritma-Dizi-Eko-Tonguc-Akademi-571096.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 72 sayfa; logaritma-dizi konu fasikülü."
+    },
+    {
+      "title": "AYT Matematik Fasikülleri Türev Eko",
+      "publisher": "Tonguç Akademi",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 72,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Matematik-Fasikulleri-Turev-Eko-Tonguc-Akademi-728102.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Matematik-Fasikulleri-Turev-Eko-Tonguc-Akademi-728102.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 72 sayfa; türev konu fasikülü."
+    },
+    {
+      "title": "Limit Türev İntegral",
+      "publisher": "Evrensel İletişim Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 248,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/Limit-Turev-Integral-Evrensel-Iletisim-Yayinlari-336230.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Limit-Turev-Integral-Evrensel-Iletisim-Yayinlari-336230.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 248 sayfa; limit-türev-integral konu anlatımlı."
+    },
+    {
+      "title": "AYT Limit ve Süreklilik",
+      "publisher": "Sonuç Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 64,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Limit-ve-Sureklilik-Sonuc-Yayinlari-318727.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Limit-ve-Sureklilik-Sonuc-Yayinlari-318727.html",
+        "https://www.amazon.com.tr/dp/6257209668"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsec ve Amazon künyeleri 64 sayfada birleşiyor."
+    },
+    {
+      "title": "AYT Logaritma Soru Bankası",
+      "publisher": "Sonuç Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "matematik",
+      "totalPages": 103,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Logaritma-Soru-Bankasi-Sonuc-Yayinlari-632973.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Logaritma-Soru-Bankasi-Sonuc-Yayinlari-632973.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 103 sayfa; tek konulu AYT logaritma soru bankası."
+    },
+    {
+      "title": "AYT Geometri Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 304,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-geometri-soru-bankasi-479.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-geometri-soru-bankasi-479.html",
+        "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Karekok-Yayinlari-318373.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Karekök künyesi 304 sayfa (2026-2027 müfredat); Kitapsec 301 sayfa gösteriyor, resmî künye esas alındı."
+    },
+    {
+      "title": "AYT Analitik Geometri Soru Bankası",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 136,
+      "edition": "2026",
+      "sourceUrl": "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-analitik-geometri-soru-bankasi-481.html",
+      "sourceUrls": [
+        "https://www.karekok.com.tr/yayinlarimiz/ayt/ayt-soru-bankalari/ayt-analitik-geometri-soru-bankasi-481.html",
+        "https://www.kitapsec.com/Products/AYT-Analitik-Geometri-Soru-Bankasi-Karekok-Yayinlari-578341.html"
+      ],
+      "confidence": "high",
+      "notes": "Resmî Karekök künyesi 136 sayfa; Kitapsec 130 sayfa gösteriyor, resmî künye esas alındı."
+    },
+    {
+      "title": "AYT Geometri (12 Fasikül)",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 368,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-12-Fasikul-Karekok-Yayinlari-921140.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-12-Fasikul-Karekok-Yayinlari-921140.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi set toplamı 368 sayfa; 12 fasiküllük AYT geometri seti."
+    },
+    {
+      "title": "AYT Analitik Geometri MPS Konu Anlatımı ve Soru Çözümü",
+      "publisher": "Karekök",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 239,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Analitik-Geometri-MPS-Konu-Anlatimi-ve-Soru-Cozumu-Karekok-Yayinlari-320623.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Analitik-Geometri-MPS-Konu-Anlatimi-ve-Soru-Cozumu-Karekok-Yayinlari-320623.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 239 sayfa; modüler piramit sistemi (MPS) konu anlatımı."
+    },
+    {
+      "title": "AYT 3D Geometri Tamamı Video Çözümlü Soru Bankası",
+      "publisher": "3D Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 288,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-3D-Geometri-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-245307.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-3D-Geometri-Tamami-Video-Cozumlu-Soru-Bankasi-3D-Yayinlari-245307.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 288 sayfa; tamamı video çözümlü AYT geometri."
+    },
+    {
+      "title": "AYT 40 Seans Geometri Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 432,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-40-Seans-Geometri-Soru-Bankasi-Okyanus-Yayinlari-321166.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-40-Seans-Geometri-Soru-Bankasi-Okyanus-Yayinlari-321166.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 432 sayfa; 40 seanslık programlı AYT geometri."
+    },
+    {
+      "title": "AYT Iceberg Geometri Soru Bankası",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 224,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Iceberg-Geometri-Soru-Bankasi-Okyanus-Yayinlari-378999.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Iceberg-Geometri-Soru-Bankasi-Okyanus-Yayinlari-378999.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 224 sayfa."
+    },
+    {
+      "title": "AYT Iceberg Geometri Konu Anlatımı",
+      "publisher": "Okyanus Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 288,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/Ayt-Iceberg-Geometri-Konu-Anlatimi-Okyanus-Yayinlari-377938.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Ayt-Iceberg-Geometri-Konu-Anlatimi-Okyanus-Yayinlari-377938.html",
+        "https://www.n11.com/urun/okyanus-yayincilik-ayt-iceberg-geometri-konu-anlatimi-11310797"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsec ve n11 künyeleri 288 sayfada birleşiyor."
+    },
+    {
+      "title": "YKS AYT Geometri Soru Kitabı",
+      "publisher": "Palme",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 416,
+      "edition": "2026",
+      "sourceUrl": "https://www.kitapsec.com/Products/YKS-AYT-Geometri-Soru-Kitabi-Palme-Yayinevi-338923.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/YKS-AYT-Geometri-Soru-Kitabi-Palme-Yayinevi-338923.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 416 sayfa."
+    },
+    {
+      "title": "AYT Enerji Geometri Konu Özetli Soru Fasikülleri",
+      "publisher": "Palme",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 320,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Enerji-Geometri-Konu-Ozetli-Soru-Fasikulleri-Palme-Yayinlari-917300.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Enerji-Geometri-Konu-Ozetli-Soru-Fasikulleri-Palme-Yayinlari-917300.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi fasikül seti toplamı 320 sayfa."
+    },
+    {
+      "title": "AYT Geometri Konu Anlatımlı Soru Bankası",
+      "publisher": "Nitelik Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 168,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-Konu-Anlatimli-Soru-Bankasi-Nitelik-Yayinlari-329584.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-Konu-Anlatimli-Soru-Bankasi-Nitelik-Yayinlari-329584.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 168 sayfa; konu anlatımlı."
+    },
+    {
+      "title": "AYT Geometri Soru Bankası",
+      "publisher": "Hız Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 216,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Hiz-Yayinlari-781718.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Hiz-Yayinlari-781718.html",
+        "https://www.amazon.com.tr/dp/6257514991"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsec ve Amazon künyeleri 216 sayfada birleşiyor."
+    },
+    {
+      "title": "AYT Geometri Son 500 Soru",
+      "publisher": "Hız Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 104,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-Son-500-Soru-Hiz-Yayinlari-588601.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-Son-500-Soru-Hiz-Yayinlari-588601.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 104 sayfa; son 500 soru kitabı."
+    },
+    {
+      "title": "AYT Geometri Soru Bankası Yeni Temel ve Orta Düzey",
+      "publisher": "Kafadengi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 256,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Yeni-Temel-ve-Orta-Duzey-Kafadengi-Yayinlari-382441.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Yeni-Temel-ve-Orta-Duzey-Kafadengi-Yayinlari-382441.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 256 sayfa; temel ve orta düzey."
+    },
+    {
+      "title": "AYT Geometri Soru Bankası",
+      "publisher": "Sınav Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 208,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Sinav-Yayinlari-839377.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Sinav-Yayinlari-839377.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 208 sayfa."
+    },
+    {
+      "title": "AYT Geometri Spotlu Soru Bankası",
+      "publisher": "Sadık Uygun Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 424,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-Spotlu-Soru-Bankasi-Sadik-Uygun-Yayinlari-303933.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-Spotlu-Soru-Bankasi-Sadik-Uygun-Yayinlari-303933.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 424 sayfa."
+    },
+    {
+      "title": "AYT Geometri Atak Soru Bankası",
+      "publisher": "Delta Kültür Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 272,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Geometri-Atak-Soru-Bankasi-Delta-Kultur-Yayinlari-373634.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Geometri-Atak-Soru-Bankasi-Delta-Kultur-Yayinlari-373634.html"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec künyesi 272 sayfa."
+    },
+    {
+      "title": "Barış Çelenk Analitik Geometri Fasikülleri",
+      "publisher": "Barış Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 176,
+      "edition": "2025",
+      "sourceUrl": "https://www.kitapsec.com/Products/Baris-Celenk-Analitik-Geometri-Fasikulleri-Baris-Yayinlari-908346.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/Baris-Celenk-Analitik-Geometri-Fasikulleri-Baris-Yayinlari-908346.html",
+        "https://www.dr.com.tr/kitap/ayt-analitik-geometri/egitim-ve-sinav-kitaplari/universiteye-hazirlik/ayt-konu-anlatim-kitaplari/ayt-matematik/urunno=0002198130001"
+      ],
+      "confidence": "high",
+      "notes": "Kitapsec ve D&R künyeleri 176 sayfada birleşiyor; D&R ilk baskı yılı 2025."
+    },
+    {
+      "title": "AYT Çizgi Üstü Serisi Geometri Soru Bankası",
+      "publisher": "Fen Bilimleri Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 256,
+      "edition": "2024",
+      "sourceUrl": "https://www.kitapsec.com/Products/AYT-Cizgi-Ustu-Serisi-Geometri-Soru-Bankasi-Fen-Bilimleri-Yayinlari-861170.html",
+      "sourceUrls": [
+        "https://www.kitapsec.com/Products/AYT-Cizgi-Ustu-Serisi-Geometri-Soru-Bankasi-Fen-Bilimleri-Yayinlari-861170.html",
+        "https://www.amazon.com.tr/dp/6258289150"
+      ],
+      "confidence": "medium",
+      "notes": "Kitapsec sayfa sayısı vermiyor; Amazon künyesi 256 sayfa, 2024 baskısı."
+    },
+    {
+      "title": "AYT Geometri Soru Bankası",
+      "publisher": "Tammat Yayıncılık",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 320,
+      "edition": "2018",
+      "sourceUrl": "https://www.n11.com/urun/ayt-geometri-soru-bankasi-ali-bal-tammat-yayincilik-11833131",
+      "sourceUrls": [
+        "https://www.n11.com/urun/ayt-geometri-soru-bankasi-ali-bal-tammat-yayincilik-11833131"
+      ],
+      "confidence": "medium",
+      "notes": "n11 künyesi 320 sayfa; 2018 baskısı, halen satışta."
+    },
+    {
+      "title": "AYT Geometri Multi Soru Bankası",
+      "publisher": "Eğitim Vadisi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 272,
+      "edition": "2025",
+      "sourceUrl": "https://www.amazon.com.tr/dp/625691130X",
+      "sourceUrls": [
+        "https://www.amazon.com.tr/dp/625691130X"
+      ],
+      "confidence": "medium",
+      "notes": "Amazon künyesi 272 sayfa."
+    },
+    {
+      "title": "AYT Geometri Güncel PDF Planlı Ders Föyü",
+      "publisher": "Eğitim Vadisi Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 144,
+      "edition": "2025",
+      "sourceUrl": "https://www.amazon.com.tr/dp/6256911598",
+      "sourceUrls": [
+        "https://www.amazon.com.tr/dp/6256911598"
+      ],
+      "confidence": "medium",
+      "notes": "Amazon künyesi 144 sayfa; planlı ders föyü."
+    },
+    {
+      "title": "AYT Geometri Fasikülleri - Çember ve Daire",
+      "publisher": "Tonguç Akademi",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 128,
+      "edition": "2022",
+      "sourceUrl": "https://www.n11.com/urun/ayt-geometri-fasikulleri-cember-ve-daire-tonguc-kampus-10163377",
+      "sourceUrls": [
+        "https://www.n11.com/urun/ayt-geometri-fasikulleri-cember-ve-daire-tonguc-kampus-10163377",
+        "https://www.n11.com/urun/ayt-geometri-fasikulleri-cember-ve-daire-11319467"
+      ],
+      "confidence": "medium",
+      "notes": "İki n11 listesi 128 sayfada birleşiyor; AYT geometri fasikül serisinin çember-daire kitabı."
+    },
+    {
+      "title": "AYT Geometri Soru Bankası",
+      "publisher": "Aydın Yayınları",
+      "exam": "AYT",
+      "subjectSlug": "geometri",
+      "totalPages": 416,
+      "edition": "2020",
+      "sourceUrl": "https://www.amazon.com.tr/dp/6257833175",
+      "sourceUrls": [
+        "https://www.amazon.com.tr/dp/6257833175",
+        "https://www.kitapsec.com/Products/AYT-Geometri-Soru-Bankasi-Aydin-Yayinlari-644989.html"
+      ],
+      "confidence": "medium",
+      "notes": "Amazon künyesi 416 sayfa; 2020 baskısı, Kitapsec'te halen listeli."
+    }
+  ],
+  "gaps": [
+    "AYT Geometri hedefi 25 kitaptı; 24 doğrulanmış kitap bulundu, 1 kitap eksik.",
+    "AYT Geometri'de yayınevlerinin çoğu tek ciltte TYT-AYT ortak kitap yayımlıyor (Bilgi Sarmal, Orijinal, Apotemi, Çap, Esen, Şenol Hoca, Tonguç, Toprak, Hız ve Renk, Barış, KR Akademi); brief gereği bu ortak kitaplar eklenmedi.",
+    "Kafa Dengi AYT Geometri Extra, Orijinal AYT Analitik Geometri Konu Anlatımlı ve Gür Model Geometri Soru Havuzu Seti için güvenilir sayfa sayısı bulunamadı."
+  ]
+}

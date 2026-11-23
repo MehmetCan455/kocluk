@@ -15,6 +15,7 @@ import {
   addCatalogBookToShelf,
   getShelfBook,
   listBookActivity,
+  updateUserBook,
   type ShelfBook,
 } from '@/db/bookRepositories';
 import {
@@ -128,16 +129,19 @@ async function seedPlanRow(): Promise<{ weekStart: string; weekId: string; rowId
   return { weekStart, weekId: week.id, rowId: row.id };
 }
 
-async function seedBilgiSarmalBook(): Promise<ShelfBook> {
+async function seedShelfBook(
+  publisher: string,
+  title: string,
+): Promise<ShelfBook> {
   await seedCatalog();
   const catalogBook = (await listCatalogBooks()).find(
     (book) =>
-      book.publisher === 'Bilgi Sarmal' &&
+      book.publisher === publisher &&
       book.exam === 'TYT' &&
-      book.title === 'TYT Matematik Soru Bankası',
+      book.title === title,
   );
   if (!catalogBook) {
-    throw new Error('Bilgi Sarmal katalog kitabı bulunamadı');
+    throw new Error(`${publisher} katalog kitabı bulunamadı`);
   }
   const userBook = await addCatalogBookToShelf(catalogBook.id);
   const shelfBook = await getShelfBook(userBook.id);
@@ -145,6 +149,23 @@ async function seedBilgiSarmalBook(): Promise<ShelfBook> {
     throw new Error('Raf kitabı bulunamadı');
   }
   return shelfBook;
+}
+
+function seedBilgiSarmalBook(): Promise<ShelfBook> {
+  return seedShelfBook('Bilgi Sarmal', 'TYT Matematik Soru Bankası');
+}
+
+/** Types into the picker search box and picks the matching shelf book. */
+async function chooseShelfBook(
+  dialog: HTMLElement,
+  query: string,
+  optionName: RegExp,
+): Promise<void> {
+  await within(dialog).findByRole('option', { name: optionName });
+  await userEvent.type(within(dialog).getByLabelText('Kitap ara'), query);
+  await userEvent.click(
+    within(dialog).getByRole('option', { name: optionName }),
+  );
 }
 
 async function subjectByKey(seedKey: string): Promise<Subject> {
@@ -639,11 +660,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
     screen.getByRole('button', { name: 'Matematik Çarşamba görev ekle' }),
   );
   const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
-  await within(dialog).findByRole('option', { name: /Bilgi Sarmal/ });
-  await userEvent.selectOptions(
-    within(dialog).getByLabelText('Kitap'),
-    userBookId,
-  );
+  await chooseShelfBook(dialog, 'bilgi sarmal', /Bilgi Sarmal/);
   await userEvent.type(
     within(dialog).getByLabelText('Başlangıç sayfası'),
     '210',
@@ -726,9 +743,92 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   expect(planLink).toHaveTextContent(dayLabel(weekStart, 3));
 });
 
+test('iki yayınevinden kitap varken arama eşleşeni bırakır ve doğru kitap kaydedilir', async () => {
+  await seedPlanRow();
+  const bilgiSarmal = await seedBilgiSarmalBook();
+  const threeD = await seedShelfBook(
+    '3D Yayınları',
+    'TYT Matematik Soru Bankası',
+  );
+  await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Çarşamba görev ekle' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  await within(dialog).findByRole('option', { name: /Bilgi Sarmal/ });
+  expect(
+    within(dialog).getByRole('option', { name: /3D Yayınları/ }),
+  ).toBeInTheDocument();
+
+  await userEvent.type(within(dialog).getByLabelText('Kitap ara'), '3d');
+
+  const options = within(dialog).getAllByRole('option');
+  expect(options).toHaveLength(1);
+  expect(options[0]).toHaveTextContent('3D Yayınları');
+  expect(
+    within(dialog).queryByRole('option', { name: /Bilgi Sarmal/ }),
+  ).not.toBeInTheDocument();
+
+  await userEvent.click(options[0]);
+  await userEvent.type(
+    within(dialog).getByLabelText('Başlangıç sayfası'),
+    '10',
+  );
+  await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '19');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
+
+  await waitFor(async () => {
+    const tasks = await db.scheduleTasks.toArray();
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].userBookId).toBe(threeD.userBook.id);
+  });
+  expect(bilgiSarmal.userBook.id).not.toBe(threeD.userBook.id);
+});
+
+test('raftan kaldırılan kitabın görevi düzenlenirken uyarır ve kaydetmeyi engeller', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  const archived = await seedBilgiSarmalBook();
+  await seedShelfBook('3D Yayınları', 'TYT Matematik Soru Bankası');
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'book',
+    userBookId: archived.userBook.id,
+    fromPage: 10,
+    toPage: 20,
+  });
+  await updateUserBook(archived.userBook.id, { status: 'archived' });
+  await openSchedule();
+
+  const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  await screen.findByText(chipTitle, { selector: '[data-line="title"]' });
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: new RegExp(`${chipTitle} Syf\\. 10–20 görevini düzenle`),
+    }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
+
+  expect(
+    within(dialog).getByText('Seçili kitap rafında bulunamadı.'),
+  ).toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Vazgeç' }));
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('dialog', { name: 'Görevi düzenle' }),
+    ).not.toBeInTheDocument();
+  });
+  expect(await db.scheduleTasks.count()).toBe(1);
+});
+
 test('ondalık sayfa girişi kırpılmadan reddedilir', async () => {
   await seedPlanRow();
-  const shelfBook = await seedBilgiSarmalBook();
+  await seedBilgiSarmalBook();
   await openSchedule();
 
   await screen.findByLabelText('1. satır');
@@ -736,11 +836,7 @@ test('ondalık sayfa girişi kırpılmadan reddedilir', async () => {
     screen.getByRole('button', { name: 'Matematik Cuma görev ekle' }),
   );
   const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
-  await within(dialog).findByRole('option', { name: /Bilgi Sarmal/ });
-  await userEvent.selectOptions(
-    within(dialog).getByLabelText('Kitap'),
-    shelfBook.userBook.id,
-  );
+  await chooseShelfBook(dialog, 'bilgi sarmal', /Bilgi Sarmal/);
   await userEvent.type(
     within(dialog).getByLabelText('Başlangıç sayfası'),
     '210.5',
@@ -1254,7 +1350,7 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
 
 test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur', async () => {
   await seedPlanRow();
-  const shelfBook = await seedBilgiSarmalBook();
+  await seedBilgiSarmalBook();
   await openSchedule();
 
   await screen.findByLabelText('1. satır');
@@ -1262,11 +1358,7 @@ test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur'
     screen.getByRole('button', { name: 'Matematik Cuma görev ekle' }),
   );
   const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
-  await within(dialog).findByRole('option', { name: /Bilgi Sarmal/ });
-  await userEvent.selectOptions(
-    within(dialog).getByLabelText('Kitap'),
-    shelfBook.userBook.id,
-  );
+  await chooseShelfBook(dialog, 'bilgi sarmal', /Bilgi Sarmal/);
   await userEvent.type(within(dialog).getByLabelText('Konu'), 'Türev');
   await userEvent.type(
     within(dialog).getByLabelText('Başlangıç sayfası'),
@@ -1290,11 +1382,7 @@ test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur'
     screen.getByRole('button', { name: 'Matematik Cumartesi görev ekle' }),
   );
   const secondDialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
-  await within(secondDialog).findByRole('option', { name: /Bilgi Sarmal/ });
-  await userEvent.selectOptions(
-    within(secondDialog).getByLabelText('Kitap'),
-    shelfBook.userBook.id,
-  );
+  await chooseShelfBook(secondDialog, 'bilgi sarmal', /Bilgi Sarmal/);
   await userEvent.type(
     within(secondDialog).getByLabelText('Başlangıç sayfası'),
     '21',

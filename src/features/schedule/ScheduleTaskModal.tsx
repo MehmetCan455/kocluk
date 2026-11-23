@@ -12,6 +12,7 @@ import {
   type CreateScheduleTaskInput,
 } from '@/db/scheduleRepository';
 import type { ScheduleTask, ScheduleTaskType } from '@/domain/types';
+import { ShelfBookPicker } from './ShelfBookPicker';
 
 const inputClass =
   'min-h-11 w-full rounded-xl border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-[var(--accent)]';
@@ -88,7 +89,7 @@ export function ScheduleTaskModal({
     !saving &&
     !loading &&
     (type === 'book'
-      ? selectedBookId !== ''
+      ? selectedBookId !== '' && selectedBook !== undefined
       : type === 'topic'
         ? selectedTopicId !== ''
         : trimmedTitle !== '');
@@ -208,32 +209,21 @@ export function ScheduleTaskModal({
         {type === 'book' ? (
           <>
             <Field
-              label="Kitap"
+              label="Kitap ara"
               htmlFor={bookId}
               hint={
                 selectedBook
                   ? `Toplam ${selectedBook.totalPages} sayfa`
-                  : 'Rafındaki aktif kitaplardan birini seç.'
+                  : 'Rafındaki aktif kitaplardan birini ara ve seç.'
               }
             >
-              <select
+              <ShelfBookPicker
                 id={bookId}
+                books={books ?? []}
                 value={selectedBookId}
-                onChange={(event) => setSelectedBookId(event.target.value)}
+                onChange={setSelectedBookId}
                 disabled={loading}
-                aria-required="true"
-                className={inputClass}
-              >
-                <option value="">Kitap seç</option>
-                {(books ?? []).map((item) => (
-                  <option key={item.userBook.id} value={item.userBook.id}>
-                    {item.catalogBook.title}
-                    {item.catalogBook.publisher
-                      ? ` · ${item.catalogBook.publisher}`
-                      : ''}
-                  </option>
-                ))}
-              </select>
+              />
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">

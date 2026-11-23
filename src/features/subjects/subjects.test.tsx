@@ -156,7 +156,11 @@ test('legacy test kayıtları ders ilerlemesini etkilemez', async () => {
 
   renderApp('/tyt');
 
-  expect(await screen.findAllByText('Henüz başlanmadı')).toHaveLength(2);
+  // Both subject cards have their own live query; wait until the second one
+  // has rendered before asserting the count.
+  await waitFor(() => {
+    expect(screen.getAllByText('Henüz başlanmadı')).toHaveLength(2);
+  });
 });
 
 test('konu listesini ve ilerlemeyi gösterir', async () => {

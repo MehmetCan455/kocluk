@@ -3,8 +3,8 @@ import type { ExamType, Progress } from './types';
 /** Bir kitabın tek bir konuya verebileceği en yüksek katkı. */
 const MAX_TOPIC_CONTRIBUTION = 50;
 
-/** `TYT-AYT` / `TYT - AYT` gibi ortak tek cilt kitapların başlık deseni. */
-const COMMON_EXAM_TITLE = /TYT\s*[-–]\s*AYT/i;
+/** `TYT-AYT` / `TYT AYT` gibi ortak tek cilt kitapların başlık deseni. */
+const COMMON_EXAM_TITLE = /TYT\s*[-–]?\s*AYT/i;
 
 type AytSubjectGroup = 'tarih' | 'cografya';
 
@@ -16,15 +16,29 @@ const AYT_GROUP_BY_SLUG: Record<string, AytSubjectGroup> = {
   'cografya-2': 'cografya',
 };
 
+/**
+ * Ortak TYT-AYT kitabının TYT slug'ından AYT'deki karşılıklarına eşleme.
+ * `turkce` bilinçli olarak yok: TYT Türkçe ile AYT Edebiyatı ayrı derslerdir.
+ */
+const COMMON_TITLE_AYT_SLUGS: Record<string, readonly string[]> = {
+  tarih: ['tarih-1', 'tarih-2'],
+  cografya: ['cografya-1', 'cografya-2'],
+  felsefe: ['felsefe-grubu'],
+};
+
 /** Türkçe büyük harfleri doğru küçültür; `TARIH` yazımını da `tarih`e indirger. */
 function normalizeTitle(title: string): string {
   return title.toLocaleLowerCase('tr').replaceAll('ı', 'i');
 }
 
-/** "AYT Tarih" / "AYT Coğrafya" gibi alt ders ayrımı olmayan birleşik başlıklar. */
+/**
+ * "AYT Tarih" / "AYT 3D Tarih" / "AYT Iceberg Coğrafya" gibi, alt ders ayrımı
+ * olmayan birleşik başlıklar. Marka adı `AYT` ile ders adı arasında en fazla
+ * üç kelime olabilir.
+ */
 const COMBINED_AYT_TITLE: Record<AytSubjectGroup, RegExp> = {
-  tarih: /(^|[^a-zçğıöşü])ayt\s+tarih(?!\w)/u,
-  cografya: /(^|[^a-zçğıöşü])ayt\s+co[ğg]rafya(?!\w)/u,
+  tarih: /(^|[^a-zçğıöşü])ayt(?:\s+[a-z0-9çğıöşü.&]+){0,3}\s+tarih(?!\w)/u,
+  cografya: /(^|[^a-zçğıöşü])ayt(?:\s+[a-z0-9çğıöşü.&]+){0,3}\s+co[ğg]rafya(?!\w)/u,
 };
 
 /** "Tarih-1", "Tarih 2", "Coğrafya-1" gibi alt ders ayrımını belirten başlıklar. */
@@ -60,16 +74,40 @@ function sameSlug(left: string | undefined, right: string): boolean {
   return (left ?? '').trim().toLowerCase() === right.trim().toLowerCase();
 }
 
+/** Ortak TYT-AYT başlığı, TYT slug'ının AYT karşılığına mı denk geliyor? */
+function commonTitleTargetsAytSlug(
+  bookSlug: string | undefined,
+  title: string,
+  subjectSlug: string,
+): boolean {
+  if (!COMMON_EXAM_TITLE.test(title)) {
+    return false;
+  }
+  const key = (bookSlug ?? '').trim().toLowerCase();
+  if (!Object.hasOwn(COMMON_TITLE_AYT_SLUGS, key)) {
+    return false;
+  }
+  return COMMON_TITLE_AYT_SLUGS[key]?.includes(subjectSlug.trim().toLowerCase()) === true;
+}
+
 /**
  * Kitap, dersin sınavına ve slug'ına uyuyorsa sayılır. `TYT-AYT` ortak
- * kitapları katalogda tek sınavla işaretli olsa da iki sınava da katkı verir.
- * Ayrıca alt ders ayrımı olmayan tek cilt AYT Tarih/Coğrafya kitapları, aynı
- * grubun kardeş alt dersine (Tarih-1 ↔ Tarih-2, Coğrafya-1 ↔ Coğrafya-2) de
- * sayılır; başlıkta açık `-1`/`-2` ayrımı varsa sayılmaz.
+ * kitapları katalogda tek sınavla işaretli olsa da iki sınava da katkı verir;
+ * ortak Tarih/Coğrafya/Felsefe kitabı AYT'de alt derslerine eşlenir. Ayrıca alt
+ * ders ayrımı olmayan tek cilt AYT Tarih/Coğrafya kitapları, aynı grubun kardeş
+ * alt dersine (Tarih-1 ↔ Tarih-2, Coğrafya-1 ↔ Coğrafya-2) de sayılır;
+ * başlıkta açık `-1`/`-2` ayrımı varsa sayılmaz.
  */
 export function countsForSubject(book: SubjectBookMatch, subject: SubjectRef): boolean {
   if (sameSlug(book.subjectSlug, subject.slug)) {
     return book.exam === subject.exam || COMMON_EXAM_TITLE.test(book.title);
+  }
+
+  if (
+    subject.exam === 'AYT' &&
+    commonTitleTargetsAytSlug(book.subjectSlug, book.title, subject.slug)
+  ) {
+    return true;
   }
 
   const bookGroup = combinedAytGroup(book.subjectSlug);

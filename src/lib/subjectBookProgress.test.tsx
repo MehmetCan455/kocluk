@@ -1,7 +1,8 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, expect, test } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { addBookPageRange, addCustomBook, updateUserBook } from '@/db/bookRepositories';
+import { db } from '@/db/db';
 import { listSubjects, listTopics } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/seed';
 import { setTopicDone } from '@/db/topicProgressRepository';
@@ -174,6 +175,52 @@ test('TYT-AYT ortak kitabı AYT dersine de sayılır', async () => {
   const { result: tyt } = renderHook(() => useSubjectOverview(fizik.id));
   await waitFor(() => {
     expect(tyt.current?.bookEstimate).toBe(0);
+  });
+});
+
+test('kitap tahmini raftaki updatedAt sırası değişince bozulmaz', async () => {
+  const subject = await fizikSubject();
+  const completed = await addFizikBook('Birinci Fizik Kitabı', 100);
+  await addBookPageRange(completed.id, 1, 100);
+  const thirty = await addFizikBook('İkinci Fizik Kitabı', 100);
+  await addBookPageRange(thirty.id, 1, 30);
+  const forty = await addFizikBook('Üçüncü Fizik Kitabı', 100);
+  await addBookPageRange(forty.id, 1, 40);
+
+  // Oluşturma sırası completed < thirty < forty; raf sırası tam tersi olsun.
+  await db.userBooks.update(completed.id, {
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z',
+  });
+  await db.userBooks.update(thirty.id, {
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-02-02T00:00:00.000Z',
+  });
+  await db.userBooks.update(forty.id, {
+    createdAt: '2026-01-03T00:00:00.000Z',
+    updatedAt: '2026-02-03T00:00:00.000Z',
+  });
+
+  const { result } = renderHook(() => useSubjectOverview(subject.id));
+
+  await waitFor(() => {
+    expect(result.current?.bookEstimate).toBe(67);
+  });
+  const before = result.current;
+  expect(before?.topics.map((row) => row.progress.percent)).toEqual([100, 70, 50, 50]);
+
+  await act(async () => {
+    await db.userBooks.update(completed.id, {
+      updatedAt: new Date(Date.now() + 1000).toISOString(),
+    });
+  });
+
+  await waitFor(() => {
+    expect(result.current).not.toBe(before);
+    expect(result.current?.bookEstimate).toBe(before?.bookEstimate);
+    expect(result.current?.topics.map((row) => row.progress.percent)).toEqual(
+      before?.topics.map((row) => row.progress.percent),
+    );
   });
 });
 

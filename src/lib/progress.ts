@@ -71,18 +71,26 @@ function shelfBooksForSubject(
   if (!subject) {
     return [];
   }
-  return books.filter(
-    (book) =>
-      book.progress.hasTotalPages &&
-      countsForSubject(
-        {
-          title: book.catalogBook.title,
-          exam: book.catalogBook.exam,
-          subjectSlug: book.catalogBook.subjectSlug,
-        },
-        subject,
-      ),
-  );
+  return books
+    .filter(
+      (book) =>
+        book.progress.hasTotalPages &&
+        countsForSubject(
+          {
+            title: book.catalogBook.title,
+            exam: book.catalogBook.exam,
+            subjectSlug: book.catalogBook.subjectSlug,
+          },
+          subject,
+        ),
+    )
+    // Shelf order follows `updatedAt`, which page logging bumps. Estimate must
+    // not depend on it, so use the immutable creation order with an id tiebreak.
+    .sort(
+      (left, right) =>
+        left.userBook.createdAt.localeCompare(right.userBook.createdAt) ||
+        left.userBook.id.localeCompare(right.userBook.id),
+    );
 }
 
 /**

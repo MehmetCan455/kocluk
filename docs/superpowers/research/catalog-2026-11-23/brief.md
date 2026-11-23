@@ -13,7 +13,7 @@ YKS TYT/AYT kataloğuna eklenecek 456 yeni kitabı, doğrulanmış sayfa sayıla
 - `confidence`: high (resmî künye veya en az 2 bağımsız kaynak), medium (tek güvenilir kaynak), low (kabul edilmez).
 - Aynı `title + publisher` mevcut `src/data/catalog/mevcut.ts` içinde varsa ekleme (edition farklı olsa bile).
 - TYT-AYT ortak tek cilt kitaplar TYT batch'ine yazılır; `exam: "TYT"`.
-- AYT Tarih-1/Tarih-2 ve AYT Coğrafya-1/Coğrafya-2 için yalnızca tek alt dersi hedefleyen kitaplar ekle. "AYT Tarih"/"AYT Coğrafya" gibi iki alt dersi birlikte kapsayan tek ciltleri ekleme.
+- AYT Tarih-1/Tarih-2 ve AYT Coğrafya-1/Coğrafya-2 için hem tek alt dersi hedefleyen kitaplar hem de iki alt dersi birlikte kapsayan tek cilt "AYT Tarih"/"AYT Coğrafya" kitapları eklenebilir. Ortak tek ciltler `tarih-1` veya `cografya-1` slug'ıyla **bir kez** yazılır; ilerleme tahmininde iki alt derse de sayılır. Başlıkta `Tarih-1`, `Tarih-2`, `Coğrafya-1`, `Coğrafya-2` ayrımı yoksa ortak kabul edilir.
 - Deneme sınavı kitapçıkları, DVD, poster, defter ekleme.
 - Fasikül seti tek satırsa başlıkta `(X Fasikül)` yaz; `totalPages` setin toplamı olsun.
 - Başlık ve yayınevi adlarını Türkçe ve künyedeki haliyle yaz.

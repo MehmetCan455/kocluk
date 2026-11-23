@@ -193,7 +193,7 @@ Kesin alt sınır: `CATALOG_SEED.length >= 500`. Hedefin altında kalınırsa ek
 - AYT Edebiyat, Tarih-1/2, Coğrafya-1/2 ve Felsefe Grubu yalnızca AYT'dir.
 - Aynı `title|publisher|edition` üçlüsü tüm katalogda benzersiz olmalı. Aynı kitabın farklı dersi/versiyonu varsa başlıkta ayırt edici ifade bulunmalı.
 - **Baskı farkı yüzünden çift kayıt açılmaz:** `mevcut.ts` içinde aynı `title + publisher` varsa, yeni edition farklı olsa bile yeni satır eklenmez. Mevcut satır korunur; yeni araştırma o kitabı atlar. Böylece kullanıcı aynı görünen iki satır görmez ve mevcut testlerdeki başlık+yayınevi aramaları kararlı kalır.
-- AYT Tarih-1/Tarih-2 ve AYT Coğrafya-1/Coğrafya-2 için yalnızca tek alt dersi hedefleyen kitaplar/fasiküller eklenir. "AYT Tarih" veya "AYT Coğrafya" gibi iki alt dersi birlikte kapsayan tek cilt kitaplar, tek bir `subjectSlug` ile diğer alt dersi tahminsiz bırakacağı için kataloğa alınmaz.
+- AYT Tarih-1/Tarih-2 ve AYT Coğrafya-1/Coğrafya-2 için hem tek alt dersi hedefleyen kitaplar hem de iki alt dersi birlikte kapsayan tek cilt "AYT Tarih"/"AYT Coğrafya" kitapları eklenir. Ortak tek ciltler `tarih-1` veya `cografya-1` slug'ıyla bir kez yazılır; başlıkta `Tarih-1/2` veya `Coğrafya-1/2` ayrımı yoksa tahmin eşleşmesi bunları iki alt derse de sayar. Şema değişmez.
 - Fasikül seti tek satırsa başlıkta `(X Fasikül)` belirtilir ve `totalPages` setin toplam sayfasıdır. Tek tek satılan fasiküller ayrı satır olabilir.
 - Deneme sınavı kitapçıkları, çözüm DVD'leri, poster/defter gibi sayfa takibine uygun olmayan ürünler eklenmez.
 - `edition` çoğunlukla `2026`. Resmî künyede yıl yoksa ve güncel sezon listingi varsa `2026`; yalnızca doğrulanmış eski baskı varsa o yıl.
@@ -284,6 +284,7 @@ Bir dersin rafındaki kitapları:
 - `catalogBook.deletedAt` yok.
 - `catalogBook.subjectSlug === subject.slug`.
 - `catalogBook.exam === subject.exam` **veya** kitap başlığı `TYT-AYT` / `TYT - AYT` içeriyor. Ortak tek cilt kitaplar hem TYT hem AYT tahminine sayılır; katalogdaki `exam` alanı TYT kalsa bile AYT tarafı boş kalmaz.
+- AYT Tarih/Coğrafya ortak tek ciltleri: kitap `tarih-1`/`cografya-1` slug'ıyla saklansa bile başlığında `Tarih-1/2` veya `Coğrafya-1/2` ayrımı yoksa hem `tarih-1` hem `tarih-2` (veya her iki coğrafya) tahminine sayılır. Bu eşleşme başlık üzerinden yapılır; şema değişmez.
 - `totalPages > 0` (toplam sayfası bilinmeyen kitap katkı vermez).
 
 **Dağıtım kuralı:** her kitap, kendi `progress.percent` değerini konu sırasına göre baştan dağıtır. Bir kitap bir konuya **en fazla %50** katkı verir; konu %50'ye gelince o kitabın katkısı sıradaki konuya geçer. Zaten %100 dolu konular atlanır; böylece 3. kitabın katkısı boşa gitmez. İki kitap aynı konuya %50'şer katkı verince konu %100 olur. **Bitmiş (%100) kitap dersin tamamını kapsar; bu yüzden her konuya %50 verir.** Kısmi kitap sırayla dağıtılır ve yüzdesi bitince durur.
@@ -375,7 +376,7 @@ done    = total > 0 && solved === total
 
 ### 5.5 Testler
 
-- **Veri:** `CATALOG_SEED.length >= 500`; `catalogBookId` benzersizliği; tüm alanlar geçerli; `subjectSlug` izinli listede; 22 dersin her birinde en az 5 kitap; en az 25 fasikül, 15 problem, 15 paragraf başlığı; mevcut 80'in kimlikleri korunmuş; aynı `title + publisher` yeni satırlarda tekrarlanmamış.
+- **Veri:** `CATALOG_SEED.length >= 500`; `catalogBookId` benzersizliği; tüm alanlar geçerli; `subjectSlug` izinli listede; 22 dersin her biri için `countsForSubject` ile en az 5 eşleşen kitap (TYT-AYT ortak ve ortak AYT Tarih/Coğrafya kitapları iki tarafa da sayılır); en az 25 fasikül, 15 problem, 15 paragraf başlığı; mevcut 80'in kimlikleri korunmuş; aynı `title + publisher` yeni satırlarda tekrarlanmamış.
 - **Seed:** idempotent; mevcut satırı ezmez; toplu ekleme sonrası sayı doğru.
 - **Bugünün planı:** yayınevili etiket ve `aria-label`.
 - **Görev formu:** arama ile filtreleme, seçim, klavye, seçili kitap özeti, kaydetme; düzenleme modunda mevcut kitap; aynı adlı farklı yayınevlerinin ayırt edilmesi.

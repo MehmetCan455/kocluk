@@ -235,7 +235,7 @@ YKS TYT/AYT kataloğuna eklenecek 456 yeni kitabı, doğrulanmış sayfa sayıla
 - `confidence`: high (resmî künye veya en az 2 bağımsız kaynak), medium (tek güvenilir kaynak), low (kabul edilmez).
 - Aynı `title + publisher` mevcut `src/data/catalog/mevcut.ts` içinde varsa ekleme (edition farklı olsa bile).
 - TYT-AYT ortak tek cilt kitaplar TYT batch'ine yazılır; `exam: "TYT"`.
-- AYT Tarih-1/Tarih-2 ve AYT Coğrafya-1/Coğrafya-2 için yalnızca tek alt dersi hedefleyen kitaplar ekle. "AYT Tarih"/"AYT Coğrafya" gibi iki alt dersi birlikte kapsayan tek ciltleri ekleme.
+- AYT Tarih-1/Tarih-2 ve AYT Coğrafya-1/Coğrafya-2 için hem tek alt dersi hedefleyen kitaplar hem de iki alt dersi birlikte kapsayan tek cilt "AYT Tarih"/"AYT Coğrafya" kitapları eklenebilir. Ortak tek ciltler `tarih-1` veya `cografya-1` slug'ıyla bir kez yazılır; başlıkta alt ders ayrımı yoksa tahmin eşleşmesi bunları iki alt derse de sayar.
 - Deneme sınavı kitapçıkları, DVD, poster, defter ekleme.
 - Fasikül seti tek satırsa başlıkta `(X Fasikül)` yaz; `totalPages` setin toplamı olsun.
 - Başlık ve yayınevi adlarını Türkçe ve künyedeki haliyle yaz.
@@ -486,7 +486,7 @@ git commit -m "docs: add TYT wave 2 catalog research and reviews"
 
 - [ ] **Step 1: Beş araştırma subagent'ını paralel başlat**
 
-Task 3 Step 1 promptunu batch, ders ve hedeflerle kullan. AYT Tarih/Coğrafya alt ders kuralını promptta hatırlat: tek alt dersi hedefleyen kitaplar; iki alt dersi birlikte kapsayan tek cilt yok.
+Task 3 Step 1 promptunu batch, ders ve hedeflerle kullan. AYT Tarih/Coğrafya kuralını promptta hatırlat: tek alt ders kitapları ve iki alt dersi birlikte kapsayan tek ciltler eklenebilir; ortak ciltler `tarih-1`/`cografya-1` slug'ıyla bir kez yazılır ve iki alt derse sayılır.
 
 - [ ] **Step 2: Reviewer B ile incele**
 
@@ -536,6 +536,7 @@ Expected: Toplam satır sayısı en az 500; her ders için hedefe yakın sayı; 
 `src/data/catalogBooks.test.ts` içine ekle:
 
 ```ts
+import { countsForSubject } from '@/domain/subjectEstimate';
 import { CURRICULUM } from './curriculum';
 
 const SUBJECT_SLUGS = new Set(CURRICULUM.subjects.map((subject) => subject.slug));
@@ -559,14 +560,12 @@ test('aynı title + publisher ikinci kez geçmez', () => {
   expect(new Set(keys).size).toBe(keys.length);
 });
 
-test('her derste en az 5 kitap var', () => {
-  const counts = new Map<string, number>();
-  for (const book of CATALOG_SEED) {
-    const key = `${book.exam}|${book.subjectSlug}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
+test('her ders için en az 5 eşleşen kitap var', () => {
   for (const subject of CURRICULUM.subjects) {
-    expect(counts.get(`${subject.exam}|${subject.slug}`) ?? 0).toBeGreaterThanOrEqual(5);
+    const matches = CATALOG_SEED.filter((book) =>
+      countsForSubject(book, { exam: subject.exam, slug: subject.slug }),
+    );
+    expect(matches.length).toBeGreaterThanOrEqual(5);
   }
 });
 

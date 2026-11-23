@@ -286,13 +286,20 @@ Bir dersin rafındaki kitapları:
 - `catalogBook.exam === subject.exam` **veya** kitap başlığı `TYT-AYT` / `TYT - AYT` içeriyor. Ortak tek cilt kitaplar hem TYT hem AYT tahminine sayılır; katalogdaki `exam` alanı TYT kalsa bile AYT tarafı boş kalmaz.
 - `totalPages > 0` (toplam sayfası bilinmeyen kitap katkı vermez).
 
-**Dağıtım kuralı:** her kitap, kendi `progress.percent` değerini konu sırasına göre baştan dağıtır. Bir kitap bir konuya **en fazla %50** katkı verir; konu %50'ye gelince o kitabın katkısı sıradaki konuya geçer. Zaten %100 dolu konular atlanır; böylece 3. kitabın katkısı boşa gitmez. İki kitap aynı konuya %50'şer katkı verince konu %100 olur.
+**Dağıtım kuralı:** her kitap, kendi `progress.percent` değerini konu sırasına göre baştan dağıtır. Bir kitap bir konuya **en fazla %50** katkı verir; konu %50'ye gelince o kitabın katkısı sıradaki konuya geçer. Zaten %100 dolu konular atlanır; böylece 3. kitabın katkısı boşa gitmez. İki kitap aynı konuya %50'şer katkı verince konu %100 olur. **Bitmiş (%100) kitap dersin tamamını kapsar; bu yüzden her konuya %50 verir.** Kısmi kitap sırayla dağıtılır ve yüzdesi bitince durur.
 
 ```
 bookContribution = konu başına 0 ile başlayan katkı dizisi
 
 for her eşleşen kitap:
-  kalan = kitap.progress.percent       // 0–100 tam sayı
+  percent = kitap.progress.percent       // 0–100 tam sayı
+  if percent >= 100:
+    for konu in müfredat sırası:
+      oda = min(50, 100 - bookContribution[konu])
+      if oda > 0: bookContribution[konu] += oda
+    continue
+
+  kalan = percent
   for konu in müfredat sırası:
     oda = min(50, 100 - bookContribution[konu])
     pay = min(kalan, oda)              // bir kitap bir konuya en fazla 50

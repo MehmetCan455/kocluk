@@ -1206,7 +1206,7 @@ Expected: FAIL — dosya yok.
 
 Kurallar:
 - `countsForSubject`: slug eşleşmeli; `exam` eşleşmeli veya başlık `/TYT\s*[-–]\s*AYT/i` içermeli.
-- `distributeBookPercent`: her kitap için `kalan = clamp(percent, 0, 100)`; konular sırayla; `oda = min(50, 100 - katkı)`; `pay = min(kalan, oda)`; `pay <= 0` ise atla; katkıya ekle; `kalan === 0` ise dur.
+- `distributeBookPercent`: her kitap için `percent = clamp(percent, 0, 100)`. **`percent >= 100` ise her konuya `min(50, 100 - katkı)` ekle ve devam et** (bitmiş kitap dersin tamamını kapsar). Kısmi kitapta `kalan = percent`; konular sırayla; `oda = min(50, 100 - katkı)`; `pay = min(kalan, oda)`; `pay <= 0` ise atla; katkıya ekle; `kalan === 0` ise dur.
 - `subjectBookEstimate`: `byTopic` map; `estimate = floor(average(values))`, cap 100, boşsa 0.
 - `effectiveTopicPercent`: `max(manualDone ? 100 : 0, bookPercent)`.
 - `calculateSubjectProgress`: `solved = percent >= 100` sayısı; `done = total > 0 && solved === total`; `percent = done ? 100 : min(99, floor(average))`; `remaining = total - solved`; `started = anyStarted`.

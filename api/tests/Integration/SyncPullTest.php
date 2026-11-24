@@ -327,11 +327,66 @@ final class SyncPullTest extends ApiTestCase
         self::assertCount(1, $alphaPayload['changes']);
         self::assertSame($alphaBook, $alphaPayload['changes'][0]['row']['id']);
 
-        // Another account's cursor cannot unlock this account's log.
+        // Another account's cursor stays inside this account's own log: no
+        // rows leak, and a cursor past this account's max id is not an error
+        // (cursor-ahead-of-maxId is deliberately not detected).
         $foreignCursor = $this->get('/api/sync/pull?since=' . $alphaPayload['nextCursor'], $beta['jar']);
 
-        self::assertSame(410, $foreignCursor->status());
-        self::assertSame('cursor_expired', $this->payload($foreignCursor)['error']['code']);
+        self::assertSame(200, $foreignCursor->status());
+
+        $foreignPayload = $this->payload($foreignCursor);
+
+        self::assertSame([], $foreignPayload['changes']);
+        self::assertSame($alphaPayload['nextCursor'], $foreignPayload['nextCursor']);
+        self::assertStringNotContainsString($alphaBook, $foreignCursor->body());
+    }
+
+    public function test_each_new_account_can_pull_its_first_changes_without_a_cursor(): void
+    {
+        $alpha = $this->account();
+        $beta = $this->account(['email' => self::OTHER_EMAIL]);
+        $alphaBook = Uuid::v4();
+        $betaBook = Uuid::v4();
+
+        // The change log id is global AUTO_INCREMENT, so beta's first change
+        // does not start at 1. since=0 must still mean "from the start of the
+        // retained log", not "expired".
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($alphaBook, Uuid::v4(), $this->minutesAgo(20))]],
+            $alpha['csrf'],
+            $alpha['jar'],
+        );
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($betaBook, Uuid::v4(), $this->minutesAgo(10))]],
+            $beta['csrf'],
+            $beta['jar'],
+        );
+
+        $betaLog = $this->changes($beta['userId']);
+
+        self::assertCount(1, $betaLog);
+        self::assertGreaterThan(1, (int) $betaLog[0]['id']);
+
+        $betaResponse = $this->get('/api/sync/pull', $beta['jar']);
+
+        self::assertSame(200, $betaResponse->status());
+
+        $betaPayload = $this->payload($betaResponse);
+
+        self::assertCount(1, $betaPayload['changes']);
+        self::assertSame($betaBook, $betaPayload['changes'][0]['row']['id']);
+        self::assertSame((int) $betaLog[0]['id'], $betaPayload['nextCursor']);
+        self::assertFalse($betaPayload['hasMore']);
+        self::assertStringNotContainsString($alphaBook, $betaResponse->body());
+
+        $alphaResponse = $this->get('/api/sync/pull', $alpha['jar']);
+
+        self::assertSame(200, $alphaResponse->status());
+
+        $alphaPayload = $this->payload($alphaResponse);
+
+        self::assertCount(1, $alphaPayload['changes']);
+        self::assertSame($alphaBook, $alphaPayload['changes'][0]['row']['id']);
     }
 
     public function test_pull_requires_a_session(): void

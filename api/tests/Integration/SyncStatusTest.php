@@ -95,6 +95,64 @@ final class SyncStatusTest extends ApiTestCase
         self::assertSame((int) $log[2]['id'], $payload['cursor']);
     }
 
+    public function test_soft_deleted_rows_are_not_counted_and_do_not_close_the_gate(): void
+    {
+        $account = $this->account();
+        $first = Uuid::v4();
+        $second = Uuid::v4();
+        $deletedAt = $this->minutesAgo(5);
+
+        $this->push([
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($first, Uuid::v4(), $this->minutesAgo(30))],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($second, Uuid::v4(), $this->minutesAgo(20))],
+        ], $account['csrf'], $account['jar']);
+
+        $active = $this->payload($this->get('/api/sync/status', $account['jar']));
+
+        self::assertTrue($active['hasData']);
+        self::assertSame(2, $active['counts']['userBooks']);
+
+        // One tombstone: only the remaining active row counts.
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'delete', 'rowId' => $second, 'updatedAt' => $deletedAt]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $oneActive = $this->payload($this->get('/api/sync/status', $account['jar']));
+
+        self::assertTrue($oneActive['hasData']);
+        self::assertSame(1, $oneActive['counts']['userBooks']);
+        self::assertGreaterThan($active['cursor'], $oneActive['cursor']);
+
+        // Tombstones only: the account is empty for the migration gate even
+        // though the rows and the change log still exist.
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'delete', 'rowId' => $first, 'updatedAt' => $deletedAt]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $tombstones = $this->payload($this->get('/api/sync/status', $account['jar']));
+
+        self::assertFalse($tombstones['hasData']);
+        self::assertSame(0, $tombstones['counts']['userBooks']);
+        self::assertSame(0, $tombstones['counts']['settings']);
+        self::assertSame(0, $tombstones['counts']['notes']);
+        self::assertGreaterThan(0, $tombstones['cursor']);
+
+        // Pull still delivers both tombstones; status just does not count
+        // them as data.
+        $pull = $this->payload($this->get('/api/sync/pull?since=0', $account['jar']));
+
+        self::assertCount(2, $pull['changes']);
+
+        foreach ($pull['changes'] as $change) {
+            self::assertSame('userBooks', $change['table']);
+            self::assertNotNull($change['row']['deletedAt']);
+        }
+    }
+
     public function test_status_only_counts_the_signed_in_users_rows(): void
     {
         $alpha = $this->account();

@@ -218,8 +218,11 @@ final class SyncService
      * Account data status for the migration gate (spec §8.5).
      *
      * Counts and cursor come from one transaction so the snapshot is
-     * consistent. Settings are counted but never close the gate: onboarding
-     * defaults must not hide the "this account is empty" state.
+     * consistent. Only active rows are counted: a tombstone is still delivered
+     * by pull/full, but an account whose content was deleted on another device
+     * is empty again for the migration gate. Settings are counted but never
+     * close the gate: onboarding defaults must not hide the "this account is
+     * empty" state.
      *
      * @return array{hasData: bool, counts: array<string, int>, cursor: int, serverTime: string}
      */
@@ -231,14 +234,21 @@ final class SyncService
 
             foreach (TableMap::keys() as $table) {
                 $definition = TableMap::definition($table);
-                $row = $this->database->fetchOne(
-                    sprintf(
-                        'SELECT COUNT(*) AS `total` FROM `%s` WHERE `%s` = ?',
-                        $definition['table'],
-                        $definition['owner'],
-                    ),
-                    [$userId],
+                $sql = sprintf(
+                    'SELECT COUNT(*) AS `total` FROM `%s` WHERE `%s` = ?',
+                    $definition['table'],
+                    $definition['owner'],
                 );
+
+                // Every synced table except settings is soft-deletable; the
+                // map decides, there is no second table list here.
+                $deletedColumn = $definition['columns']['deletedAt'] ?? null;
+
+                if (is_string($deletedColumn)) {
+                    $sql .= sprintf(' AND `%s` IS NULL', $deletedColumn);
+                }
+
+                $row = $this->database->fetchOne($sql, [$userId]);
 
                 $count = (int) ($row['total'] ?? 0);
                 $counts[$table] = $count;
@@ -874,25 +884,20 @@ final class SyncService
     }
 
     /**
-     * A cursor below the oldest retained log row for the account would skip
-     * changes the 90-day purge already deleted (spec §6.4); the client must
-     * fall back to a full pull. An empty log with a claimed cursor is the same
-     * situation: the account cannot prove the changes were ever delivered, so
-     * the safe answer is a fresh snapshot.
+     * `since = 0` means "from the start of the retained log", so it is never
+     * expired: `sync_changes.id` is a global AUTO_INCREMENT and the first id
+     * of almost every account is greater than 1. Only a real cursor can have
+     * a gap, and a gap exists when the oldest retained row for this account is
+     * beyond `since + 1`. The client then falls back to a full pull
+     * (spec §6.4, §8.3).
      */
     private function assertCursorRetained(string $userId, int $since): void
     {
-        $minId = $this->changeLog->minId($userId);
-
-        if ($minId === 0) {
-            if ($since > 0) {
-                throw self::cursorExpired();
-            }
-
+        if ($since <= 0) {
             return;
         }
 
-        if ($minId > $since + 1) {
+        if ($this->changeLog->minId($userId) > $since + 1) {
             throw self::cursorExpired();
         }
     }

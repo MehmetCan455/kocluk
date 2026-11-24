@@ -140,7 +140,7 @@ git commit -m "chore: add CI and PHP test harness"
 
 Spec §6.1–6.4'ü uygula. Zorunlu ayrıntılar:
 
-- `users`, `sessions`, `password_resets`, `email_verifications`, `rate_limits`, `schema_migrations`.
+- `users`, `sessions`, `password_resets`, `email_verifications`, `rate_limits` (`id, user_id?, bucket, ip?, created_at`), `schema_migrations`.
 - `subjects`, `topics`, `exams`, `exam_results`, `notes`, `catalog_books`, `user_books`, `activity_logs`, `schedule_weeks`, `schedule_rows`, `schedule_tasks`, `topic_progress`, `user_settings`, `sync_changes`.
 - Senkron tablolarında PK `(user_id, id)`; `notes` `(user_id, topic_id)`; `user_settings` `(user_id)`; `catalog_books` `(owner_id, id)`.
 - `deleted_at` + generated `active_*` kolonları + unique index'ler.
@@ -396,7 +396,7 @@ Expected: FAIL.
 
 - [ ] **Step 3: Servisi yaz**
 
-`export`: `users` public alanları + her senkron tablosundan `user_id = ?` satırları; JSON. `delete`: transaction; tüm senkron tablolar, `sync_changes`, `sessions`, `password_resets`, `email_verifications`, `rate_limits` (kullanıcıya bağlı olanlar), `users`; sonra çerez temizlenir.
+`export`: `users` public alanları + her senkron tablosundan `user_id = ?` satırları; JSON. `delete`: transaction; tüm senkron tablolar, `sync_changes`, `sessions`, `password_resets`, `email_verifications`, `rate_limits` (`user_id = ?`), `users`; sonra çerez temizlenir.
 
 - [ ] **Step 4: Testleri çalıştır**
 
@@ -578,6 +578,7 @@ git commit -m "feat(db): add per-user database manager and proxy"
 
 **Files:**
 - Modify: `src/lib/namespaces.ts`
+- Modify: `src/domain/types.ts` (`Subject`, `Topic`, `Exam`, `ExamResult` için `updatedAt?`, `deletedAt?`)
 - Modify: `src/db/seed.ts`
 - Modify: `src/db/repositories.ts` (`saveExam`)
 - Test: `src/db/seed.test.ts`
@@ -606,7 +607,8 @@ Expected: FAIL.
 - [ ] **Step 3: Deterministik kimlikleri uygula**
 
 - `namespaces.ts`: üç yeni sabit UUIDv5 namespace; mevcutlar değişmez.
-- `seed.ts`: `newId()` yerine `deterministicId(SUBJECT_NAMESPACE, subjectSeed.seedKey)` ve `deterministicId(TOPIC_NAMESPACE, topicSeed.seedKey)`; subject/topic mevcut `seedKey` ile bulunursa korunur.
+- `domain/types.ts`: `Subject`, `Topic`, `Exam`, `ExamResult` için `updatedAt?: string` ve `deletedAt?: string` ekle; mevcut alanlar değişmez.
+- `seed.ts`: `newId()` yerine `deterministicId(SUBJECT_NAMESPACE, subjectSeed.seedKey)` ve `deterministicId(TOPIC_NAMESPACE, topicSeed.seedKey)`; subject/topic mevcut `seedKey` ile bulunursa korunur; yeni satırlara `updatedAt = now` yaz.
 - `saveExam`: `examId` için mevcut sonuçları `subjectId` map'ine al; varsa `id` korunur; yoksa `deterministicId(EXAM_RESULT_NAMESPACE, `${exam.id}:${row.subjectId}`)`; kaldırılan subject `deletedAt = now`; `updatedAt` güncelle.
 - `listExamResults` `deletedAt` filtreler.
 

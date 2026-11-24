@@ -43,11 +43,13 @@ final class PhpMailerMailer implements Mailer
     {
         $this->loadVendor();
 
-        try {
-            $port = $this->port();
-            $encryption = $this->encryption($port);
-            $username = $this->text('username', '');
+        // Configuration errors are our own ApiExceptions and keep their
+        // message; they are not transport failures and are not re-wrapped.
+        $port = $this->port();
+        $encryption = $this->encryption($port);
+        $username = $this->text('username', '');
 
+        try {
             $mailer = new PHPMailer(true);
             $mailer->isSMTP();
             $mailer->Host = $this->text('host', 'localhost');
@@ -76,6 +78,8 @@ final class PhpMailerMailer implements Mailer
             $mailer->AltBody = self::plainText($html);
             $mailer->send();
         } catch (Throwable $error) {
+            $this->logTransportFailure($error);
+
             throw new ApiException(
                 'mail_failed',
                 'E-posta gönderilemedi.',
@@ -84,6 +88,50 @@ final class PhpMailerMailer implements Mailer
                 $error,
             );
         }
+    }
+
+    /**
+     * Records the sanitized transport cause while the client only ever sees
+     * the generic mail_failed message. The chain includes up to two previous
+     * exceptions (PHPMailer nests connection/TLS/authentication causes).
+     *
+     * @internal exposed for the failure-logging unit test
+     */
+    public static function describeFailure(Throwable $error, string $password = ''): string
+    {
+        $parts = [];
+        $current = $error;
+
+        for ($depth = 0; $depth <= 2 && $current !== null; $depth++) {
+            $parts[] = $current::class . ': ' . $current->getMessage();
+            $current = $current->getPrevious();
+        }
+
+        $message = implode(' <- ', $parts);
+
+        // Do not mangle the whole line for a one-character password.
+        if (mb_strlen($password) >= 6) {
+            $message = str_replace($password, '[sifre]', $message);
+        }
+
+        $message = preg_replace(
+            '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i',
+            '[adres]',
+            $message,
+        ) ?? '';
+        $message = preg_replace('/[A-Za-z0-9_\-]{43,}/', '[token]', $message) ?? '';
+
+        return mb_substr($message, 0, 500);
+    }
+
+    private function logTransportFailure(Throwable $error): void
+    {
+        error_log(sprintf(
+            'kocluk-api mail transport failed (%s:%d): %s',
+            $this->text('host', 'localhost'),
+            $this->port(),
+            self::describeFailure($error, $this->secret('password')),
+        ));
     }
 
     private function loadVendor(): void

@@ -137,7 +137,7 @@ sayar. Her senkron satırında `server_updated_at DATETIME(6)` bulunur.
 | Tablo | Alanlar | Kısıt |
 |---|---|---|
 | `users` | id, email, password_hash, display_name, email_verified_at?, privacy_version, consented_at, created_at, updated_at, deleted_at? | unique(email) |
-| `sessions` | id (token hash), user_id, csrf_token, expires_at, created_at, last_seen_at, revoked_at?, ip, user_agent | index(user_id, expires_at) |
+| `sessions` | id (token hash), user_id, csrf_token, expires_at, created_at, last_seen_at, revoked_at?, ip?, user_agent? | index(user_id, expires_at); IP/user-agent veri minimizasyonu için opsiyonel |
 | `password_resets` | id (token hash), user_id, expires_at, used_at?, created_at | index(user_id) |
 | `email_verifications` | id (token hash), user_id, expires_at, used_at?, created_at | index(user_id) |
 | `rate_limits` | id, bucket, ip?, created_at | index(bucket, created_at), index(ip, created_at) |

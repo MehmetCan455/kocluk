@@ -446,7 +446,9 @@ git commit -m "feat(api): add account export, deletion and privacy consent"
 - `subjects` aynı `seedKey` farklı `id` ile gelirse `conflict` + kanonik satır; ikinci satır oluşmaz.
 - `activityLogs` aynı `taskId` için ikinci aktif kayıt oluşmaz.
 - Başka kullanıcının `id`'siyle push: `forbidden`; satır yazılmaz.
-- 101 değişiklik 422 `payload_too_large`; bilinmeyen tablo/alan 422.
+- 101 değişiklik 422 `payload_too_large`; 1 MB üstü 413. Bilinmeyen tablo/alan satır bazında `error` döner; geçerli satırlar yazılmaya devam eder (tasarım §8.2).
+- Zorunlu alan `null`, negatif/aşırı sayı, uzun metin ve geçersiz enum satır bazında `validation_failed`; batch 500 ile düşmez.
+- Hesap silme ile yarışan push/login, `users` satırını kilitleyip yoksa reddeder; orphan satır kalmaz.
 - Silme `deletedAt` set eder; change log yazar.
 
 `TableMapTest`: camelCase↔snake_case; `notes` rowId=topicId; `settings` rowId=userId; `catalogBooks` owner kontrolü; bilinmeyen alan reddi.
@@ -461,9 +463,12 @@ Expected: FAIL.
 - `TableMap::TABLES` spec §8.1'deki 13 anahtar; her definition `table`, `columns` (API→DB), `required`, `natural`, `pk`, `immutable`.
 - `TableMap` tek kaynaktır: `AccountService` kendi kopyasını bırakır, export/delete tablo listesini ve açık kolonları buradan alır; export tek transaction içinde okunur. Böylece yeni bir senkron tablosu export/silmeden sessizce düşmez.
 - `SessionService::validate`, oturumun `users` satırı hâlâ varken geçerli olmasını doğrular; hesap silme ile yarışan bir login orphan oturum bırakamaz.
-- `push`: gövde `deviceId` + `changes`; max 100, 1 MB; her satır `transaction`; `user_id` oturumdan; `updated_at` clamp `[now+5m]`; LWW; natural unique ihlali yakala → kanonik satır; `applied` sonucunda `row` döner; change log.
-- `settings`: `user_settings.data` JSON; rowId userId.
-- `activityLogs`: insert-only; `deletedAt` update; `updatedAt` yoksa sunucu zamanı.
+- `push`: gövde `deviceId` + `changes`; max 100, 1 MB; her satır `transaction`; `user_id` oturumdan; `updated_at` clamp `[now+5m]`; LWW; natural unique ihlali yakala → kanonik satır; `applied`/`conflict` sonucunda kanonik `row` döner; change log.
+- Her push satırı transaction'ında `SELECT id FROM users WHERE id = ? FOR UPDATE`; kullanıcı silinmişse `forbidden` ve yazma yok. Login de aynı kontrolü yapar; orphan oturum oluşmaz.
+- `TableMap` her alan için tip, zorunluluk, maksimum uzunluk ve sayı aralığı taşır; `null` zorunlu alan, negatif/aşırı sayı, uzun metin, geçersiz enum → satır bazında `validation_failed`.
+- Bilinmeyen tablo/alan batch'i düşürmez; o satır `error` döner, diğer satırlar işlenir.
+- `settings`: `user_settings.data` JSON; rowId userId; okuma da `ACCOUNT_SETTINGS` allowlist'i ile filtrelenir.
+- `activityLogs`: insert-only; `deletedAt` update; `updatedAt` yoksa sunucu zamanı; kanonik arama `FOR UPDATE`.
 - `catalogBooks`: `owner_id` oturum; ortak katalog kabul edilmez.
 
 - [ ] **Step 4: Testleri çalıştır**

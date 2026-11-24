@@ -149,6 +149,7 @@ export interface Note {
   contentHtml: string;
   plainText: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 export interface Attachment {

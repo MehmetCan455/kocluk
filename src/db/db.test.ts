@@ -232,9 +232,16 @@ test('özel konu silme bağlı verileri temizler, fotoğrafı korur', async () =
 
   await deleteCustomTopicCascade(topic.id);
 
-  expect(await db.topics.get(topic.id)).toBeUndefined();
+  // Synced rows keep a tombstone instead of disappearing.
+  const storedTopic = await db.topics.get(topic.id);
+  expect(storedTopic?.deletedAt).toEqual(expect.any(String));
+  expect(storedTopic?.updatedAt).toEqual(expect.any(String));
+  expect(await listTopics(subject!.id)).toEqual([]);
+  const storedNote = await db.notes.get(topic.id);
+  expect(storedNote?.deletedAt).toEqual(expect.any(String));
+
+  // Legacy/non-synced rows keep their hard delete and unlink behaviour.
   expect(await db.topicBooks.count()).toBe(0);
-  expect(await db.notes.count()).toBe(0);
   expect(await db.attachments.count()).toBe(0);
   expect(await db.books.count()).toBe(1);
   expect((await db.photos.get('p1'))?.topicId).toBeUndefined();

@@ -52,6 +52,7 @@ import { htmlToPlainText, sanitizeHtml } from '@/lib/sanitize';
 import { STORAGE_QUOTA_MESSAGE, isStorageQuotaError } from '@/lib/storageError';
 import { db } from './db';
 import { toPhotoSearch } from './photoSearch';
+import { isActiveRow } from './softDelete';
 
 export { seedCurriculum } from './seed';
 export type { CurriculumSeed, CurriculumSubjectSeed, CurriculumTopicSeed } from './seed';
@@ -95,22 +96,25 @@ export async function patchSettings(patch: Partial<AppSettings>): Promise<void> 
 }
 
 export async function listSubjects(exam?: ExamType): Promise<Subject[]> {
-  if (exam) {
-    return db.subjects.where('exam').equals(exam).sortBy('order');
-  }
-  return db.subjects.orderBy('order').toArray();
+  const subjects = exam
+    ? await db.subjects.where('exam').equals(exam).sortBy('order')
+    : await db.subjects.orderBy('order').toArray();
+  return subjects.filter(isActiveRow);
 }
 
-export function getSubject(id: string): Promise<Subject | undefined> {
-  return db.subjects.get(id);
+export async function getSubject(id: string): Promise<Subject | undefined> {
+  const subject = await db.subjects.get(id);
+  return subject && isActiveRow(subject) ? subject : undefined;
 }
 
 export async function listTopics(subjectId: string): Promise<Topic[]> {
-  return db.topics.where('subjectId').equals(subjectId).sortBy('order');
+  const topics = await db.topics.where('subjectId').equals(subjectId).sortBy('order');
+  return topics.filter(isActiveRow);
 }
 
-export function getTopic(id: string): Promise<Topic | undefined> {
-  return db.topics.get(id);
+export async function getTopic(id: string): Promise<Topic | undefined> {
+  const topic = await db.topics.get(id);
+  return topic && isActiveRow(topic) ? topic : undefined;
 }
 
 export async function listTopicBooks(topicId: string): Promise<TopicBook[]> {
@@ -188,7 +192,7 @@ export function buildBookTopicBookRows(
   for (const record of records) {
     const topic = topicById.get(record.topicId);
     const subject = topic ? subjectById.get(topic.subjectId) : undefined;
-    if (topic && subject) {
+    if (topic && subject && isActiveRow(topic)) {
       rows.push({ ...record, topic, subject });
     }
   }
@@ -198,7 +202,8 @@ export function buildBookTopicBookRows(
 
 /** Read-only full-table reads used by the dashboard and batched overviews. */
 export async function listAllTopics(): Promise<Topic[]> {
-  return db.topics.toArray();
+  const topics = await db.topics.toArray();
+  return topics.filter(isActiveRow);
 }
 
 export async function listAllTopicBooks(): Promise<TopicBook[]> {
@@ -218,7 +223,7 @@ export async function listBookTopicBooks(bookId: string): Promise<BookTopicBookR
 
   const topicIds = [...new Set(records.map((record) => record.topicId))];
   const topics = (await db.topics.bulkGet(topicIds)).filter(
-    (topic): topic is Topic => topic !== undefined,
+    (topic): topic is Topic => topic !== undefined && isActiveRow(topic),
   );
   const subjectIds = [...new Set(topics.map((topic) => topic.subjectId))];
   const subjects = (await db.subjects.bulkGet(subjectIds)).filter(
@@ -318,7 +323,8 @@ export async function upsertTopicBook(input: UpsertTopicBookInput): Promise<Topi
     const topicId = existing?.topicId ?? input.topicId;
     const bookId = existing?.bookId ?? input.bookId;
 
-    if (!(await db.topics.get(topicId))) {
+    const topic = await db.topics.get(topicId);
+    if (!topic || !isActiveRow(topic)) {
       throw new Error('Konu bulunamadı');
     }
     if (!(await db.books.get(bookId))) {
@@ -367,6 +373,7 @@ export async function addCustomTopic(subjectId: string, name: string): Promise<T
 
     const topics = await db.topics.where('subjectId').equals(subjectId).toArray();
     const maxOrder = topics.reduce((max, topic) => Math.max(max, topic.order), 0);
+    const now = new Date().toISOString();
     const topic: Topic = {
       id: newId(),
       seedKey: undefined,
@@ -374,7 +381,8 @@ export async function addCustomTopic(subjectId: string, name: string): Promise<T
       name: trimmedName,
       order: maxOrder + 1,
       isCustom: true,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
     await db.topics.add(topic);
     return topic;
@@ -405,29 +413,39 @@ export async function deleteCustomTopicCascade(topicId: string): Promise<void> {
     ],
     async () => {
       const topic = await db.topics.get(topicId);
-      if (!topic?.isCustom) {
+      if (!topic?.isCustom || !isActiveRow(topic)) {
         return;
       }
 
       const now = new Date().toISOString();
       await db.topicBooks.where('topicId').equals(topicId).delete();
-      await db.notes.delete(topicId);
+      const note = await db.notes.get(topicId);
+      if (note && isActiveRow(note)) {
+        await db.notes.put({ ...note, deletedAt: now, updatedAt: now });
+      }
       await db.attachments.where('topicId').equals(topicId).delete();
       await db.photos.where('topicId').equals(topicId).modify({ topicId: undefined });
       await db.photoSearch.where('topicId').equals(topicId).modify({ topicId: undefined });
-      await db.topicProgress.where('topicId').equals(topicId).delete();
+      const progressRows = (
+        await db.topicProgress.where('topicId').equals(topicId).toArray()
+      ).filter(isActiveRow);
+      if (progressRows.length > 0) {
+        await db.topicProgress.bulkPut(
+          progressRows.map((row) => ({ ...row, deletedAt: now, updatedAt: now })),
+        );
+      }
 
       // Review history is append-only, so it is tombstoned instead of deleted.
       const reviews = (
         await db.activityLogs.where('topicId').equals(topicId).toArray()
-      ).filter((log) => log.type === 'topic_review' && !log.deletedAt);
+      ).filter((log) => log.type === 'topic_review' && isActiveRow(log));
       if (reviews.length > 0) {
         await db.activityLogs.bulkPut(reviews.map((log) => ({ ...log, deletedAt: now })));
       }
 
       // `topicId` is not indexed on scheduleTasks, so the scan is in memory.
       const tasks = (await db.scheduleTasks.toArray()).filter(
-        (task) => task.topicId === topicId && !task.deletedAt,
+        (task) => task.topicId === topicId && isActiveRow(task),
       );
       if (tasks.length > 0) {
         await db.scheduleTasks.bulkPut(
@@ -435,13 +453,16 @@ export async function deleteCustomTopicCascade(topicId: string): Promise<void> {
         );
       }
 
-      await db.topics.delete(topicId);
+      // The topic itself is synced, so it stays as a tombstone. A new custom
+      // topic gets a fresh id; the old row is kept for other devices.
+      await db.topics.put({ ...topic, deletedAt: now, updatedAt: now });
     },
   );
 }
 
 export async function getNote(topicId: string): Promise<Note | undefined> {
-  return db.notes.get(topicId);
+  const note = await db.notes.get(topicId);
+  return note && isActiveRow(note) ? note : undefined;
 }
 
 /**
@@ -582,8 +603,11 @@ export async function saveScheduleEntry(input: SaveScheduleEntryInput): Promise<
     // A subject deleted from the curriculum must not leave a dangling id (and
     // an invisible chip) on the schedule row; normalize it to "no subject".
     let subjectId: string | undefined;
-    if (requestedSubjectId && (await db.subjects.get(requestedSubjectId))) {
-      subjectId = requestedSubjectId;
+    if (requestedSubjectId) {
+      const subject = await db.subjects.get(requestedSubjectId);
+      if (subject && isActiveRow(subject)) {
+        subjectId = requestedSubjectId;
+      }
     }
 
     const now = new Date().toISOString();
@@ -824,7 +848,9 @@ async function assertPhotoExams(inputs: readonly AddPhotoInput[]): Promise<void>
 
   const exams = await db.exams.bulkGet(examIds);
   const examById = new Map(
-    exams.filter((exam): exam is Exam => exam !== undefined).map((exam) => [exam.id, exam]),
+    exams
+      .filter((exam): exam is Exam => exam !== undefined && isActiveRow(exam))
+      .map((exam) => [exam.id, exam]),
   );
   for (const input of inputs) {
     if (!input.examId) {
@@ -1188,16 +1214,19 @@ export async function listExams(type?: ExamType): Promise<Exam[]> {
     ? await db.exams.where('type').equals(type).toArray()
     : await db.exams.toArray();
 
-  return exams.sort(
-    (left, right) =>
-      right.date.localeCompare(left.date) ||
-      right.createdAt.localeCompare(left.createdAt) ||
-      left.id.localeCompare(right.id),
-  );
+  return exams
+    .filter(isActiveRow)
+    .sort(
+      (left, right) =>
+        right.date.localeCompare(left.date) ||
+        right.createdAt.localeCompare(left.createdAt) ||
+        left.id.localeCompare(right.id),
+    );
 }
 
 export async function getExam(id: string): Promise<Exam | undefined> {
-  return db.exams.get(id);
+  const exam = await db.exams.get(id);
+  return exam && isActiveRow(exam) ? exam : undefined;
 }
 
 /**
@@ -1210,13 +1239,13 @@ export async function listFullExams(type?: ExamType): Promise<Exam[]> {
 
 export async function listExamResults(examId: string): Promise<ExamResult[]> {
   const results = await db.examResults.where('examId').equals(examId).toArray();
-  return results.filter((result) => !result.deletedAt);
+  return results.filter(isActiveRow);
 }
 
 /** One table read for callers that need nets across many exams (charts, dashboard). */
 export async function listAllExamResults(): Promise<ExamResult[]> {
   const results = await db.examResults.toArray();
-  return results.filter((result) => !result.deletedAt);
+  return results.filter(isActiveRow);
 }
 
 /**
@@ -1256,6 +1285,9 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
   const note = input.note?.trim() ?? '';
 
   return db.transaction('rw', db.exams, db.examResults, async () => {
+    // A tombstoned exam is still a valid identity: saving it again revives it
+    // (the new row below omits `deletedAt`). An id with no row at all is an
+    // error rather than a silent create.
     const existing = input.id ? await db.exams.get(input.id) : undefined;
     if (input.id && !existing) {
       throw new Error('Deneme bulunamadı');
@@ -1286,7 +1318,7 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
     const existingBySubject = new Map<string, ExamResult>();
     for (const result of existingResults) {
       const current = existingBySubject.get(result.subjectId);
-      if (!current || (current.deletedAt !== undefined && result.deletedAt === undefined)) {
+      if (!current || (!isActiveRow(current) && isActiveRow(result))) {
         existingBySubject.set(result.subjectId, result);
       }
     }
@@ -1313,7 +1345,7 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
     }
 
     const removed = existingResults.filter(
-      (result) => !keptIds.has(result.id) && result.deletedAt === undefined,
+      (result) => !keptIds.has(result.id) && isActiveRow(result),
     );
     if (removed.length > 0) {
       await db.examResults.bulkPut(
@@ -1326,8 +1358,10 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
 }
 
 /**
- * Deletes the exam and its results but keeps wrong-answer photos. Photos are
- * only unlinked (`examId` cleared) so they remain in the Yanlışlar gallery.
+ * Soft-deletes the exam and its results but keeps wrong-answer photos. Photos
+ * are only unlinked (`examId` cleared) so they remain in the Yanlışlar gallery.
+ * Synced rows keep `deletedAt` tombstones so other devices see the deletion;
+ * an exam saved again with the same id revives both the exam and its results.
  * Everything runs in one transaction so a failure cannot leave photo links
  * pointing at a missing exam.
  */
@@ -1338,8 +1372,21 @@ export async function deleteExamUnlinkPhotos(examId: string): Promise<void> {
       .where('examId')
       .equals(examId)
       .modify({ examId: undefined });
-    await db.examResults.where('examId').equals(examId).delete();
-    await db.exams.delete(examId);
+
+    const now = new Date().toISOString();
+    const results = (await db.examResults.where('examId').equals(examId).toArray()).filter(
+      isActiveRow,
+    );
+    if (results.length > 0) {
+      await db.examResults.bulkPut(
+        results.map((result) => ({ ...result, updatedAt: now, deletedAt: now })),
+      );
+    }
+
+    const exam = await db.exams.get(examId);
+    if (exam && isActiveRow(exam)) {
+      await db.exams.put({ ...exam, updatedAt: now, deletedAt: now });
+    }
   });
 }
 

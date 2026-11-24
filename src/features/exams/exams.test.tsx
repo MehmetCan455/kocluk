@@ -306,6 +306,10 @@ test('deneme silme yalnızca bağlı fotoğrafların bağlantısını koparır',
 
   await deleteExamUnlinkPhotos(target.id);
 
+  expect((await db.exams.get(target.id))?.deletedAt).toEqual(expect.any(String));
+  const storedResults = await db.examResults.where('examId').equals(target.id).toArray();
+  expect(storedResults).toHaveLength(1);
+  expect(storedResults[0].deletedAt).toEqual(expect.any(String));
   expect(await getExam(target.id)).toBeUndefined();
   expect(await listExamResults(target.id)).toHaveLength(0);
   expect(await getExam(other.id)).toBeDefined();
@@ -879,12 +883,36 @@ test('deneme silme onayı fotoğrafların korunacağını söyler ve fotoğrafı
   expect(await screen.findByText('Henüz deneme yok')).toBeInTheDocument();
 
   await waitFor(async () => {
+    const storedExam = await db.exams.get(exam.id);
+    expect(storedExam?.deletedAt).toEqual(expect.any(String));
     expect(await getExam(exam.id)).toBeUndefined();
     expect(await listExamResults(exam.id)).toHaveLength(0);
+    const storedResults = await db.examResults.where('examId').equals(exam.id).toArray();
+    expect(storedResults).toHaveLength(1);
+    expect(storedResults[0].deletedAt).toEqual(expect.any(String));
     const stored = await db.photos.get('photo-1');
     expect(stored).toBeDefined();
     expect(stored?.examId).toBeUndefined();
   });
+});
+
+test('silinen deneme listede ve detayda görünmez', async () => {
+  const turkce = await subjectIdByKey('tyt-turkce');
+  const exam = await insertExam({
+    name: 'Soft Silinen',
+    date: '2026-11-17',
+    results: [{ subjectId: turkce, correct: 10, wrong: 0, blank: 0 }],
+  });
+  await deleteExamUnlinkPhotos(exam.id);
+
+  const listView = renderApp('/denemeler');
+  expect(await screen.findByText('Henüz deneme yok')).toBeInTheDocument();
+  expect(screen.queryByText('Soft Silinen')).not.toBeInTheDocument();
+  listView.unmount();
+
+  const detailView = renderApp(`/denemeler/${exam.id}`);
+  expect(await screen.findByText('Deneme bulunamadı')).toBeInTheDocument();
+  detailView.unmount();
 });
 
 test('deneme yokken boş durum ve yeni deneme bağlantısı gösterilir', async () => {

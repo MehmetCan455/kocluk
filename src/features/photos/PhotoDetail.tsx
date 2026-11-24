@@ -9,7 +9,15 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Field } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { db } from '@/db/db';
-import { deletePhotos, listSubjects, listTopics, updatePhoto } from '@/db/repositories';
+import {
+  deletePhotos,
+  getExam,
+  getSubject,
+  getTopic,
+  listSubjects,
+  listTopics,
+  updatePhoto,
+} from '@/db/repositories';
 import type { CorrectOption, Photo } from '@/domain/types';
 import { formatExamDate } from '@/features/exams/examFormat';
 import { isoToLocalDate, localDateToIso } from '@/lib/date';
@@ -185,9 +193,9 @@ export function PhotoDetail() {
       return { photo: undefined, subject: undefined, topic: undefined, exam: undefined };
     }
     const [subject, topic, exam] = await Promise.all([
-      db.subjects.get(photo.subjectId),
-      photo.topicId ? db.topics.get(photo.topicId) : Promise.resolve(undefined),
-      photo.examId ? db.exams.get(photo.examId) : Promise.resolve(undefined),
+      getSubject(photo.subjectId),
+      photo.topicId ? getTopic(photo.topicId) : Promise.resolve(undefined),
+      photo.examId ? getExam(photo.examId) : Promise.resolve(undefined),
     ]);
     return { photo, subject, topic, exam };
   }, [photoId]);

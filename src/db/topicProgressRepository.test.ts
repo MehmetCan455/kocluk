@@ -119,9 +119,13 @@ test('özel konu silinince durum satırı, tekrar kayıtları ve plan görevleri
 
   await deleteCustomTopicCascade('topic-1');
 
-  expect(await db.topics.get('topic-1')).toBeUndefined();
-  expect(await db.notes.get('topic-1')).toBeUndefined();
-  expect(await db.topicProgress.where('topicId').equals('topic-1').count()).toBe(0);
+  expect((await db.topics.get('topic-1'))?.deletedAt).toEqual(expect.any(String));
+  expect((await db.notes.get('topic-1'))?.deletedAt).toEqual(expect.any(String));
+  const progress = await db.topicProgress.where('topicId').equals('topic-1').toArray();
+  expect(progress).toHaveLength(1);
+  expect(progress[0].deletedAt).toEqual(expect.any(String));
+  expect(await getTopicDone('topic-1')).toBe(false);
+  expect((await listAllTopicProgress()).map((row) => row.topicId)).toEqual(['topic-2']);
   expect((await db.activityLogs.get('review-1'))?.deletedAt).toBeDefined();
   expect((await db.scheduleTasks.get('task-1'))?.deletedAt).toBeDefined();
 

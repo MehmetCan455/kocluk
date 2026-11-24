@@ -6,6 +6,7 @@ import { seedCatalog } from '@/db/catalogRepository';
 import { db, type SettingsRow } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import { seedCurriculum } from '@/db/seed';
+import { isActiveRow } from '@/db/softDelete';
 import type {
   ActivityLog,
   AppSettings,
@@ -360,6 +361,8 @@ const noteSchema = z.object({
   contentHtml: z.string(),
   plainText: z.string(),
   updatedAt: z.string(),
+  // Tombstones must survive a backup/restore, or deleted notes come back.
+  deletedAt: z.string().optional(),
 });
 
 const attachmentSchema = z.object({
@@ -695,31 +698,40 @@ export function scheduleFileBackupPath(
   return `program/${file.id}.${extensionForFile(file)}`;
 }
 
+/**
+ * Manifest and summary counts describe active rows only. Tombstones are still
+ * exported and restored, but they must not inflate the numbers the user sees
+ * ("3 deneme" means three exams still on screen).
+ */
+function activeCount(rows: readonly unknown[]): number {
+  return rows.filter(isActiveRow).length;
+}
+
 function countTables(data: BackupData): Record<string, number> {
   return {
     settings: data.settings.length,
-    subjects: data.subjects.length,
-    topics: data.topics.length,
+    subjects: activeCount(data.subjects),
+    topics: activeCount(data.topics),
     books: data.books.length,
     topicBooks: data.topicBooks.length,
-    exams: data.exams.length,
-    examResults: data.examResults.length,
+    exams: activeCount(data.exams),
+    examResults: activeCount(data.examResults),
     photos: data.photos.length,
     // Import always rebuilds this projection from the photos table.
     photoSearch: data.photos.length,
-    notes: data.notes.length,
+    notes: activeCount(data.notes),
     attachments: data.attachments.length,
     practiceSessions: data.practiceSessions.length,
     scheduleEntries: data.scheduleEntries.length,
     scheduleFiles: data.scheduleFiles.length,
     scheduleTables: data.scheduleTables.length,
-    catalogBooks: data.catalogBooks.length,
-    userBooks: data.userBooks.length,
-    activityLogs: data.activityLogs.length,
-    scheduleWeeks: data.scheduleWeeks.length,
-    scheduleRows: data.scheduleRows.length,
-    scheduleTasks: data.scheduleTasks.length,
-    topicProgress: data.topicProgress.length,
+    catalogBooks: activeCount(data.catalogBooks),
+    userBooks: activeCount(data.userBooks),
+    activityLogs: activeCount(data.activityLogs),
+    scheduleWeeks: activeCount(data.scheduleWeeks),
+    scheduleRows: activeCount(data.scheduleRows),
+    scheduleTasks: activeCount(data.scheduleTasks),
+    topicProgress: activeCount(data.topicProgress),
   };
 }
 
@@ -1302,27 +1314,27 @@ export async function exportBackup(
   };
   const counts: Record<string, number> = {
     settings: settings.length,
-    subjects: subjects.length,
-    topics: topics.length,
+    subjects: activeCount(subjects),
+    topics: activeCount(topics),
     books: books.length,
     topicBooks: topicBooks.length,
-    exams: exams.length,
-    examResults: examResults.length,
+    exams: activeCount(exams),
+    examResults: activeCount(examResults),
     photos: photos.length,
     photoSearch: photoSearch.length,
-    notes: notes.length,
+    notes: activeCount(notes),
     attachments: attachments.length,
     practiceSessions: practiceSessions.length,
     scheduleEntries: scheduleEntries.length,
     scheduleFiles: scheduleFiles.length,
     scheduleTables: scheduleTables.length,
-    catalogBooks: catalogBooks.length,
-    userBooks: userBooks.length,
-    activityLogs: activityLogs.length,
-    scheduleWeeks: scheduleWeeks.length,
-    scheduleRows: scheduleRows.length,
-    scheduleTasks: scheduleTasks.length,
-    topicProgress: topicProgress.length,
+    catalogBooks: activeCount(catalogBooks),
+    userBooks: activeCount(userBooks),
+    activityLogs: activeCount(activityLogs),
+    scheduleWeeks: activeCount(scheduleWeeks),
+    scheduleRows: activeCount(scheduleRows),
+    scheduleTasks: activeCount(scheduleTasks),
+    topicProgress: activeCount(topicProgress),
   };
   const exportedAt = new Date().toISOString();
   const manifest: BackupManifest = {

@@ -14,8 +14,7 @@ import {
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Modal } from '@/components/ui/Modal';
-import { db } from '@/db/db';
-import { listSubjects } from '@/db/repositories';
+import { listAllTopics, listSubjects } from '@/db/repositories';
 import type { Subject, Topic } from '@/domain/types';
 import { examBasePath } from '@/features/subjects/exam';
 import { normalizeTr } from '@/lib/normalize';
@@ -83,7 +82,7 @@ interface RecentTopic {
  * shows and it keeps working after a reload.
  */
 async function listRecentTopics(): Promise<RecentTopic[]> {
-  const [topics, subjects] = await Promise.all([db.topics.toArray(), listSubjects()]);
+  const [topics, subjects] = await Promise.all([listAllTopics(), listSubjects()]);
   const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
 
   return topics

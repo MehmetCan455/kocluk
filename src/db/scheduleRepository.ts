@@ -13,6 +13,7 @@ import { deterministicId } from '@/lib/deterministicId';
 import { newId } from '@/lib/id';
 import { COPY_NAMESPACE, LOCAL_SCOPE, WEEK_NAMESPACE } from '@/lib/namespaces';
 import { db } from './db';
+import { isActiveRow } from './softDelete';
 
 export interface WeekData {
   week: ScheduleWeek;
@@ -289,7 +290,7 @@ async function validateTaskFields(
         throw new Error('Konu seçilmeli.');
       }
       const topic = await db.topics.get(input.topicId);
-      if (!topic) {
+      if (!topic || !isActiveRow(topic)) {
         throw new Error('Konu bulunamadı');
       }
       return { type: 'topic', topicId: input.topicId };

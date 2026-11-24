@@ -1,5 +1,6 @@
 import { listShelfBooks } from '@/db/bookRepositories';
 import { db } from '@/db/db';
+import { isActiveRow } from '@/db/softDelete';
 import {
   listAllExamResults,
   listAllTopics,
@@ -178,7 +179,7 @@ export async function searchAll(query: string): Promise<SearchResult[]> {
   }
 
   const noteResults: SearchResult[] = [];
-  const sortedNotes = [...notes].sort(
+  const sortedNotes = notes.filter(isActiveRow).sort(
     (left, right) =>
       right.updatedAt.localeCompare(left.updatedAt) || left.topicId.localeCompare(right.topicId),
   );

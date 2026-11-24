@@ -7,6 +7,7 @@ import { addBookPageRange, addCustomBook } from '@/db/bookRepositories';
 import { db } from '@/db/db';
 import {
   addCustomTopic,
+  deleteCustomTopicCascade,
   getSettings,
   listSubjects,
   listTopics,
@@ -231,8 +232,25 @@ test('özel konu ekler, yeniden adlandırır ve siler', async () => {
 
   await userEvent.click(within(dialog).getByRole('button', { name: 'Sil' }));
   await waitFor(() => expect(screen.queryByText('Limitler')).not.toBeInTheDocument());
-  expect(await db.topics.get(created!.id)).toBeUndefined();
+  const stored = await db.topics.get(created!.id);
+  expect(stored?.deletedAt).toEqual(expect.any(String));
+  expect((await listTopics(subject.id)).map((topic) => topic.id)).not.toContain(created!.id);
   expect(await db.topicBooks.where('topicId').equals(created!.id).count()).toBe(0);
+});
+
+test('silinen özel konu listede ve konu sayfasında görünmez', async () => {
+  const subject = await subjectByKey('tyt-mat');
+  const created = await addCustomTopic(subject.id, 'Silinen Konu');
+  await deleteCustomTopicCascade(created.id);
+
+  const listView = renderApp(`/tyt/${subject.id}`);
+  expect(await screen.findByRole('heading', { level: 1, name: 'Matematik' })).toBeInTheDocument();
+  expect(screen.queryByText('Silinen Konu')).not.toBeInTheDocument();
+  listView.unmount();
+
+  const detailView = renderApp(`/tyt/${subject.id}/${created.id}`);
+  expect(await screen.findByText('Konu bulunamadı')).toBeInTheDocument();
+  detailView.unmount();
 });
 
 test('seed konusu yeniden adlandırılır ama silinemez', async () => {

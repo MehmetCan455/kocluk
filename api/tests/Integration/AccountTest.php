@@ -275,6 +275,45 @@ final class AccountTest extends ApiTestCase
         self::assertSame($betaId, $this->payload($export)['user']['id']);
     }
 
+    public function test_delete_scopes_private_catalog_books_by_owner(): void
+    {
+        $alpha = $this->register();
+        $alphaId = $this->userId($alpha);
+        $beta = $this->register(['email' => self::OTHER_EMAIL]);
+        $betaId = $this->userId($beta);
+
+        // Row ids are only unique per owner, so both accounts can hold the
+        // same private-book id. Deleting one owner must not remove the other.
+        $sharedId = '11111111-1111-4111-8111-111111111111';
+        $now = Clock::nowSql();
+
+        foreach ([[$alphaId, 'Kitap A'], [$betaId, 'Kitap B']] as [$ownerId, $title]) {
+            TestDatabase::database()->execute(
+                'INSERT INTO `catalog_books` (`id`, `owner_id`, `title`, `publisher`, `exam`, `subject_slug`, `total_pages`, `edition`, `created_at`, `updated_at`)'
+                . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$sharedId, $ownerId, $title, 'Yayın', 'TYT', 'matematik', 100, '1. Baskı', $now, $now],
+            );
+        }
+
+        $response = $this->deleteAccount(
+            self::PASSWORD,
+            ['X-CSRF-Token' => $this->csrf($alpha)],
+            $this->jar($alpha),
+        );
+
+        self::assertSame(200, $response->status());
+        self::assertSame(0, $this->countUserRows('catalog_books', $alphaId));
+        self::assertSame(1, $this->countUserRows('catalog_books', $betaId));
+
+        $kept = TestDatabase::database()->fetchOne(
+            'SELECT `title` FROM `catalog_books` WHERE `owner_id` = ? AND `id` = ?',
+            [$betaId, $sharedId],
+        );
+
+        self::assertIsArray($kept);
+        self::assertSame('Kitap B', $kept['title']);
+    }
+
     public function test_registration_without_privacy_acceptance_is_rejected(): void
     {
         $response = $this->post('/api/auth/register', [

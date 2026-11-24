@@ -98,7 +98,11 @@ final class SessionService
 
     /**
      * Validates a raw session token and returns its identity, or null when the
-     * token is unknown, revoked or expired.
+     * token is unknown, revoked or expired, or when the account row is gone.
+     *
+     * The users join closes the account-deletion race: a login that commits a
+     * session after the delete transaction's snapshot cannot leave an orphan
+     * session behind.
      *
      * @return array{userId: string, csrfToken: string, expiresAt: string}|null
      */
@@ -112,8 +116,10 @@ final class SessionService
         $now = Clock::now();
 
         $row = $this->database->fetchOne(
-            'SELECT `user_id`, `csrf_token`, `expires_at`, `created_at`, `last_seen_at`'
-            . ' FROM `sessions` WHERE `id` = ? AND `revoked_at` IS NULL AND `expires_at` > ?',
+            'SELECT `s`.`user_id`, `s`.`csrf_token`, `s`.`expires_at`, `s`.`created_at`, `s`.`last_seen_at`'
+            . ' FROM `sessions` `s` JOIN `users` `u` ON `u`.`id` = `s`.`user_id`'
+            . ' WHERE `s`.`id` = ? AND `s`.`revoked_at` IS NULL AND `s`.`expires_at` > ?'
+            . ' AND `u`.`deleted_at` IS NULL',
             [$hash, self::sql($now)],
         );
 

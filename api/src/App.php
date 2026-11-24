@@ -20,6 +20,8 @@ use Kocluk\Api\Mail\Templates;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
 use Kocluk\Api\Support\Json;
+use Kocluk\Api\Sync\ChangeLog;
+use Kocluk\Api\Sync\SyncService;
 use Throwable;
 
 /**
@@ -76,6 +78,8 @@ final class App
 
     private ?AccountService $accounts = null;
 
+    private ?SyncService $sync = null;
+
     /** @var array<string, true> registered "METHOD /path" pairs */
     private array $registered = [];
 
@@ -105,6 +109,7 @@ final class App
         $this->addRoute('POST', '/api/auth/verify-email', $this->verifyEmail(...));
         $this->addRoute('POST', '/api/auth/delete-account', $this->deleteAccount(...));
         $this->addRoute('GET', '/api/account/export', $this->exportAccount(...));
+        $this->addRoute('POST', '/api/sync/push', $this->syncPush(...));
     }
 
     public function handle(Request $request): Response
@@ -388,6 +393,28 @@ final class App
         );
     }
 
+    /**
+     * Applies a batch of offline changes (spec §8.2).
+     *
+     * The session and CSRF token are already checked by guard(); this handler
+     * adds the per-user hourly budget and delegates the row-level work.
+     */
+    private function syncPush(Request $request): Response
+    {
+        $session = $this->currentSession($request);
+
+        $this->rateLimiter()->assert(
+            SyncService::rateLimitBucket($session['userId']),
+            null,
+            SyncService::RATE_LIMIT,
+            SyncService::RATE_WINDOW_SECONDS,
+        );
+
+        return Response::json(
+            $this->sync()->push($session['userId'], $request->json()),
+        );
+    }
+
     private function addRoute(string $method, string $path, callable $handler): void
     {
         $this->registered[$method . ' ' . $path] = true;
@@ -440,6 +467,14 @@ final class App
     private function accounts(): AccountService
     {
         return $this->accounts ??= new AccountService($this->database());
+    }
+
+    private function sync(): SyncService
+    {
+        return $this->sync ??= new SyncService(
+            $this->database(),
+            new ChangeLog($this->database()),
+        );
     }
 
     private function mailer(): DeferredMailer

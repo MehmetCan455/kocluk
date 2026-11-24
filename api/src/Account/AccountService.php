@@ -10,48 +10,28 @@ use Kocluk\Api\Auth\PasswordHasher;
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
+use Kocluk\Api\Sync\SyncService;
+use Kocluk\Api\Sync\TableMap;
 
 /**
  * KVKK data export and hard account deletion (spec §11).
  *
  * Export is scoped by the user id taken from the authenticated session and
- * returns the public account fields plus every synced table. It never reads
- * another account's rows and never exposes password_hash, sessions or
- * reset/verification tokens.
+ * returns the public account fields plus every synced table. Rows come from
+ * TableMap, so their shape is exactly the sync API shape (camelCase, no
+ * server_updated_at, no generated active_* columns) and a table added to the
+ * map can never be silently missing here.
  *
  * Delete is a hard delete, not a tombstone: synced rows, the change log,
- * sessions, reset/verification tokens, rate-limit rows linked by user_id or by
- * the deterministic login/forgot-password e-mail hash and finally the users
- * row are removed in one transaction. The unique e-mail is therefore free for
- * a new registration immediately. Purely IP-scoped rate-limit rows cannot be
- * attributed to an account and are deliberately left for the cleanup job.
+ * sessions, reset/verification tokens, rate-limit rows linked by user_id, by
+ * the deterministic login/forgot-password e-mail hash or by the sync push
+ * bucket and finally the users row are removed in one transaction. The unique
+ * e-mail is therefore free for a new registration immediately. Purely
+ * IP-scoped rate-limit rows cannot be attributed to an account and are
+ * deliberately left for the cleanup job.
  */
 final class AccountService
 {
-    /**
-     * API key => storage table, owner column and ordering column.
-     *
-     * Table and column names are trusted constants; the only value bound into
-     * the statements is the authenticated user id.
-     *
-     * @var array<string, array{table: string, owner: string, order: string}>
-     */
-    private const SYNC_TABLES = [
-        'subjects' => ['table' => 'subjects', 'owner' => 'user_id', 'order' => 'id'],
-        'topics' => ['table' => 'topics', 'owner' => 'user_id', 'order' => 'id'],
-        'exams' => ['table' => 'exams', 'owner' => 'user_id', 'order' => 'id'],
-        'examResults' => ['table' => 'exam_results', 'owner' => 'user_id', 'order' => 'id'],
-        'notes' => ['table' => 'notes', 'owner' => 'user_id', 'order' => 'topic_id'],
-        'catalogBooks' => ['table' => 'catalog_books', 'owner' => 'owner_id', 'order' => 'id'],
-        'userBooks' => ['table' => 'user_books', 'owner' => 'user_id', 'order' => 'id'],
-        'activityLogs' => ['table' => 'activity_logs', 'owner' => 'user_id', 'order' => 'id'],
-        'scheduleWeeks' => ['table' => 'schedule_weeks', 'owner' => 'user_id', 'order' => 'id'],
-        'scheduleRows' => ['table' => 'schedule_rows', 'owner' => 'user_id', 'order' => 'id'],
-        'scheduleTasks' => ['table' => 'schedule_tasks', 'owner' => 'user_id', 'order' => 'id'],
-        'topicProgress' => ['table' => 'topic_progress', 'owner' => 'user_id', 'order' => 'id'],
-        'settings' => ['table' => 'user_settings', 'owner' => 'user_id', 'order' => 'user_id'],
-    ];
-
     public function __construct(private readonly Database $database)
     {
     }
@@ -59,9 +39,8 @@ final class AccountService
     /**
      * Complete data export for one account.
      *
-     * Row columns keep their database names so nothing is silently dropped;
-     * soft-deleted rows are included because they are still stored personal
-     * data. `user_settings.data` is decoded from its JSON column.
+     * Runs in one transaction so every table describes the same snapshot. Soft
+     * deleted rows are included because they are still stored personal data.
      *
      * @return array{
      *     exportedAt: string,
@@ -72,55 +51,61 @@ final class AccountService
      */
     public function export(string $userId): array
     {
-        $user = $this->database->fetchOne(
-            'SELECT `id`, `email`, `display_name`, `email_verified_at`, `privacy_version`,'
-            . ' `consented_at`, `created_at`, `updated_at`'
-            . ' FROM `users` WHERE `id` = ? AND `deleted_at` IS NULL',
-            [$userId],
-        );
-
-        if ($user === null) {
-            throw self::unauthenticated();
-        }
-
-        $tables = [];
-
-        foreach (self::SYNC_TABLES as $apiKey => $definition) {
-            $rows = $this->database->fetchAll(
-                sprintf(
-                    'SELECT * FROM `%s` WHERE `%s` = ? ORDER BY `server_updated_at`, `%s`',
-                    $definition['table'],
-                    $definition['owner'],
-                    $definition['order'],
-                ),
+        return $this->database->transaction(function () use ($userId): array {
+            $user = $this->database->fetchOne(
+                'SELECT `id`, `email`, `display_name`, `email_verified_at`, `privacy_version`,'
+                . ' `consented_at`, `created_at`, `updated_at`'
+                . ' FROM `users` WHERE `id` = ? AND `deleted_at` IS NULL',
                 [$userId],
             );
 
-            if ($apiKey === 'settings') {
-                $rows = array_map(
-                    static fn (array $row): array => self::decodeSettings($row),
+            if ($user === null) {
+                throw self::unauthenticated();
+            }
+
+            $tables = [];
+
+            foreach (TableMap::keys() as $apiKey) {
+                $definition = TableMap::definition($apiKey);
+                $columns = array_values(array_unique(array_merge(
+                    [(string) $definition['owner']],
+                    TableMap::columns($apiKey),
+                    ['server_updated_at'],
+                )));
+
+                $rows = $this->database->fetchAll(
+                    sprintf(
+                        'SELECT %s FROM `%s` WHERE `%s` = ? ORDER BY `server_updated_at`, `%s`',
+                        self::columnList($columns),
+                        $definition['table'],
+                        $definition['owner'],
+                        TableMap::idColumn($apiKey),
+                    ),
+                    [$userId],
+                );
+
+                $tables[$apiKey] = array_map(
+                    static fn (array $row): array => TableMap::toApi($apiKey, $row),
                     $rows,
                 );
             }
 
-            $tables[$apiKey] = $rows;
-        }
-
-        return [
-            'exportedAt' => Clock::iso(),
-            'formatVersion' => 1,
-            'user' => [
-                'id' => (string) $user['id'],
-                'email' => (string) $user['email'],
-                'displayName' => (string) $user['display_name'],
-                'emailVerifiedAt' => self::isoOrNull($user['email_verified_at'] ?? null),
-                'privacyVersion' => (string) $user['privacy_version'],
-                'consentedAt' => self::iso((string) $user['consented_at']),
-                'createdAt' => self::iso((string) $user['created_at']),
-                'updatedAt' => self::iso((string) $user['updated_at']),
-            ],
-            'tables' => $tables,
-        ];
+            return [
+                'exportedAt' => Clock::iso(),
+                'formatVersion' => 2,
+                'user' => [
+                    'id' => (string) $user['id'],
+                    'email' => (string) $user['email'],
+                    'displayName' => (string) $user['display_name'],
+                    'emailVerifiedAt' => self::isoOrNull($user['email_verified_at'] ?? null),
+                    'privacyVersion' => (string) $user['privacy_version'],
+                    'consentedAt' => self::iso((string) $user['consented_at']),
+                    'createdAt' => self::iso((string) $user['created_at']),
+                    'updatedAt' => self::iso((string) $user['updated_at']),
+                ],
+                'tables' => $tables,
+            ];
+        });
     }
 
     /**
@@ -149,7 +134,9 @@ final class AccountService
 
             $email = self::normalizeEmail($user['email'] ?? null);
 
-            foreach (self::SYNC_TABLES as $definition) {
+            foreach (TableMap::keys() as $apiKey) {
+                $definition = TableMap::definition($apiKey);
+
                 $this->database->execute(
                     sprintf(
                         'DELETE FROM `%s` WHERE `%s` = ?',
@@ -183,6 +170,13 @@ final class AccountService
                 [$userId],
             );
 
+            // Sync push uses a per-user bucket whose key is a digest of the
+            // user id; it is still attributable to this account.
+            $this->database->execute(
+                'DELETE FROM `rate_limits` WHERE `bucket` = ?',
+                [SyncService::rateLimitBucket($userId)],
+            );
+
             // Login and forgot-password use deterministic e-mail-hash buckets
             // instead of user_id. The hash still links the rows to this
             // account, so both buckets must go as well. IP-only buckets such
@@ -210,18 +204,14 @@ final class AccountService
     }
 
     /**
-     * @param array<string, mixed> $row
-     * @return array<string, mixed>
+     * @param list<string> $columns
      */
-    private static function decodeSettings(array $row): array
+    private static function columnList(array $columns): string
     {
-        if (isset($row['data']) && is_string($row['data'])) {
-            /** @var mixed $decoded */
-            $decoded = json_decode($row['data'], true, 512, JSON_THROW_ON_ERROR);
-            $row['data'] = $decoded;
-        }
-
-        return $row;
+        return implode(', ', array_map(
+            static fn (string $column): string => '`' . $column . '`',
+            $columns,
+        ));
     }
 
     /**

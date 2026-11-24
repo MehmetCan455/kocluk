@@ -55,9 +55,9 @@ final class PasswordResetService
     {
         $normalised = strtolower(trim($email));
 
-        // The IP budget is global; the e-mail budget is global per address
-        // (a null IP scope in RateLimiter), so changing IPs cannot multiply
-        // the three messages an address may receive per hour.
+        // Two budgets: 10/hour per IP and 3/hour per address. The address
+        // scope uses a null IP in RateLimiter, so changing IPs cannot
+        // multiply the three messages an address may receive per hour.
         $this->rateLimiter->assert(
             'forgot_password_ip',
             $request->ip,

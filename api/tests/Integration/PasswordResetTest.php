@@ -198,6 +198,22 @@ final class PasswordResetTest extends ApiTestCase
         self::assertSame(0, $this->countRows('password_resets'));
     }
 
+    public function test_forgot_password_is_rate_limited_per_ip(): void
+    {
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $response = $this->forgot('kullanici' . $attempt . '@example.com');
+
+            self::assertSame(202, $response->status(), 'Deneme ' . $attempt . ' 202 dönmeli.');
+        }
+
+        $blocked = $this->forgot('kullanici11@example.com');
+
+        self::assertSame(429, $blocked->status());
+        self::assertSame('rate_limited', $this->payload($blocked)['error']['code']);
+        self::assertNotNull($blocked->header('Retry-After'));
+        self::assertLessThanOrEqual(3600, (int) $blocked->header('Retry-After'));
+    }
+
     public function test_reset_password_is_rate_limited_per_ip(): void
     {
         for ($attempt = 1; $attempt <= 5; $attempt++) {

@@ -21,6 +21,8 @@ final class TableMapTest extends TestCase
 
     private const ID = '22222222-2222-4222-8222-222222222222';
 
+    private const OTHER_ID = '44444444-4444-4444-8444-444444444444';
+
     private const CREATED_AT = '2026-11-24T10:00:00.000000Z';
 
     private const UPDATED_AT = '2026-11-24T11:00:00.000000Z';
@@ -43,8 +45,8 @@ final class TableMapTest extends TestCase
             'scheduleWeeks',
             'settings',
             'subjects',
-            'topics',
             'topicProgress',
+            'topics',
             'userBooks',
         ], $keys);
 
@@ -65,8 +67,8 @@ final class TableMapTest extends TestCase
     {
         $db = TableMap::toDb('scheduleTasks', [
             'id' => self::ID,
-            'weekId' => self::ID . '-week',
-            'rowId' => self::ID . '-row',
+            'weekId' => self::OTHER_ID,
+            'rowId' => self::OTHER_ID,
             'dayIndex' => 3,
             'type' => 'book',
             'userBookId' => null,
@@ -81,8 +83,8 @@ final class TableMapTest extends TestCase
         ]);
 
         self::assertSame(self::ID, $db['id']);
-        self::assertSame(self::ID . '-week', $db['week_id']);
-        self::assertSame(self::ID . '-row', $db['row_id']);
+        self::assertSame(self::OTHER_ID, $db['week_id']);
+        self::assertSame(self::OTHER_ID, $db['row_id']);
         self::assertSame(3, $db['day_index']);
         self::assertSame(10, $db['from_page']);
         self::assertSame(20, $db['to_page']);
@@ -104,7 +106,7 @@ final class TableMapTest extends TestCase
         ]);
 
         self::assertSame(self::ID, $api['id']);
-        self::assertSame(self::ID . '-week', $api['weekId']);
+        self::assertSame(self::OTHER_ID, $api['weekId']);
         self::assertSame(3, $api['dayIndex']);
         self::assertSame(10, $api['fromPage']);
         self::assertSame('2026-11-24T10:30:00.000000Z', $api['missedAt']);
@@ -118,7 +120,7 @@ final class TableMapTest extends TestCase
     {
         self::assertSame(self::ID, TableMap::rowId('userBooks', ['id' => self::ID]));
         self::assertSame(self::ID, TableMap::rowId('notes', ['topicId' => self::ID]));
-        self::assertSame(self::ID, TableMap::rowId('settings', ['userId' => self::USER_ID]));
+        self::assertSame(self::USER_ID, TableMap::rowId('settings', ['userId' => self::USER_ID]));
         self::assertSame('topicId', TableMap::definition('notes')['pk']);
         self::assertSame('userId', TableMap::definition('settings')['pk']);
     }
@@ -186,7 +188,7 @@ final class TableMapTest extends TestCase
     {
         $db = TableMap::toDb('userBooks', [
             'id' => self::ID,
-            'bookId' => self::ID . '-book',
+            'bookId' => self::OTHER_ID,
             'status' => 'active',
             'createdAt' => self::CREATED_AT,
             'updatedAt' => self::UPDATED_AT,
@@ -208,7 +210,7 @@ final class TableMapTest extends TestCase
     {
         $db = TableMap::toDb('userBooks', [
             'id' => self::ID,
-            'bookId' => self::ID . '-book',
+            'bookId' => self::OTHER_ID,
             'status' => 'active',
             'createdAt' => self::CREATED_AT,
             'updatedAt' => '2026-11-24T11:00:00.123456Z',
@@ -227,7 +229,7 @@ final class TableMapTest extends TestCase
         try {
             TableMap::toDb('userBooks', [
                 'id' => self::ID,
-                'bookId' => self::ID . '-book',
+                'bookId' => self::OTHER_ID,
                 'status' => 'active',
                 'createdAt' => self::CREATED_AT,
                 'updatedAt' => 'yarın',
@@ -242,7 +244,7 @@ final class TableMapTest extends TestCase
     {
         $db = TableMap::toDb('topicProgress', [
             'id' => self::ID,
-            'topicId' => self::ID . '-topic',
+            'topicId' => self::OTHER_ID,
             'done' => true,
             'doneAt' => null,
             'updatedAt' => self::UPDATED_AT,
@@ -265,13 +267,13 @@ final class TableMapTest extends TestCase
         $db = TableMap::toDb('activityLogs', [
             'id' => self::ID,
             'type' => 'book_pages',
-            'taskId' => self::ID . '-task',
+            'taskId' => self::OTHER_ID,
             'source' => 'task',
             'createdAt' => self::CREATED_AT,
         ]);
 
         self::assertArrayNotHasKey('updated_at', $db);
-        self::assertSame(self::ID . '-task', $db['task_id']);
+        self::assertSame(self::OTHER_ID, $db['task_id']);
     }
 
     public function test_settings_are_stored_as_one_json_document_per_user(): void

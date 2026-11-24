@@ -245,6 +245,7 @@ git commit -m "feat(api): add HTTP kernel and health endpoint"
 - Create: `api/src/Auth/RateLimiter.php`
 - Create: `api/src/Auth/AuthService.php`
 - Modify: `api/src/App.php`
+- Modify: `api/src/Http/Response.php` (birden çok `Set-Cookie`)
 - Test: `api/tests/Integration/AuthTest.php`
 - Test: `api/tests/Unit/PasswordHasherTest.php`
 - Test: `api/tests/Unit/RateLimiterTest.php`
@@ -255,8 +256,8 @@ git commit -m "feat(api): add HTTP kernel and health endpoint"
   - `SessionService::create(string $userId, Request $request): array` → `['token','csrfToken','expiresAt']`
   - `SessionService::validate(?string $token): ?array`; `revoke(string $token): void`; `revokeAll(string $userId): void`; `revokeOthers(string $userId, string $currentToken): void`
   - `RateLimiter::assert(string $bucket, ?string $ip, int $limit, int $windowSeconds): void`
-  - `AuthService::register(array $input, Request): array`; `login`; `logout`; `session(?string $token): ?array`; `updateProfile(string $userId, array $input): array`
-  - Endpoint'ler: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`, `POST /api/auth/update-profile`
+  - `AuthService::register(array $input, Request): array`; `login`; `logout`; `session(?string $token): ?array`; `updateProfile(string $userId, array $input): array`; `changePassword(string $userId, string $currentPassword, string $newPassword, string $currentToken): void`
+  - Endpoint'ler: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`, `POST /api/auth/update-profile`, `POST /api/auth/change-password`
 
 - [ ] **Step 1: Auth testlerini yaz**
 
@@ -284,12 +285,14 @@ Expected: FAIL.
 - [ ] **Step 3: Servisleri ve route'ları yaz**
 
 - `SessionService` tokenı çerezde, SHA-256 özetini `sessions.id`'de tutar; `csrf_token` rastgele; `expires_at` 30 gün; `last_seen_at` 5 dakikada bir.
-- Çerez adı: üretimde `__Host-kocluk_session`, test/dev'de `kocluk_session`; `Secure` yalnızca HTTPS'te.
+- Çerez adı: üretimde `__Host-kocluk_session`, test/dev'de `kocluk_session`; `Secure` üretimde zorunlu, HTTPS'te açık; config varsayılanı `app.env=production` ise `secure=true` olmalı. Test/dev HTTP'de Secure olmayan çerez kullanır.
+- `Response` birden çok `Set-Cookie` başlığını koruyabilmeli (oturum + çerez temizleme aynı yanıtta).
 - `AuthService::register` e-posta normalize eder, `filter_var`, şifre 8–200, `displayName` 1–80, `privacyAccepted === true`; `users` insert; session; public user döner.
-- `login` e-posta+şifre; rate limit `login:` + `hash('sha256', email)`; başarıda `password_needs_rehash`.
-- `logout` yalnızca mevcut tokenı iptal eder.
+- `login` e-posta+şifre; rate limit `login:` + `hash('sha256', email)`; başarıda `password_needs_rehash`; yalnızca mevcut tarayıcıdaki eski oturumu iptal eder.
+- `logout` yalnızca mevcut tokenı iptal eder; çerezi temizler.
 - `session` kullanıcı + csrf döner; süresi dolmuşsa 401.
 - `updateProfile` yalnızca `display_name` günceller; e-posta değişmez.
+- `changePassword` mevcut şifreyi doğrular; yeni şifreyi hash'ler; diğer oturumları iptal eder; mevcut tokenı yeniler.
 - Route'lar `App` içinde; hata `ApiException` ile.
 
 - [ ] **Step 4: Testleri çalıştır**

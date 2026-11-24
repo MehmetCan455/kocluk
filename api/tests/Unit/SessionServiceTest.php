@@ -30,7 +30,7 @@ final class SessionServiceTest extends TestCase
 
     public function test_create_stores_only_the_token_hash(): void
     {
-        $userId = Uuid::v4();
+        $userId = $this->user();
         $session = $this->sessions->create($userId, $this->request());
 
         self::assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $session['token']);
@@ -50,7 +50,7 @@ final class SessionServiceTest extends TestCase
 
     public function test_validate_returns_the_identity_and_rejects_unknown_tokens(): void
     {
-        $userId = Uuid::v4();
+        $userId = $this->user();
         $session = $this->sessions->create($userId, $this->request());
 
         $found = $this->sessions->validate($session['token']);
@@ -66,7 +66,7 @@ final class SessionServiceTest extends TestCase
 
     public function test_last_seen_is_refreshed_at_most_once_every_five_minutes(): void
     {
-        $session = $this->sessions->create(Uuid::v4(), $this->request());
+        $session = $this->sessions->create($this->user(), $this->request());
         $tenMinutesAgo = Clock::now()->modify('-10 minutes');
 
         TestDatabase::database()->execute(
@@ -86,7 +86,7 @@ final class SessionServiceTest extends TestCase
 
     public function test_cookie_lifetime_uses_the_ninety_day_absolute_cap(): void
     {
-        $session = $this->sessions->create(Uuid::v4(), $this->request());
+        $session = $this->sessions->create($this->user(), $this->request());
         $header = $this->sessions->cookie($session, $this->request());
 
         self::assertSame(1, preg_match('/Max-Age=(\d+)/', $header, $maxAgeMatch));
@@ -104,7 +104,7 @@ final class SessionServiceTest extends TestCase
 
     public function test_validate_slides_the_database_expiry(): void
     {
-        $session = $this->sessions->create(Uuid::v4(), $this->request());
+        $session = $this->sessions->create($this->user(), $this->request());
 
         TestDatabase::database()->execute(
             'UPDATE `sessions` SET `expires_at` = ?, `last_seen_at` = ? WHERE `id` = ?',
@@ -125,7 +125,7 @@ final class SessionServiceTest extends TestCase
 
     public function test_sliding_expiry_stops_at_the_ninety_day_cap(): void
     {
-        $session = $this->sessions->create(Uuid::v4(), $this->request());
+        $session = $this->sessions->create($this->user(), $this->request());
         $createdAt = Clock::now()->modify('-89 days');
 
         TestDatabase::database()->execute(
@@ -144,8 +144,8 @@ final class SessionServiceTest extends TestCase
 
     public function test_revoke_scopes(): void
     {
-        $firstUser = Uuid::v4();
-        $secondUser = Uuid::v4();
+        $firstUser = $this->user();
+        $secondUser = $this->user();
 
         $first = $this->sessions->create($firstUser, $this->request());
         $second = $this->sessions->create($firstUser, $this->request());
@@ -164,7 +164,7 @@ final class SessionServiceTest extends TestCase
 
     public function test_cookie_is_secure_over_https_and_plain_over_http(): void
     {
-        $session = $this->sessions->create(Uuid::v4(), $this->request());
+        $session = $this->sessions->create($this->user(), $this->request());
 
         $http = $this->sessions->cookie($session, $this->request());
         $https = $this->sessions->cookie($session, $this->request(true));
@@ -184,11 +184,71 @@ final class SessionServiceTest extends TestCase
             'session' => ['cookie_name' => 'kocluk_session', 'secure' => false],
         ]);
 
-        $session = $sessions->create(Uuid::v4(), $this->request());
+        $session = $sessions->create($this->user(), $this->request());
         $header = $sessions->cookie($session, $this->request());
 
         self::assertStringStartsWith('__Host-kocluk_session=', $header);
         self::assertStringContainsString('Secure', $header);
+    }
+
+    public function test_validate_rejects_an_orphan_session_when_the_user_row_is_gone(): void
+    {
+        $userId = $this->user();
+        $session = $this->sessions->create($userId, $this->request());
+
+        self::assertNotNull($this->sessions->validate($session['token']));
+
+        // Account deletion removes the users row but a racing login may have
+        // committed the session row after the delete transaction's snapshot.
+        TestDatabase::database()->execute(
+            'DELETE FROM `users` WHERE `id` = ?',
+            [$userId],
+        );
+
+        self::assertNull($this->sessions->validate($session['token']));
+
+        // The session row itself is still there: the join is what rejects it.
+        self::assertSame(1, $this->sessionCount($userId));
+    }
+
+    public function test_validate_rejects_a_session_for_a_soft_deleted_user(): void
+    {
+        $userId = $this->user();
+        $session = $this->sessions->create($userId, $this->request());
+
+        TestDatabase::database()->execute(
+            'UPDATE `users` SET `deleted_at` = ? WHERE `id` = ?',
+            [Clock::nowSql(), $userId],
+        );
+
+        self::assertNull($this->sessions->validate($session['token']));
+    }
+
+    /**
+     * Inserts the users row a session must join against.
+     */
+    private function user(): string
+    {
+        $id = Uuid::v4();
+        $now = Clock::nowSql();
+
+        TestDatabase::database()->execute(
+            'INSERT INTO `users` (`id`, `email`, `password_hash`, `display_name`, `privacy_version`, `consented_at`, `created_at`, `updated_at`)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$id, $id . '@example.com', 'x', 'Test', '2026-11-24', $now, $now, $now],
+        );
+
+        return $id;
+    }
+
+    private function sessionCount(string $userId): int
+    {
+        $row = TestDatabase::database()->fetchOne(
+            'SELECT COUNT(*) AS `total` FROM `sessions` WHERE `user_id` = ?',
+            [$userId],
+        );
+
+        return (int) ($row['total'] ?? 0);
     }
 
     /**

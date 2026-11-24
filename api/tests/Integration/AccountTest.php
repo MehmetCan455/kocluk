@@ -8,6 +8,7 @@ use Kocluk\Api\Http\Request;
 use Kocluk\Api\Http\Response;
 use Kocluk\Api\Support\Clock;
 use Kocluk\Api\Support\Uuid;
+use Kocluk\Api\Sync\SyncService;
 use Kocluk\Api\Tests\Support\ApiTestCase;
 use Kocluk\Api\Tests\Support\TestDatabase;
 
@@ -71,6 +72,7 @@ final class AccountTest extends ApiTestCase
 
         $payload = $this->payload($response);
 
+        self::assertSame(2, $payload['formatVersion']);
         self::assertSame($alphaId, $payload['user']['id']);
         self::assertSame(self::EMAIL, $payload['user']['email']);
         self::assertSame(self::DISPLAY_NAME, $payload['user']['displayName']);
@@ -87,7 +89,7 @@ final class AccountTest extends ApiTestCase
 
         self::assertStringContainsString(
             self::MARKER_A,
-            (string) $tables['notes'][0]['content_html'],
+            (string) $tables['notes'][0]['contentHtml'],
         );
         self::assertStringContainsString(
             self::MARKER_A,
@@ -97,10 +99,55 @@ final class AccountTest extends ApiTestCase
             self::MARKER_A,
             (string) $tables['scheduleTasks'][0]['title'],
         );
-        $settings = $tables['settings'][0]['data'];
 
-        self::assertSame(self::MARKER_A, $settings['marker']);
-        self::assertSame('dark', $settings['theme']);
+        self::assertSame(self::MARKER_A, $tables['settings'][0]['marker']);
+        self::assertSame('dark', $tables['settings'][0]['theme']);
+        self::assertSame($alphaId, $tables['settings'][0]['userId']);
+    }
+
+    public function test_export_uses_the_sync_table_map_and_only_public_fields(): void
+    {
+        $device = $this->register();
+        $userId = $this->userId($device);
+
+        $this->seedSyncData($userId, self::MARKER_A);
+
+        $response = $this->export($this->jar($device));
+
+        self::assertSame(200, $response->status());
+
+        $payload = $this->payload($response);
+        $tables = $payload['tables'];
+
+        self::assertSame(2, $payload['formatVersion']);
+
+        foreach (self::SYNC_TABLES as $key) {
+            $apiKey = $this->apiKey($key);
+
+            self::assertArrayHasKey($apiKey, $tables);
+            self::assertCount(1, $tables[$apiKey], $apiKey);
+
+            foreach (array_keys((array) $tables[$apiKey][0]) as $column) {
+                $column = (string) $column;
+
+                self::assertNotSame('user_id', $column, $apiKey);
+                self::assertNotSame('owner_id', $column, $apiKey);
+                self::assertNotSame('server_updated_at', $column, $apiKey);
+                self::assertStringStartsNotWith('active_', $column, $apiKey);
+            }
+        }
+
+        // The wire shape is camelCase, not raw SQL.
+        self::assertSame(
+            (string) $tables['scheduleWeeks'][0]['id'],
+            (string) $tables['scheduleRows'][0]['weekId'],
+        );
+        self::assertSame(320, $tables['catalogBooks'][0]['totalPages']);
+        self::assertSame('2026-11-23', $tables['scheduleWeeks'][0]['weekStart']);
+        self::assertArrayHasKey('missedAt', $tables['scheduleTasks'][0]);
+        self::assertArrayHasKey('plainText', $tables['notes'][0]);
+        self::assertArrayNotHasKey('plain_text', $tables['notes'][0]);
+        self::assertArrayNotHasKey('data', $tables['settings'][0]);
     }
 
     public function test_export_requires_a_session(): void
@@ -197,6 +244,11 @@ final class AccountTest extends ApiTestCase
             'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, ?, ?)',
             ['ip-only-test', '10.9.9.9', $now],
         );
+        $syncBucket = SyncService::rateLimitBucket($userId);
+        $database->execute(
+            'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, NULL, ?)',
+            [$syncBucket, $now],
+        );
 
         $response = $this->deleteAccount(
             self::PASSWORD,
@@ -224,6 +276,7 @@ final class AccountTest extends ApiTestCase
         }
 
         self::assertSame(0, $this->countUserRows('rate_limits', $userId));
+        self::assertSame(0, $this->countBucketRows($syncBucket));
         self::assertSame(1, $this->countBucketRows('ip-only-test'));
         self::assertSame(401, $this->sessionStatus($this->jar($device)));
 

@@ -319,6 +319,8 @@ final class TableMapTest extends TestCase
                 'userId' => 'baska-hesap',
                 'updatedAt' => '2000-01-01T00:00:00.000000Z',
                 'profileName' => 'Ayşe',
+                'accent' => '#3B82F6',
+                'marker' => 'gizli',
             ], JSON_THROW_ON_ERROR),
             'updated_at' => self::UPDATED_AT_SQL,
         ]);
@@ -326,6 +328,162 @@ final class TableMapTest extends TestCase
         self::assertSame(self::USER_ID, $api['userId']);
         self::assertSame(self::UPDATED_AT, $api['updatedAt']);
         self::assertSame('Ayşe', $api['profileName']);
+        self::assertArrayNotHasKey('accent', $api);
+        self::assertArrayNotHasKey('marker', $api);
+    }
+
+    public function test_settings_read_path_only_returns_account_level_fields(): void
+    {
+        $api = TableMap::toApi('settings', [
+            'user_id' => self::USER_ID,
+            'data' => json_encode([
+                'profileName' => 'Ayşe',
+                'examName' => 'YKS 2027',
+                'accent' => '#3B82F6',
+                'scheduleMode' => 'manual',
+                'marker' => 'gizli',
+            ], JSON_THROW_ON_ERROR),
+            'updated_at' => self::UPDATED_AT_SQL,
+        ]);
+
+        self::assertSame([], array_values(array_diff(
+            array_keys($api),
+            array_merge(TableMap::settingsFields(), ['userId', 'updatedAt']),
+        )));
+        self::assertSame('Ayşe', $api['profileName']);
+        self::assertSame('YKS 2027', $api['examName']);
+        self::assertArrayNotHasKey('accent', $api);
+        self::assertArrayNotHasKey('scheduleMode', $api);
+        self::assertArrayNotHasKey('marker', $api);
+    }
+
+    public function test_required_fields_cannot_be_null(): void
+    {
+        self::assertRejected(fn () => TableMap::toDb('userBooks', [
+            'id' => self::ID,
+            'bookId' => null,
+            'status' => 'active',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+
+        self::assertRejected(fn () => TableMap::toDb('userBooks', [
+            'id' => self::ID,
+            'bookId' => self::OTHER_ID,
+            'status' => null,
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+
+        self::assertRejected(fn () => TableMap::toDb('notes', [
+            'topicId' => self::ID,
+            'contentHtml' => '<p>Not</p>',
+            'plainText' => 'Not',
+            'updatedAt' => null,
+        ]));
+    }
+
+    public function test_text_longer_than_the_column_is_rejected(): void
+    {
+        self::assertRejected(fn () => TableMap::toDb('subjects', [
+            'id' => self::ID,
+            'seedKey' => 'tyt-matematik',
+            'exam' => 'TYT',
+            'name' => str_repeat('a', 256),
+            'slug' => 'matematik',
+            'icon' => 'book',
+            'order' => 0,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+
+        // TEXT columns hold 65,535 bytes; a longer note must be a validation
+        // error, never a MariaDB 22001 that aborts the batch with a 500.
+        self::assertRejected(fn () => TableMap::toDb('userBooks', [
+            'id' => self::ID,
+            'bookId' => self::OTHER_ID,
+            'note' => str_repeat('a', 65536),
+            'status' => 'active',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+    }
+
+    public function test_numbers_outside_the_column_range_are_rejected(): void
+    {
+        self::assertRejected(fn () => TableMap::toDb('userBooks', [
+            'id' => self::ID,
+            'bookId' => self::OTHER_ID,
+            'totalPagesOverride' => -1,
+            'status' => 'active',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+
+        self::assertRejected(fn () => TableMap::toDb('examResults', [
+            'id' => self::ID,
+            'examId' => self::OTHER_ID,
+            'subjectId' => self::ID,
+            'correct' => 70000,
+            'wrong' => 0,
+            'blank' => 0,
+            'net' => 10,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+
+        self::assertRejected(fn () => TableMap::toDb('scheduleTasks', [
+            'id' => self::ID,
+            'weekId' => self::OTHER_ID,
+            'rowId' => self::ID,
+            'dayIndex' => 8,
+            'type' => 'book',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+    }
+
+    public function test_enum_values_are_checked(): void
+    {
+        self::assertRejected(fn () => TableMap::toDb('userBooks', [
+            'id' => self::ID,
+            'bookId' => self::OTHER_ID,
+            'status' => 'bogus',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+
+        self::assertRejected(fn () => TableMap::toDb('activityLogs', [
+            'id' => self::ID,
+            'type' => 'bogus',
+            'source' => 'task',
+            'createdAt' => self::CREATED_AT,
+        ]));
+
+        self::assertRejected(fn () => TableMap::toDb('subjects', [
+            'id' => self::ID,
+            'seedKey' => 'tyt-matematik',
+            'exam' => 'YDS',
+            'name' => 'Matematik',
+            'slug' => 'matematik',
+            'icon' => 'book',
+            'order' => 0,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
+    }
+
+    public function test_every_mapped_column_has_field_metadata(): void
+    {
+        foreach (TableMap::keys() as $apiKey) {
+            $definition = TableMap::definition($apiKey);
+
+            self::assertArrayHasKey('rules', $definition, $apiKey);
+
+            foreach (array_keys($definition['columns']) as $field) {
+                $field = (string) $field;
+
+                self::assertArrayHasKey($field, $definition['rules'], $apiKey . '.' . $field);
+                self::assertArrayHasKey('type', $definition['rules'][$field], $apiKey . '.' . $field);
+            }
+        }
     }
 
     public function test_device_level_settings_are_not_accepted(): void
@@ -351,5 +509,15 @@ final class TableMapTest extends TestCase
         self::assertSame(['topic_id'], TableMap::definition('topicProgress')['natural']);
         self::assertSame(['task_id'], TableMap::definition('activityLogs')['natural']);
         self::assertSame([], TableMap::definition('notes')['natural']);
+    }
+
+    private static function assertRejected(callable $callback): void
+    {
+        try {
+            $callback();
+            self::fail('Geçersiz satır kabul edilmemeli.');
+        } catch (InvalidRowValue $error) {
+            self::assertSame('validation_failed', $error->errorCode);
+        }
     }
 }

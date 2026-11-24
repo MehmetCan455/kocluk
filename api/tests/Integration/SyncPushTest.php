@@ -10,6 +10,7 @@ use Kocluk\Api\App;
 use Kocluk\Api\Http\Response;
 use Kocluk\Api\Support\Clock;
 use Kocluk\Api\Support\Uuid;
+use Kocluk\Api\Sync\ChangeLog;
 use Kocluk\Api\Sync\SyncService;
 use Kocluk\Api\Tests\Support\ApiTestCase;
 use Kocluk\Api\Tests\Support\TestDatabase;
@@ -369,33 +370,162 @@ final class SyncPushTest extends ApiTestCase
         self::assertCount(0, $this->changes($account['userId']));
     }
 
-    public function test_unknown_tables_and_fields_are_rejected(): void
+    public function test_unknown_tables_and_fields_are_row_errors_and_valid_rows_continue(): void
     {
         $account = $this->account();
         $updatedAt = $this->minutesAgo(5);
+        $validId = Uuid::v4();
 
-        $unknownTable = $this->push(
-            [['table' => 'photos', 'op' => 'upsert', 'row' => ['id' => Uuid::v4()]]],
-            $account['csrf'],
-            $account['jar'],
-        );
+        $invalidRow = $this->userBook(Uuid::v4(), Uuid::v4(), $updatedAt);
+        $invalidRow['hacked'] = true;
 
-        self::assertSame(422, $unknownTable->status());
-        self::assertSame('unknown_table', $this->payload($unknownTable)['error']['code']);
+        $response = $this->push([
+            ['table' => 'photos', 'op' => 'upsert', 'row' => ['id' => Uuid::v4()]],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $invalidRow],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($validId, Uuid::v4(), $updatedAt, 'Geçerli')],
+        ], $account['csrf'], $account['jar']);
 
-        $row = $this->userBook(Uuid::v4(), Uuid::v4(), $updatedAt);
-        $row['hacked'] = true;
+        self::assertSame(200, $response->status());
 
-        $unknownField = $this->push(
-            [['table' => 'userBooks', 'op' => 'upsert', 'row' => $row]],
-            $account['csrf'],
-            $account['jar'],
-        );
+        $results = $this->payload($response)['results'];
 
-        self::assertSame(422, $unknownField->status());
-        self::assertSame('validation_failed', $this->payload($unknownField)['error']['code']);
+        self::assertCount(3, $results);
+        self::assertSame('error', $results[0]['status']);
+        self::assertSame('unknown_table', $results[0]['error']['code']);
+        self::assertSame('photos', $results[0]['table']);
+        self::assertSame('error', $results[1]['status']);
+        self::assertSame('validation_failed', $results[1]['error']['code']);
+        self::assertSame('userBooks', $results[1]['table']);
+        self::assertSame('applied', $results[2]['status']);
+        self::assertSame($validId, $results[2]['row']['id']);
+
+        self::assertSame(1, $this->userRowCount('user_books', $account['userId']));
+        self::assertCount(1, $this->changes($account['userId']));
+    }
+
+    public function test_invalid_rows_are_row_errors_and_the_batch_continues(): void
+    {
+        $account = $this->account();
+        $updatedAt = $this->minutesAgo(5);
+        $validId = Uuid::v4();
+
+        $nullRequired = $this->userBook(Uuid::v4(), Uuid::v4(), $updatedAt);
+        $nullRequired['bookId'] = null;
+
+        $oversized = $this->userBook(Uuid::v4(), Uuid::v4(), $updatedAt);
+        $oversized['note'] = str_repeat('a', 65536);
+
+        $badEnum = $this->userBook(Uuid::v4(), Uuid::v4(), $updatedAt);
+        $badEnum['status'] = 'bogus';
+
+        $negative = $this->userBook(Uuid::v4(), Uuid::v4(), $updatedAt);
+        $negative['totalPagesOverride'] = -1;
+
+        $response = $this->push([
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $nullRequired],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $oversized],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $badEnum],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $negative],
+            ['table' => 'examResults', 'op' => 'upsert', 'row' => [
+                'id' => Uuid::v4(),
+                'examId' => Uuid::v4(),
+                'subjectId' => Uuid::v4(),
+                'correct' => 70000,
+                'wrong' => 0,
+                'blank' => 0,
+                'net' => 10,
+                'updatedAt' => $updatedAt,
+                'deletedAt' => null,
+            ]],
+            ['table' => 'scheduleTasks', 'op' => 'upsert', 'row' => [
+                'id' => Uuid::v4(),
+                'weekId' => Uuid::v4(),
+                'rowId' => Uuid::v4(),
+                'dayIndex' => 8,
+                'type' => 'book',
+                'createdAt' => $updatedAt,
+                'updatedAt' => $updatedAt,
+                'deletedAt' => null,
+            ]],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($validId, Uuid::v4(), $updatedAt, 'Geçerli')],
+        ], $account['csrf'], $account['jar']);
+
+        self::assertSame(200, $response->status());
+
+        $results = $this->payload($response)['results'];
+
+        self::assertCount(7, $results);
+
+        for ($index = 0; $index < 6; $index++) {
+            self::assertSame('error', $results[$index]['status'], (string) $index);
+            self::assertSame('validation_failed', $results[$index]['error']['code'], (string) $index);
+        }
+
+        self::assertSame('applied', $results[6]['status']);
+        self::assertSame($validId, $results[6]['row']['id']);
+        self::assertSame(1, $this->userRowCount('user_books', $account['userId']));
+        self::assertSame(0, $this->userRowCount('exam_results', $account['userId']));
+        self::assertSame(0, $this->userRowCount('schedule_tasks', $account['userId']));
+        self::assertCount(1, $this->changes($account['userId']));
+    }
+
+    public function test_push_is_forbidden_after_the_account_is_deleted(): void
+    {
+        $account = $this->account();
+        $database = TestDatabase::database();
+
+        // The request validated its session before the delete committed; the
+        // users row is gone by the time the row transaction starts.
+        $database->execute('DELETE FROM `users` WHERE `id` = ?', [$account['userId']]);
+
+        $sync = new SyncService($database, new ChangeLog($database));
+        $result = $sync->push($account['userId'], [
+            'deviceId' => self::DEVICE_ID,
+            'changes' => [[
+                'table' => 'userBooks',
+                'op' => 'upsert',
+                'row' => $this->userBook(Uuid::v4(), Uuid::v4(), $this->minutesAgo(5)),
+            ]],
+        ]);
+
+        $row = $result['results'][0];
+
+        self::assertSame('error', $row['status']);
+        self::assertSame('forbidden', $row['error']['code']);
         self::assertSame(0, $this->userRowCount('user_books', $account['userId']));
         self::assertCount(0, $this->changes($account['userId']));
+        self::assertSame(1, $this->sessionCountForUser($account['userId']));
+    }
+
+    public function test_database_data_errors_become_row_validation_errors(): void
+    {
+        $account = $this->account();
+        $database = TestDatabase::database();
+
+        $database->exec('DROP TRIGGER IF EXISTS `test_force_data_error`');
+        $database->exec(
+            "CREATE TRIGGER `test_force_data_error` BEFORE INSERT ON `user_books`"
+            . " FOR EACH ROW SIGNAL SQLSTATE '22003' SET MESSAGE_TEXT = 'forced data error'",
+        );
+
+        try {
+            $response = $this->push(
+                [['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook(Uuid::v4(), Uuid::v4(), $this->minutesAgo(5))]],
+                $account['csrf'],
+                $account['jar'],
+            );
+
+            self::assertSame(200, $response->status());
+
+            $result = $this->payload($response)['results'][0];
+
+            self::assertSame('error', $result['status']);
+            self::assertSame('validation_failed', $result['error']['code']);
+            self::assertSame(0, $this->userRowCount('user_books', $account['userId']));
+            self::assertCount(0, $this->changes($account['userId']));
+        } finally {
+            $database->exec('DROP TRIGGER IF EXISTS `test_force_data_error`');
+        }
     }
 
     public function test_delete_sets_a_tombstone_and_logs_the_change(): void
@@ -804,6 +934,16 @@ final class SyncPushTest extends ApiTestCase
             'SELECT COUNT(*) AS `total` FROM `activity_logs`'
             . ' WHERE `user_id` = ? AND `task_id` = ? AND `deleted_at` IS NULL',
             [$userId, $taskId],
+        );
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    private function sessionCountForUser(string $userId): int
+    {
+        $row = TestDatabase::database()->fetchOne(
+            'SELECT COUNT(*) AS `total` FROM `sessions` WHERE `user_id` = ?',
+            [$userId],
         );
 
         return (int) ($row['total'] ?? 0);

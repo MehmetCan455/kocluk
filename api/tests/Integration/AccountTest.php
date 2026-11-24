@@ -100,9 +100,11 @@ final class AccountTest extends ApiTestCase
             (string) $tables['scheduleTasks'][0]['title'],
         );
 
-        self::assertSame(self::MARKER_A, $tables['settings'][0]['marker']);
-        self::assertSame('dark', $tables['settings'][0]['theme']);
+        self::assertSame('Profil ' . self::MARKER_A, $tables['settings'][0]['profileName']);
+        self::assertSame('YKS ' . self::MARKER_A, $tables['settings'][0]['examName']);
         self::assertSame($alphaId, $tables['settings'][0]['userId']);
+        self::assertArrayNotHasKey('accent', $tables['settings'][0]);
+        self::assertArrayNotHasKey('scheduleMode', $tables['settings'][0]);
     }
 
     public function test_export_uses_the_sync_table_map_and_only_public_fields(): void
@@ -148,6 +150,8 @@ final class AccountTest extends ApiTestCase
         self::assertArrayHasKey('plainText', $tables['notes'][0]);
         self::assertArrayNotHasKey('plain_text', $tables['notes'][0]);
         self::assertArrayNotHasKey('data', $tables['settings'][0]);
+        self::assertArrayNotHasKey('accent', $tables['settings'][0]);
+        self::assertArrayNotHasKey('scheduleMode', $tables['settings'][0]);
     }
 
     public function test_export_requires_a_session(): void
@@ -623,7 +627,13 @@ final class AccountTest extends ApiTestCase
         );
         $database->execute(
             'INSERT INTO `user_settings` (`user_id`, `data`, `updated_at`) VALUES (?, ?, ?)',
-            [$userId, json_encode(['marker' => $marker, 'theme' => 'dark'], JSON_THROW_ON_ERROR), $now],
+            [$userId, json_encode([
+                'profileName' => 'Profil ' . $marker,
+                'examName' => 'YKS ' . $marker,
+                'geometryMode' => 'separate',
+                'accent' => '#3B82F6',
+                'scheduleMode' => 'manual',
+            ], JSON_THROW_ON_ERROR), $now],
         );
         $database->execute(
             'INSERT INTO `sync_changes` (`user_id`, `table_name`, `row_id`, `op`, `changed_at`)'

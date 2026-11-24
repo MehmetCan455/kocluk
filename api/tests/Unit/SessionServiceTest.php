@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Kocluk\Api\Auth\SessionService;
 use Kocluk\Api\Http\Request;
+use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
 use Kocluk\Api\Support\Uuid;
 use Kocluk\Api\Tests\Support\TestDatabase;
@@ -222,6 +223,46 @@ final class SessionServiceTest extends TestCase
         );
 
         self::assertNull($this->sessions->validate($session['token']));
+    }
+
+    public function test_create_rejects_a_hard_deleted_user(): void
+    {
+        $userId = $this->user();
+
+        TestDatabase::database()->execute(
+            'DELETE FROM `users` WHERE `id` = ?',
+            [$userId],
+        );
+
+        try {
+            $this->sessions->create($userId, $this->request());
+            self::fail('Silinmiş kullanıcı için oturum oluşturulmamalı.');
+        } catch (ApiException $error) {
+            self::assertSame('unauthenticated', $error->errorCode);
+            self::assertSame(401, $error->status);
+        }
+
+        self::assertSame(0, $this->sessionCount($userId));
+    }
+
+    public function test_create_rejects_a_soft_deleted_user(): void
+    {
+        $userId = $this->user();
+
+        TestDatabase::database()->execute(
+            'UPDATE `users` SET `deleted_at` = ? WHERE `id` = ?',
+            [Clock::nowSql(), $userId],
+        );
+
+        try {
+            $this->sessions->create($userId, $this->request());
+            self::fail('Silinmiş kullanıcı için oturum oluşturulmamalı.');
+        } catch (ApiException $error) {
+            self::assertSame('unauthenticated', $error->errorCode);
+            self::assertSame(401, $error->status);
+        }
+
+        self::assertSame(0, $this->sessionCount($userId));
     }
 
     /**

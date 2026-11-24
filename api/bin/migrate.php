@@ -16,26 +16,7 @@ if (PHP_SAPI !== 'cli') {
 
 $root = dirname(__DIR__);
 
-$composerAutoload = $root . '/vendor/autoload.php';
-
-if (is_file($composerAutoload)) {
-    require $composerAutoload;
-} else {
-    // The shared host has no Composer; load the few API classes directly.
-    spl_autoload_register(static function (string $class) use ($root): void {
-        $prefix = 'Kocluk\\Api\\';
-
-        if (!str_starts_with($class, $prefix)) {
-            return;
-        }
-
-        $path = $root . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
-
-        if (is_file($path)) {
-            require $path;
-        }
-    });
-}
+require $root . '/src/bootstrap.php';
 
 $candidates = array_filter([
     getenv('KOCLUK_CONFIG') ?: null,

@@ -56,6 +56,12 @@ $config = [
         'from_name' => getenv('MAIL_FROM_NAME') ?: 'Zirve Academy',
     ],
     'privacy_version' => getenv('PRIVACY_VERSION') ?: '2026-11-24',
+    // Optional sync tuning. The default matches the design spec (20 MB); lower
+    // it to fail GET /api/sync/full with payload_too_large earlier. Tests set
+    // this through the App config instead of building a 20 MB fixture.
+    'sync' => [
+        'full_max_bytes' => 20 * 1024 * 1024,
+    ],
 ];
 
 unset($env, $production, $appUrl, $cookieName, $sessionSecure);

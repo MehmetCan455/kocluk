@@ -168,6 +168,9 @@ const subjectSchema = z.object({
   slug: z.string(),
   icon: z.string(),
   order: z.number().int(),
+  // Added with the sync model; old backups simply omit them.
+  updatedAt: z.string().optional(),
+  deletedAt: z.string().optional(),
 });
 
 const topicSchema = z.object({
@@ -178,6 +181,9 @@ const topicSchema = z.object({
   order: z.number().int(),
   isCustom: z.boolean(),
   createdAt: z.string(),
+  // Added with the sync model; old backups simply omit them.
+  updatedAt: z.string().optional(),
+  deletedAt: z.string().optional(),
 });
 
 const bookSchema = z.object({
@@ -215,6 +221,9 @@ const examSchema = z
     branch: z.string().optional(),
     note: z.string(),
     createdAt: z.string(),
+    // Added with the sync model; old backups simply omit them.
+    updatedAt: z.string().optional(),
+    deletedAt: z.string().optional(),
   })
   .superRefine((exam, context) => {
     if (exam.kind === 'full') {
@@ -284,6 +293,9 @@ const examResultSchema = z.object({
   wrong: z.number().int().nonnegative(),
   blank: z.number().int().nonnegative(),
   net: z.number(),
+  // Tombstones must survive a backup/restore, or deleted results come back.
+  updatedAt: z.string().optional(),
+  deletedAt: z.string().optional(),
 });
 
 export function photoBackupPaths(id: string): { blobPath: string; thumbBlobPath: string } {
@@ -792,6 +804,9 @@ function assertUniqueBackupKeys(data: BackupData): void {
 function assertBranchExamResults(data: BackupData): void {
   const resultsByExam = new Map<string, BackupData['examResults']>();
   for (const row of data.examResults) {
+    if (row.deletedAt !== undefined) {
+      continue;
+    }
     const rows = resultsByExam.get(row.examId);
     if (rows) {
       rows.push(row);

@@ -32,6 +32,8 @@ export interface Subject {
   slug: string;
   icon: string;
   order: number;
+  updatedAt?: string;
+  deletedAt?: string;
 }
 
 export interface Topic {
@@ -42,6 +44,8 @@ export interface Topic {
   order: number;
   isCustom: boolean;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
 }
 
 export interface Book {
@@ -75,6 +79,8 @@ export interface Exam {
   branch?: BranchExamKey;
   note: string;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
 }
 
 export interface ExamResult {
@@ -85,6 +91,8 @@ export interface ExamResult {
   wrong: number;
   blank: number;
   net: number;
+  updatedAt?: string;
+  deletedAt?: string;
 }
 
 export interface Photo {

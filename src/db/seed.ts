@@ -1,5 +1,6 @@
 import type { ExamType, Subject, Topic } from '@/domain/types';
-import { newId } from '@/lib/id';
+import { deterministicId } from '@/lib/deterministicId';
+import { SUBJECT_NAMESPACE, TOPIC_NAMESPACE } from '@/lib/namespaces';
 import { db } from './db';
 
 export interface CurriculumTopicSeed {
@@ -26,8 +27,13 @@ export interface CurriculumSeed {
 /**
  * Adds missing seed subjects and topics; existing records are never overwritten,
  * so renamed subjects/topics survive updates. Removed seed entries are not deleted.
+ * New rows get deterministic ids from their `seedKey`, so two devices seeding the
+ * same curriculum create the same row identity. Existing rows are matched by
+ * `seedKey` and keep their local ids (transferred data is never re-keyed here).
  */
 export async function seedCurriculum(seed: CurriculumSeed): Promise<void> {
+  const now = new Date().toISOString();
+
   await db.transaction('rw', db.subjects, db.topics, db.settings, async () => {
     const subjectsBySeedKey = new Map<string, Subject>();
     for (const subject of await db.subjects.toArray()) {
@@ -46,13 +52,14 @@ export async function seedCurriculum(seed: CurriculumSeed): Promise<void> {
 
       if (!subject) {
         subject = {
-          id: newId(),
+          id: deterministicId(SUBJECT_NAMESPACE, subjectSeed.seedKey),
           seedKey: subjectSeed.seedKey,
           exam: subjectSeed.exam,
           name: subjectSeed.name,
           slug: subjectSeed.slug,
           icon: subjectSeed.icon,
           order: subjectSeed.order,
+          updatedAt: now,
         };
         await db.subjects.add(subject);
         subjectsBySeedKey.set(subject.seedKey, subject);
@@ -64,13 +71,14 @@ export async function seedCurriculum(seed: CurriculumSeed): Promise<void> {
         }
 
         const topic: Topic = {
-          id: newId(),
+          id: deterministicId(TOPIC_NAMESPACE, topicSeed.seedKey),
           seedKey: topicSeed.seedKey,
           subjectId: subject.id,
           name: topicSeed.name,
           order: topicSeed.order,
           isCustom: false,
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
         };
         await db.topics.add(topic);
         topicsBySeedKey.set(topicSeed.seedKey, topic);

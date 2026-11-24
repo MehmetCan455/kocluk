@@ -42,7 +42,9 @@ import {
   emptyScheduleTableDoneCells,
 } from '@/domain/scheduleTable';
 import { isValidDateString } from '@/lib/date';
+import { deterministicId } from '@/lib/deterministicId';
 import { newId } from '@/lib/id';
+import { EXAM_RESULT_NAMESPACE } from '@/lib/namespaces';
 import { compressImage } from '@/lib/image';
 import { compareHHmm, isHHmm } from '@/lib/time';
 import { matchesTokens, tokenizeTr } from '@/lib/normalize';
@@ -1207,18 +1209,24 @@ export async function listFullExams(type?: ExamType): Promise<Exam[]> {
 }
 
 export async function listExamResults(examId: string): Promise<ExamResult[]> {
-  return db.examResults.where('examId').equals(examId).toArray();
+  const results = await db.examResults.where('examId').equals(examId).toArray();
+  return results.filter((result) => !result.deletedAt);
 }
 
 /** One table read for callers that need nets across many exams (charts, dashboard). */
 export async function listAllExamResults(): Promise<ExamResult[]> {
-  return db.examResults.toArray();
+  const results = await db.examResults.toArray();
+  return results.filter((result) => !result.deletedAt);
 }
 
 /**
- * Creates or updates an exam and fully replaces its subject results in one
- * transaction. Net is recomputed and stored on every result. An `id` that no
- * longer exists is an error rather than a silent create.
+ * Creates or updates an exam and reconciles its subject results in one
+ * transaction. A result's id never changes for the same subject: existing rows
+ * (including tombstones) are reused by `subjectId`, new rows get a deterministic
+ * id from `examId:subjectId`, and removed rows are marked with `deletedAt`.
+ * Keeping ids stable is what makes two devices save the same result row.
+ * Net is recomputed and stored on every active result. An `id` that no longer
+ * exists is an error rather than a silent create.
  */
 export async function saveExam(input: SaveExamInput): Promise<Exam> {
   const name = input.name.trim();
@@ -1253,6 +1261,7 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
       throw new Error('Deneme bulunamadı');
     }
 
+    const now = new Date().toISOString();
     const exam: Exam = {
       id: existing?.id ?? newId(),
       type: input.type,
@@ -1262,23 +1271,53 @@ export async function saveExam(input: SaveExamInput): Promise<Exam> {
       kind,
       branch: branchConfig?.key,
       note,
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     };
 
     await db.exams.put(exam);
-    await db.examResults.where('examId').equals(exam.id).delete();
 
-    if (results.length > 0) {
-      await db.examResults.bulkAdd(
-        results.map((row) => ({
-          id: newId(),
-          examId: exam.id,
-          subjectId: row.subjectId,
-          correct: row.correct,
-          wrong: row.wrong,
-          blank: row.blank,
-          net: calculateNet(row.correct, row.wrong),
-        })),
+    // Tombstones are kept in the map so re-adding a subject reactivates its
+    // original row instead of creating a second active result for the pair.
+    const existingResults = await db.examResults
+      .where('examId')
+      .equals(exam.id)
+      .toArray();
+    const existingBySubject = new Map<string, ExamResult>();
+    for (const result of existingResults) {
+      const current = existingBySubject.get(result.subjectId);
+      if (!current || (current.deletedAt !== undefined && result.deletedAt === undefined)) {
+        existingBySubject.set(result.subjectId, result);
+      }
+    }
+
+    const keptIds = new Set<string>();
+    const rows: ExamResult[] = results.map((row) => {
+      const id =
+        existingBySubject.get(row.subjectId)?.id ??
+        deterministicId(EXAM_RESULT_NAMESPACE, `${exam.id}:${row.subjectId}`);
+      keptIds.add(id);
+      return {
+        id,
+        examId: exam.id,
+        subjectId: row.subjectId,
+        correct: row.correct,
+        wrong: row.wrong,
+        blank: row.blank,
+        net: calculateNet(row.correct, row.wrong),
+        updatedAt: now,
+      };
+    });
+    if (rows.length > 0) {
+      await db.examResults.bulkPut(rows);
+    }
+
+    const removed = existingResults.filter(
+      (result) => !keptIds.has(result.id) && result.deletedAt === undefined,
+    );
+    if (removed.length > 0) {
+      await db.examResults.bulkPut(
+        removed.map((result) => ({ ...result, updatedAt: now, deletedAt: now })),
       );
     }
 

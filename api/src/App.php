@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kocluk\Api;
 
+use Kocluk\Api\Account\AccountService;
 use Kocluk\Api\Auth\AuthService;
 use Kocluk\Api\Auth\PasswordResetService;
 use Kocluk\Api\Auth\RateLimiter;
@@ -73,6 +74,8 @@ final class App
 
     private ?PasswordResetService $passwordResets = null;
 
+    private ?AccountService $accounts = null;
+
     /** @var array<string, true> registered "METHOD /path" pairs */
     private array $registered = [];
 
@@ -100,6 +103,8 @@ final class App
         $this->addRoute('POST', '/api/auth/forgot-password', $this->forgotPassword(...));
         $this->addRoute('POST', '/api/auth/reset-password', $this->resetPassword(...));
         $this->addRoute('POST', '/api/auth/verify-email', $this->verifyEmail(...));
+        $this->addRoute('POST', '/api/auth/delete-account', $this->deleteAccount(...));
+        $this->addRoute('GET', '/api/account/export', $this->exportAccount(...));
     }
 
     public function handle(Request $request): Response
@@ -343,6 +348,46 @@ final class App
         return Response::json(['ok' => true]);
     }
 
+    private function deleteAccount(Request $request): Response
+    {
+        $session = $this->currentSession($request);
+        $input = $request->json();
+
+        $this->accounts()->delete(
+            $session['userId'],
+            is_string($input['password'] ?? null) ? $input['password'] : '',
+        );
+
+        // Every session row is gone; drop the browser cookie as well so a
+        // stale token is not retried on the next request.
+        return Response::json(
+            ['ok' => true],
+            200,
+            ['Set-Cookie' => $this->sessions()->clearCookie($request)],
+        );
+    }
+
+    /**
+     * JSON download of the signed-in user's data (KVKK, spec §11).
+     *
+     * A GET needs no CSRF token; the HttpOnly session cookie authenticates it.
+     */
+    private function exportAccount(Request $request): Response
+    {
+        $session = $this->currentSession($request);
+
+        return Response::json(
+            $this->accounts()->export($session['userId']),
+            200,
+            [
+                'Content-Disposition' => sprintf(
+                    'attachment; filename="kocluk-hesap-%s.json"',
+                    gmdate('Y-m-d'),
+                ),
+            ],
+        );
+    }
+
     private function addRoute(string $method, string $path, callable $handler): void
     {
         $this->registered[$method . ' ' . $path] = true;
@@ -390,6 +435,11 @@ final class App
             $this->mailer(),
             $this->templates(),
         );
+    }
+
+    private function accounts(): AccountService
+    {
+        return $this->accounts ??= new AccountService($this->database());
     }
 
     private function mailer(): DeferredMailer

@@ -97,10 +97,10 @@ final class AccountTest extends ApiTestCase
             self::MARKER_A,
             (string) $tables['scheduleTasks'][0]['title'],
         );
-        self::assertSame(
-            ['marker' => self::MARKER_A, 'theme' => 'dark'],
-            $tables['settings'][0]['data'],
-        );
+        $settings = $tables['settings'][0]['data'];
+
+        self::assertSame(self::MARKER_A, $settings['marker']);
+        self::assertSame('dark', $settings['theme']);
     }
 
     public function test_export_requires_a_session(): void

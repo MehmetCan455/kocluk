@@ -1,0 +1,313 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kocluk\Api\Tests\Integration;
+
+use Kocluk\Api\Db\Database;
+use Kocluk\Api\Support\Clock;
+use Kocluk\Api\Tests\Support\TestDatabase;
+use PDOException;
+use PHPUnit\Framework\TestCase;
+
+final class MigrationTest extends TestCase
+{
+    private const USER_ID = '11111111-1111-4111-8111-111111111111';
+    private const OTHER_USER_ID = '22222222-2222-4222-8222-222222222222';
+    private const BOOK_ID = '33333333-3333-4333-8333-333333333333';
+
+    private const TABLES = [
+        'schema_migrations',
+        'users',
+        'sessions',
+        'password_resets',
+        'email_verifications',
+        'rate_limits',
+        'subjects',
+        'topics',
+        'exams',
+        'exam_results',
+        'notes',
+        'catalog_books',
+        'user_books',
+        'activity_logs',
+        'schedule_weeks',
+        'schedule_rows',
+        'schedule_tasks',
+        'topic_progress',
+        'user_settings',
+        'sync_changes',
+    ];
+
+    private const SYNC_TABLES = [
+        'subjects',
+        'topics',
+        'exams',
+        'exam_results',
+        'notes',
+        'catalog_books',
+        'user_books',
+        'activity_logs',
+        'schedule_weeks',
+        'schedule_rows',
+        'schedule_tasks',
+        'topic_progress',
+        'user_settings',
+    ];
+
+    private static Database $db;
+
+    public static function setUpBeforeClass(): void
+    {
+        self::$db = TestDatabase::database();
+    }
+
+    protected function setUp(): void
+    {
+        TestDatabase::reset();
+    }
+
+    public function test_expected_tables_exist(): void
+    {
+        $tables = TestDatabase::tables(self::$db);
+        sort($tables);
+
+        $expected = self::TABLES;
+        sort($expected);
+
+        self::assertSame($expected, $tables);
+    }
+
+    public function test_all_tables_are_innodb_utf8mb4(): void
+    {
+        $rows = self::$db->fetchAll(
+            'SELECT `table_name` AS table_name, `engine` AS engine, `table_collation` AS table_collation
+             FROM `information_schema`.`tables`
+             WHERE `table_schema` = DATABASE()
+             ORDER BY `table_name`',
+        );
+
+        self::assertCount(count(self::TABLES), $rows);
+
+        foreach ($rows as $row) {
+            self::assertSame('InnoDB', $row['engine'], (string) $row['table_name']);
+            self::assertSame('utf8mb4_unicode_ci', $row['table_collation'], (string) $row['table_name']);
+        }
+    }
+
+    public function test_connection_pins_utf8mb4_and_utc(): void
+    {
+        $charset = self::$db->fetchOne("SHOW VARIABLES LIKE 'character_set_connection'");
+        self::assertNotNull($charset);
+        self::assertSame('utf8mb4', strtolower((string) array_values($charset)[1]));
+
+        $timeZone = self::$db->fetchOne("SHOW VARIABLES LIKE 'time_zone'");
+        self::assertNotNull($timeZone);
+        self::assertSame('+00:00', (string) array_values($timeZone)[1]);
+    }
+
+    public function test_users_insert_and_select_round_trips_utf8mb4(): void
+    {
+        $this->insertUser(self::USER_ID, 'cagri@example.com', 'Çağrı Şen');
+
+        $row = self::$db->fetchOne(
+            'SELECT `email`, `display_name` FROM `users` WHERE `id` = ?',
+            [self::USER_ID],
+        );
+
+        self::assertNotNull($row);
+        self::assertSame('cagri@example.com', $row['email']);
+        self::assertSame('Çağrı Şen', $row['display_name']);
+    }
+
+    public function test_user_email_is_unique(): void
+    {
+        $this->insertUser(self::USER_ID, 'cagri@example.com', 'Çağrı Şen');
+
+        try {
+            $this->insertUser(self::OTHER_USER_ID, 'cagri@example.com', 'Başka Kişi');
+            self::fail('Aynı e-posta ikinci kez eklenebildi.');
+        } catch (PDOException $error) {
+            self::assertSame('23000', (string) $error->getCode());
+        }
+    }
+
+    public function test_second_active_user_book_is_rejected(): void
+    {
+        $this->insertUserBook('44444444-4444-4444-8444-444444444444');
+
+        try {
+            $this->insertUserBook('55555555-5555-4555-8555-555555555555');
+            self::fail('Aynı (user_id, active_book_id) için ikinci aktif satır eklendi.');
+        } catch (PDOException $error) {
+            self::assertSame('23000', (string) $error->getCode());
+        }
+
+        self::assertSame(1, $this->activeUserBookCount());
+    }
+
+    public function test_soft_deleted_user_book_allows_new_active_row(): void
+    {
+        $now = Clock::nowSql();
+
+        $this->insertUserBook('44444444-4444-4444-8444-444444444444');
+
+        self::$db->execute(
+            'UPDATE `user_books` SET `deleted_at` = ?, `updated_at` = ? WHERE `user_id` = ? AND `id` = ?',
+            [$now, $now, self::USER_ID, '44444444-4444-4444-8444-444444444444'],
+        );
+
+        $this->insertUserBook('55555555-5555-4555-8555-555555555555');
+
+        self::assertSame(1, $this->activeUserBookCount());
+        self::assertSame(2, $this->userBookCount());
+    }
+
+    public function test_sync_changes_id_is_auto_increment(): void
+    {
+        self::$db->execute(
+            'INSERT INTO `sync_changes` (`user_id`, `table_name`, `row_id`, `op`) VALUES (?, ?, ?, ?)',
+            [self::USER_ID, 'userBooks', '44444444-4444-4444-8444-444444444444', 'upsert'],
+        );
+        self::$db->execute(
+            'INSERT INTO `sync_changes` (`user_id`, `table_name`, `row_id`, `op`) VALUES (?, ?, ?, ?)',
+            [self::USER_ID, 'userBooks', '44444444-4444-4444-8444-444444444444', 'delete'],
+        );
+
+        $rows = self::$db->fetchAll('SELECT `id`, `op` FROM `sync_changes` ORDER BY `id`');
+
+        self::assertCount(2, $rows);
+        self::assertSame(1, (int) $rows[0]['id']);
+        self::assertSame(2, (int) $rows[1]['id']);
+
+        $column = self::$db->fetchOne(
+            'SELECT `extra` AS extra FROM `information_schema`.`columns`
+             WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `column_name` = ?',
+            ['sync_changes', 'id'],
+        );
+
+        self::assertNotNull($column);
+        self::assertStringContainsString('auto_increment', strtolower((string) $column['extra']));
+    }
+
+    public function test_every_sync_table_has_server_updated_at_and_index(): void
+    {
+        foreach (self::SYNC_TABLES as $table) {
+            $column = self::$db->fetchOne(
+                'SELECT `column_name` AS column_name FROM `information_schema`.`columns`
+                 WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `column_name` = ?',
+                [$table, 'server_updated_at'],
+            );
+
+            self::assertNotNull($column, $table . '.server_updated_at eksik.');
+
+            $indexRows = self::$db->fetchAll(
+                'SELECT `index_name` AS index_name, `column_name` AS column_name
+                 FROM `information_schema`.`statistics`
+                 WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `index_name` <> \'PRIMARY\'
+                 ORDER BY `index_name`, `seq_in_index`',
+                [$table],
+            );
+
+            $columnsByIndex = [];
+
+            foreach ($indexRows as $row) {
+                $columnsByIndex[(string) $row['index_name']][] = (string) $row['column_name'];
+            }
+
+            $hasIndex = false;
+
+            foreach ($columnsByIndex as $columns) {
+                if (
+                    count($columns) === 2
+                    && in_array($columns[0], ['user_id', 'owner_id'], true)
+                    && $columns[1] === 'server_updated_at'
+                ) {
+                    $hasIndex = true;
+                    break;
+                }
+            }
+
+            self::assertTrue($hasIndex, $table . ' için (user_id, server_updated_at) index yok.');
+        }
+    }
+
+    public function test_rate_limits_user_id_is_nullable(): void
+    {
+        $column = self::$db->fetchOne(
+            'SELECT `is_nullable` AS is_nullable FROM `information_schema`.`columns`
+             WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `column_name` = ?',
+            ['rate_limits', 'user_id'],
+        );
+
+        self::assertNotNull($column);
+        self::assertSame('YES', $column['is_nullable']);
+    }
+
+    public function test_running_migrations_again_is_a_no_op(): void
+    {
+        self::assertSame([], TestDatabase::migrate());
+
+        $expected = array_map(
+            'basename',
+            glob(TestDatabase::migrationsDirectory() . '/*.sql') ?: [],
+        );
+        sort($expected);
+
+        $applied = array_map(
+            static fn (array $row): string => (string) $row['version'],
+            self::$db->fetchAll('SELECT `version` FROM `schema_migrations` ORDER BY `version`'),
+        );
+
+        self::assertSame($expected, $applied);
+    }
+
+    private function insertUser(string $id, string $email, string $displayName): void
+    {
+        $now = Clock::nowSql();
+
+        self::$db->execute(
+            'INSERT INTO `users`
+                (`id`, `email`, `password_hash`, `display_name`, `privacy_version`, `consented_at`, `created_at`, `updated_at`)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$id, $email, '$2y$12$placeholderplaceholderplaceholderplaceholder', $displayName, '2026-11-24', $now, $now, $now],
+        );
+    }
+
+    private function insertUserBook(string $id): void
+    {
+        $now = Clock::nowSql();
+
+        self::$db->execute(
+            'INSERT INTO `user_books`
+                (`id`, `user_id`, `book_id`, `status`, `created_at`, `updated_at`)
+             VALUES (?, ?, ?, ?, ?, ?)',
+            [$id, self::USER_ID, self::BOOK_ID, 'active', $now, $now],
+        );
+    }
+
+    private function activeUserBookCount(): int
+    {
+        $row = self::$db->fetchOne(
+            'SELECT COUNT(*) AS total FROM `user_books`
+             WHERE `user_id` = ? AND `book_id` = ? AND `deleted_at` IS NULL',
+            [self::USER_ID, self::BOOK_ID],
+        );
+
+        self::assertNotNull($row);
+
+        return (int) $row['total'];
+    }
+
+    private function userBookCount(): int
+    {
+        $row = self::$db->fetchOne(
+            'SELECT COUNT(*) AS total FROM `user_books` WHERE `user_id` = ?',
+            [self::USER_ID],
+        );
+
+        self::assertNotNull($row);
+
+        return (int) $row['total'];
+    }
+}

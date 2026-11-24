@@ -6,10 +6,18 @@
          colors="true"
          failOnRisky="true"
          failOnWarning="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         failOnPhpunitDeprecation="true"
          beStrictAboutOutputDuringTests="true">
     <testsuites>
         <testsuite name="api">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
 </phpunit>

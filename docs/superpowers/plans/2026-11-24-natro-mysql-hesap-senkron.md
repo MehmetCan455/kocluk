@@ -856,12 +856,12 @@ Expected: FAIL.
 
 - [ ] **Step 3: Kuyruk, hook ve push'u yaz**
 
-- Hook'lar `creating/updating/deleting`; `applyingRemote` bayrağı; `updatedAt`; queue id `${table}:${rowId}`; `put`.
-- `pushOnce`: pending 100; her satır için aktif DB'den satır oku; yoksa delete; payload; POST; sonuç.
-- `applied`: queue sil; sunucu `row` varsa `put` (guard).
-- `conflict`: `rekeyRow` gerekliyse; sunucu satırını uygula; queue sil.
+- Hook'lar `creating/updating/deleting`; remote-apply bastırması transaction-scoped (global bayrak değil); `updatedAt`; queue id `${table}:${rowId}`; `put`.
+- `pushOnce`: pending 100; UTF-8 byte boyutuyla 1 MB'a böl; her satır için aktif DB'den satır oku; yoksa delete; payload; POST; sonuç. 413 tüm batch'i öldürmez.
+- `applied`: queue sil; sunucu `row` varsa koşulsuz uygula (clamp edilmiş `updatedAt` dahil); `catalogBooks.ownerId` yerel değeri korunur.
+- `conflict`: kuyruk satırı hâlâ güncel değilse uygulama; güncelse `rekeyRow` + sunucu satırı; queue sil. `activityLogs` aynı-id conflict'inde yerel rekey referansları korunur.
 - `error`: 4xx `dead`, 5xx/ağ attempts; 5 sonrası dead.
-- `rekeyRow`: tablo bazlı referans güncellemeleri (spec §6.5); Dexie transaction.
+- `rekeyRow`: tablo bazlı referans güncellemeleri (spec §6.5); Dexie transaction; eski `topicProgress` için delete kuyruğa; referans kuyrukları aynı transaction'da.
 
 - [ ] **Step 4: Testleri çalıştır**
 

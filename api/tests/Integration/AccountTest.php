@@ -340,7 +340,15 @@ final class AccountTest extends ApiTestCase
     public function test_delete_removes_email_scoped_rate_limit_buckets(): void
     {
         $alpha = $this->register();
+        $alphaId = $this->userId($alpha);
         $beta = $this->register(['email' => self::OTHER_EMAIL]);
+
+        // Simulate a legacy row stored without normalization: delete must
+        // still target the buckets the limiter builds from normalized e-mail.
+        TestDatabase::database()->execute(
+            'UPDATE `users` SET `email` = ? WHERE `id` = ?',
+            ['  ' . strtoupper(self::EMAIL) . '  ', $alphaId],
+        );
 
         // The real limiter buckets for login and forgot-password use a
         // deterministic SHA-256 of the normalized e-mail, not user_id.

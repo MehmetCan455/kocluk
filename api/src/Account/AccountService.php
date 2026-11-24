@@ -20,11 +20,11 @@ use Kocluk\Api\Support\Clock;
  * reset/verification tokens.
  *
  * Delete is a hard delete, not a tombstone: synced rows, the change log,
- * sessions, reset/verification tokens, user-linked rate-limit rows and
- * finally the users row are removed in one transaction. The unique e-mail is
- * therefore free for a new registration immediately. IP-only rate-limit rows
- * cannot be attributed to an account and are deliberately left for the
- * cleanup job.
+ * sessions, reset/verification tokens, rate-limit rows linked by user_id or by
+ * the deterministic login/forgot-password e-mail hash and finally the users
+ * row are removed in one transaction. The unique e-mail is therefore free for
+ * a new registration immediately. Purely IP-scoped rate-limit rows cannot be
+ * attributed to an account and are deliberately left for the cleanup job.
  */
 final class AccountService
 {
@@ -134,7 +134,7 @@ final class AccountService
     {
         $this->database->transaction(function () use ($userId, $password): void {
             $user = $this->database->fetchOne(
-                'SELECT `password_hash` FROM `users`'
+                'SELECT `email`, `password_hash` FROM `users`'
                 . ' WHERE `id` = ? AND `deleted_at` IS NULL FOR UPDATE',
                 [$userId],
             );
@@ -146,6 +146,8 @@ final class AccountService
             if (!PasswordHasher::verify($password, (string) $user['password_hash'])) {
                 throw new ApiException('invalid_password', 'Şifre hatalı.', 403);
             }
+
+            $email = self::normalizeEmail($user['email'] ?? null);
 
             foreach (self::SYNC_TABLES as $definition) {
                 $this->database->execute(
@@ -175,12 +177,26 @@ final class AccountService
                 [$userId],
             );
 
-            // Rows without a user_id are IP-scoped and cannot be attributed to
-            // this account; the cleanup cron removes them after the window.
+            // Newer limiter rows can carry user_id; remove those first.
             $this->database->execute(
                 'DELETE FROM `rate_limits` WHERE `user_id` = ?',
                 [$userId],
             );
+
+            // Login and forgot-password use deterministic e-mail-hash buckets
+            // instead of user_id. The hash still links the rows to this
+            // account, so both buckets must go as well. IP-only buckets such
+            // as forgot_password_ip and register are not attributable to one
+            // account and remain until their window expires.
+            if ($email !== '') {
+                $this->database->execute(
+                    'DELETE FROM `rate_limits` WHERE `bucket` IN (?, ?)',
+                    [
+                        'login:' . hash('sha256', $email),
+                        'forgot_password:' . hash('sha256', $email),
+                    ],
+                );
+            }
 
             $deleted = $this->database->execute(
                 'DELETE FROM `users` WHERE `id` = ? AND `deleted_at` IS NULL',
@@ -206,6 +222,16 @@ final class AccountService
         }
 
         return $row;
+    }
+
+    /**
+     * Same normalization as AuthService::normalizeEmail(), so the limiter
+     * buckets this delete targets are exactly the ones login and
+     * forgot-password create.
+     */
+    private static function normalizeEmail(mixed $value): string
+    {
+        return is_string($value) ? strtolower(trim($value)) : '';
     }
 
     private static function unauthenticated(): ApiException

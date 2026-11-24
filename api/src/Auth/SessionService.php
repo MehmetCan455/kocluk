@@ -20,7 +20,9 @@ use Kocluk\Api\Support\Uuid;
  *
  * Expiry is sliding: every validated request may push expires_at to 30 days
  * ahead, never beyond 90 days after the session was created. last_seen_at is
- * refreshed at most once every five minutes to keep writes rare.
+ * refreshed at most once every five minutes to keep writes rare. The browser
+ * cookie is kept until the 90-day absolute cap; the server still rejects an
+ * idle session after its 30-day window, so no response needs to re-emit it.
  *
  * Cookie policy:
  *   * production: __Host-kocluk_session, always Secure (HttpOnly, Path=/,
@@ -63,7 +65,7 @@ final class SessionService
     /**
      * Creates a session row and returns the raw token for the cookie.
      *
-     * @return array{token: string, csrfToken: string, expiresAt: string}
+     * @return array{token: string, csrfToken: string, expiresAt: string, createdAt: string}
      */
     public function create(string $userId, Request $request): array
     {
@@ -90,6 +92,7 @@ final class SessionService
             'token' => $token,
             'csrfToken' => $csrfToken,
             'expiresAt' => self::sql($expiresAt),
+            'createdAt' => self::sql($now),
         ];
     }
 
@@ -205,15 +208,21 @@ final class SessionService
     /**
      * Set-Cookie value that stores the raw token.
      *
-     * @param array{token: string, expiresAt?: string} $session
+     * The browser keeps the cookie until the absolute session cap. The server
+     * still enforces the shorter 30-day idle window in validate(); writing
+     * that window into the cookie would sign active users out on day 30
+     * because no regular response re-emits the cookie.
+     *
+     * @param array{token: string, createdAt?: string} $session
      */
     public function cookie(array $session, Request $request): string
     {
-        $expiresAt = isset($session['expiresAt'])
-            ? self::parse($session['expiresAt'])
-            : Clock::now()->modify('+' . self::SLIDING_TTL_DAYS . ' days');
+        $createdAt = isset($session['createdAt'])
+            ? self::parse($session['createdAt'])
+            : Clock::now();
 
-        $maxAge = max(0, $expiresAt->getTimestamp() - time());
+        $absolute = $createdAt->modify('+' . self::ABSOLUTE_TTL_DAYS . ' days');
+        $maxAge = max(0, $absolute->getTimestamp() - time());
 
         return $this->cookieHeader($session['token'], $maxAge, $request);
     }

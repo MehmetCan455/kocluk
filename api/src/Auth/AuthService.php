@@ -58,7 +58,7 @@ final class AuthService
 
     /**
      * @param array<string, mixed> $input
-     * @return array{user: array<string, mixed>, session: array{token: string, csrfToken: string, expiresAt: string}}
+     * @return array{user: array<string, mixed>, session: array{token: string, csrfToken: string, expiresAt: string, createdAt: string}}
      */
     public function register(array $input, Request $request): array
     {
@@ -131,7 +131,7 @@ final class AuthService
 
     /**
      * @param array<string, mixed> $input
-     * @return array{user: array<string, mixed>, session: array{token: string, csrfToken: string, expiresAt: string}}
+     * @return array{user: array<string, mixed>, session: array{token: string, csrfToken: string, expiresAt: string, createdAt: string}}
      */
     public function login(array $input, Request $request): array
     {
@@ -235,10 +235,11 @@ final class AuthService
      * Verifies the current password, stores the new hash, revokes every other
      * session and rotates the session of the browser making the request.
      *
-     * Returns the rotated session so the route can emit a fresh Set-Cookie;
-     * the old token is invalid immediately.
+     * Returns the public user and the rotated session so the route can emit a
+     * fresh Set-Cookie and the new CSRF token; the old token and CSRF token
+     * are invalid immediately.
      *
-     * @return array{token: string, csrfToken: string, expiresAt: string}
+     * @return array{user: array<string, mixed>, session: array{token: string, csrfToken: string, expiresAt: string, createdAt: string}}
      */
     public function changePassword(
         string $userId,
@@ -255,7 +256,7 @@ final class AuthService
 
         self::assertPassword($newPassword);
 
-        return $this->database->transaction(function () use (
+        $session = $this->database->transaction(function () use (
             $userId,
             $newPassword,
             $currentToken,
@@ -271,6 +272,8 @@ final class AuthService
 
             return $this->sessions->create($userId, $request);
         });
+
+        return ['user' => $this->publicUser($user), 'session' => $session];
     }
 
     /**

@@ -258,21 +258,49 @@ final class AuthTest extends TestCase
     {
         $deviceA = $this->register();
         $deviceB = $this->login();
+        $oldCsrf = $this->csrf($deviceA);
         $newPassword = 'yeni-sifre-456';
 
         $response = $this->post(
             '/api/auth/change-password',
             ['currentPassword' => self::PASSWORD, 'newPassword' => $newPassword],
-            ['X-CSRF-Token' => $this->csrf($deviceA)],
+            ['X-CSRF-Token' => $oldCsrf],
             $this->jar($deviceA),
         );
 
         self::assertSame(200, $response->status());
         self::assertStringStartsWith('kocluk_session=', (string) $response->header('Set-Cookie'));
+        self::assertSame(self::EMAIL, $this->payload($response)['user']['email']);
+
+        $newCsrf = $this->csrf($response);
+
+        self::assertNotSame($oldCsrf, $newCsrf);
 
         self::assertSame(401, $this->sessionStatus($this->jar($deviceA)));
         self::assertSame(401, $this->sessionStatus($this->jar($deviceB)));
         self::assertSame(200, $this->sessionStatus($this->jar($response)));
+
+        // The rotated CSRF token works immediately with the new cookie; the
+        // token minted for the revoked session is rejected.
+        $fresh = $this->post(
+            '/api/auth/update-profile',
+            ['displayName' => 'Yeni Ad'],
+            ['X-CSRF-Token' => $newCsrf],
+            $this->jar($response),
+        );
+
+        self::assertSame(200, $fresh->status());
+        self::assertSame('Yeni Ad', $this->payload($fresh)['user']['displayName']);
+
+        $stale = $this->post(
+            '/api/auth/update-profile',
+            ['displayName' => 'Eski Ad'],
+            ['X-CSRF-Token' => $oldCsrf],
+            $this->jar($response),
+        );
+
+        self::assertSame(403, $stale->status());
+        self::assertSame('csrf_failed', $this->payload($stale)['error']['code']);
 
         self::assertSame(401, $this->login(self::PASSWORD)->status());
         self::assertSame(200, $this->login($newPassword)->status());

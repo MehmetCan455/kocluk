@@ -260,7 +260,7 @@ final class App
         $session = $this->currentSession($request);
         $input = $request->json();
 
-        $rotated = $this->auth()->changePassword(
+        $result = $this->auth()->changePassword(
             $session['userId'],
             is_string($input['currentPassword'] ?? null) ? $input['currentPassword'] : '',
             is_string($input['newPassword'] ?? null) ? $input['newPassword'] : '',
@@ -269,9 +269,9 @@ final class App
         );
 
         return Response::json(
-            ['ok' => true],
+            ['user' => $result['user'], 'csrfToken' => $result['session']['csrfToken']],
             200,
-            ['Set-Cookie' => $this->sessions()->cookie($rotated, $request)],
+            ['Set-Cookie' => $this->sessions()->cookie($result['session'], $request)],
         );
     }
 

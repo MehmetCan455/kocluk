@@ -84,6 +84,45 @@ final class SessionServiceTest extends TestCase
         self::assertSame($afterFirstCall, $this->row($session['token'])['last_seen_at']);
     }
 
+    public function test_cookie_lifetime_uses_the_ninety_day_absolute_cap(): void
+    {
+        $session = $this->sessions->create(Uuid::v4(), $this->request());
+        $header = $this->sessions->cookie($session, $this->request());
+
+        self::assertSame(1, preg_match('/Max-Age=(\d+)/', $header, $maxAgeMatch));
+        $maxAge = (int) $maxAgeMatch[1];
+
+        self::assertGreaterThan(89 * 86400, $maxAge);
+        self::assertLessThanOrEqual(SessionService::ABSOLUTE_TTL_DAYS * 86400, $maxAge);
+
+        self::assertSame(1, preg_match('/Expires=([^;]+)/', $header, $expiresMatch));
+        $expiresAt = (new DateTimeImmutable(trim($expiresMatch[1]), new DateTimeZone('UTC')))->getTimestamp();
+
+        self::assertGreaterThan(time() + 89 * 86400, $expiresAt);
+        self::assertLessThanOrEqual(time() + SessionService::ABSOLUTE_TTL_DAYS * 86400, $expiresAt);
+    }
+
+    public function test_validate_slides_the_database_expiry(): void
+    {
+        $session = $this->sessions->create(Uuid::v4(), $this->request());
+
+        TestDatabase::database()->execute(
+            'UPDATE `sessions` SET `expires_at` = ?, `last_seen_at` = ? WHERE `id` = ?',
+            [
+                self::sql(Clock::now()->modify('+1 day')),
+                self::sql(Clock::now()->modify('-10 minutes')),
+                Uuid::hashToken($session['token']),
+            ],
+        );
+
+        $this->sessions->validate($session['token']);
+
+        $expiresAt = self::timestamp((string) $this->row($session['token'])['expires_at']);
+
+        self::assertGreaterThan(Clock::now()->modify('+' . (SessionService::SLIDING_TTL_DAYS - 1) . ' days')->getTimestamp(), $expiresAt);
+        self::assertLessThanOrEqual(Clock::now()->modify('+' . SessionService::SLIDING_TTL_DAYS . ' days')->getTimestamp() + 1, $expiresAt);
+    }
+
     public function test_sliding_expiry_stops_at_the_ninety_day_cap(): void
     {
         $session = $this->sessions->create(Uuid::v4(), $this->request());

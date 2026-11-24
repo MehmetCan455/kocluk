@@ -1,6 +1,12 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { installMockApi } from '@/test/mockApi';
-import { ApiError, UNAUTHORIZED_EVENT, api } from './api';
+import {
+  ApiError,
+  UNAUTHORIZED_EVENT,
+  api,
+  readUnauthorizedDetail,
+  type UnauthorizedDetail,
+} from './api';
 
 const sessionError = {
   error: { code: 'unauthenticated', message: 'Oturum bulunamadı veya süresi dolmuş.' },
@@ -74,9 +80,15 @@ test('JSON gövde ve CSRF başlığını yazar gönderir', async () => {
   expect(call.body).toEqual({ changes: [] });
 });
 
-test('401 ApiError üretir ve kocluk:unauthorized olayını yayınlar', async () => {
+test('401 ApiError üretir ve istek kimliği taşıyan kocluk:unauthorized olayı yayınlar', async () => {
   installMockApi({ 'GET /api/auth/session': { status: 401, body: sessionError } });
-  const listener = vi.fn();
+  const events: UnauthorizedDetail[] = [];
+  const listener = (event: Event) => {
+    const detail = readUnauthorizedDetail(event);
+    if (detail) {
+      events.push(detail);
+    }
+  };
   window.addEventListener(UNAUTHORIZED_EVENT, listener);
 
   try {
@@ -86,10 +98,29 @@ test('401 ApiError üretir ve kocluk:unauthorized olayını yayınlar', async ()
     expect(error.code).toBe('unauthenticated');
     expect(error.message).toBe('Oturum bulunamadı veya süresi dolmuş.');
     expect(error.details).toMatchObject({ code: 'unauthenticated' });
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      path: '/api/auth/session',
+      method: 'GET',
+      code: 'unauthenticated',
+    });
+    expect(events[0].requestId).toBe(api.lastRequestId());
   } finally {
     window.removeEventListener(UNAUTHORIZED_EVENT, listener);
   }
+});
+
+test('ardışık istekler artan requestId alır', async () => {
+  installMockApi({
+    'GET /api/health': { body: { ok: true } },
+    'POST /api/auth/login': { body: { ok: true } },
+  });
+
+  const before = api.lastRequestId();
+  await api.get('/api/health');
+  await api.post('/api/auth/login', {});
+
+  expect(api.lastRequestId()).toBe(before + 2);
 });
 
 test('401 dışı hata gövdesindeki kodu korur ve olay yayınlamaz', async () => {

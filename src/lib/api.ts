@@ -13,6 +13,66 @@ export const UNAUTHORIZED_EVENT = 'kocluk:unauthorized';
 
 const NETWORK_ERROR_MESSAGE = 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.';
 
+/**
+ * Payload of `kocluk:unauthorized`. The request id is monotonic, so an auth
+ * transition can ignore 401s from requests it has already superseded; the
+ * path and code let the provider distinguish a failed credential attempt
+ * from an expired session.
+ */
+export interface UnauthorizedDetail {
+  requestId: number;
+  path: string;
+  method: 'GET' | 'POST';
+  code: string | null;
+}
+
+/** Id assigned to the most recent request; 0 before the first one. */
+let requestSequence = 0;
+
+function emitUnauthorized(
+  requestId: number,
+  path: string,
+  method: 'GET' | 'POST',
+  code: string | null,
+): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const detail: UnauthorizedDetail = { requestId, path, method, code };
+  window.dispatchEvent(new CustomEvent<UnauthorizedDetail>(UNAUTHORIZED_EVENT, { detail }));
+}
+
+/**
+ * Reads and validates the event payload. A listener that does not understand
+ * the detail can still treat the event itself as a session-expired signal.
+ */
+export function readUnauthorizedDetail(event: Event): UnauthorizedDetail | null {
+  if (!(event instanceof CustomEvent)) {
+    return null;
+  }
+
+  const detail: unknown = event.detail;
+  if (!isRecord(detail)) {
+    return null;
+  }
+
+  const { requestId, path, method, code } = detail;
+  if (
+    typeof requestId !== 'number' ||
+    !Number.isInteger(requestId) ||
+    requestId <= 0 ||
+    typeof path !== 'string' ||
+    path === '' ||
+    (method !== 'GET' && method !== 'POST') ||
+    (code !== null && typeof code !== 'string')
+  ) {
+    return null;
+  }
+
+  return { requestId, path, method, code };
+}
+
 export class ApiError extends Error {
   /** HTTP status; 0 when the request never reached the server. */
   readonly status: number;
@@ -50,6 +110,7 @@ async function request<T>(
   body?: unknown,
   csrfToken?: string,
 ): Promise<T> {
+  const requestId = ++requestSequence;
   const headers: Record<string, string> = { Accept: 'application/json' };
 
   // Only writes with a body are JSON; logout and similar empty POSTs must not
@@ -78,10 +139,6 @@ async function request<T>(
     throw new ApiError(0, 'network_error', NETWORK_ERROR_MESSAGE);
   }
 
-  if (response.status === 401 && typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
-  }
-
   if (response.status === 204) {
     return undefined as T;
   }
@@ -90,19 +147,31 @@ async function request<T>(
   try {
     text = await response.text();
   } catch {
+    // The status line already arrived, so a 401 is definitive even when the
+    // body stream breaks.
+    if (response.status === 401) {
+      emitUnauthorized(requestId, path, method, null);
+    }
     throw new ApiError(0, 'network_error', NETWORK_ERROR_MESSAGE);
   }
+
   const payload = text === '' ? undefined : parseJson(text);
+  const error = isRecord(payload) && isRecord(payload.error) ? payload.error : null;
+  const code = typeof error?.code === 'string' && error.code !== '' ? error.code : null;
+  const message =
+    typeof error?.message === 'string' && error.message !== '' ? error.message : null;
+
+  if (response.status === 401) {
+    emitUnauthorized(requestId, path, method, code);
+  }
 
   if (!response.ok) {
-    const error = isRecord(payload) && isRecord(payload.error) ? payload.error : null;
-    const code =
-      typeof error?.code === 'string' && error.code !== '' ? error.code : 'http_error';
-    const message =
-      typeof error?.message === 'string' && error.message !== ''
-        ? error.message
-        : `İstek başarısız oldu (${response.status}).`;
-    throw new ApiError(response.status, code, message, error);
+    throw new ApiError(
+      response.status,
+      code ?? 'http_error',
+      message ?? `İstek başarısız oldu (${response.status}).`,
+      error,
+    );
   }
 
   if (text === '') {
@@ -125,5 +194,13 @@ export const api = {
   },
   post<T>(path: string, body?: unknown, csrfToken?: string): Promise<T> {
     return request<T>('POST', path, body, csrfToken);
+  },
+  /**
+   * The id of the most recently issued request (0 before the first). An auth
+   * transition captures this before issuing its request, so 401 events from
+   * requests at or below that floor belong to an earlier attempt.
+   */
+  lastRequestId(): number {
+    return requestSequence;
   },
 };

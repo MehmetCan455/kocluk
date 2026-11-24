@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { ApiError, UNAUTHORIZED_EVENT, api } from '@/lib/api';
+import { ApiError, UNAUTHORIZED_EVENT, api, readUnauthorizedDetail } from '@/lib/api';
 
 /**
  * Account session state and the offline hint (design §9.1, §9.4).
@@ -169,12 +169,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Every auth transition gets an id; a slower response from an earlier
   // transition must never overwrite the newer one.
   const sequenceRef = useRef(0);
+  // Request id floor of the current attempt: a 401 from a request issued at
+  // or before this point belongs to a superseded attempt and is ignored.
+  const attemptFloorRef = useRef(0);
+  // A successful logout is authoritative: a later refresh must not resurrect
+  // the old session from an in-flight or stale 200 response. Only an explicit
+  // login/register clears the barrier.
+  const logoutBarrierRef = useRef(false);
 
   const commit = useCallback((next: AuthState) => {
     stateRef.current = next;
     if (mountedRef.current) {
       setState(next);
     }
+  }, []);
+
+  const beginAuthAttempt = useCallback((): number => {
+    const requestId = sequenceRef.current + 1;
+    sequenceRef.current = requestId;
+    attemptFloorRef.current = api.lastRequestId();
+    return requestId;
   }, []);
 
   const applySignedIn = useCallback(
@@ -193,6 +207,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: response.user,
         csrfToken: response.csrfToken,
       });
+      // Requests issued while this one was in flight may have used an older
+      // cookie; their 401s must not undo the session just established.
+      attemptFloorRef.current = api.lastRequestId();
     },
     [commit],
   );
@@ -201,11 +218,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sequenceRef.current += 1;
     clearAuthHint();
     commit({ status: 'signedOut', user: null, csrfToken: null });
+    attemptFloorRef.current = api.lastRequestId();
   }, [commit]);
 
   const refresh = useCallback(async (): Promise<void> => {
-    const requestId = sequenceRef.current + 1;
-    sequenceRef.current = requestId;
+    const requestId = beginAuthAttempt();
     const previous = stateRef.current;
     const hint = readAuthHint();
 
@@ -234,6 +251,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (requestId !== sequenceRef.current) {
         return;
       }
+      // A logout completed while this refresh was in flight; the server's
+      // old 200 must not sign the user back in.
+      if (logoutBarrierRef.current) {
+        return;
+      }
       applySignedIn(response);
     } catch (error: unknown) {
       if (requestId !== sequenceRef.current) {
@@ -246,39 +268,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       fallBack();
     }
-  }, [applySignedIn, applySignedOut, commit]);
+  }, [applySignedIn, applySignedOut, beginAuthAttempt, commit]);
 
   const login = useCallback(
     async (input: LoginInput): Promise<void> => {
-      const requestId = sequenceRef.current + 1;
-      sequenceRef.current = requestId;
+      const requestId = beginAuthAttempt();
 
       const response = await api.post<SessionResponse>('/api/auth/login', input);
       if (requestId !== sequenceRef.current) {
         return;
       }
+      logoutBarrierRef.current = false;
       applySignedIn(response);
     },
-    [applySignedIn],
+    [applySignedIn, beginAuthAttempt],
   );
 
   const register = useCallback(
     async (input: RegisterInput): Promise<void> => {
-      const requestId = sequenceRef.current + 1;
-      sequenceRef.current = requestId;
+      const requestId = beginAuthAttempt();
 
       const response = await api.post<SessionResponse>('/api/auth/register', input);
       if (requestId !== sequenceRef.current) {
         return;
       }
+      logoutBarrierRef.current = false;
       applySignedIn(response);
     },
-    [applySignedIn],
+    [applySignedIn, beginAuthAttempt],
   );
 
   const logout = useCallback(async (): Promise<void> => {
-    const requestId = sequenceRef.current + 1;
-    sequenceRef.current = requestId;
+    const requestId = beginAuthAttempt();
     const csrfToken = stateRef.current.csrfToken;
 
     try {
@@ -293,14 +314,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
 
+    // A newer transition (e.g. a concurrent login) wins over this delayed
+    // logout response; otherwise logout is authoritative for refresh().
     if (requestId === sequenceRef.current) {
+      logoutBarrierRef.current = true;
       applySignedOut();
     }
-  }, [applySignedOut]);
+  }, [applySignedOut, beginAuthAttempt]);
 
   useEffect(() => {
     mountedRef.current = true;
-    const handleUnauthorized = () => {
+    const handleUnauthorized = (event: Event) => {
+      const detail = readUnauthorizedDetail(event);
+
+      if (detail !== null) {
+        // A 401 from a request issued before this auth attempt started is
+        // stale, even if it arrives while a newer login is in flight.
+        if (detail.requestId <= attemptFloorRef.current) {
+          return;
+        }
+        // Bad credentials prove nothing about an existing session; the login
+        // screen reports the failure and the current session/hint stays.
+        if (detail.path === '/api/auth/login' || detail.path === '/api/auth/register') {
+          return;
+        }
+      }
+
       applySignedOut();
     };
 

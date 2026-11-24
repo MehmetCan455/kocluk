@@ -1,7 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { ApiError } from '@/lib/api';
-import { installMockApi } from '@/test/mockApi';
+import {
+  ApiError,
+  UNAUTHORIZED_EVENT,
+  api,
+  readUnauthorizedDetail,
+  type UnauthorizedDetail,
+} from '@/lib/api';
+import { installMockApi, type MockApiResponse } from '@/test/mockApi';
 import {
   AUTH_HINT_KEY,
   AuthProvider,
@@ -39,6 +45,14 @@ function setOnline(online: boolean): void {
 
 function seedHint(value: AuthHint = hint): void {
   localStorage.setItem(AUTH_HINT_KEY, JSON.stringify(value));
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 function renderAuth() {
@@ -278,6 +292,163 @@ test('logout ağ hatasında oturumu ve ipucunu korur', async () => {
   expect(readAuthHint()).toEqual(hint);
 });
 
+test('login sürerken gelen eski 401 yeni oturumu iptal etmez', async () => {
+  const sessionReply = deferred<MockApiResponse>();
+  const loginReply = deferred<MockApiResponse>();
+  const mock = installMockApi({
+    'GET /api/auth/session': () => sessionReply.promise,
+    'POST /api/auth/login': () => loginReply.promise,
+  });
+
+  const events: UnauthorizedDetail[] = [];
+  const listener = (event: Event) => {
+    const detail = readUnauthorizedDetail(event);
+    if (detail) {
+      events.push(detail);
+    }
+  };
+  window.addEventListener(UNAUTHORIZED_EVENT, listener);
+
+  try {
+    const { result } = renderAuth();
+
+    let loginPromise!: Promise<void>;
+    await act(async () => {
+      loginPromise = result.current.login({ email: user.email, password: 'gizli-sifre' });
+    });
+
+    const loginRequestId = api.lastRequestId();
+    expect(mock.callsTo('GET', '/api/auth/session')).toHaveLength(1);
+    expect(mock.callsTo('POST', '/api/auth/login')).toHaveLength(1);
+
+    // The mount-time session request fails after the login attempt started.
+    await act(async () => {
+      sessionReply.resolve({ status: 401, body: unauthorized });
+      await sessionReply.promise;
+    });
+    await waitFor(() => expect(events).toHaveLength(1));
+
+    expect(events[0]).toMatchObject({
+      path: '/api/auth/session',
+      method: 'GET',
+      code: 'unauthenticated',
+    });
+    expect(events[0].requestId).toBeLessThan(loginRequestId);
+    expect(result.current.status).toBe('loading');
+    expect(readAuthHint()).toBeNull();
+
+    await act(async () => {
+      loginReply.resolve({ body: { user, csrfToken: 'csrf-new' } });
+      await loginPromise;
+    });
+
+    expect(result.current.status).toBe('signedIn');
+    expect(result.current.user).toEqual(user);
+    expect(result.current.csrfToken).toBe('csrf-new');
+    expect(readAuthHint()).toEqual(hint);
+  } finally {
+    window.removeEventListener(UNAUTHORIZED_EVENT, listener);
+  }
+});
+
+test('logout sonrası refresh eski oturumu geri getirmez', async () => {
+  let sessionCalls = 0;
+  const mock = installMockApi({
+    'GET /api/auth/session': () => {
+      sessionCalls += 1;
+      return sessionCalls === 1
+        ? { body: { user, csrfToken: 'csrf-1' } }
+        : { body: { user, csrfToken: 'csrf-old' } };
+    },
+    'POST /api/auth/logout': { body: { ok: true } },
+  });
+
+  const { result } = renderAuth();
+  await waitFor(() => expect(result.current.status).toBe('signedIn'));
+  expect(readAuthHint()).toEqual(hint);
+
+  await act(async () => {
+    await result.current.logout();
+  });
+  expect(result.current.status).toBe('signedOut');
+  expect(readAuthHint()).toBeNull();
+
+  // A refresh after logout must not trust a 200 from the old session.
+  await act(async () => {
+    await result.current.refresh();
+  });
+
+  expect(result.current.status).toBe('signedOut');
+  expect(result.current.user).toBeNull();
+  expect(result.current.csrfToken).toBeNull();
+  expect(readAuthHint()).toBeNull();
+  expect(mock.callsTo('GET', '/api/auth/session')).toHaveLength(2);
+});
+
+test('başarısız login mevcut oturumu ve ipucunu silmez', async () => {
+  installMockApi({
+    'GET /api/auth/session': { body: { user, csrfToken: 'csrf-1' } },
+    'POST /api/auth/login': {
+      status: 401,
+      body: { error: { code: 'invalid_credentials', message: 'E-posta veya şifre hatalı.' } },
+    },
+  });
+
+  const events: UnauthorizedDetail[] = [];
+  const listener = (event: Event) => {
+    const detail = readUnauthorizedDetail(event);
+    if (detail) {
+      events.push(detail);
+    }
+  };
+  window.addEventListener(UNAUTHORIZED_EVENT, listener);
+
+  try {
+    const { result } = renderAuth();
+    await waitFor(() => expect(result.current.status).toBe('signedIn'));
+    expect(readAuthHint()).toEqual(hint);
+
+    await act(async () => {
+      await expect(
+        result.current.login({ email: user.email, password: 'yanlis-sifre' }),
+      ).rejects.toMatchObject({ status: 401, code: 'invalid_credentials' });
+    });
+
+    expect(result.current.status).toBe('signedIn');
+    expect(result.current.user).toEqual(user);
+    expect(result.current.csrfToken).toBe('csrf-1');
+    expect(readAuthHint()).toEqual(hint);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      path: '/api/auth/login',
+      method: 'POST',
+      code: 'invalid_credentials',
+    });
+  } finally {
+    window.removeEventListener(UNAUTHORIZED_EVENT, listener);
+  }
+});
+
+test('yeni bir isteğin 401 i oturumu kapatır', async () => {
+  installMockApi({
+    'GET /api/auth/session': { body: { user, csrfToken: 'csrf-1' } },
+    'GET /api/sync/status': { status: 401, body: unauthorized },
+  });
+
+  const { result } = renderAuth();
+  await waitFor(() => expect(result.current.status).toBe('signedIn'));
+  expect(readAuthHint()).toEqual(hint);
+
+  await act(async () => {
+    await expect(api.get('/api/sync/status')).rejects.toBeInstanceOf(ApiError);
+  });
+
+  await waitFor(() => expect(result.current.status).toBe('signedOut'));
+  expect(result.current.user).toBeNull();
+  expect(result.current.csrfToken).toBeNull();
+  expect(readAuthHint()).toBeNull();
+});
+
 test('kocluk:unauthorized olayı oturumu ve ipucunu temizler', async () => {
   installMockApi({
     'GET /api/auth/session': { body: { user, csrfToken: 'csrf-1' } },
@@ -288,7 +459,7 @@ test('kocluk:unauthorized olayı oturumu ve ipucunu temizler', async () => {
   expect(readAuthHint()).toEqual(hint);
 
   act(() => {
-    window.dispatchEvent(new CustomEvent('kocluk:unauthorized'));
+    window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
   });
 
   await waitFor(() => expect(result.current.status).toBe('signedOut'));

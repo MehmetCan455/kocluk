@@ -504,7 +504,7 @@ final class TableMap
         $definition = self::definition($apiKey);
 
         if (isset($definition['json'])) {
-            $api = [(string) $definition['ownerKey'] => (string) ($row[$definition['owner']] ?? '')];
+            $api = [];
 
             $data = [];
 
@@ -529,6 +529,9 @@ final class TableMap
                 $api[(string) $field] = $value;
             }
 
+            // Identity and LWW fields are server-owned; stored JSON cannot
+            // spoof the owner or overwrite the timestamp the client compares.
+            $api[(string) $definition['ownerKey']] = (string) ($row[$definition['owner']] ?? '');
             $api['updatedAt'] = self::apiTimestamp($row['updated_at'] ?? null);
 
             return $api;

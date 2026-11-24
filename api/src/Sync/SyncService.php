@@ -165,7 +165,7 @@ final class SyncService
         $definition = TableMap::definition($table);
         $dbRow = TableMap::toDb($table, $row);
 
-        [$updatedAt, $adjusted] = $this->clamp($dbRow['updated_at'] ?? null, 'updatedAt');
+        [$updatedAt, $adjusted] = $this->clamp($dbRow['updated_at'] ?? null);
 
         if ($updatedAt === null) {
             throw new InvalidRowValue('validation_failed', 'Zorunlu alan eksik: updatedAt');
@@ -266,7 +266,7 @@ final class SyncService
 
         $provided ??= Clock::nowSql();
 
-        [$deletedAt, $adjusted] = $this->clamp($provided, 'deletedAt');
+        [$deletedAt, $adjusted] = $this->clamp($provided);
 
         if ($deletedAt === null) {
             throw new InvalidRowValue('invalid_timestamp', 'Geçersiz zaman damgası: deletedAt');
@@ -603,7 +603,7 @@ final class SyncService
     /**
      * @return array{0: DateTimeImmutable|null, 1: bool}
      */
-    private function clamp(mixed $sql, string $field): array
+    private function clamp(mixed $sql): array
     {
         if (!is_string($sql) || $sql === '') {
             return [null, false];

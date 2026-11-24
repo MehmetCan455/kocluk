@@ -311,6 +311,23 @@ final class TableMapTest extends TestCase
         self::assertArrayNotHasKey('data', $api);
     }
 
+    public function test_stored_settings_cannot_spoof_the_owner_or_timestamp(): void
+    {
+        $api = TableMap::toApi('settings', [
+            'user_id' => self::USER_ID,
+            'data' => json_encode([
+                'userId' => 'baska-hesap',
+                'updatedAt' => '2000-01-01T00:00:00.000000Z',
+                'profileName' => 'Ayşe',
+            ], JSON_THROW_ON_ERROR),
+            'updated_at' => self::UPDATED_AT_SQL,
+        ]);
+
+        self::assertSame(self::USER_ID, $api['userId']);
+        self::assertSame(self::UPDATED_AT, $api['updatedAt']);
+        self::assertSame('Ayşe', $api['profileName']);
+    }
+
     public function test_device_level_settings_are_not_accepted(): void
     {
         $this->expectException(InvalidRowValue::class);

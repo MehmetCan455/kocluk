@@ -684,8 +684,12 @@ final class SyncPushTest extends ApiTestCase
             $account['jar'],
         );
 
-        self::assertSame(422, $rejected->status());
-        self::assertSame('validation_failed', $this->payload($rejected)['error']['code']);
+        self::assertSame(200, $rejected->status());
+
+        $rejectedResult = $this->payload($rejected)['results'][0];
+
+        self::assertSame('error', $rejectedResult['status']);
+        self::assertSame('validation_failed', $rejectedResult['error']['code']);
 
         // A body cannot address another account's settings row.
         $foreign = $this->settings($account['userId'], $newer, 'Beta');

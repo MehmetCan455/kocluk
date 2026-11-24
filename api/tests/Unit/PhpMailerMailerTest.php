@@ -53,6 +53,17 @@ final class PhpMailerMailerTest extends TestCase
         self::assertStringNotContainsString('cok-eski-kok-neden', $description);
     }
 
+    public function test_even_a_short_configured_secret_is_redacted(): void
+    {
+        $description = PhpMailerMailer::describeFailure(
+            new RuntimeException('password=q failed'),
+            'q',
+        );
+
+        self::assertStringNotContainsString('password=q', $description);
+        self::assertStringContainsString('[sifre]', $description);
+    }
+
     public function test_a_configuration_error_is_not_rewrapped_as_a_transport_failure(): void
     {
         $mailer = new PhpMailerMailer(['mail' => ['encryption' => 'bogus']]);

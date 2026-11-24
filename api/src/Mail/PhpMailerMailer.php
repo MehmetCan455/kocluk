@@ -109,8 +109,9 @@ final class PhpMailerMailer implements Mailer
 
         $message = implode(' <- ', $parts);
 
-        // Do not mangle the whole line for a one-character password.
-        if (mb_strlen($password) >= 6) {
+        // Replace the configured password before any other redaction so a
+        // transport message that echoes submitted credentials stays safe.
+        if ($password !== '') {
             $message = str_replace($password, '[sifre]', $message);
         }
 

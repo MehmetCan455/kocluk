@@ -324,6 +324,47 @@ final class MigrationTest extends TestCase
         self::assertSame($expected, $applied);
     }
 
+    public function test_cli_migrate_script_reports_nothing_to_apply(): void
+    {
+        $configPath = tempnam(sys_get_temp_dir(), 'kocluk-config-');
+        self::assertNotFalse($configPath);
+
+        $config = '<?php return ' . var_export(['db' => TestDatabase::config()], true) . ";\n";
+        self::assertNotFalse(file_put_contents($configPath, $config));
+        @chmod($configPath, 0600);
+
+        $command = escapeshellarg(PHP_BINARY)
+            . ' ' . escapeshellarg(dirname(__DIR__, 2) . '/bin/migrate.php');
+
+        $descriptors = [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $process = proc_open(
+            $command,
+            $descriptors,
+            $pipes,
+            null,
+            array_merge(getenv(), ['KOCLUK_CONFIG' => $configPath]),
+        );
+
+        self::assertIsResource($process);
+
+        try {
+            $stdout = stream_get_contents($pipes[1]);
+            $stderr = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $exitCode = proc_close($process);
+        } finally {
+            @unlink($configPath);
+        }
+
+        self::assertSame(0, $exitCode, (string) $stderr);
+        self::assertStringContainsString('Uygulanacak migration yok.', (string) $stdout);
+    }
+
     private function insertUser(string $id, string $email, string $displayName): void
     {
         $now = Clock::nowSql();

@@ -729,6 +729,10 @@ final class TableMap
         mixed $value,
         array $definition,
     ): mixed {
+        if ($value === null) {
+            return null;
+        }
+
         if (in_array($field, $definition['timestamps'], true)) {
             return self::apiTimestamp($value);
         }

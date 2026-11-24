@@ -93,4 +93,61 @@ final class ConfigTest extends TestCase
 
         self::assertNull(ConfigFile::path($this->root, $this->root . '/home-config.php'));
     }
+
+    public function test_example_config_defaults_to_a_secure_production_cookie(): void
+    {
+        $config = $this->exampleConfig();
+
+        self::assertSame('production', $config['app']['env']);
+        self::assertTrue($config['session']['secure']);
+        self::assertSame('__Host-kocluk_session', $config['session']['cookie_name']);
+    }
+
+    public function test_example_config_uses_a_plain_cookie_in_development(): void
+    {
+        $config = $this->exampleConfig(['APP_ENV' => 'development']);
+
+        self::assertSame('development', $config['app']['env']);
+        self::assertFalse($config['session']['secure']);
+        self::assertSame('kocluk_session', $config['session']['cookie_name']);
+    }
+
+    /**
+     * Loads api/config.example.php with a controlled environment, restoring
+     * every variable afterwards.
+     *
+     * @param array<string, string> $env
+     * @return array<string, mixed>
+     */
+    private function exampleConfig(array $env = []): array
+    {
+        $names = ['APP_ENV', 'SESSION_COOKIE_NAME', 'SESSION_SECURE'];
+        $saved = [];
+
+        foreach ($names as $name) {
+            $saved[$name] = getenv($name);
+            putenv($name);
+        }
+
+        foreach ($env as $name => $value) {
+            putenv($name . '=' . $value);
+        }
+
+        try {
+            $config = require dirname(__DIR__, 2) . '/config.example.php';
+        } finally {
+            foreach ($saved as $name => $value) {
+                if ($value === false) {
+                    putenv($name);
+                } else {
+                    putenv($name . '=' . $value);
+                }
+            }
+        }
+
+        self::assertIsArray($config);
+
+        /** @var array<string, mixed> $config */
+        return $config;
+    }
 }

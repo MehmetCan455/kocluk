@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS `user_books` (
     `updated_at` DATETIME(6) NOT NULL,
     `deleted_at` DATETIME(6) NULL,
     `server_updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    `active_book_id` CHAR(36) AS (IF(`deleted_at` IS NULL, `book_id`, NULL)) PERSISTENT,
+    `active_book_id` VARCHAR(36) AS (IF(`deleted_at` IS NULL, RTRIM(`book_id`), NULL)) PERSISTENT,
     PRIMARY KEY (`user_id`, `id`),
     UNIQUE KEY `uq_user_books_active_book` (`user_id`, `active_book_id`),
     KEY `idx_user_books_user_server_updated` (`user_id`, `server_updated_at`)
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
     `created_at` DATETIME(6) NOT NULL,
     `deleted_at` DATETIME(6) NULL,
     `server_updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    `active_task_id` CHAR(36) AS (IF(`deleted_at` IS NULL, `task_id`, NULL)) PERSISTENT,
+    `active_task_id` VARCHAR(36) AS (IF(`deleted_at` IS NULL, RTRIM(`task_id`), NULL)) PERSISTENT,
     PRIMARY KEY (`user_id`, `id`),
     UNIQUE KEY `uq_activity_logs_active_task` (`user_id`, `active_task_id`),
     KEY `idx_activity_logs_user_server_updated` (`user_id`, `server_updated_at`)
@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS `topic_progress` (
     `updated_at` DATETIME(6) NOT NULL,
     `deleted_at` DATETIME(6) NULL,
     `server_updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    `active_topic_id` CHAR(36) AS (IF(`deleted_at` IS NULL, `topic_id`, NULL)) PERSISTENT,
+    `active_topic_id` VARCHAR(36) AS (IF(`deleted_at` IS NULL, RTRIM(`topic_id`), NULL)) PERSISTENT,
     PRIMARY KEY (`user_id`, `id`),
     UNIQUE KEY `uq_topic_progress_active_topic` (`user_id`, `active_topic_id`),
     KEY `idx_topic_progress_user_server_updated` (`user_id`, `server_updated_at`)

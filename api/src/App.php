@@ -408,6 +408,7 @@ final class App
             null,
             SyncService::RATE_LIMIT,
             SyncService::RATE_WINDOW_SECONDS,
+            $session['userId'],
         );
 
         return Response::json(

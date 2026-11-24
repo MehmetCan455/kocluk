@@ -153,6 +153,34 @@ final class AuthTest extends TestCase
         self::assertNull($response->header('Set-Cookie'));
     }
 
+    public function test_login_does_not_create_a_session_for_a_deleted_account(): void
+    {
+        $register = $this->register();
+        $userId = (string) $this->payload($register)['user']['id'];
+
+        TestDatabase::database()->execute(
+            'UPDATE `users` SET `deleted_at` = NOW(6) WHERE `id` = ?',
+            [$userId],
+        );
+
+        // The registration session is invalid through the users join.
+        self::assertSame(401, $this->sessionStatus($this->jar($register)));
+
+        $response = $this->login();
+
+        self::assertSame(401, $response->status());
+        self::assertSame('invalid_credentials', $this->payload($response)['error']['code']);
+        self::assertNull($response->header('Set-Cookie'));
+
+        $row = TestDatabase::database()->fetchOne(
+            'SELECT COUNT(*) AS `total` FROM `sessions` WHERE `user_id` = ?',
+            [$userId],
+        );
+
+        // Only the original (now orphaned) session exists; login wrote none.
+        self::assertSame(1, (int) ($row['total'] ?? 0));
+    }
+
     public function test_session_endpoint_returns_the_user_and_csrf_token(): void
     {
         $register = $this->register();

@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Kocluk\Api\Auth\RateLimiter;
 use Kocluk\Api\Support\ApiException;
+use Kocluk\Api\Support\Clock;
+use Kocluk\Api\Support\Uuid;
 use Kocluk\Api\Tests\Support\TestDatabase;
 use PHPUnit\Framework\TestCase;
 
@@ -88,5 +90,41 @@ final class RateLimiterTest extends TestCase
 
         $this->expectException(ApiException::class);
         $this->limiter->assert('sync', null, 1, 60);
+    }
+
+    public function test_a_user_scoped_attempt_is_only_recorded_for_a_live_account(): void
+    {
+        $userId = Uuid::v4();
+        $now = Clock::nowSql();
+
+        TestDatabase::database()->execute(
+            'INSERT INTO `users` (`id`, `email`, `password_hash`, `display_name`, `privacy_version`, `consented_at`, `created_at`, `updated_at`)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$userId, $userId . '@example.com', 'x', 'Test', '2026-11-24', $now, $now, $now],
+        );
+
+        $bucket = 'sync_push:' . $userId;
+        $this->limiter->assert($bucket, null, 5, 3600, $userId);
+
+        $row = TestDatabase::database()->fetchOne(
+            'SELECT `user_id` FROM `rate_limits` WHERE `bucket` = ?',
+            [$bucket],
+        );
+
+        self::assertIsArray($row);
+        self::assertSame($userId, $row['user_id']);
+
+        // Once the account is gone, the attempt is not recorded at all.
+        TestDatabase::database()->execute('DELETE FROM `users` WHERE `id` = ?', [$userId]);
+        TestDatabase::database()->execute('DELETE FROM `rate_limits` WHERE `bucket` = ?', [$bucket]);
+
+        $this->limiter->assert($bucket, null, 5, 3600, $userId);
+
+        $row = TestDatabase::database()->fetchOne(
+            'SELECT COUNT(*) AS `total` FROM `rate_limits` WHERE `bucket` = ?',
+            [$bucket],
+        );
+
+        self::assertSame(0, (int) ($row['total'] ?? 0));
     }
 }

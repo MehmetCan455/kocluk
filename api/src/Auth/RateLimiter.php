@@ -21,6 +21,10 @@ use Kocluk\Api\Support\Clock;
  *
  * Rows older than the window are pruned for the touched bucket on each call;
  * other buckets are cleaned by the maintenance cron planned in a later task.
+ *
+ * A caller may pass the authenticated user id. The attempt row is then written
+ * with that user_id and only while the users row still exists, so an account
+ * deletion racing the request cannot leave a rate-limit row behind.
  */
 final class RateLimiter
 {
@@ -30,8 +34,13 @@ final class RateLimiter
     {
     }
 
-    public function assert(string $bucket, ?string $ip, int $limit, int $windowSeconds): void
-    {
+    public function assert(
+        string $bucket,
+        ?string $ip,
+        int $limit,
+        int $windowSeconds,
+        ?string $userId = null,
+    ): void {
         if ($bucket === '' || strlen($bucket) > self::MAX_BUCKET_LENGTH) {
             throw new InvalidArgumentException('Hız sınırı anahtarı 1-128 karakter olmalı.');
         }
@@ -72,9 +81,21 @@ final class RateLimiter
             );
         }
 
+        if ($userId === null) {
+            $this->database->execute(
+                'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, ?, ?)',
+                [$bucket, $ip, self::sql($now)],
+            );
+
+            return;
+        }
+
+        // Only record the attempt while the account row exists; a concurrent
+        // account deletion must not leave a rate-limit row behind.
         $this->database->execute(
-            'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, ?, ?)',
-            [$bucket, $ip, self::sql($now)],
+            'INSERT INTO `rate_limits` (`user_id`, `bucket`, `ip`, `created_at`)'
+            . ' SELECT `id`, ?, ?, ? FROM `users` WHERE `id` = ? AND `deleted_at` IS NULL',
+            [$bucket, $ip, self::sql($now), $userId],
         );
     }
 

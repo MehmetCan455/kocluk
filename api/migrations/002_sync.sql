@@ -14,7 +14,7 @@
 CREATE TABLE IF NOT EXISTS `subjects` (
     `id` CHAR(36) NOT NULL,
     `user_id` CHAR(36) NOT NULL,
-    `seed_key` VARCHAR(64) NULL,
+    `seed_key` VARCHAR(64) NOT NULL,
     `exam` VARCHAR(8) NOT NULL,
     `name` VARCHAR(255) NOT NULL,
     `slug` VARCHAR(64) NOT NULL,

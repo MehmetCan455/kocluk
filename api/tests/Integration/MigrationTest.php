@@ -134,6 +134,39 @@ final class MigrationTest extends TestCase
         }
     }
 
+    public function test_subject_seed_key_is_required(): void
+    {
+        $this->insertSubject('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'matematik');
+
+        try {
+            self::$db->execute(
+                'INSERT INTO `subjects`
+                    (`id`, `user_id`, `exam`, `name`, `slug`, `icon`, `updated_at`)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [
+                    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+                    self::USER_ID,
+                    'TYT',
+                    'Türkçe',
+                    'turkce',
+                    'book',
+                    Clock::nowSql(),
+                ],
+            );
+            self::fail('seed_key olmadan subject eklendi.');
+        } catch (PDOException $error) {
+            self::assertStringContainsString('seed_key', $error->getMessage());
+        }
+
+        $row = self::$db->fetchOne(
+            'SELECT `seed_key` FROM `subjects` WHERE `user_id` = ?',
+            [self::USER_ID],
+        );
+
+        self::assertNotNull($row);
+        self::assertSame('matematik', $row['seed_key']);
+    }
+
     public function test_second_active_user_book_is_rejected(): void
     {
         $this->insertUserBook('44444444-4444-4444-8444-444444444444');
@@ -386,6 +419,18 @@ final class MigrationTest extends TestCase
                 (`id`, `user_id`, `book_id`, `status`, `created_at`, `updated_at`)
              VALUES (?, ?, ?, ?, ?, ?)',
             [$id, self::USER_ID, self::BOOK_ID, 'active', $now, $now],
+        );
+    }
+
+    private function insertSubject(string $id, string $seedKey): void
+    {
+        $now = Clock::nowSql();
+
+        self::$db->execute(
+            'INSERT INTO `subjects`
+                (`id`, `user_id`, `seed_key`, `exam`, `name`, `slug`, `icon`, `updated_at`)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$id, self::USER_ID, $seedKey, 'TYT', 'Matematik', 'matematik', 'calculator', $now],
         );
     }
 

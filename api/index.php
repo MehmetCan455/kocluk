@@ -15,7 +15,7 @@ declare(strict_types=1);
 use Kocluk\Api\App;
 use Kocluk\Api\Http\Request;
 use Kocluk\Api\Support\ApiException;
-use Kocluk\Api\Support\Config;
+use Kocluk\Api\Support\ConfigFile;
 
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
@@ -24,9 +24,9 @@ date_default_timezone_set('UTC');
 require __DIR__ . '/src/bootstrap.php';
 
 try {
-    // Same candidate order as api/bin/migrate.php (src/Support/Config.php):
+    // Same candidate order as api/bin/migrate.php (src/Support/ConfigFile.php):
     // KOCLUK_CONFIG, then the file outside public_html, then api/config.php.
-    $configPath = Config::path(__DIR__);
+    $configPath = ConfigFile::path(__DIR__);
 
     if ($configPath === null) {
         throw new RuntimeException('Kocluk yapılandırması bulunamadı (KOCLUK_CONFIG).');

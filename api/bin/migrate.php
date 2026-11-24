@@ -18,9 +18,9 @@ $root = dirname(__DIR__);
 
 require $root . '/src/bootstrap.php';
 
-// Same candidate order as api/index.php (src/Support/Config.php):
+// Same candidate order as api/index.php (src/Support/ConfigFile.php):
 // KOCLUK_CONFIG, then the file outside public_html, then api/config.php.
-$configPath = \Kocluk\Api\Support\Config::path($root);
+$configPath = \Kocluk\Api\Support\ConfigFile::path($root);
 
 if ($configPath === null) {
     fwrite(STDERR, "config.php bulunamadı. KOCLUK_CONFIG ortam değişkenini ayarlayın.\n");

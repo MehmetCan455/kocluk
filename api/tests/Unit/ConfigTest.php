@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kocluk\Api\Tests\Unit;
 
-use Kocluk\Api\Support\Config;
+use Kocluk\Api\Support\ConfigFile;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -48,7 +48,7 @@ final class ConfigTest extends TestCase
 
         self::assertSame(
             [$external, $this->root . '/config.php'],
-            Config::candidates($this->root, $external),
+            ConfigFile::candidates($this->root, $external),
         );
     }
 
@@ -57,7 +57,7 @@ final class ConfigTest extends TestCase
         $external = $this->root . '/staging.php';
         putenv('KOCLUK_CONFIG=' . $external);
 
-        self::assertSame([$external], Config::candidates($this->root));
+        self::assertSame([$external], ConfigFile::candidates($this->root));
     }
 
     public function test_path_prefers_the_external_file_over_the_in_tree_file(): void
@@ -68,7 +68,7 @@ final class ConfigTest extends TestCase
         self::assertNotFalse(file_put_contents($external, '<?php return [];'));
         self::assertNotFalse(file_put_contents($inTree, '<?php return [];'));
 
-        self::assertSame($external, Config::path($this->root, $external));
+        self::assertSame($external, ConfigFile::path($this->root, $external));
     }
 
     public function test_path_falls_back_to_the_in_tree_file(): void
@@ -76,12 +76,12 @@ final class ConfigTest extends TestCase
         $inTree = $this->root . '/config.php';
         self::assertNotFalse(file_put_contents($inTree, '<?php return [];'));
 
-        self::assertSame($inTree, Config::path($this->root, $this->root . '/missing.php'));
+        self::assertSame($inTree, ConfigFile::path($this->root, $this->root . '/missing.php'));
     }
 
     public function test_path_returns_null_when_no_candidate_exists(): void
     {
-        self::assertNull(Config::path($this->root, $this->root . '/missing.php'));
+        self::assertNull(ConfigFile::path($this->root, $this->root . '/missing.php'));
     }
 
     public function test_env_override_does_not_silently_fall_back(): void
@@ -91,6 +91,6 @@ final class ConfigTest extends TestCase
 
         putenv('KOCLUK_CONFIG=' . $this->root . '/typo.php');
 
-        self::assertNull(Config::path($this->root, $this->root . '/home-config.php'));
+        self::assertNull(ConfigFile::path($this->root, $this->root . '/home-config.php'));
     }
 }

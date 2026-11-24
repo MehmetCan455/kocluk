@@ -337,6 +337,51 @@ final class AccountTest extends ApiTestCase
         self::assertSame('Kitap B', $kept['title']);
     }
 
+    public function test_delete_removes_email_scoped_rate_limit_buckets(): void
+    {
+        $alpha = $this->register();
+        $beta = $this->register(['email' => self::OTHER_EMAIL]);
+
+        // The real limiter buckets for login and forgot-password use a
+        // deterministic SHA-256 of the normalized e-mail, not user_id.
+        $alphaLogin = 'login:' . hash('sha256', self::EMAIL);
+        $alphaForgot = 'forgot_password:' . hash('sha256', self::EMAIL);
+        $betaLogin = 'login:' . hash('sha256', self::OTHER_EMAIL);
+        $betaForgot = 'forgot_password:' . hash('sha256', self::OTHER_EMAIL);
+
+        $now = Clock::nowSql();
+        $database = TestDatabase::database();
+
+        foreach ([
+            [$alphaLogin, '127.0.0.1'],
+            [$alphaForgot, null],
+            [$betaLogin, '127.0.0.1'],
+            [$betaForgot, null],
+        ] as [$bucket, $ip]) {
+            $database->execute(
+                'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, ?, ?)',
+                [$bucket, $ip, $now],
+            );
+        }
+
+        self::assertSame(1, $this->countBucketRows($alphaLogin));
+        self::assertSame(1, $this->countBucketRows($alphaForgot));
+        self::assertSame(1, $this->countBucketRows($betaLogin));
+        self::assertSame(1, $this->countBucketRows($betaForgot));
+
+        $response = $this->deleteAccount(
+            self::PASSWORD,
+            ['X-CSRF-Token' => $this->csrf($alpha)],
+            $this->jar($alpha),
+        );
+
+        self::assertSame(200, $response->status());
+        self::assertSame(0, $this->countBucketRows($alphaLogin));
+        self::assertSame(0, $this->countBucketRows($alphaForgot));
+        self::assertSame(1, $this->countBucketRows($betaLogin));
+        self::assertSame(1, $this->countBucketRows($betaForgot));
+    }
+
     public function test_registration_without_privacy_acceptance_is_rejected(): void
     {
         $response = $this->post('/api/auth/register', [

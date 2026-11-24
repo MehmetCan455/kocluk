@@ -248,11 +248,17 @@ final class AccountTest extends ApiTestCase
             'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, ?, ?)',
             ['ip-only-test', '10.9.9.9', $now],
         );
-        $syncBucket = SyncService::rateLimitBucket($userId);
-        $database->execute(
-            'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, NULL, ?)',
-            [$syncBucket, $now],
-        );
+        // Every sync endpoint keeps its own per-user bucket.
+        $syncBuckets = SyncService::rateLimitBuckets($userId);
+
+        self::assertCount(4, $syncBuckets);
+
+        foreach ($syncBuckets as $syncBucket) {
+            $database->execute(
+                'INSERT INTO `rate_limits` (`bucket`, `ip`, `created_at`) VALUES (?, NULL, ?)',
+                [$syncBucket, $now],
+            );
+        }
 
         $response = $this->deleteAccount(
             self::PASSWORD,
@@ -280,7 +286,11 @@ final class AccountTest extends ApiTestCase
         }
 
         self::assertSame(0, $this->countUserRows('rate_limits', $userId));
-        self::assertSame(0, $this->countBucketRows($syncBucket));
+
+        foreach ($syncBuckets as $syncBucket) {
+            self::assertSame(0, $this->countBucketRows($syncBucket), $syncBucket . ' silinmeli.');
+        }
+
         self::assertSame(1, $this->countBucketRows('ip-only-test'));
         self::assertSame(401, $this->sessionStatus($this->jar($device)));
 

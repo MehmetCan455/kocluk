@@ -170,11 +170,16 @@ final class AccountService
                 [$userId],
             );
 
-            // Sync push uses a per-user bucket whose key is a digest of the
-            // user id; it is still attributable to this account.
+            // Sync endpoints keep per-user buckets whose key is a digest of the
+            // user id; every one of them is still attributable to this account.
+            $syncBuckets = SyncService::rateLimitBuckets($userId);
+
             $this->database->execute(
-                'DELETE FROM `rate_limits` WHERE `bucket` = ?',
-                [SyncService::rateLimitBucket($userId)],
+                sprintf(
+                    'DELETE FROM `rate_limits` WHERE `bucket` IN (%s)',
+                    implode(', ', array_fill(0, count($syncBuckets), '?')),
+                ),
+                $syncBuckets,
             );
 
             // Login and forgot-password use deterministic e-mail-hash buckets

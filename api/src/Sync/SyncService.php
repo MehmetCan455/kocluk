@@ -9,10 +9,12 @@ use DateTimeZone;
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
+use Kocluk\Api\Support\Json;
 use PDOException;
 
 /**
- * Batch push (spec §8.2, §8.4).
+ * Sync push (spec §8.2, §8.4) and the read side: pull, status and full
+ * (spec §8.3, §8.5).
  *
  * One row per transaction: a failed row never rolls back its neighbours. The
  * authenticated user id is the only owner ever written; a body-supplied
@@ -29,6 +31,9 @@ use PDOException;
  *   * activityLogs is insert-only and one active row per taskId; only
  *     deleted_at may be set afterwards;
  *   * settings is one JSON row per user and cannot be deleted through push.
+ *
+ * Reads never trust a request-supplied account: every query is scoped by the
+ * authenticated user id.
  */
 final class SyncService
 {
@@ -38,13 +43,27 @@ final class SyncService
 
     public const RATE_WINDOW_SECONDS = 3600;
 
+    /** A client timestamp further ahead than this is clamped (spec §8.2). */
     public const FUTURE_TOLERANCE_SECONDS = 300;
 
-    private const RATE_BUCKET_PREFIX = 'sync_push';
+    /** Default and maximum page of GET /api/sync/pull. */
+    public const PULL_LIMIT = 500;
+
+    public const PULL_RATE_LIMIT = 120;
+
+    public const STATUS_RATE_LIMIT = 60;
+
+    public const FULL_RATE_LIMIT = 5;
+
+    /** JSON body ceiling for GET /api/sync/full (spec §8.3). */
+    public const MAX_FULL_PAYLOAD_BYTES = 20971520;
+
+    private const RATE_BUCKET_PREFIX = 'sync';
 
     public function __construct(
         private readonly Database $database,
         private readonly ChangeLog $changeLog,
+        private readonly int $fullPayloadLimit = self::MAX_FULL_PAYLOAD_BYTES,
     ) {
     }
 
@@ -55,7 +74,41 @@ final class SyncService
      */
     public static function rateLimitBucket(string $userId): string
     {
-        return self::RATE_BUCKET_PREFIX . ':' . hash('sha256', $userId);
+        return self::rateLimitBucketFor('push', $userId);
+    }
+
+    public static function pullRateLimitBucket(string $userId): string
+    {
+        return self::rateLimitBucketFor('pull', $userId);
+    }
+
+    public static function statusRateLimitBucket(string $userId): string
+    {
+        return self::rateLimitBucketFor('status', $userId);
+    }
+
+    public static function fullRateLimitBucket(string $userId): string
+    {
+        return self::rateLimitBucketFor('full', $userId);
+    }
+
+    /**
+     * Every sync limiter bucket owned by one account, so account deletion can
+     * remove them all.
+     *
+     * @return list<string>
+     */
+    public static function rateLimitBuckets(string $userId): array
+    {
+        return array_map(
+            static fn (string $action): string => self::rateLimitBucketFor($action, $userId),
+            ['push', 'pull', 'status', 'full'],
+        );
+    }
+
+    private static function rateLimitBucketFor(string $action, string $userId): string
+    {
+        return self::RATE_BUCKET_PREFIX . '_' . $action . ':' . hash('sha256', $userId);
     }
 
     /**
@@ -90,6 +143,180 @@ final class SyncService
         }
 
         return ['results' => $results, 'serverTime' => Clock::iso()];
+    }
+
+    /**
+     * Incremental pull (spec §8.3).
+     *
+     * The log is read in id order and every row is then loaded by
+     * (user_id, rowId). A row that no longer exists (hard delete) or a log
+     * entry for a table the map no longer knows is skipped; a soft-deleted row
+     * comes back as a tombstone. Several entries for the same row collapse to
+     * its last state, but nextCursor still advances to the last processed log
+     * id so nothing is fetched twice.
+     *
+     * @return array{
+     *     changes: list<array{table: string, row: array<string, mixed>}>,
+     *     nextCursor: int,
+     *     hasMore: bool
+     * }
+     */
+    public function pull(string $userId, ?int $since, int $limit): array
+    {
+        $since ??= 0;
+
+        if ($since < 0) {
+            throw self::requestError('validation_failed', 'since negatif olamaz.');
+        }
+
+        $limit = self::normalisePullLimit($limit);
+
+        // Expiry check and page read share one snapshot so a purge running at
+        // the same time cannot slip between them.
+        /** @var list<array{id: int, table: string, rowId: string, op: string}> $rows */
+        $rows = $this->database->transaction(function () use ($userId, $since, $limit): array {
+            $this->assertCursorRetained($userId, $since);
+
+            return $this->changeLog->since($userId, $since, $limit + 1);
+        });
+
+        $hasMore = count($rows) > $limit;
+        $batch = $hasMore ? array_slice($rows, 0, $limit) : $rows;
+
+        $changes = [];
+        $nextCursor = $since;
+
+        foreach ($batch as $change) {
+            $nextCursor = $change['id'];
+            $table = $change['table'];
+
+            if (!TableMap::has($table)) {
+                continue;
+            }
+
+            $row = $this->fetchRow($userId, $table, $change['rowId']);
+
+            if ($row === null) {
+                continue;
+            }
+
+            // Re-insert so the surviving state of a row is also last in the
+            // output list when it appeared more than once.
+            $key = $table . ':' . $change['rowId'];
+            unset($changes[$key]);
+            $changes[$key] = ['table' => $table, 'row' => TableMap::toApi($table, $row)];
+        }
+
+        return [
+            'changes' => array_values($changes),
+            'nextCursor' => $nextCursor,
+            'hasMore' => $hasMore,
+        ];
+    }
+
+    /**
+     * Account data status for the migration gate (spec §8.5).
+     *
+     * Counts and cursor come from one transaction so the snapshot is
+     * consistent. Settings are counted but never close the gate: onboarding
+     * defaults must not hide the "this account is empty" state.
+     *
+     * @return array{hasData: bool, counts: array<string, int>, cursor: int, serverTime: string}
+     */
+    public function status(string $userId): array
+    {
+        return $this->database->transaction(function () use ($userId): array {
+            $counts = [];
+            $hasData = false;
+
+            foreach (TableMap::keys() as $table) {
+                $definition = TableMap::definition($table);
+                $row = $this->database->fetchOne(
+                    sprintf(
+                        'SELECT COUNT(*) AS `total` FROM `%s` WHERE `%s` = ?',
+                        $definition['table'],
+                        $definition['owner'],
+                    ),
+                    [$userId],
+                );
+
+                $count = (int) ($row['total'] ?? 0);
+                $counts[$table] = $count;
+
+                if ($table !== 'settings' && $count > 0) {
+                    $hasData = true;
+                }
+            }
+
+            return [
+                'hasData' => $hasData,
+                'counts' => $counts,
+                'cursor' => $this->changeLog->maxId($userId),
+                'serverTime' => Clock::iso(),
+            ];
+        });
+    }
+
+    /**
+     * Complete snapshot for a client whose cursor expired (spec §8.3, §8.5).
+     *
+     * Rows and cursor are read in one transaction: a change committed between
+     * them could otherwise fall outside both the snapshot and the next pull.
+     * Tombstones are included so a client merging into local data cannot
+     * resurrect a row deleted on another device.
+     *
+     * @return array{
+     *     tables: array<string, list<array<string, mixed>>>,
+     *     cursor: int,
+     *     serverTime: string
+     * }
+     */
+    public function full(string $userId): array
+    {
+        /** @var array{tables: array<string, list<array<string, mixed>>>, cursor: int, serverTime: string} $payload */
+        $payload = $this->database->transaction(function () use ($userId): array {
+            $tables = [];
+
+            foreach (TableMap::keys() as $table) {
+                $definition = TableMap::definition($table);
+                $columns = array_values(array_unique(array_merge(
+                    [(string) $definition['owner']],
+                    TableMap::columns($table),
+                )));
+
+                $rows = $this->database->fetchAll(
+                    sprintf(
+                        'SELECT %s FROM `%s` WHERE `%s` = ? ORDER BY `%s`',
+                        self::columnList($columns),
+                        $definition['table'],
+                        $definition['owner'],
+                        TableMap::idColumn($table),
+                    ),
+                    [$userId],
+                );
+
+                $tables[$table] = array_map(
+                    static fn (array $row): array => TableMap::toApi($table, $row),
+                    $rows,
+                );
+            }
+
+            return [
+                'tables' => $tables,
+                'cursor' => $this->changeLog->maxId($userId),
+                'serverTime' => Clock::iso(),
+            ];
+        });
+
+        if (strlen(Json::encode($payload)) > $this->fullPayloadLimit) {
+            throw new ApiException(
+                'payload_too_large',
+                'Tam senkron yanıtı boyut sınırını aşıyor.',
+                413,
+            );
+        }
+
+        return $payload;
     }
 
     /**
@@ -610,6 +837,73 @@ final class SyncService
             static fn (string $column): string => '`' . $column . '`',
             $columns,
         ));
+    }
+
+    /**
+     * Current row for one pull entry, always scoped by the authenticated user.
+     * Null means the row is gone.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function fetchRow(string $userId, string $table, string $rowId): ?array
+    {
+        $definition = TableMap::definition($table);
+
+        return $this->database->fetchOne(
+            sprintf(
+                'SELECT %s FROM `%s` WHERE `%s` = ? AND `%s` = ? LIMIT 1',
+                self::columnList(self::selectColumns($table)),
+                $definition['table'],
+                $definition['owner'],
+                TableMap::idColumn($table),
+            ),
+            [$userId, $rowId],
+        );
+    }
+
+    private static function normalisePullLimit(int $limit): int
+    {
+        if ($limit < 1) {
+            throw self::requestError(
+                'validation_failed',
+                sprintf('limit 1 ile %d arasında olmalı.', self::PULL_LIMIT),
+            );
+        }
+
+        return min($limit, self::PULL_LIMIT);
+    }
+
+    /**
+     * A cursor below the oldest retained log row for the account would skip
+     * changes the 90-day purge already deleted (spec §6.4); the client must
+     * fall back to a full pull. An empty log with a claimed cursor is the same
+     * situation: the account cannot prove the changes were ever delivered, so
+     * the safe answer is a fresh snapshot.
+     */
+    private function assertCursorRetained(string $userId, int $since): void
+    {
+        $minId = $this->changeLog->minId($userId);
+
+        if ($minId === 0) {
+            if ($since > 0) {
+                throw self::cursorExpired();
+            }
+
+            return;
+        }
+
+        if ($minId > $since + 1) {
+            throw self::cursorExpired();
+        }
+    }
+
+    private static function cursorExpired(): ApiException
+    {
+        return new ApiException(
+            'cursor_expired',
+            'Senkron imleci çok eski; tam çekme (sync/full) gerekli.',
+            410,
+        );
     }
 
     /**

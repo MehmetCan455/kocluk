@@ -11,7 +11,7 @@ use Kocluk\Api\Db\Database;
  *
  * Every write in SyncService appends one row inside the same transaction, so a
  * pull cursor can never miss a committed change. The table never leaves the
- * server; it only feeds the pull endpoint in Task 8.
+ * server; it only feeds the pull endpoint and the status cursor.
  */
 final class ChangeLog
 {
@@ -52,5 +52,36 @@ final class ChangeLog
         );
 
         return (int) ($row['cursor'] ?? 0);
+    }
+
+    /**
+     * Changes after a cursor, oldest first (spec §8.3).
+     *
+     * The caller asks for one row more than the page so it can tell whether
+     * another page exists without a second query. Table names are returned as
+     * stored; mapping them to API shapes stays in SyncService/TableMap.
+     *
+     * @return list<array{id: int, table: string, rowId: string, op: string}>
+     */
+    public function since(string $userId, int $since, int $limit): array
+    {
+        $rows = $this->database->fetchAll(
+            sprintf(
+                'SELECT `id`, `table_name`, `row_id`, `op` FROM `sync_changes`'
+                . ' WHERE `user_id` = ? AND `id` > ? ORDER BY `id` LIMIT %d',
+                max(1, $limit),
+            ),
+            [$userId, $since],
+        );
+
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (int) $row['id'],
+                'table' => (string) $row['table_name'],
+                'rowId' => (string) $row['row_id'],
+                'op' => (string) $row['op'],
+            ],
+            $rows,
+        );
     }
 }

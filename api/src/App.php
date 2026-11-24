@@ -110,6 +110,9 @@ final class App
         $this->addRoute('POST', '/api/auth/delete-account', $this->deleteAccount(...));
         $this->addRoute('GET', '/api/account/export', $this->exportAccount(...));
         $this->addRoute('POST', '/api/sync/push', $this->syncPush(...));
+        $this->addRoute('GET', '/api/sync/pull', $this->syncPull(...));
+        $this->addRoute('GET', '/api/sync/status', $this->syncStatus(...));
+        $this->addRoute('GET', '/api/sync/full', $this->syncFull(...));
     }
 
     public function handle(Request $request): Response
@@ -416,6 +419,89 @@ final class App
         );
     }
 
+    /**
+     * Incremental pull from the last sync_changes id the client applied
+     * (spec §8.3). A GET needs no CSRF token; the session cookie authenticates
+     * it.
+     */
+    private function syncPull(Request $request): Response
+    {
+        $session = $this->currentSession($request);
+
+        $this->rateLimiter()->assert(
+            SyncService::pullRateLimitBucket($session['userId']),
+            null,
+            SyncService::PULL_RATE_LIMIT,
+            SyncService::RATE_WINDOW_SECONDS,
+            $session['userId'],
+        );
+
+        return Response::json($this->sync()->pull(
+            $session['userId'],
+            self::queryInteger($request, 'since'),
+            self::queryInteger($request, 'limit') ?? SyncService::PULL_LIMIT,
+        ));
+    }
+
+    /**
+     * Account data status for the migration gate (spec §8.5).
+     */
+    private function syncStatus(Request $request): Response
+    {
+        $session = $this->currentSession($request);
+
+        $this->rateLimiter()->assert(
+            SyncService::statusRateLimitBucket($session['userId']),
+            null,
+            SyncService::STATUS_RATE_LIMIT,
+            SyncService::RATE_WINDOW_SECONDS,
+            $session['userId'],
+        );
+
+        return Response::json($this->sync()->status($session['userId']));
+    }
+
+    /**
+     * Complete snapshot for a client whose cursor expired (spec §8.5).
+     */
+    private function syncFull(Request $request): Response
+    {
+        $session = $this->currentSession($request);
+
+        $this->rateLimiter()->assert(
+            SyncService::fullRateLimitBucket($session['userId']),
+            null,
+            SyncService::FULL_RATE_LIMIT,
+            SyncService::RATE_WINDOW_SECONDS,
+            $session['userId'],
+        );
+
+        return Response::json($this->sync()->full($session['userId']));
+    }
+
+    /**
+     * Optional non-negative integer query parameter; null when absent.
+     */
+    private static function queryInteger(Request $request, string $name): ?int
+    {
+        $value = $request->query($name);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        // ASCII digits only, so "-1", "1.5" and "1e3" are all rejected.
+        if (preg_match('/^\d{1,18}$/', $value) !== 1) {
+            throw new ApiException(
+                'validation_failed',
+                $name . ' negatif olmayan bir tam sayı olmalı.',
+                422,
+            );
+        }
+
+        return (int) $value;
+    }
+
     private function addRoute(string $method, string $path, callable $handler): void
     {
         $this->registered[$method . ' ' . $path] = true;
@@ -475,7 +561,20 @@ final class App
         return $this->sync ??= new SyncService(
             $this->database(),
             new ChangeLog($this->database()),
+            $this->fullPayloadLimit(),
         );
+    }
+
+    /**
+     * Optional tuning for the full-snapshot guard; defaults to the 20 MB the
+     * spec requires. Tests lower it instead of building a 20 MB fixture.
+     */
+    private function fullPayloadLimit(): int
+    {
+        $sync = $this->config['sync'] ?? null;
+        $limit = is_array($sync) ? ($sync['full_max_bytes'] ?? null) : null;
+
+        return is_int($limit) && $limit > 0 ? $limit : SyncService::MAX_FULL_PAYLOAD_BYTES;
     }
 
     private function mailer(): DeferredMailer

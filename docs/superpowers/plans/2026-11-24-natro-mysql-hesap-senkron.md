@@ -316,7 +316,7 @@ git commit -m "feat(api): add account registration, login and sessions"
 - Create: `api/src/Mail/PhpMailerMailer.php`
 - Create: `api/src/Mail/FakeMailer.php`
 - Create: `api/src/Mail/Templates.php`
-- Create: `api/lib/PHPMailer/PHPMailer.php`, `SMTP.php`, `Exception.php`, `LICENSE` (vendor; sunucuda Composer yok)
+- Create: `api/lib/PHPMailer/PHPMailer.php`, `SMTP.php`, `Exception.php`, `LICENSE` (LGPL-2.1 vendor; sunucuda Composer yok)
 - Create: `api/src/Auth/PasswordResetService.php`
 - Create: `api/templates/email/reset.php`
 - Create: `api/templates/email/verify.php`
@@ -348,7 +348,7 @@ Expected: FAIL.
 
 - [ ] **Step 3: Mailer ve servisleri yaz**
 
-- PHPMailer kaynak dosyalarını `api/lib/PHPMailer/` altına koy (MIT + LICENSE); `PhpMailerMailer` bunları `require` eder; sunucuda Composer gerekmez.
+- PHPMailer kaynak dosyalarını `api/lib/PHPMailer/` altına koy (LGPL-2.1 + LICENSE); `PhpMailerMailer` bunları `require` eder; sunucuda Composer gerekmez.
 - `PhpMailerMailer` SMTP host/port/user/pass/from config'ten; STARTTLS/SSL; hata `ApiException` 502. Kayıt sırasında doğrulama e-postası gönderilemezse kayıt yine de tamamlanır, kullanıcı doğrulanmamış kalır ve hata loglanır.
 - `Templates` Türkçe HTML üretir; token URL fragment'ta; `app_url` config'ten.
 - `PasswordResetService` token 32 bayt, SHA-256 özet, 30 dk, tek kullanım; `request` her durumda 202; e-posta yoksa da aynı yanıt. Hız sınırı: 3/saat/e-posta, 10/saat/IP.

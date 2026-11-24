@@ -313,8 +313,12 @@ namespace'ler ve `LOCAL_SCOPE` değişmez; onlar diskteki kimliklerin parçasıd
 - E-posta doğrulama bağlantısı benzer; doğrulama zorunlu değilse uygulama
   içinde hatırlatma gösterilir. Kayıt sırasında doğrulama e-postası
   gönderilemezse kayıt yine de tamamlanır; kullanıcı doğrulanmamış kalır.
-- Gönderim hatası kullanıcıya "e-posta gönderilemedi" olarak döner; token
-  yine oluşturulmaz veya iptal edilir.
+- Şifre sıfırlama isteği, SMTP hatası olsa bile aynı 202 yanıtını döner;
+  hata loglanır ve token iptal edilir. Bu, hesap numaralandırmasını
+  önlemek için bilinçli bir tercihtir. SMTP gönderimi senkron yapılırsa
+  yanıt süresi farkı numaralandırma sızdırabilir; bu risk ayrıca ele
+  alınmalıdır.
+- PHPMailer LGPL-2.1 ile vendor edilir; LICENSE dosyası korunur.
 
 ### 7.5 Davet kodu
 

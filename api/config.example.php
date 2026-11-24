@@ -56,4 +56,3 @@ $config = [
 unset($env, $production, $cookieName, $sessionSecure);
 
 return $config;
-

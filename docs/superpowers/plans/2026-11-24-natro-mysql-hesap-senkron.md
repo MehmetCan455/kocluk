@@ -505,7 +505,8 @@ git commit -m "feat(api): add sync push with LWW and change log"
 - Push edilen satır pull'da gelir; `nextCursor` artar; `limit` sayfalama; `hasMore`.
 - Silinen satır `deletedAt` dolu gelir.
 - 90 günden eski cursor `410 cursor_expired`.
-- `status` yalnızca `user_settings` varsa `hasData:false`; kitap varsa `true`; counts doğru.
+- `status` yalnızca `user_settings` varsa `hasData:false`; kitap varsa `true`; yalnızca tombstone varsa `hasData:false`; counts aktif satırları sayar.
+- İki hesap: alpha push eder, beta push eder, beta `since=0` ile pull eder → 200 + beta'nın değişikliği (global auto-increment yüzünden yanlış 410 yok).
 - `full` tüm tabloları ve cursor döner; başka kullanıcının satırı yok.
 - 20 MB üstü full `payload_too_large` (test için limit config'ten düşürülebilir).
 

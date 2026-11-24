@@ -439,9 +439,11 @@ alınmaz; oturumdaki kullanıcı yazılır.
 
 - `hasData`, `subjects`, `topics`, `exams`, `examResults`, `notes`,
   `catalogBooks`, `userBooks`, `activityLogs`, `scheduleWeeks`, `scheduleRows`,
-  `scheduleTasks`, `topicProgress` tablolarından herhangi birinde satır varsa
-  `true`'dur. Yalnızca `user_settings` satırı varsa hesap "boş" sayılır; böylece
-  onboarding ayarları veri taşıma kapısını kapatmaz.
+  `scheduleTasks`, `topicProgress` tablolarından herhangi birinde **aktif**
+  (`deleted_at IS NULL`) satır varsa `true`'dur. Tombstone'lar sayılmaz; pull
+  ve full yanıtları tombstone'ları yine taşır. Yalnızca `user_settings` satırı
+  varsa hesap "boş" sayılır; böylece onboarding ayarları veri taşıma kapısını
+  kapatmaz.
 - `cursor`, hesabın son `sync_changes` kimliğidir; tam çekme sonrası istemciye
   başlangıç imleci olarak verilir.
 - Taşıma ekranı bu uca bakar; `hasData: false` ve eski yerel veri varsa taşıma

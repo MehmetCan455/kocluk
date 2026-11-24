@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { CalendarDays, GraduationCap, Library, Search, Settings } from 'lucide-react';
+import { SyncStatus } from '@/features/sync/SyncStatus';
 import { cn } from '@/components/ui/cn';
 
 function iconLinkClass({ isActive }: { isActive: boolean }): string {
@@ -24,6 +25,7 @@ export function TopBar({ onSearch }: TopBarProps) {
       </Link>
 
       <div className="flex items-center gap-1">
+        <SyncStatus variant="bar" />
         <button
           type="button"
           aria-label="Ara"

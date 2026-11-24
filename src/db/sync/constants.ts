@@ -28,6 +28,15 @@ export const SYNCED_TABLE_SET: ReadonlySet<string> = new Set(SYNCED_TABLES);
 
 export const PUSH_PATH = '/api/sync/push';
 
+export const PULL_PATH = '/api/sync/pull';
+
+export const FULL_PATH = '/api/sync/full';
+
+export const STATUS_PATH = '/api/sync/status';
+
+/** Pull page size accepted by the API (design §8.3). */
+export const PULL_LIMIT = 500;
+
 /** One request carries at most 100 changes (design §8.2). */
 export const MAX_PUSH_CHANGES = 100;
 

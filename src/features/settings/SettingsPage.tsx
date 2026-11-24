@@ -5,6 +5,7 @@ import { Field } from '@/components/ui/Field';
 import { computeHiddenSubjects } from '@/data/alanSubjects';
 import { listSubjects } from '@/db/repositories';
 import type { AytAlan, GeometryMode } from '@/domain/types';
+import { SyncStatus } from '@/features/sync/SyncStatus';
 import { AccentPicker } from './AccentPicker';
 import { InstallGuide } from './InstallGuide';
 import { StoragePanel } from './StoragePanel';
@@ -191,6 +192,8 @@ export function SettingsPage() {
         </div>
         <AccentPicker />
       </Card>
+
+      <SyncStatus />
 
       <InstallGuide />
       <Suspense

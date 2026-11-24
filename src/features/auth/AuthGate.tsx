@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/app/AuthProvider';
 import { AppShell } from '@/app/AppShell';
 import { SettingsProvider } from '@/app/SettingsProvider';
+import { SyncProvider } from '@/app/SyncProvider';
 import { AUTH_ONLY_PATHS, AuthRoutes, AppRoutes, PUBLIC_AUTH_PATHS } from '@/app/routes';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -142,10 +143,12 @@ export function AuthGate({ openDb = openUserDb, closeDb = closeActiveDb }: AuthG
   }
 
   return (
-    <SettingsProvider key={userId}>
-      <AppShell>
-        <AppRoutes />
-      </AppShell>
-    </SettingsProvider>
+    <SyncProvider key={userId}>
+      <SettingsProvider>
+        <AppShell>
+          <AppRoutes />
+        </AppShell>
+      </SettingsProvider>
+    </SyncProvider>
   );
 }

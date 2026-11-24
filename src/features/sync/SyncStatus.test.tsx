@@ -1,0 +1,150 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, expect, test, vi } from 'vitest';
+import type { SyncState } from '@/db/sync/engine';
+import { seedOnboarded } from '@/test/fixtures';
+import { installMockApi, type MockApi } from '@/test/mockApi';
+import { renderApp } from '@/test/renderApp';
+import { SyncStatus } from './SyncStatus';
+
+function state(overrides: Partial<SyncState> = {}): SyncState {
+  return {
+    status: 'synced',
+    pending: 0,
+    dead: 0,
+    lastSyncAt: '2026-11-24T10:00:00.000Z',
+    serverTime: '2026-11-24T10:00:00.000Z',
+    clockSkewMs: 0,
+    error: null,
+    ...overrides,
+  };
+}
+
+let mockApi: MockApi | null = null;
+
+afterEach(() => {
+  mockApi?.restore();
+  mockApi = null;
+});
+
+test('senkron durumunu, son senkronu ve sayaçları gösterir', () => {
+  const { rerender } = render(<SyncStatus state={state()} />);
+
+  expect(screen.getByRole('heading', { name: 'Senkron' })).toBeInTheDocument();
+  expect(screen.getByText('Senkronize')).toBeInTheDocument();
+  expect(screen.getByText('Bekleyen kayıt: 0')).toBeInTheDocument();
+  expect(screen.getByText('Gönderilemeyen kayıt: 0')).toBeInTheDocument();
+  expect(screen.getByText(/Son senkron:/)).toBeInTheDocument();
+
+  rerender(<SyncStatus state={state({ status: 'pending', pending: 2 })} />);
+  expect(screen.getByText('Bekleyen değişiklikler var')).toBeInTheDocument();
+  expect(screen.getByText('Bekleyen kayıt: 2')).toBeInTheDocument();
+});
+
+test('henüz senkronize edilmediyse bunu söyler', () => {
+  render(<SyncStatus state={state({ lastSyncAt: null })} />);
+  expect(screen.getByText('Henüz senkronize edilmedi.')).toBeInTheDocument();
+});
+
+test('çevrimdışı ve hata durumlarını gösterir', () => {
+  const { rerender } = render(<SyncStatus state={state({ status: 'offline' })} />);
+  expect(screen.getByText('Çevrimdışı')).toBeInTheDocument();
+
+  rerender(
+    <SyncStatus
+      state={state({
+        status: 'error',
+        error: 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.',
+      })}
+    />,
+  );
+  expect(screen.getByText('Senkron hatası')).toBeInTheDocument();
+  expect(
+    screen.getByText('Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.'),
+  ).toBeInTheDocument();
+});
+
+test('ölü kayıt sayısı gösterilir', () => {
+  render(<SyncStatus state={state({ status: 'error', dead: 3 })} />);
+  expect(screen.getByText('Gönderilemeyen kayıt: 3')).toBeInTheDocument();
+});
+
+test('"Şimdi senkronize et" elle senkronu tetikler', async () => {
+  const onSyncNow = vi.fn();
+  render(<SyncStatus state={state()} onSyncNow={onSyncNow} />);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Şimdi senkronize et' }));
+  expect(onSyncNow).toHaveBeenCalledTimes(1);
+});
+
+test('senkron sürerken düğme devre dışıdır', () => {
+  render(<SyncStatus state={state({ status: 'syncing' })} />);
+  expect(screen.getByText('Senkronize ediliyor…')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Şimdi senkronize et' })).toBeDisabled();
+});
+
+test('saat farkı 5 dakikadan fazlaysa cihaz saati uyarısı gösterir', () => {
+  const { rerender } = render(
+    <SyncStatus state={state({ clockSkewMs: 6 * 60_000 })} />,
+  );
+  expect(screen.getByText('Cihaz saatinizi düzeltin')).toBeInTheDocument();
+  expect(
+    screen.getByText(/Saat farkı, son yazan kazanır kuralını etkileyebilir/),
+  ).toBeInTheDocument();
+
+  rerender(<SyncStatus state={state({ clockSkewMs: 2 * 60_000 })} />);
+  expect(screen.queryByText('Cihaz saatinizi düzeltin')).not.toBeInTheDocument();
+
+  rerender(
+    <SyncStatus
+      state={state({ clockSkewMs: null, serverTime: new Date(Date.now() - 6 * 60_000).toISOString() })}
+    />,
+  );
+  expect(screen.getByText('Cihaz saatinizi düzeltin')).toBeInTheDocument();
+});
+
+test('üst çubuk göstergesi durum bağlantısı ve bekleyen sayısını verir', () => {
+  render(
+    <MemoryRouter>
+      <SyncStatus
+        variant="bar"
+        state={state({ status: 'pending', pending: 2 })}
+      />
+    </MemoryRouter>,
+  );
+
+  const link = screen.getByRole('link', { name: /Senkron durumu: Bekleyen değişiklikler var/ });
+  expect(link).toHaveAttribute('href', '/ayarlar');
+  expect(link).toHaveTextContent('2');
+});
+
+test('Ayarlar sayfasında canlı durum ve elle senkron çalışır', async () => {
+  await seedOnboarded({ version: 1, subjects: [] });
+  mockApi = installMockApi({
+    'GET /api/sync/pull': {
+      body: { changes: [], nextCursor: 0, hasMore: false },
+    },
+    'GET /api/sync/status': {
+      body: {
+        hasData: false,
+        counts: {},
+        cursor: 0,
+        serverTime: new Date().toISOString(),
+      },
+    },
+  });
+
+  renderApp('/ayarlar');
+
+  const button = await screen.findByRole('button', { name: 'Şimdi senkronize et' });
+  await waitFor(() => {
+    expect(mockApi?.callsTo('GET', '/api/sync/status')).toHaveLength(1);
+  });
+  expect(await screen.findByText(/Son senkron:/)).toBeInTheDocument();
+
+  await userEvent.click(button);
+  await waitFor(() => {
+    expect(mockApi?.callsTo('GET', '/api/sync/status')).toHaveLength(2);
+  });
+});

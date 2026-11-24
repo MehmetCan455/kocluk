@@ -8,6 +8,7 @@ import {
   SYNCED_TABLES,
   SYNCED_TABLE_SET,
   SYNC_TABLES_WITH_UPDATED_AT,
+  apiRowId,
   queueRowId,
   userIdFromDatabaseName,
   type SyncedTable,
@@ -36,6 +37,33 @@ interface PendingQueueWrite {
 
 let applyingRemoteDepth = 0;
 const remoteTransactions = new WeakSet<Transaction>();
+
+/** Notified after a local change is coalesced into the queue. */
+export type QueueWriteListener = (write: { table: SyncedTable; rowId: string }) => void;
+
+const queueWriteListeners = new Set<QueueWriteListener>();
+
+/**
+ * Subscribes to local queue writes so the sync engine can debounce a push
+ * shortly after the user edits something (design §9.5). Returns the
+ * unsubscribe function; a listener that throws never breaks the write.
+ */
+export function onQueueWrite(listener: QueueWriteListener): () => void {
+  queueWriteListeners.add(listener);
+  return () => {
+    queueWriteListeners.delete(listener);
+  };
+}
+
+function notifyQueueWrite(table: SyncedTable, rowId: string): void {
+  for (const listener of queueWriteListeners) {
+    try {
+      listener({ table, rowId });
+    } catch {
+      // A trigger is an optimisation; a broken listener must not lose data.
+    }
+  }
+}
 
 /**
  * Remote-row suppression is scoped to the transaction that writes the server
@@ -287,6 +315,7 @@ export async function enqueueChangeInTransaction(
     lastError: null,
   };
   await db.syncQueue.put(row);
+  notifyQueueWrite(table, rowId);
 }
 
 function sortQueueRows(left: SyncQueueRow, right: SyncQueueRow): number {
@@ -306,6 +335,11 @@ export async function pendingChanges(
 /** Number of rows waiting to be pushed; dead rows are reported separately. */
 export function pendingCount(db: KoclukDB): Promise<number> {
   return db.syncQueue.where('status').equals('pending').count();
+}
+
+/** Number of rows that will not be retried automatically (design §9.2). */
+export function deadCount(db: KoclukDB): Promise<number> {
+  return db.syncQueue.where('status').equals('dead').count();
 }
 
 /** Rows that will not be retried automatically (design §9.2). */
@@ -420,25 +454,47 @@ export async function retryDead(db: KoclukDB, ids?: string[]): Promise<number> {
 
 /**
  * Writes a canonical server row locally without re-enqueueing it (used by push
- * conflicts and Task 13's pull). `null` optional values become absent fields so
- * tombstones and optional columns match the local row shape.
+ * conflicts, pull and full sync). `null` optional values become absent fields
+ * so tombstones and optional columns match the local row shape.
  *
  * Suppression is scoped to this write's own transaction, so a user write from
- * another transaction is still queued even while a push result is applying.
+ * another transaction is still queued even while a long pull is applying rows.
+ *
+ * `skipIfPending` is the read-side rule of design §8.3: a row with a pending
+ * local change is never overwritten by a server value. The pending check and
+ * the write run in one read-write transaction over the data store, so a user
+ * write on that store cannot interleave between them.
  */
+export interface ApplyServerRowOptions {
+  skipIfPending?: boolean;
+}
+
+/** Returns false only when a pending local change protected the row. */
 export async function applyServerRow(
   db: KoclukDB,
   table: SyncedTable,
   row: Record<string, unknown>,
-): Promise<void> {
+  options: ApplyServerRowOptions = {},
+): Promise<boolean> {
   if (!SYNCED_TABLE_SET.has(table)) {
     throw new Error(`Bilinmeyen senkron tablosu: ${table}`);
   }
 
   const store = table === 'settings' ? db.settings : db.table(table);
-  await db.transaction('rw', store, async (transaction) => {
+  return db.transaction('rw', [store, db.syncQueue], async (transaction) => {
+    if (options.skipIfPending) {
+      const identity = apiRowId(table, row);
+      if (identity !== null) {
+        const queued = await db.syncQueue.get(queueRowId(table, identity));
+        if (queued?.status === 'pending') {
+          return false;
+        }
+      }
+    }
+
     markRemoteTransaction(transaction);
     await putServerRow(db, table, row);
+    return true;
   });
 }
 

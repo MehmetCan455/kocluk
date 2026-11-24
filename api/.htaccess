@@ -2,7 +2,8 @@
 #
 # Deployed as public_html/api/.htaccess. Every request under /api is answered
 # by index.php; source, tooling and dependency directories are never served.
-# AllowOverride must include "Options FileInfo AuthConfig" on the cPanel host.
+# AllowOverride must permit Options, rewrite and auth directives (cPanel's
+# default "All" does).
 
 Options -Indexes
 DirectoryIndex index.php

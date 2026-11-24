@@ -1,4 +1,5 @@
 import { KoclukDB, getActiveDbOrNull, setActiveDb } from './db';
+import { installSyncHooks } from './sync/queue';
 
 /** The pre-account local database, kept only for the one-time transfer. */
 export const LEGACY_DB_NAME = 'kocluk';
@@ -74,6 +75,9 @@ export function openUserDb(userId: string): Promise<KoclukDB> {
     await closeActiveDbNow();
     const database = new KoclukDB(userDbName(userId));
     await database.open();
+    // Hooks are installed only on an opened account database: the legacy
+    // database and the test database never enqueue anything.
+    installSyncHooks(database, userId);
     setActiveDb(database);
     return database;
   });

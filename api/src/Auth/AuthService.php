@@ -8,10 +8,13 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Http\Request;
+use Kocluk\Api\Mail\Mailer;
+use Kocluk\Api\Mail\Templates;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
 use Kocluk\Api\Support\Uuid;
 use PDOException;
+use Throwable;
 
 /**
  * Account and session use cases behind the /api/auth endpoints (spec §7).
@@ -34,6 +37,12 @@ final class AuthService
 
     public const REGISTER_WINDOW_SECONDS = 3600;
 
+    public const VERIFICATION_TTL_MINUTES = 1440;
+
+    public const VERIFY_LIMIT = 10;
+
+    public const VERIFY_WINDOW_SECONDS = 3600;
+
     public const PASSWORD_MIN_LENGTH = 8;
 
     public const PASSWORD_MAX_LENGTH = 200;
@@ -52,6 +61,8 @@ final class AuthService
         private readonly Database $database,
         private readonly SessionService $sessions,
         private readonly RateLimiter $rateLimiter,
+        private readonly Mailer $mailer,
+        private readonly Templates $templates,
         private readonly array $config = [],
     ) {
     }
@@ -87,10 +98,12 @@ final class AuthService
             throw self::validationError('Gizlilik metni onayı zorunlu.');
         }
 
+        $this->assertInviteCode($input['inviteCode'] ?? null);
+
         $now = Clock::nowSql();
         $userId = Uuid::v4();
 
-        return $this->database->transaction(function () use ($userId, $email, $password, $displayName, $now, $request): array {
+        $result = $this->database->transaction(function () use ($userId, $email, $password, $displayName, $now, $request): array {
             try {
                 $this->database->execute(
                     'INSERT INTO `users` (`id`, `email`, `password_hash`, `display_name`, `privacy_version`, `consented_at`, `created_at`, `updated_at`)'
@@ -127,6 +140,13 @@ final class AuthService
                 'session' => $session,
             ];
         });
+
+        // The account and its session are committed. A verification e-mail
+        // failure is logged but never rolls the registration back (spec §7.4);
+        // the user simply stays unverified.
+        $this->sendVerificationEmail($userId, $email, $displayName);
+
+        return $result;
     }
 
     /**
@@ -204,6 +224,70 @@ final class AuthService
         }
 
         return ['user' => $this->publicUser($user), 'csrfToken' => $session['csrfToken']];
+    }
+
+    /**
+     * Consumes an e-mail verification token and fills users.email_verified_at.
+     *
+     * Verification is optional in this version: login never checks the flag.
+     * The token is single use; a consumed, expired, unknown or soft-deleted
+     * user's token all answer the same 410 from the route.
+     */
+    public function verifyEmail(string $token, Request $request): void
+    {
+        $this->rateLimiter->assert(
+            'verify_email',
+            $request->ip,
+            self::VERIFY_LIMIT,
+            self::VERIFY_WINDOW_SECONDS,
+        );
+
+        $token = trim($token);
+
+        if ($token === '') {
+            throw self::validationError('Doğrulama bağlantısı geçersiz.');
+        }
+
+        $hash = Uuid::hashToken($token);
+
+        $row = $this->database->fetchOne(
+            'SELECT `v`.`user_id` FROM `email_verifications` `v`'
+            . ' JOIN `users` `u` ON `u`.`id` = `v`.`user_id`'
+            . ' WHERE `v`.`id` = ? AND `v`.`used_at` IS NULL'
+            . ' AND `v`.`expires_at` > ? AND `u`.`deleted_at` IS NULL',
+            [$hash, Clock::nowSql()],
+        );
+
+        if ($row === null) {
+            throw self::invalidToken();
+        }
+
+        $userId = (string) $row['user_id'];
+
+        $this->database->transaction(function () use ($hash, $userId): void {
+            $now = Clock::nowSql();
+
+            $consumed = $this->database->execute(
+                'UPDATE `email_verifications` SET `used_at` = ? WHERE `id` = ? AND `used_at` IS NULL',
+                [$now, $hash],
+            );
+
+            if ($consumed !== 1) {
+                throw self::invalidToken();
+            }
+
+            // Older links for the same account become useless.
+            $this->database->execute(
+                'UPDATE `email_verifications` SET `used_at` = ? WHERE `user_id` = ? AND `used_at` IS NULL',
+                [$now, $userId],
+            );
+
+            $this->database->execute(
+                'UPDATE `users` SET `email_verified_at` = ?, `updated_at` = ?'
+                . ' WHERE `id` = ? AND `deleted_at` IS NULL',
+                [$now, $now, $userId],
+            );
+        });
     }
 
     /**
@@ -334,12 +418,104 @@ final class AuthService
         return is_string($value) && $value !== '' ? $value : self::DEFAULT_PRIVACY_VERSION;
     }
 
+    /**
+     * Closed-beta gate (spec §7.5): an empty config value disables it, a
+     * non-empty one must match exactly. hash_equals keeps the comparison
+     * constant-time.
+     */
+    private function assertInviteCode(mixed $provided): void
+    {
+        $expected = $this->inviteCode();
+
+        if ($expected === '') {
+            return;
+        }
+
+        $code = is_string($provided) ? trim($provided) : '';
+
+        if ($code === '') {
+            throw self::validationError('Kayıt için davet kodu gerekli.');
+        }
+
+        if (!hash_equals($expected, $code)) {
+            throw self::validationError('Davet kodu geçersiz.');
+        }
+    }
+
+    private function inviteCode(): string
+    {
+        $value = $this->config['invite_code'] ?? null;
+
+        return is_string($value) ? trim($value) : '';
+    }
+
+    /**
+     * Mints a 24-hour verification token and tries to mail its link. The
+     * caller has already committed the account; every failure is swallowed
+     * after logging, and the undelivered token is removed.
+     */
+    private function sendVerificationEmail(string $userId, string $email, string $displayName): void
+    {
+        $token = Uuid::token(32);
+        $hash = Uuid::hashToken($token);
+        $now = Clock::now();
+        $nowSql = $now->format('Y-m-d H:i:s.u');
+        $expiresAt = $now->modify('+' . self::VERIFICATION_TTL_MINUTES . ' minutes');
+
+        try {
+            $this->database->execute(
+                'INSERT INTO `email_verifications` (`id`, `user_id`, `expires_at`, `created_at`)'
+                . ' VALUES (?, ?, ?, ?)',
+                [
+                    $hash,
+                    $userId,
+                    $expiresAt->format('Y-m-d H:i:s.u'),
+                    $nowSql,
+                ],
+            );
+
+            $message = $this->templates->verify($displayName, $token);
+            $this->mailer->send($email, $message['subject'], $message['html']);
+        } catch (Throwable $error) {
+            try {
+                $this->database->execute(
+                    'DELETE FROM `email_verifications` WHERE `id` = ?',
+                    [$hash],
+                );
+            } catch (Throwable) {
+                // The undelivered token expires unused; registration stands.
+            }
+
+            error_log(sprintf(
+                'kocluk-api email verification failed: %s: %s',
+                $error::class,
+                mb_substr(self::redact((string) $error->getMessage()), 0, 200),
+            ));
+        }
+    }
+
+    /**
+     * Removes e-mail addresses from transport error messages before logging;
+     * passwords and tokens are never part of those messages.
+     */
+    private static function redact(string $message): string
+    {
+        return preg_replace(
+            '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i',
+            '[adres]',
+            $message,
+        ) ?? '';
+    }
+
     private static function normalizeEmail(mixed $value): string
     {
         return is_string($value) ? strtolower(trim($value)) : '';
     }
 
-    private static function assertPassword(string $password): void
+    /**
+     * Shared password policy (registration, reset and change-password).
+     */
+    public static function assertPassword(string $password): void
     {
         // Leading/trailing spaces are significant and deliberately kept.
         $length = mb_strlen($password);
@@ -352,6 +528,11 @@ final class AuthService
     private static function validationError(string $message): ApiException
     {
         return new ApiException('validation_failed', $message, 422);
+    }
+
+    private static function invalidToken(): ApiException
+    {
+        return new ApiException('invalid_token', 'Bağlantı geçersiz veya süresi dolmuş.', 410);
     }
 
     private static function isDuplicateKey(PDOException $error): bool

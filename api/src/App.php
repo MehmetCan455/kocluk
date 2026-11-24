@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Kocluk\Api;
 
 use Kocluk\Api\Auth\AuthService;
+use Kocluk\Api\Auth\PasswordResetService;
 use Kocluk\Api\Auth\RateLimiter;
 use Kocluk\Api\Auth\SessionService;
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Http\Request;
 use Kocluk\Api\Http\Response;
 use Kocluk\Api\Http\Router;
+use Kocluk\Api\Mail\Mailer;
+use Kocluk\Api\Mail\PhpMailerMailer;
+use Kocluk\Api\Mail\Templates;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
 use Kocluk\Api\Support\Json;
@@ -24,9 +28,10 @@ use Throwable;
  * MariaDB: the health route keeps answering while the database is down.
  *
  * CSRF policy (spec §7.2): every state-changing request to a registered route
- * needs a valid session and an X-CSRF-Token that matches it. Login and
- * register work without a session but then require an Origin header equal to
- * the configured site origin. Unknown paths and wrong verbs are left to the
+ * needs a valid session and an X-CSRF-Token that matches it. Public auth
+ * writes (register, login, forgot/reset password, verify e-mail) also work
+ * without a session, but then require an Origin header equal to the
+ * configured site origin. Unknown paths and wrong verbs are left to the
  * router so 404/405 keep their meaning.
  *
  * Request failures (ApiException) are translated to the JSON error envelope
@@ -39,10 +44,15 @@ final class App
 
     /**
      * Writes that must work before a session exists. When the browser is
-     * already signed in they still require the CSRF token. Task 5 adds the
-     * password reset/verification endpoints to this list.
+     * already signed in they still require the CSRF token.
      */
-    private const PUBLIC_WRITES = ['/api/auth/register', '/api/auth/login'];
+    private const PUBLIC_WRITES = [
+        '/api/auth/register',
+        '/api/auth/login',
+        '/api/auth/forgot-password',
+        '/api/auth/reset-password',
+        '/api/auth/verify-email',
+    ];
 
     private const DEFAULT_ORIGIN = 'https://zirveacademy.com';
 
@@ -56,6 +66,12 @@ final class App
 
     private ?AuthService $auth = null;
 
+    private ?Mailer $mailer;
+
+    private ?Templates $templates = null;
+
+    private ?PasswordResetService $passwordResets = null;
+
     /** @var array<string, true> registered "METHOD /path" pairs */
     private array $registered = [];
 
@@ -65,8 +81,10 @@ final class App
     public function __construct(
         ?Database $database = null,
         private readonly array $config = [],
+        ?Mailer $mailer = null,
     ) {
         $this->database = $database;
+        $this->mailer = $mailer;
         $this->router = new Router();
 
         $this->addRoute('GET', '/api/health', $this->health(...));
@@ -76,6 +94,9 @@ final class App
         $this->addRoute('GET', '/api/auth/session', $this->session(...));
         $this->addRoute('POST', '/api/auth/update-profile', $this->updateProfile(...));
         $this->addRoute('POST', '/api/auth/change-password', $this->changePassword(...));
+        $this->addRoute('POST', '/api/auth/forgot-password', $this->forgotPassword(...));
+        $this->addRoute('POST', '/api/auth/reset-password', $this->resetPassword(...));
+        $this->addRoute('POST', '/api/auth/verify-email', $this->verifyEmail(...));
     }
 
     public function handle(Request $request): Response
@@ -275,6 +296,50 @@ final class App
         );
     }
 
+    private function forgotPassword(Request $request): Response
+    {
+        $input = $request->json();
+
+        $this->passwordResets()->request(
+            is_string($input['email'] ?? null) ? $input['email'] : '',
+            $request,
+        );
+
+        // Same 202 whether or not the address exists, and even when the mail
+        // transport failed; enumeration must stay impossible.
+        return Response::json(['ok' => true], 202);
+    }
+
+    private function resetPassword(Request $request): Response
+    {
+        $input = $request->json();
+
+        $this->passwordResets()->reset(
+            is_string($input['token'] ?? null) ? $input['token'] : '',
+            is_string($input['password'] ?? null) ? $input['password'] : '',
+            $request,
+        );
+
+        // Every session was revoked, including this browser's.
+        return Response::json(
+            ['ok' => true],
+            200,
+            ['Set-Cookie' => $this->sessions()->clearCookie($request)],
+        );
+    }
+
+    private function verifyEmail(Request $request): Response
+    {
+        $input = $request->json();
+
+        $this->auth()->verifyEmail(
+            is_string($input['token'] ?? null) ? $input['token'] : '',
+            $request,
+        );
+
+        return Response::json(['ok' => true]);
+    }
+
     private function addRoute(string $method, string $path, callable $handler): void
     {
         $this->registered[$method . ' ' . $path] = true;
@@ -307,15 +372,55 @@ final class App
             $this->database(),
             $this->sessions(),
             $this->rateLimiter(),
+            $this->mailer(),
+            $this->templates(),
             $this->config,
         );
     }
 
+    private function passwordResets(): PasswordResetService
+    {
+        return $this->passwordResets ??= new PasswordResetService(
+            $this->database(),
+            $this->sessions(),
+            $this->rateLimiter(),
+            $this->mailer(),
+            $this->templates(),
+        );
+    }
+
+    private function mailer(): Mailer
+    {
+        return $this->mailer ??= new PhpMailerMailer($this->config);
+    }
+
+    private function templates(): Templates
+    {
+        return $this->templates ??= new Templates($this->appUrl());
+    }
+
     private function siteOrigin(): string
     {
+        return $this->appUrl();
+    }
+
+    /**
+     * Public URL of the SPA. config.app_url wins; app.base_url is the older
+     * key and stays a fallback so existing configurations keep working.
+     */
+    private function appUrl(): string
+    {
+        $configured = $this->config['app_url'] ?? null;
+
+        if (is_string($configured) && trim($configured) !== '') {
+            return trim($configured);
+        }
+
         $app = $this->config['app'] ?? null;
         $baseUrl = is_array($app) ? ($app['base_url'] ?? null) : null;
 
-        return is_string($baseUrl) && $baseUrl !== '' ? $baseUrl : self::DEFAULT_ORIGIN;
+        return is_string($baseUrl) && trim($baseUrl) !== ''
+            ? trim($baseUrl)
+            : self::DEFAULT_ORIGIN;
     }
 }

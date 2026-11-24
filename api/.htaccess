@@ -46,7 +46,7 @@ DirectoryIndex index.php
     # Source, CLI, migration, test, vendor and VCS directories: 403. The
     # leading "/*" tolerates "//src/..." paths: per-directory rewrite input
     # keeps one leading slash when the request has a double slash.
-    RewriteRule ^/*(?:src|bin|migrations|tests|vendor|\.git)(?:/|$) - [F,NC,L]
+    RewriteRule ^/*(?:src|lib|bin|migrations|tests|vendor|\.git)(?:/|$) - [F,NC,L]
 
     # Configuration and tooling files.
     RewriteRule ^/*(?:config\.php|config\.example\.php|composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?)$ - [F,NC,L]

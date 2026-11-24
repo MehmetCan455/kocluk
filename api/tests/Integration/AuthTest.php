@@ -7,6 +7,7 @@ namespace Kocluk\Api\Tests\Integration;
 use Kocluk\Api\App;
 use Kocluk\Api\Http\Request;
 use Kocluk\Api\Http\Response;
+use Kocluk\Api\Mail\FakeMailer;
 use Kocluk\Api\Tests\Support\TestDatabase;
 use PHPUnit\Framework\TestCase;
 
@@ -489,7 +490,7 @@ final class AuthTest extends TestCase
             'app' => ['env' => 'test', 'base_url' => self::ORIGIN],
             'session' => ['cookie_name' => 'kocluk_session', 'secure' => false],
             'privacy_version' => '2026-11-24',
-        ], $config));
+        ], $config), new FakeMailer());
     }
 
     /**

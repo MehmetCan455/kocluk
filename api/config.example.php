@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 $env = getenv('APP_ENV') ?: 'production';
 $production = $env === 'production';
+$appUrl = getenv('APP_URL') ?: (getenv('APP_BASE_URL') ?: 'https://zirveacademy.com');
 $cookieName = getenv('SESSION_COOKIE_NAME');
 $sessionSecure = getenv('SESSION_SECURE');
 
@@ -21,8 +22,10 @@ $config = [
     'app' => [
         // "production", "staging" or "development".
         'env' => $env,
-        'base_url' => getenv('APP_BASE_URL') ?: 'https://zirveacademy.com',
+        'base_url' => $appUrl,
     ],
+    // Public SPA URL used in e-mail links; the token stays in the fragment.
+    'app_url' => $appUrl,
     'db' => [
         'host' => getenv('DB_HOST') ?: 'localhost',
         'port' => (int) (getenv('DB_PORT') ?: 3306),
@@ -47,12 +50,14 @@ $config = [
         'port' => (int) (getenv('MAIL_PORT') ?: 587),
         'username' => getenv('MAIL_USERNAME') ?: '',
         'password' => getenv('MAIL_PASSWORD') ?: '',
+        // tls/starttls, ssl/smtps, or none/off; empty infers from the port.
+        'encryption' => getenv('MAIL_ENCRYPTION') ?: '',
         'from_address' => getenv('MAIL_FROM_ADDRESS') ?: 'no-reply@zirveacademy.com',
         'from_name' => getenv('MAIL_FROM_NAME') ?: 'Zirve Academy',
     ],
     'privacy_version' => getenv('PRIVACY_VERSION') ?: '2026-11-24',
 ];
 
-unset($env, $production, $cookieName, $sessionSecure);
+unset($env, $production, $appUrl, $cookieName, $sessionSecure);
 
 return $config;

@@ -2,6 +2,11 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { BookDetailPage } from '@/features/books/BookDetailPage';
 import { BooksPage } from '@/features/books/BooksPage';
+import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
+import { LoginPage } from '@/features/auth/LoginPage';
+import { RegisterPage } from '@/features/auth/RegisterPage';
+import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
+import { VerifyEmailPage } from '@/features/auth/VerifyEmailPage';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { PhotoDetail } from '@/features/photos/PhotoDetail';
 import { PhotosPage } from '@/features/photos/PhotosPage';
@@ -47,6 +52,29 @@ function AppLoading() {
     <div role="status" className="py-16 text-center text-sm text-muted">
       Yükleniyor…
     </div>
+  );
+}
+
+/** Screens only a signed-out visitor may see. */
+export const AUTH_ONLY_PATHS: readonly string[] = ['/giris', '/kayit', '/sifremi-unuttum'];
+
+/** Screens reached from an e-mail link; usable with or without a session. */
+export const PUBLIC_AUTH_PATHS: readonly string[] = ['/sifre-sifirla', '/eposta-dogrula'];
+
+/**
+ * The account routes. They are rendered outside `SettingsProvider` because no
+ * user database is open while the visitor is signed out.
+ */
+export function AuthRoutes() {
+  return (
+    <Routes>
+      <Route path="/giris" element={<LoginPage />} />
+      <Route path="/kayit" element={<RegisterPage />} />
+      <Route path="/sifremi-unuttum" element={<ForgotPasswordPage />} />
+      <Route path="/sifre-sifirla" element={<ResetPasswordPage />} />
+      <Route path="/eposta-dogrula" element={<VerifyEmailPage />} />
+      <Route path="*" element={<Navigate to="/giris" replace />} />
+    </Routes>
   );
 }
 

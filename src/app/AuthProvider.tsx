@@ -65,6 +65,16 @@ interface AuthState {
   csrfToken: string | null;
 }
 
+/**
+ * Known starting state for tests and previews. When given, the provider trusts
+ * it instead of calling `/api/auth/session` on mount.
+ */
+export interface InitialAuthState {
+  status: Exclude<AuthStatus, 'loading'>;
+  user: AuthUser | null;
+  csrfToken?: string | null;
+}
+
 interface AuthContextValue extends AuthState {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
@@ -74,8 +84,16 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function createInitialState(): AuthState {
-  return { status: 'loading', user: null, csrfToken: null };
+function createInitialState(initialAuth?: InitialAuthState): AuthState {
+  if (!initialAuth) {
+    return { status: 'loading', user: null, csrfToken: null };
+  }
+
+  return {
+    status: initialAuth.status,
+    user: initialAuth.user,
+    csrfToken: initialAuth.csrfToken ?? null,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -162,10 +180,20 @@ function userFromHint(hint: AuthHint): AuthUser {
   return { id: hint.userId, email: hint.email, displayName: hint.displayName };
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(createInitialState);
+export interface AuthProviderProps {
+  children: ReactNode;
+  /**
+   * Test/embedding seam: start from a known state and skip the mount refresh.
+   * Production never passes this, so the server session stays authoritative.
+   */
+  initialAuth?: InitialAuthState;
+}
+
+export function AuthProvider({ children, initialAuth }: AuthProviderProps) {
+  const [state, setState] = useState<AuthState>(() => createInitialState(initialAuth));
   const stateRef = useRef(state);
   const mountedRef = useRef(true);
+  const skipInitialRefresh = useRef(initialAuth !== undefined);
   // Every auth transition gets an id; a slower response from an earlier
   // transition must never overwrite the newer one.
   const sequenceRef = useRef(0);
@@ -344,7 +372,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
-    void refresh();
+    if (!skipInitialRefresh.current) {
+      void refresh();
+    }
 
     return () => {
       mountedRef.current = false;

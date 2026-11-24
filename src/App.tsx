@@ -1,16 +1,13 @@
 import { HashRouter } from 'react-router-dom';
-import { AppShell } from './app/AppShell';
-import { AppRoutes } from './app/routes';
-import { SettingsProvider } from './app/SettingsProvider';
+import { AuthProvider } from './app/AuthProvider';
+import { AuthGate } from './features/auth/AuthGate';
 
 export default function App() {
   return (
     <HashRouter>
-      <SettingsProvider>
-        <AppShell>
-          <AppRoutes />
-        </AppShell>
-      </SettingsProvider>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
     </HashRouter>
   );
 }

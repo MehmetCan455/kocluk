@@ -1,7 +1,7 @@
 import Dexie from 'dexie';
 import { afterEach, expect, test } from 'vitest';
 import type { Subject } from '@/domain/types';
-import { KoclukDB, db, getActiveDb } from './db';
+import { KoclukDB, db, getActiveDb, getActiveDbOrNull, setActiveDb } from './db';
 import { activeUserId, closeActiveDb, openLegacyDb, openUserDb } from './dbManager';
 import { getMeta, setMeta } from './sync/meta';
 
@@ -60,6 +60,42 @@ test('openUserDb önceki aktif DB yi kapatır', async () => {
   expect(first.isOpen()).toBe(false);
   expect(second.isOpen()).toBe(true);
   expect(db.name).toBe('kocluk-u-u2');
+});
+
+test('eşzamanlı openUserDb çağrıları sıraya alınır', async () => {
+  const [first, second] = await Promise.all([openUserDb('c1'), openUserDb('c2')]);
+  track(first);
+  track(second);
+
+  // The second call must have closed the first database, not left it open.
+  expect(first.isOpen()).toBe(false);
+  expect(second.isOpen()).toBe(true);
+  expect(second.name).toBe('kocluk-u-c2');
+  expect(db.name).toBe('kocluk-u-c2');
+  expect(activeUserId()).toBe('c2');
+});
+
+test('open sürerken gelen close aktif DB yi kapalı bırakır', async () => {
+  const opening = openUserDb('c3');
+  const closing = closeActiveDb();
+
+  const [database] = await Promise.all([opening, closing]);
+
+  expect(database.isOpen()).toBe(false);
+  expect(getActiveDbOrNull()).toBeNull();
+  expect(activeUserId()).toBeNull();
+});
+
+test('activeUserId aktif DB adından türetilir', async () => {
+  const database = track(await openUserDb('c4'));
+  expect(activeUserId()).toBe('c4');
+
+  const other = track(new KoclukDB('kocluk-u-another'));
+  setActiveDb(other);
+  expect(activeUserId()).toBe('another');
+
+  setActiveDb(database);
+  expect(activeUserId()).toBe('c4');
 });
 
 test('openLegacyDb kocluk DB sini açar ama aktif yapmaz', async () => {

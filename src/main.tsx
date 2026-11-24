@@ -1,14 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { KoclukDB, setActiveDb } from './db/db';
 import './styles/index.css';
 
-// Until the account screens land (Task 10), the app keeps using the legacy
-// local database so existing installs and E2E flows keep working. Signing in
-// will replace this with `openUserDb()` from the database manager.
-setActiveDb(new KoclukDB());
-
+// Boot goes through AuthProvider → AuthGate: the gate opens the signed-in
+// user's database before any screen can read from it. The legacy `kocluk`
+// database is only opened by the one-time transfer screen.
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

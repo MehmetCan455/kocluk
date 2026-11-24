@@ -34,26 +34,61 @@ interface PendingQueueWrite {
   op: QueueOp;
 }
 
-let applyingRemote = false;
+let applyingRemoteDepth = 0;
+const remoteTransactions = new WeakSet<Transaction>();
 
-/** While true, hooks neither touch `updatedAt` nor enqueue. */
+/**
+ * Remote-row suppression is scoped to the transaction that writes the server
+ * row, not to the whole database: a user write in another transaction (even
+ * while a push result is being applied) must still enqueue.
+ *
+ * The global depth counter remains for `pull`/full-sync callers (Task 13) that
+ * write rows without wrapping each one in a transaction. Overlapping paired
+ * calls unwind correctly; `withApplyingRemote` also restores on throw.
+ */
 export function setApplyingRemote(value: boolean): void {
-  applyingRemote = value;
+  applyingRemoteDepth = value
+    ? applyingRemoteDepth + 1
+    : Math.max(0, applyingRemoteDepth - 1);
 }
 
 export function isApplyingRemote(): boolean {
-  return applyingRemote;
+  return applyingRemoteDepth > 0;
 }
 
 /** Runs `run` with remote-apply hooks disabled, restoring the prior flag. */
 export async function withApplyingRemote<T>(run: () => Promise<T>): Promise<T> {
-  const previous = applyingRemote;
-  applyingRemote = true;
+  setApplyingRemote(true);
   try {
     return await run();
   } finally {
-    applyingRemote = previous;
+    setApplyingRemote(false);
   }
+}
+
+/** Marks one Dexie transaction as remote; its hooks never enqueue. */
+export function markRemoteTransaction(transaction: Transaction): void {
+  remoteTransactions.add(transaction);
+}
+
+/**
+ * True when the mutation belongs to a marked remote transaction. Sub-
+ * transactions are checked through their parent chain so a nested settings
+ * write can never escape the guard.
+ */
+function isRemoteTransaction(transaction: Transaction): boolean {
+  if (applyingRemoteDepth > 0) {
+    return true;
+  }
+
+  let current: Transaction | null | undefined = transaction;
+  while (current) {
+    if (remoteTransactions.has(current)) {
+      return true;
+    }
+    current = current.parent ?? null;
+  }
+  return false;
 }
 
 let lastIssuedAt = 0;
@@ -116,7 +151,7 @@ function installTableHooks(db: KoclukDB, tableName: SyncedTable): void {
   const hasUpdatedAt = SYNC_TABLES_WITH_UPDATED_AT.has(tableName);
 
   table.hook('creating', function (primKey, obj, transaction) {
-    if (applyingRemote) {
+    if (isRemoteTransaction(transaction)) {
       return;
     }
     if (hasUpdatedAt) {
@@ -126,7 +161,7 @@ function installTableHooks(db: KoclukDB, tableName: SyncedTable): void {
   });
 
   table.hook('updating', function (modifications, primKey, _obj, transaction) {
-    if (applyingRemote) {
+    if (isRemoteTransaction(transaction)) {
       return;
     }
     if (hasUpdatedAt) {
@@ -136,7 +171,7 @@ function installTableHooks(db: KoclukDB, tableName: SyncedTable): void {
   });
 
   table.hook('deleting', function (primKey, _obj, transaction) {
-    if (applyingRemote) {
+    if (isRemoteTransaction(transaction)) {
       return;
     }
     scheduleQueueWrite(db, transaction, tableName, String(primKey), 'delete');
@@ -151,7 +186,7 @@ function installTableHooks(db: KoclukDB, tableName: SyncedTable): void {
 function installSettingsHooks(db: KoclukDB, userId: string): void {
   const table = db.table('settings');
   const schedule = (transaction: Transaction): void => {
-    if (applyingRemote) {
+    if (isRemoteTransaction(transaction)) {
       return;
     }
     scheduleQueueWrite(db, transaction, 'settings', userId, 'upsert');
@@ -221,24 +256,37 @@ export async function enqueueChange(
   rowId: string,
   op: QueueOp = 'upsert',
 ): Promise<void> {
+  await db.transaction('rw', db.syncQueue, () =>
+    enqueueChangeInTransaction(db, table, rowId, op),
+  );
+}
+
+/**
+ * Same as `enqueueChange` but reuses the caller's active transaction. `rekey`
+ * writes its queue corrections in the same transaction as the local reference
+ * repair, so a crash can never leave rekeyed rows without a pending push.
+ */
+export async function enqueueChangeInTransaction(
+  db: KoclukDB,
+  table: SyncedTable,
+  rowId: string,
+  op: QueueOp = 'upsert',
+): Promise<void> {
   const id = queueRowId(table, rowId);
   const updatedAt = nextTimestamp();
-
-  await db.transaction('rw', db.syncQueue, async () => {
-    const existing = await db.syncQueue.get(id);
-    const row: SyncQueueRow = {
-      id,
-      table,
-      rowId,
-      op,
-      createdAt: existing?.createdAt ?? updatedAt,
-      updatedAt,
-      attempts: 0,
-      status: 'pending',
-      lastError: null,
-    };
-    await db.syncQueue.put(row);
-  });
+  const existing = await db.syncQueue.get(id);
+  const row: SyncQueueRow = {
+    id,
+    table,
+    rowId,
+    op,
+    createdAt: existing?.createdAt ?? updatedAt,
+    updatedAt,
+    attempts: 0,
+    status: 'pending',
+    lastError: null,
+  };
+  await db.syncQueue.put(row);
 }
 
 function sortQueueRows(left: SyncQueueRow, right: SyncQueueRow): number {
@@ -374,6 +422,9 @@ export async function retryDead(db: KoclukDB, ids?: string[]): Promise<number> {
  * Writes a canonical server row locally without re-enqueueing it (used by push
  * conflicts and Task 13's pull). `null` optional values become absent fields so
  * tombstones and optional columns match the local row shape.
+ *
+ * Suppression is scoped to this write's own transaction, so a user write from
+ * another transaction is still queued even while a push result is applying.
  */
 export async function applyServerRow(
   db: KoclukDB,
@@ -384,31 +435,57 @@ export async function applyServerRow(
     throw new Error(`Bilinmeyen senkron tablosu: ${table}`);
   }
 
-  await withApplyingRemote(async () => {
-    if (table === 'settings') {
-      await applySettingsRow(db, row);
-      return;
-    }
-
-    const clean = stripNulls(row);
-    if (table === 'notes' && typeof clean.topicId !== 'string') {
-      throw new Error('Not satırında topicId yok');
-    }
-    await db.table(table).put(clean);
+  const store = table === 'settings' ? db.settings : db.table(table);
+  await db.transaction('rw', store, async (transaction) => {
+    markRemoteTransaction(transaction);
+    await putServerRow(db, table, row);
   });
 }
 
-async function applySettingsRow(db: KoclukDB, row: Record<string, unknown>): Promise<void> {
-  await db.transaction('rw', db.settings, async () => {
-    for (const field of ACCOUNT_SETTINGS) {
-      const value = row[field];
-      if (value === undefined || value === null) {
-        await db.settings.delete(field);
-      } else {
-        await db.settings.put({ key: field, value });
-      }
+/**
+ * Applies a canonical row inside the caller's already-marked transaction.
+ * `rekeyRow` uses it so the canonical row and the reference repairs commit
+ * atomically. It must not open a transaction of its own: a Dexie sub-
+ * transaction gets a different object and the hooks would enqueue again.
+ */
+export async function putServerRow(
+  db: KoclukDB,
+  table: SyncedTable,
+  row: Record<string, unknown>,
+): Promise<void> {
+  if (table === 'settings') {
+    await putSettingsRow(db, row);
+    return;
+  }
+
+  const clean = stripNulls(row);
+  if (table === 'notes' && typeof clean.topicId !== 'string') {
+    throw new Error('Not satırında topicId yok');
+  }
+
+  if (table === 'catalogBooks' && typeof clean.id === 'string') {
+    const existing = (await db.catalogBooks.get(clean.id)) as
+      | Record<string, unknown>
+      | undefined;
+    // ownerId is a device-side "custom book" marker; the server never returns
+    // it, so a full replacement would turn the book read-only.
+    if (clean.ownerId === undefined && existing?.ownerId !== undefined) {
+      clean.ownerId = existing.ownerId;
     }
-  });
+  }
+
+  await db.table(table).put(clean);
+}
+
+async function putSettingsRow(db: KoclukDB, row: Record<string, unknown>): Promise<void> {
+  for (const field of ACCOUNT_SETTINGS) {
+    const value = row[field];
+    if (value === undefined || value === null) {
+      await db.settings.delete(field);
+    } else {
+      await db.settings.put({ key: field, value });
+    }
+  }
 }
 
 function stripNulls(row: Record<string, unknown>): Record<string, unknown> {

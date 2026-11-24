@@ -1,8 +1,10 @@
 import Dexie from 'dexie';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import type { Subject, Topic, UserBook } from '@/domain/types';
+import type { ActivityLog, CatalogBook, Subject, Topic, UserBook } from '@/domain/types';
 import { ApiError } from '@/lib/api';
+import { LOCAL_SCOPE } from '@/lib/namespaces';
 import { KoclukDB } from '../db';
+import { MAX_PUSH_BYTES } from './constants';
 import {
   deadLetters,
   installSyncHooks,
@@ -12,6 +14,7 @@ import {
   setApplyingRemote,
   whenQueueIdle,
 } from './queue';
+import { rekeyRow } from './rekey';
 import { pushOnce, type PushApiClient, type PushRequestBody } from './push';
 
 const DB_NAME = 'kocluk-sync-push-test';
@@ -83,6 +86,16 @@ function userBook(id: string): UserBook {
     status: 'active',
     createdAt: now(),
     updatedAt: now(),
+  };
+}
+
+function activityLog(id: string, topicId: string): ActivityLog {
+  return {
+    id,
+    type: 'topic_review',
+    topicId,
+    source: 'manual',
+    createdAt: now(),
   };
 }
 
@@ -406,4 +419,235 @@ test('settings push hesap düzeyi alanları gönderir, cihaz ayarlarını gönde
   expect(change.row).not.toHaveProperty('accent');
   expect(change.row).not.toHaveProperty('scheduleMode');
   expect(await pendingCount(database)).toBe(0);
+});
+
+test('applied kanonik satır özel kitabın ownerId işaretini korur', async () => {
+  const book: CatalogBook = {
+    id: 'cb-1',
+    ownerId: LOCAL_SCOPE,
+    title: 'Özel Kitap',
+    totalPages: 100,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  await database.catalogBooks.add(book);
+  await whenQueueIdle();
+
+  const { client, calls } = recordingClient((body) => appliedResults(body));
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary).toEqual({ applied: 1, conflicts: 0, errors: 0 });
+  expect(calls[0].body.changes[0].row).not.toHaveProperty('ownerId');
+  expect(await database.catalogBooks.get('cb-1')).toMatchObject({
+    ownerId: LOCAL_SCOPE,
+    title: 'Özel Kitap',
+  });
+  expect(await pendingCount(database)).toBe(0);
+});
+
+test('aynı partide subject rekey sonrası topic conflict rekeyi geri almaz', async () => {
+  await database.subjects.add(subject('s-local', { seedKey: 'tyt-mat' }));
+  await database.topics.add(topic('t1', 's-local'));
+  await whenQueueIdle();
+  expect(await pendingCount(database)).toBe(2);
+
+  const canonicalSubject = {
+    ...subject('s-server', { seedKey: 'tyt-mat' }),
+    name: 'Sunucu Matematik',
+    updatedAt: now(60_000),
+  };
+  const staleTopic = {
+    ...topic('t1', 's-local'),
+    name: 'Sunucu Konu',
+    updatedAt: now(60_000),
+  };
+
+  const { client } = recordingClient((body) =>
+    body.changes.map((change) => {
+      if (change.table === 'subjects') {
+        return {
+          table: 'subjects',
+          rowId: rowIdOf(change),
+          status: 'conflict' as const,
+          row: canonicalSubject,
+        };
+      }
+      return {
+        table: 'topics',
+        rowId: rowIdOf(change),
+        status: 'conflict' as const,
+        row: staleTopic,
+      };
+    }),
+  );
+
+  const summary = await pushOnce(database, client, 'csrf');
+
+  // The topic's queue row was re-queued by the subject rekey; its stale
+  // conflict must be skipped, not applied over the corrected subjectId.
+  expect(summary).toEqual({ applied: 0, conflicts: 1, errors: 0 });
+  expect((await database.topics.get('t1'))?.subjectId).toBe('s-server');
+  expect((await database.topics.get('t1'))?.name).toBe('Limit');
+  expect((await pendingChanges(database)).map((row) => row.id)).toEqual(['topics:t1']);
+});
+
+test('POST sürerken yapılan kullanıcı düzenlemesi conflict ile ezilmez', async () => {
+  await database.topics.add(topic('t1', 's1'));
+  await whenQueueIdle();
+
+  const stale = { ...topic('t1', 's1'), name: 'Sunucu Konu', updatedAt: now(60_000) };
+  const client: PushApiClient = {
+    async post<T>(_path: string, body?: unknown): Promise<T> {
+      await database.topics.update('t1', { name: 'Kullanıcı düzenlemesi' });
+      await whenQueueIdle();
+      const request = body as PushRequestBody;
+      return {
+        results: request.changes.map((change) => ({
+          table: 'topics',
+          rowId: rowIdOf(change),
+          status: 'conflict',
+          row: stale,
+        })),
+        serverTime: now(),
+      } as T;
+    },
+  };
+
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary).toEqual({ applied: 0, conflicts: 0, errors: 0 });
+  expect((await database.topics.get('t1'))?.name).toBe('Kullanıcı düzenlemesi');
+  expect(await pendingCount(database)).toBe(1);
+});
+
+test('activityLogs conflict rekey edilmiş topicId yi korur ve kuyruğu temizler', async () => {
+  await database.subjects.add(subject('s1'));
+  await database.topics.add(topic('t-old', 's1'));
+  await database.activityLogs.add(activityLog('log-1', 't-old'));
+  await whenQueueIdle();
+  await database.syncQueue.clear();
+
+  await rekeyRow(
+    database,
+    'topics',
+    't-old',
+    topic('t-new', 's1') as unknown as Record<string, unknown>,
+  );
+  await whenQueueIdle();
+  expect((await pendingChanges(database)).map((row) => row.id)).toEqual([
+    'activityLogs:log-1',
+  ]);
+
+  const serverLog = {
+    id: 'log-1',
+    type: 'topic_review',
+    topicId: 't-old',
+    source: 'manual',
+    createdAt: now(),
+  };
+  const { client } = recordingClient((body) =>
+    body.changes.map((change) => ({
+      table: 'activityLogs',
+      rowId: rowIdOf(change),
+      status: 'conflict' as const,
+      row: serverLog,
+    })),
+  );
+
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary).toEqual({ applied: 0, conflicts: 1, errors: 0 });
+  expect((await database.activityLogs.get('log-1'))?.topicId).toBe('t-new');
+  expect(await pendingCount(database)).toBe(0);
+});
+
+test('1 MB üstü tek satır ölü kayda düşer, küçük satırlar gönderilir', async () => {
+  await database.notes.add({
+    topicId: 'topic-big',
+    contentHtml: 'a'.repeat(1_100_000),
+    plainText: 'büyük not',
+    updatedAt: now(),
+  });
+  await database.userBooks.add(userBook('ub-1'));
+  await database.userBooks.add(userBook('ub-2'));
+  await whenQueueIdle();
+  expect(await pendingCount(database)).toBe(3);
+
+  const { client, calls } = recordingClient((body) => appliedResults(body));
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary).toEqual({ applied: 2, conflicts: 0, errors: 1 });
+  for (const call of calls) {
+    expect(new TextEncoder().encode(JSON.stringify(call.body)).length).toBeLessThanOrEqual(
+      MAX_PUSH_BYTES,
+    );
+  }
+  expect(calls.flatMap((call) => call.body.changes.map((change) => change.table))).not.toContain(
+    'notes',
+  );
+  expect(await deadLetters(database)).toMatchObject([
+    { id: 'notes:topic-big', status: 'dead', lastError: expect.stringContaining('payload_too_large') },
+  ]);
+  expect(await pendingCount(database)).toBe(0);
+});
+
+test('413 yanıtı partiyi bölerek yeniden dener', async () => {
+  for (let index = 0; index < 4; index += 1) {
+    await database.userBooks.add(userBook(`ub-${index}`));
+  }
+  await whenQueueIdle();
+
+  const { client, calls } = recordingClient((body) => {
+    if (body.changes.length > 1) {
+      throw new ApiError(413, 'payload_too_large', 'Gövde çok büyük.');
+    }
+    return appliedResults(body);
+  });
+
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary).toEqual({ applied: 4, conflicts: 0, errors: 0 });
+  expect(await pendingCount(database)).toBe(0);
+  // 4 -> 2+2 -> 1+1 four times: one initial, two halves, four singles.
+  expect(calls.length).toBe(7);
+});
+
+test('applied sunucu zaman damgası daha eski olsa da uygulanır', async () => {
+  await database.userBooks.add({ ...userBook('ub-1'), updatedAt: now(10 * 60_000) });
+  await whenQueueIdle();
+
+  const clamped = now();
+  const { client } = recordingClient((body) =>
+    body.changes.map((change) => ({
+      table: change.table,
+      rowId: rowIdOf(change),
+      status: 'applied' as const,
+      row: { ...change.row, updatedAt: clamped },
+    })),
+  );
+
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary.applied).toBe(1);
+  expect((await database.userBooks.get('ub-1'))?.updatedAt).toBe(clamped);
+});
+
+test('push POST sürerken yerel yazım kuyruğa girer', async () => {
+  await database.userBooks.add(userBook('ub-1'));
+  await whenQueueIdle();
+
+  const client: PushApiClient = {
+    async post<T>(_path: string, body?: unknown): Promise<T> {
+      await database.userBooks.add(userBook('ub-during'));
+      await whenQueueIdle();
+      return { results: appliedResults(body as PushRequestBody), serverTime: now() } as T;
+    },
+  };
+
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary.applied).toBe(1);
+  expect((await pendingChanges(database)).map((row) => row.id)).toEqual([
+    'userBooks:ub-during',
+  ]);
 });

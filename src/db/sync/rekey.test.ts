@@ -248,13 +248,16 @@ test('topics rekey not, ilerleme, aktivite ve plan referanslarını taşır', as
   expect((await database.attachments.get('attachment-1'))?.topicId).toBe('t-new');
   expect((await database.topicBooks.get('topic-book-1'))?.topicId).toBe('t-new');
 
-  expect(await queuedIds()).toEqual([
-    'activityLogs:log-1',
-    `notes:${'t-new'}`,
-    'notes:t-old',
-    'scheduleTasks:task-1',
-    `topicProgress:${newProgressId}`,
-  ]);
+  expect(await queuedIds()).toEqual(
+    [
+      'activityLogs:log-1',
+      `notes:${'t-new'}`,
+      'notes:t-old',
+      'scheduleTasks:task-1',
+      `topicProgress:${newProgressId}`,
+      `topicProgress:${oldProgressId}`,
+    ].sort(),
+  );
   expect(await database.syncQueue.get('topics:t-new')).toBeUndefined();
 });
 
@@ -387,4 +390,33 @@ test('kimlik değişmezse yalnızca kanonik satır uygulanır', async () => {
   expect(await database.subjects.get('s1')).toMatchObject({ name: 'Sunucu' });
   expect(await database.topics.get('t1')).toMatchObject({ subjectId: 's1' });
   expect(await queuedIds()).toEqual([]);
+});
+
+test('kuyruk yazımı başarısız olursa rekey tümüyle geri alınır', async () => {
+  await database.subjects.add(subject('s-old', { seedKey: 'tyt-mat' }));
+  await database.topics.add(topic('t1', 's-old'));
+  await clearQueue();
+
+  database.syncQueue.hook('creating', () => {
+    throw new Error('kuyruk yazılamadı');
+  });
+
+  await expect(
+    rekeyRow(
+      database,
+      'subjects',
+      's-old',
+      subject('s-new', {
+        seedKey: 'tyt-mat',
+        updatedAt: '2026-11-25T11:00:00.000000Z',
+      }) as unknown as Record<string, unknown>,
+    ),
+  ).rejects.toThrow();
+
+  // The reference repair and its queue rows share one transaction: no local
+  // row may change when the queue write fails.
+  expect(await database.subjects.get('s-old')).toMatchObject({ name: 'Matematik' });
+  expect(await database.subjects.get('s-new')).toBeUndefined();
+  expect((await database.topics.get('t1'))?.subjectId).toBe('s-old');
+  expect(await database.syncQueue.count()).toBe(0);
 });

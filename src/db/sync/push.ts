@@ -4,6 +4,7 @@ import type { KoclukDB } from '../db';
 import { DEFAULT_SETTINGS } from '../repositories';
 import {
   ACCOUNT_SETTINGS,
+  MAX_PUSH_BYTES,
   PUSH_PATH,
   SYNCED_TABLE_SET,
   SYNC_TABLE_FIELDS,
@@ -17,7 +18,6 @@ import {
   markDead,
   pendingChanges,
   recordAttempt,
-  withApplyingRemote,
 } from './queue';
 import { rekeyRow } from './rekey';
 
@@ -51,24 +51,41 @@ interface PreparedChange {
   change: PushChange;
 }
 
+interface PlannedBatches {
+  batches: PreparedChange[][];
+  oversized: PreparedChange[];
+}
+
 const EMPTY_SUMMARY: PushSummary = { applied: 0, conflicts: 0, errors: 0 };
+
+const textEncoder = new TextEncoder();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function byteLength(value: string): number {
+  return textEncoder.encode(value).length;
+}
+
 /**
- * Pushes at most 100 pending queue rows (design §8.2, §9.2).
+ * Pushes pending queue rows (design §8.2, §9.2).
+ *
+ * At most 100 rows per request and at most 1 MB of UTF-8 body; larger sets are
+ * sent as consecutive requests and a row that cannot fit alone is dead-lettered
+ * without blocking the rest.
  *
  * Row-level results:
- *   * `applied` clears the queue entry and applies the canonical row so a
- *     server timestamp clamp or default reaches the client.
- *   * `conflict` applies the canonical row and rekeys the local identity when
- *     the natural key lives under a different id (design §6.5).
+ *   * `applied` clears the queue entry and applies the canonical row
+ *     unconditionally, so a server timestamp clamp or default reaches the
+ *     client.
+ *   * `conflict` applies/rekeys only when the queue entry is still the version
+ *     that was sent; a user edit during the request wins and stays pending.
  *   * `error` is permanent and marks the row dead.
  *
- * Whole-request failures keep the queue usable: network/5xx/401/403/429 retry,
- * a 4xx validation answer is permanent. Dead rows are never sent again.
+ * Whole-request failures keep the queue usable: network/5xx retry with a
+ * five-attempt budget, 400/409/413/422 are permanent, and 401/403/429 stay
+ * pending for the next session/trigger.
  */
 export async function pushOnce(
   db: KoclukDB,
@@ -80,21 +97,22 @@ export async function pushOnce(
     return { ...EMPTY_SUMMARY };
   }
 
+  const summary: PushSummary = { applied: 0, conflicts: 0, errors: 0 };
   const prepared: PreparedChange[] = [];
-  let errors = 0;
 
   for (const row of queued) {
     if (!SYNCED_TABLE_SET.has(row.table)) {
       if (await markDead(db, row.id, 'unknown_table', row.updatedAt)) {
-        errors += 1;
+        summary.errors += 1;
       }
       continue;
     }
 
-    const change = await buildChange(db, row, row.table as SyncedTable);
+    const table = row.table as SyncedTable;
+    const change = await buildChange(db, row, table);
     if (change === null) {
       if (await markDead(db, row.id, 'validation_failed', row.updatedAt)) {
-        errors += 1;
+        summary.errors += 1;
       }
       continue;
     }
@@ -102,12 +120,84 @@ export async function pushOnce(
   }
 
   if (prepared.length === 0) {
-    return { applied: 0, conflicts: 0, errors };
+    return summary;
+  }
+
+  const deviceId = await readDeviceId(db);
+  const planned = planBatches(prepared, deviceId);
+
+  for (const entry of planned.oversized) {
+    if (await markDead(db, entry.queued.id, 'payload_too_large', entry.queued.updatedAt)) {
+      summary.errors += 1;
+    }
+  }
+
+  for (const batch of planned.batches) {
+    await pushBatch(db, apiClient, csrfToken, deviceId, batch, summary);
+  }
+
+  return summary;
+}
+
+async function readDeviceId(db: KoclukDB): Promise<string | undefined> {
+  const deviceId = await getMeta(db, 'deviceId');
+  return typeof deviceId === 'string' && deviceId !== '' ? deviceId : undefined;
+}
+
+/**
+ * Greedy byte-budget split. A single change that does not fit the 1 MB body
+ * limit is returned as oversized; it can never be sent, so it is dead-lettered
+ * on its own instead of poisoning up to 99 neighbours.
+ */
+function planBatches(prepared: PreparedChange[], deviceId?: string): PlannedBatches {
+  const envelope = byteLength(
+    JSON.stringify({ ...(deviceId === undefined ? {} : { deviceId }), changes: [] }),
+  );
+  const batches: PreparedChange[][] = [];
+  const oversized: PreparedChange[] = [];
+  let current: PreparedChange[] = [];
+  let size = envelope;
+
+  for (const entry of prepared) {
+    // +1 for the comma that separates this change from the previous one.
+    const changeBytes = byteLength(JSON.stringify(entry.change)) + 1;
+
+    if (envelope + changeBytes > MAX_PUSH_BYTES) {
+      oversized.push(entry);
+      continue;
+    }
+
+    if (current.length > 0 && size + changeBytes > MAX_PUSH_BYTES) {
+      batches.push(current);
+      current = [];
+      size = envelope;
+    }
+
+    current.push(entry);
+    size += changeBytes;
+  }
+
+  if (current.length > 0) {
+    batches.push(current);
+  }
+
+  return { batches, oversized };
+}
+
+async function pushBatch(
+  db: KoclukDB,
+  apiClient: PushApiClient,
+  csrfToken: string,
+  deviceId: string | undefined,
+  prepared: PreparedChange[],
+  summary: PushSummary,
+): Promise<void> {
+  if (prepared.length === 0) {
+    return;
   }
 
   const body: PushRequestBody = { changes: prepared.map((entry) => entry.change) };
-  const deviceId = await getMeta(db, 'deviceId');
-  if (typeof deviceId === 'string' && deviceId !== '') {
+  if (deviceId !== undefined) {
     body.deviceId = deviceId;
   }
 
@@ -115,8 +205,26 @@ export async function pushOnce(
   try {
     payload = await apiClient.post(PUSH_PATH, body, csrfToken);
   } catch (error: unknown) {
+    // A 413 means the proxy/server rejected the body size. Split and retry; a
+    // single row is the smallest unit and becomes a dead letter.
+    if (isPayloadTooLarge(error)) {
+      if (prepared.length > 1) {
+        const middle = Math.ceil(prepared.length / 2);
+        await pushBatch(db, apiClient, csrfToken, deviceId, prepared.slice(0, middle), summary);
+        await pushBatch(db, apiClient, csrfToken, deviceId, prepared.slice(middle), summary);
+        return;
+      }
+
+      const [entry] = prepared;
+      if (await markDead(db, entry.queued.id, 'payload_too_large', entry.queued.updatedAt)) {
+        summary.errors += 1;
+      }
+      return;
+    }
+
     await failBatch(db, prepared, error);
-    return { applied: 0, conflicts: 0, errors: errors + prepared.length };
+    summary.errors += prepared.length;
+    return;
   }
 
   const results = readResults(payload);
@@ -126,68 +234,91 @@ export async function pushOnce(
       prepared,
       new ApiError(502, 'invalid_response', 'Senkron yanıtı geçersiz.'),
     );
-    return { applied: 0, conflicts: 0, errors: errors + prepared.length };
+    summary.errors += prepared.length;
+    return;
   }
 
-  let applied = 0;
-  let conflicts = 0;
+  await processResults(db, prepared, results, summary);
+}
 
-  await withApplyingRemote(async () => {
-    for (let index = 0; index < prepared.length; index += 1) {
-      const entry = prepared[index];
-      const result = results[index];
+async function processResults(
+  db: KoclukDB,
+  prepared: PreparedChange[],
+  results: unknown[],
+  summary: PushSummary,
+): Promise<void> {
+  for (let index = 0; index < prepared.length; index += 1) {
+    const entry = prepared[index];
+    const result = results[index];
+    const table = entry.queued.table as SyncedTable;
 
-      try {
-        if (!isRecord(result)) {
-          if (await recordAttempt(db, entry.queued.id, 'Eksik sonuç', entry.queued.updatedAt)) {
-            errors += 1;
+    try {
+      if (!isRecord(result)) {
+        if (await recordAttempt(db, entry.queued.id, 'Eksik sonuç', entry.queued.updatedAt)) {
+          summary.errors += 1;
+        }
+        continue;
+      }
+
+      if (result.status === 'applied') {
+        const cleared = await markApplied(db, entry.queued.id, entry.queued.updatedAt);
+        if (cleared && isRecord(result.row)) {
+          // Once this exact version was accepted, the server row is
+          // authoritative even when its timestamp is older (clock clamp).
+          await applyServerRow(db, table, result.row);
+        }
+        summary.applied += 1;
+        continue;
+      }
+
+      if (result.status === 'conflict') {
+        if (!isRecord(result.row)) {
+          if (await markDead(db, entry.queued.id, 'conflict', entry.queued.updatedAt)) {
+            summary.errors += 1;
           }
           continue;
         }
 
-        if (result.status === 'applied') {
-          const cleared = await markApplied(db, entry.queued.id, entry.queued.updatedAt);
-          if (cleared && isRecord(result.row)) {
-            await applyConfirmedRow(db, entry.queued.table as SyncedTable, result.row);
-          }
-          applied += 1;
+        // A user write or an earlier conflict in this batch may have replaced
+        // the queue entry; applying the stale canonical row would undo it.
+        if (!(await isCurrentQueueVersion(db, entry.queued))) {
           continue;
         }
 
-        if (result.status === 'conflict') {
-          if (!isRecord(result.row)) {
-            if (await markDead(db, entry.queued.id, 'conflict', entry.queued.updatedAt)) {
-              errors += 1;
-            }
-            continue;
-          }
-          await rekeyRow(
-            db,
-            entry.queued.table as SyncedTable,
-            entry.queued.rowId,
-            result.row,
-          );
+        if (table === 'activityLogs' && apiRowId(table, result.row) === entry.queued.rowId) {
+          // The server is insert-only: the canonical log is the pre-rekey
+          // row, so applying it would undo the local reference correction.
+          // Other devices cannot receive the corrected reference until the
+          // server contract allows activity-log updates.
           await markApplied(db, entry.queued.id, entry.queued.updatedAt);
-          conflicts += 1;
+          summary.conflicts += 1;
           continue;
         }
 
-        const message = readErrorMessage(result.error);
-        if (await markDead(db, entry.queued.id, message, entry.queued.updatedAt)) {
-          errors += 1;
-        }
-      } catch (error: unknown) {
-        // A failed rekey or canonical apply is row-level: the transaction is
-        // rolled back and the row must not block its neighbours (design §6.5).
-        const message = describeError(error);
-        if (await markDead(db, entry.queued.id, message, entry.queued.updatedAt)) {
-          errors += 1;
-        }
+        await rekeyRow(db, table, entry.queued.rowId, result.row);
+        await markApplied(db, entry.queued.id, entry.queued.updatedAt);
+        summary.conflicts += 1;
+        continue;
+      }
+
+      const message = readErrorMessage(result.error);
+      if (await markDead(db, entry.queued.id, message, entry.queued.updatedAt)) {
+        summary.errors += 1;
+      }
+    } catch (error: unknown) {
+      // A failed rekey or canonical apply is row-level: the transaction is
+      // rolled back and the row must not block its neighbours (design §6.5).
+      const message = describeError(error);
+      if (await markDead(db, entry.queued.id, message, entry.queued.updatedAt)) {
+        summary.errors += 1;
       }
     }
-  });
+  }
+}
 
-  return { applied, conflicts, errors };
+async function isCurrentQueueVersion(db: KoclukDB, queued: SyncQueueRow): Promise<boolean> {
+  const current = await db.syncQueue.get(queued.id);
+  return current !== undefined && current.updatedAt === queued.updatedAt;
 }
 
 async function buildChange(
@@ -268,52 +399,11 @@ function readErrorMessage(error: unknown): string {
   return message === '' ? code : `${code}: ${message}`;
 }
 
-/**
- * Applies a canonical row without clobbering a newer local edit. Settings and
- * activity logs are special: the former is one server-owned row, the latter is
- * insert-only, so an existing local activity row keeps its rekeyed references.
- */
-async function applyConfirmedRow(
-  db: KoclukDB,
-  table: SyncedTable,
-  row: Record<string, unknown>,
-): Promise<void> {
-  if (table === 'settings') {
-    await applyServerRow(db, table, row);
-    return;
-  }
-
-  const rowId = apiRowId(table, row);
-  if (rowId === null) {
-    return;
-  }
-
-  const local = (await db.table(table).get(rowId)) as Record<string, unknown> | undefined;
-
-  if (table === 'activityLogs') {
-    if (local === undefined) {
-      await applyServerRow(db, table, row);
-    }
-    return;
-  }
-
-  if (local !== undefined) {
-    const localAt = timestampValue(local.updatedAt);
-    const serverAt = timestampValue(row.updatedAt);
-    if (localAt !== null && serverAt !== null && serverAt < localAt) {
-      return;
-    }
-  }
-
-  await applyServerRow(db, table, row);
-}
-
-function timestampValue(value: unknown): number | null {
-  if (typeof value !== 'string' || value === '') {
-    return null;
-  }
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
+function isPayloadTooLarge(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.status === 413 || error.code === 'payload_too_large')
+  );
 }
 
 /** Network, 5xx, expired session, CSRF and rate limits are retryable. */

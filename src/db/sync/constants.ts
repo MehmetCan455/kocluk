@@ -31,6 +31,9 @@ export const PUSH_PATH = '/api/sync/push';
 /** One request carries at most 100 changes (design §8.2). */
 export const MAX_PUSH_CHANGES = 100;
 
+/** The API rejects a body larger than 1 MB with 413 payload_too_large. */
+export const MAX_PUSH_BYTES = 1048576;
+
 /** A transient error is retried this many times before the row is dead. */
 export const MAX_PUSH_ATTEMPTS = 5;
 

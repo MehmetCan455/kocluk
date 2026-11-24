@@ -4,8 +4,10 @@ import type { Photo, Subject, UserBook } from '@/domain/types';
 import { KoclukDB } from '../db';
 import { SYNCED_TABLES } from './constants';
 import {
+  applyServerRow,
   deadLetters,
   installSyncHooks,
+  isApplyingRemote,
   markApplied,
   markDead,
   pendingChanges,
@@ -13,6 +15,7 @@ import {
   retryDead,
   setApplyingRemote,
   whenQueueIdle,
+  withApplyingRemote,
 } from './queue';
 
 const DB_NAME = 'kocluk-sync-queue-test';
@@ -234,4 +237,73 @@ test('whenQueueIdle bekleyen kuyruk yazımlarını tamamlar', async () => {
   await whenQueueIdle();
 
   expect(await pendingCount(database)).toBe(5);
+});
+
+test('eşzamanlı sunucu satırı uygulamaları kullanıcı yazımını bastırmaz', async () => {
+  await Promise.all([
+    applyServerRow(
+      database,
+      'subjects',
+      subject('s-a', NOW) as unknown as Record<string, unknown>,
+    ),
+    applyServerRow(
+      database,
+      'subjects',
+      subject('s-b', NOW) as unknown as Record<string, unknown>,
+    ),
+  ]);
+
+  expect(await database.subjects.get('s-a')).toMatchObject({ id: 's-a' });
+  expect(await database.subjects.get('s-b')).toMatchObject({ id: 's-b' });
+
+  await database.subjects.add(subject('s-user'));
+  await whenQueueIdle();
+
+  expect((await pendingChanges(database)).map((row) => row.id)).toEqual(['subjects:s-user']);
+});
+
+test('withApplyingRemote hata olsa da bayrağı geri alır', async () => {
+  await expect(
+    withApplyingRemote(async () => {
+      throw new Error('boom');
+    }),
+  ).rejects.toThrow('boom');
+
+  expect(isApplyingRemote()).toBe(false);
+
+  await database.subjects.add(subject('s-after'));
+  await whenQueueIdle();
+  expect((await pendingChanges(database)).map((row) => row.id)).toEqual(['subjects:s-after']);
+});
+
+test('iç içe withApplyingRemote sayaç gibi açılır', async () => {
+  await withApplyingRemote(async () => {
+    await withApplyingRemote(async () => {
+      await database.subjects.add(subject('s-inner'));
+    });
+    await database.subjects.add(subject('s-outer'));
+  });
+
+  expect(isApplyingRemote()).toBe(false);
+
+  await database.subjects.add(subject('s-after'));
+  await whenQueueIdle();
+  expect((await pendingChanges(database)).map((row) => row.id)).toEqual(['subjects:s-after']);
+});
+
+test('eşleşen setApplyingRemote çağrıları bayrağı kalıcı bırakmaz', async () => {
+  setApplyingRemote(true);
+  setApplyingRemote(true);
+  await database.subjects.add(subject('s-nested'));
+  setApplyingRemote(false);
+
+  expect(isApplyingRemote()).toBe(true);
+  await database.subjects.add(subject('s-still-remote'));
+  setApplyingRemote(false);
+
+  expect(isApplyingRemote()).toBe(false);
+  await database.subjects.add(subject('s-after'));
+  await whenQueueIdle();
+
+  expect((await pendingChanges(database)).map((row) => row.id)).toEqual(['subjects:s-after']);
 });

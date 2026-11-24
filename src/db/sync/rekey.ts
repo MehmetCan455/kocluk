@@ -5,10 +5,11 @@ import { LOCAL_SCOPE, TOPIC_PROGRESS_NAMESPACE } from '@/lib/namespaces';
 import { apiRowId, type SyncedTable } from './constants';
 import {
   applyServerRow,
-  enqueueChange,
+  enqueueChangeInTransaction,
+  markRemoteTransaction,
   nextTimestamp,
+  putServerRow,
   syncUserId,
-  withApplyingRemote,
 } from './queue';
 
 /**
@@ -50,6 +51,9 @@ function rekeyStores(db: KoclukDB) {
     db.photoSearch,
     db.attachments,
     db.topicBooks,
+    // Queue corrections commit with the reference repair: a crash can never
+    // leave a rekeyed account with nothing pending to push.
+    db.syncQueue,
   ];
 }
 
@@ -182,6 +186,9 @@ async function rekeyTopicReferences(
       });
       writes.push({ table: 'topicProgress', rowId: targetProgressId, op: 'upsert' });
     }
+    // Tombstone the old server row too; a delete for a row the server never
+    // saw is a no-op, a real row would otherwise stay active forever.
+    writes.push({ table: 'topicProgress', rowId: progress.id, op: 'delete' });
   }
 
   for (const log of await db.activityLogs.where('topicId').equals(oldId).toArray()) {
@@ -274,33 +281,33 @@ export async function rekeyRow(
     return;
   }
 
-  await withApplyingRemote(async () => {
-    const writes: QueuedReference[] = [];
+  const writes: QueuedReference[] = [];
 
-    await db.transaction('rw', rekeyStores(db), async () => {
-      await db.table(table).delete(oldId);
-      await applyServerRow(db, table, canonicalRow);
+  await db.transaction('rw', rekeyStores(db), async (transaction) => {
+    markRemoteTransaction(transaction);
+    await db.table(table).delete(oldId);
+    await putServerRow(db, table, canonicalRow);
 
-      switch (table) {
-        case 'subjects':
-          await rekeySubjectReferences(db, oldId, newId, writes);
-          break;
-        case 'topics':
-          await rekeyTopicReferences(db, oldId, newId, writes);
-          break;
-        case 'userBooks':
-          await rekeyUserBookReferences(db, oldId, newId, writes);
-          break;
-        case 'scheduleWeeks':
-          await rekeyScheduleWeekReferences(db, oldId, newId, writes);
-          break;
-        default:
-          break;
-      }
-    });
+    switch (table) {
+      case 'subjects':
+        await rekeySubjectReferences(db, oldId, newId, writes);
+        break;
+      case 'topics':
+        await rekeyTopicReferences(db, oldId, newId, writes);
+        break;
+      case 'userBooks':
+        await rekeyUserBookReferences(db, oldId, newId, writes);
+        break;
+      case 'scheduleWeeks':
+        await rekeyScheduleWeekReferences(db, oldId, newId, writes);
+        break;
+      default:
+        break;
+    }
 
+    // Queue rows are part of the same transaction as the data repair.
     for (const write of writes) {
-      await enqueueChange(db, write.table, write.rowId, write.op);
+      await enqueueChangeInTransaction(db, write.table, write.rowId, write.op);
     }
   });
 }

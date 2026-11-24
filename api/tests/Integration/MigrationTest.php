@@ -15,6 +15,8 @@ final class MigrationTest extends TestCase
     private const USER_ID = '11111111-1111-4111-8111-111111111111';
     private const OTHER_USER_ID = '22222222-2222-4222-8222-222222222222';
     private const BOOK_ID = '33333333-3333-4333-8333-333333333333';
+    private const EXAM_ID = '66666666-6666-4666-8666-666666666666';
+    private const SUBJECT_ID = '77777777-7777-4777-8777-777777777777';
 
     private const TABLES = [
         'schema_migrations',
@@ -163,6 +165,66 @@ final class MigrationTest extends TestCase
         self::assertSame(2, $this->userBookCount());
     }
 
+    public function test_second_active_exam_result_for_same_subject_is_rejected(): void
+    {
+        $this->insertExamResult('88888888-8888-4888-8888-888888888888');
+
+        try {
+            $this->insertExamResult('99999999-9999-4999-8999-999999999999');
+            self::fail('Aynı (user_id, exam_id, subject_id) için ikinci aktif sonuç eklendi.');
+        } catch (PDOException $error) {
+            self::assertSame('23000', (string) $error->getCode());
+        }
+
+        $now = Clock::nowSql();
+
+        self::$db->execute(
+            'UPDATE `exam_results` SET `deleted_at` = ?, `updated_at` = ? WHERE `user_id` = ? AND `id` = ?',
+            [$now, $now, self::USER_ID, '88888888-8888-4888-8888-888888888888'],
+        );
+
+        $this->insertExamResult('99999999-9999-4999-8999-999999999999');
+
+        $row = self::$db->fetchOne(
+            'SELECT COUNT(*) AS total FROM `exam_results`
+             WHERE `user_id` = ? AND `exam_id` = ? AND `subject_id` = ? AND `deleted_at` IS NULL',
+            [self::USER_ID, self::EXAM_ID, self::SUBJECT_ID],
+        );
+
+        self::assertNotNull($row);
+        self::assertSame(1, (int) $row['total']);
+    }
+
+    public function test_schedule_week_start_is_unique_while_active(): void
+    {
+        $this->insertScheduleWeek('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-11-23');
+
+        try {
+            $this->insertScheduleWeek('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '2026-11-23');
+            self::fail('Aynı user_id ve week_start için ikinci aktif hafta eklendi.');
+        } catch (PDOException $error) {
+            self::assertSame('23000', (string) $error->getCode());
+        }
+
+        $now = Clock::nowSql();
+
+        self::$db->execute(
+            'UPDATE `schedule_weeks` SET `deleted_at` = ?, `updated_at` = ? WHERE `user_id` = ? AND `id` = ?',
+            [$now, $now, self::USER_ID, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'],
+        );
+
+        $this->insertScheduleWeek('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '2026-11-23');
+
+        $row = self::$db->fetchOne(
+            'SELECT COUNT(*) AS total FROM `schedule_weeks`
+             WHERE `user_id` = ? AND `week_start` = ? AND `deleted_at` IS NULL',
+            [self::USER_ID, '2026-11-23'],
+        );
+
+        self::assertNotNull($row);
+        self::assertSame(1, (int) $row['total']);
+    }
+
     public function test_sync_changes_id_is_auto_increment(): void
     {
         self::$db->execute(
@@ -283,6 +345,30 @@ final class MigrationTest extends TestCase
                 (`id`, `user_id`, `book_id`, `status`, `created_at`, `updated_at`)
              VALUES (?, ?, ?, ?, ?, ?)',
             [$id, self::USER_ID, self::BOOK_ID, 'active', $now, $now],
+        );
+    }
+
+    private function insertExamResult(string $id): void
+    {
+        $now = Clock::nowSql();
+
+        self::$db->execute(
+            'INSERT INTO `exam_results`
+                (`id`, `user_id`, `exam_id`, `subject_id`, `correct`, `wrong`, `blank`, `net`, `updated_at`)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$id, self::USER_ID, self::EXAM_ID, self::SUBJECT_ID, 10, 2, 1, 8.75, $now],
+        );
+    }
+
+    private function insertScheduleWeek(string $id, string $weekStart): void
+    {
+        $now = Clock::nowSql();
+
+        self::$db->execute(
+            'INSERT INTO `schedule_weeks`
+                (`id`, `user_id`, `week_start`, `note`, `created_at`, `updated_at`)
+             VALUES (?, ?, ?, ?, ?, ?)',
+            [$id, self::USER_ID, $weekStart, 'Hafta notu', $now, $now],
         );
     }
 

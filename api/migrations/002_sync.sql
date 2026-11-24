@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS `exam_results` (
     `updated_at` DATETIME(6) NOT NULL,
     `deleted_at` DATETIME(6) NULL,
     `server_updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    `active_result_key` VARCHAR(73) AS (IF(`deleted_at` IS NULL, CONCAT(`exam_id`, ':', `subject_id`), NULL)) PERSISTENT,
+    `active_result_key` VARCHAR(73) AS (IF(`deleted_at` IS NULL, CONCAT(RTRIM(`exam_id`), ':', RTRIM(`subject_id`)), NULL)) PERSISTENT,
     PRIMARY KEY (`user_id`, `id`),
     UNIQUE KEY `uq_exam_results_active_result` (`user_id`, `active_result_key`),
     KEY `idx_exam_results_user_server_updated` (`user_id`, `server_updated_at`)

@@ -758,8 +758,11 @@ git commit -m "feat(auth): add API client and auth provider"
 - Create: `src/features/auth/RegisterPage.tsx`
 - Create: `src/features/auth/ForgotPasswordPage.tsx`
 - Create: `src/features/auth/ResetPasswordPage.tsx`
+- Create: `src/features/auth/VerifyEmailPage.tsx`
 - Modify: `src/App.tsx`
 - Modify: `src/app/routes.tsx`
+- Modify: `src/main.tsx` (geçici legacy `setActiveDb` kaldırılır)
+- Modify: `src/db/dbManager.ts` (openUserDb sıralama/activeUserId tutarlılığı)
 - Modify: `src/test/renderApp.tsx`
 - Test: `src/features/auth/auth.test.tsx`
 - Test: `src/App.test.tsx` (güncelle)
@@ -787,8 +790,10 @@ Expected: FAIL.
 - `AuthLayout`: ortalanmış kart, logo, başlık; mobil uyumlu.
 - `LoginPage`: e-posta, şifre, "Giriş", "Şifremi unuttum", "Hesabın yok mu? Kayıt ol".
 - `RegisterPage`: ad, e-posta, şifre, davet kodu (opsiyonel), gizlilik checkbox + link; hata gösterimi.
-- `ForgotPasswordPage`/`ResetPasswordPage`: token URL fragment'ından; başarı mesajı.
-- `App.tsx`: `AuthProvider` → `AuthGate`; `signedIn` ise `SettingsProvider` + `AppShell`; `key={user.id}`.
+- `ForgotPasswordPage`/`ResetPasswordPage`/`VerifyEmailPage`: token URL fragment'ından; başarı mesajı; doğrulama e-postası bağlantısı.
+- `App.tsx`: `AuthProvider` → `AuthGate`; `signedIn` ise `openUserDb(user.id)` tamamlanana kadar yükleme, sonra `SettingsProvider` + `AppShell`; `key={user.id}`; çıkışta DB kapatılır.
+- `main.tsx`: geçici legacy `setActiveDb('kocluk')` kaldırılır; boot yolu auth kapısıdır.
+- `dbManager`: eşzamanlı `openUserDb` çağrılarını sıraya alır; `activeUserId` aktif DB adıyla tutarlıdır.
 - `routes.tsx`: auth route'ları ayrı; mevcut app route'ları korunur.
 - `renderApp`: test için `AuthProvider` mock veya `initialAuth` prop.
 

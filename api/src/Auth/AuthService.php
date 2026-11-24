@@ -90,41 +90,43 @@ final class AuthService
         $now = Clock::nowSql();
         $userId = Uuid::v4();
 
-        try {
-            $this->database->execute(
-                'INSERT INTO `users` (`id`, `email`, `password_hash`, `display_name`, `privacy_version`, `consented_at`, `created_at`, `updated_at`)'
-                . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [
-                    $userId,
-                    $email,
-                    PasswordHasher::hash($password),
-                    $displayName,
-                    $this->privacyVersion(),
-                    $now,
-                    $now,
-                    $now,
-                ],
-            );
-        } catch (PDOException $error) {
-            if (self::isDuplicateKey($error)) {
-                throw new ApiException(
-                    'email_taken',
-                    'Bu e-posta adresi zaten kayıtlı.',
-                    409,
-                    [],
-                    $error,
+        return $this->database->transaction(function () use ($userId, $email, $password, $displayName, $now, $request): array {
+            try {
+                $this->database->execute(
+                    'INSERT INTO `users` (`id`, `email`, `password_hash`, `display_name`, `privacy_version`, `consented_at`, `created_at`, `updated_at`)'
+                    . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        $userId,
+                        $email,
+                        PasswordHasher::hash($password),
+                        $displayName,
+                        $this->privacyVersion(),
+                        $now,
+                        $now,
+                        $now,
+                    ],
                 );
+            } catch (PDOException $error) {
+                if (self::isDuplicateKey($error)) {
+                    throw new ApiException(
+                        'email_taken',
+                        'Bu e-posta adresi zaten kayıtlı.',
+                        409,
+                        [],
+                        $error,
+                    );
+                }
+
+                throw $error;
             }
 
-            throw $error;
-        }
+            $session = $this->sessions->create($userId, $request);
 
-        $session = $this->sessions->create($userId, $request);
-
-        return [
-            'user' => $this->publicUser($this->requireUser($userId)),
-            'session' => $session,
-        ];
+            return [
+                'user' => $this->publicUser($this->requireUser($userId)),
+                'session' => $session,
+            ];
+        });
     }
 
     /**

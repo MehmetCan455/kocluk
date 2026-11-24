@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+
+  api:
+    name: api
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_DATABASE: kocluk_test
+          MARIADB_ROOT_PASSWORD: test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: kocluk_test
+      DB_USERNAME: root
+      DB_PASSWORD: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, openssl, curl
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --working-dir=api --no-interaction --prefer-dist --no-progress
+
+      - name: Lint PHP files
+        run: |
+          set -o pipefail
+          find api -name '*.php' -not -path 'api/vendor/*' -exec php -l {} \; 2>&1 | tee php-lint.log
+          ! grep -qE 'Parse error|Errors parsing' php-lint.log
+
+      - name: Run PHPUnit
+        run: api/vendor/bin/phpunit -c api/phpunit.xml

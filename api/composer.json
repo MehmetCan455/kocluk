@@ -1,0 +1,8 @@
+{
+  "name": "zirve/api",
+  "type": "project",
+  "require": { "php": ">=8.4" },
+  "require-dev": { "phpunit/phpunit": "^11.5" },
+  "autoload": { "psr-4": { "Kocluk\\Api\\": "src/" } },
+  "autoload-dev": { "psr-4": { "Kocluk\\Api\\Tests\\": "tests/" } }
+}

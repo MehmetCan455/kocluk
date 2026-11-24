@@ -157,7 +157,7 @@ sayar. Her senkron satırında `server_updated_at DATETIME(6)` bulunur.
 | `activity_logs` | id, user_id, type, user_book_id?, topic_id?, from_page?, to_page?, task_id?, source, created_at, deleted_at? | unique(user_id, active_task_id) |
 | `schedule_weeks` | id, user_id, week_start, note, created_at, updated_at, deleted_at? | unique(user_id, active_week_start) |
 | `schedule_rows` | id, user_id, week_id, subject_id?, label, sort_order, created_at, updated_at, deleted_at? | |
-| `schedule_tasks` | id, user_id, week_id, row_id, day_index, type, user_book_id?, from_page?, to_page?, topic_id?, title?, completed_at?, created_at, updated_at, deleted_at? | index(user_id, week_id, day_index) |
+| `schedule_tasks` | id, user_id, week_id, row_id, day_index, type, user_book_id?, from_page?, to_page?, topic_id?, title?, completed_at?, missed_at?, created_at, updated_at, deleted_at? | index(user_id, week_id, day_index) |
 | `topic_progress` | id, user_id, topic_id, done, done_at?, updated_at, deleted_at? | unique(user_id, active_topic_id) |
 | `user_settings` | user_id, data JSON, updated_at | pk(user_id) |
 
@@ -187,6 +187,10 @@ Aynı desen: `activity_logs.active_task_id`, `schedule_weeks.active_week_start`,
 `topic_progress.active_topic_id`, `subjects.active_seed_key`,
 `topics.active_seed_key`, `exam_results.active_result_key`
 (`CONCAT(exam_id, ':', subject_id)`).
+
+MariaDB 10.6, `CHAR` tabanlı generated column üzerinde unique index'i
+reddedebilir. Bu nedenle generated anahtarlar `VARCHAR` olarak ve gerekiyorsa
+`RTRIM(...)` ile üretilir; mantıksal değer ve benzersizlik aynıdır.
 
 ### 6.4 Senkron değişiklik günlüğü
 

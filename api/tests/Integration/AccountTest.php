@@ -247,6 +247,22 @@ final class AccountTest extends ApiTestCase
         $this->seedSyncData($alphaId, self::MARKER_A);
         $this->seedSyncData($betaId, self::MARKER_B);
 
+        $now = Clock::nowSql();
+        $database = TestDatabase::database();
+
+        foreach ([$alphaId, $betaId] as $index => $ownerId) {
+            $database->execute(
+                'INSERT INTO `password_resets` (`id`, `user_id`, `expires_at`, `created_at`)'
+                . ' VALUES (?, ?, ?, ?)',
+                ['reset-' . $index, $ownerId, $now, $now],
+            );
+            $database->execute(
+                'INSERT INTO `rate_limits` (`user_id`, `bucket`, `ip`, `created_at`)'
+                . ' VALUES (?, ?, ?, ?)',
+                [$ownerId, 'isolation-limit', '127.0.0.1', $now],
+            );
+        }
+
         $response = $this->deleteAccount(
             self::PASSWORD,
             ['X-CSRF-Token' => $this->csrf($alpha)],
@@ -263,7 +279,14 @@ final class AccountTest extends ApiTestCase
 
         self::assertSame(0, $this->countUserRows('sync_changes', $alphaId));
         self::assertSame(1, $this->countUserRows('sync_changes', $betaId));
+        self::assertSame(0, $this->countUserRows('sessions', $alphaId));
         self::assertSame(1, $this->countUserRows('sessions', $betaId));
+        self::assertSame(0, $this->countUserRows('password_resets', $alphaId));
+        self::assertSame(1, $this->countUserRows('password_resets', $betaId));
+        self::assertSame(0, $this->countUserRows('email_verifications', $alphaId));
+        self::assertSame(1, $this->countUserRows('email_verifications', $betaId));
+        self::assertSame(0, $this->countUserRows('rate_limits', $alphaId));
+        self::assertSame(1, $this->countUserRows('rate_limits', $betaId));
         self::assertSame(200, $this->sessionStatus($this->jar($beta)));
 
         // B's export still works and contains only B's rows.

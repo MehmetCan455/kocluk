@@ -351,10 +351,11 @@ Expected: FAIL.
 - PHPMailer kaynak dosyalarını `api/lib/PHPMailer/` altına koy (MIT); `PhpMailerMailer` bunları `require` eder; sunucuda Composer gerekmez.
 - `PhpMailerMailer` SMTP host/port/user/pass/from config'ten; STARTTLS/SSL; hata `ApiException` 502.
 - `Templates` Türkçe HTML üretir; token URL fragment'ta.
-- `PasswordResetService` token 32 bayt, SHA-256 özet, 30 dk, tek kullanım; `request` her durumda 202; e-posta yoksa da aynı yanıt.
-- `reset` şifreyi doğrular, hash'ler, `sessions` tümünü iptal eder, tokenı `used_at`.
-- `verify-email` tokenı doğrular; `email_verified_at` set eder.
+- `PasswordResetService` token 32 bayt, SHA-256 özet, 30 dk, tek kullanım; `request` her durumda 202; e-posta yoksa da aynı yanıt. Hız sınırı: 3/saat/e-posta, 10/saat/IP.
+- `reset` şifreyi doğrular, hash'ler, `sessions` tümünü iptal eder, tokenı `used_at`; hız sınırı 5/saat/IP.
+- Kayıt sırasında `email_verifications` tokenı (24 saat) oluştur ve doğrulama e-postası gönder; mail hatası kaydı düşürmez, kullanıcı doğrulanmamış kalır. `verify-email` tokenı tek kullanımda tüketir, `email_verified_at` doldurur; hız sınırı 10/saat/IP.
 - Davet kodu `config['invite_code']`; `hash_equals`; boşsa devre dışı.
+- E-posta gönderimi `config['app_url']` üzerinden `#/sifre-sifirla?token=...` ve `#/eposta-dogrula?token=...` bağlantıları üretir.
 
 - [ ] **Step 4: Testleri çalıştır**
 

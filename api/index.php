@@ -66,3 +66,15 @@ try {
 }
 
 $response->send();
+
+// Hand the response to the client before the deferred e-mail queue is flushed
+// by its shutdown callback: forgot-password must answer 202 in the same time
+// for known and unknown addresses. PHP-FPM and LiteSpeed expose different
+// hooks. On a host with neither, the queue still flushes at script end, but
+// the response may wait for SMTP; staging/Task 16 must confirm which hook the
+// Natro host provides.
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+} elseif (function_exists('litespeed_finish_request')) {
+    litespeed_finish_request();
+}

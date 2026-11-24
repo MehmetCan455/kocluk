@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Http\Request;
-use Kocluk\Api\Mail\Mailer;
+use Kocluk\Api\Mail\DeferredMailer;
 use Kocluk\Api\Mail\Templates;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
@@ -61,7 +61,7 @@ final class AuthService
         private readonly Database $database,
         private readonly SessionService $sessions,
         private readonly RateLimiter $rateLimiter,
-        private readonly Mailer $mailer,
+        private readonly DeferredMailer $mailer,
         private readonly Templates $templates,
         private readonly array $config = [],
     ) {
@@ -450,9 +450,10 @@ final class AuthService
     }
 
     /**
-     * Mints a 24-hour verification token and tries to mail its link. The
-     * caller has already committed the account; every failure is swallowed
-     * after logging, and the undelivered token is removed.
+     * Mints a 24-hour verification token and queues its link. The caller has
+     * already committed the account; registration never waits for SMTP. If
+     * the deferred send fails, the token is removed and the failure logged;
+     * the user simply stays unverified.
      */
     private function sendVerificationEmail(string $userId, string $email, string $displayName): void
     {
@@ -475,23 +476,48 @@ final class AuthService
             );
 
             $message = $this->templates->verify($displayName, $token);
-            $this->mailer->send($email, $message['subject'], $message['html']);
         } catch (Throwable $error) {
-            try {
-                $this->database->execute(
-                    'DELETE FROM `email_verifications` WHERE `id` = ?',
-                    [$hash],
-                );
-            } catch (Throwable) {
-                // The undelivered token expires unused; registration stands.
-            }
+            $this->discardVerificationToken($hash);
+            self::logVerificationFailure($error);
 
-            error_log(sprintf(
-                'kocluk-api email verification failed: %s: %s',
-                $error::class,
-                mb_substr(self::redact((string) $error->getMessage()), 0, 200),
-            ));
+            return;
         }
+
+        try {
+            $this->mailer->queue(
+                $email,
+                $message['subject'],
+                $message['html'],
+                function (Throwable $error) use ($hash): void {
+                    $this->discardVerificationToken($hash);
+                    self::logVerificationFailure($error);
+                },
+            );
+        } catch (Throwable $error) {
+            $this->discardVerificationToken($hash);
+            self::logVerificationFailure($error);
+        }
+    }
+
+    private function discardVerificationToken(string $hash): void
+    {
+        try {
+            $this->database->execute(
+                'DELETE FROM `email_verifications` WHERE `id` = ?',
+                [$hash],
+            );
+        } catch (Throwable) {
+            // The undelivered token expires unused; registration stands.
+        }
+    }
+
+    private static function logVerificationFailure(Throwable $error): void
+    {
+        error_log(sprintf(
+            'kocluk-api email verification failed: %s: %s',
+            $error::class,
+            mb_substr(self::redact((string) $error->getMessage()), 0, 200),
+        ));
     }
 
     /**

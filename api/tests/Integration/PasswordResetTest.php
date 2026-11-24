@@ -6,6 +6,8 @@ namespace Kocluk\Api\Tests\Integration;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Kocluk\Api\Mail\DeferredMailer;
+use Kocluk\Api\Mail\FakeMailer;
 use Kocluk\Api\Tests\Support\ApiTestCase;
 use Kocluk\Api\Tests\Support\TestDatabase;
 use Kocluk\Api\Tests\Support\ThrowingMailer;
@@ -282,6 +284,59 @@ final class PasswordResetTest extends ApiTestCase
 
         self::assertSame(202, $response->status());
         self::assertSame(['ok' => true], $this->payload($response));
+        self::assertSame(0, $this->countRows('password_resets'));
+    }
+
+    public function test_forgot_password_queues_mail_without_waiting_for_smtp(): void
+    {
+        $this->register();
+        $this->mailer->clear();
+
+        $fake = new FakeMailer();
+        $deferred = new DeferredMailer($fake);
+        $app = $this->app([], $deferred);
+
+        $response = $this->forgot(self::EMAIL, ['Origin' => self::ORIGIN], $app);
+
+        self::assertSame(202, $response->status());
+        self::assertSame(['ok' => true], $this->payload($response));
+        self::assertSame(0, $fake->count(), 'SMTP isteğin içinde çalışmamalı.');
+        self::assertSame(1, $deferred->pending());
+        self::assertSame(1, $this->countRows('password_resets'));
+
+        $deferred->flush();
+
+        self::assertSame(0, $deferred->pending());
+        self::assertSame(1, $fake->count());
+
+        $mail = $fake->last();
+
+        self::assertIsArray($mail);
+        self::assertSame(self::EMAIL, $mail['to']);
+        self::assertStringContainsString(
+            self::ORIGIN . '/#/sifre-sifirla?token=',
+            (string) $mail['html'],
+        );
+        self::assertSame(1, $this->countRows('password_resets'));
+    }
+
+    public function test_a_deferred_mail_failure_discards_the_token(): void
+    {
+        $this->register();
+        $this->mailer->clear();
+
+        $deferred = new DeferredMailer(new ThrowingMailer());
+        $app = $this->app([], $deferred);
+
+        $response = $this->forgot(self::EMAIL, ['Origin' => self::ORIGIN], $app);
+
+        self::assertSame(202, $response->status());
+        self::assertSame(1, $this->countRows('password_resets'));
+        self::assertSame(1, $deferred->pending());
+
+        $deferred->flush();
+
+        self::assertSame(0, $deferred->pending());
         self::assertSame(0, $this->countRows('password_resets'));
     }
 }

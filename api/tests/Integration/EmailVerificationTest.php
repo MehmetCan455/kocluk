@@ -6,6 +6,8 @@ namespace Kocluk\Api\Tests\Integration;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Kocluk\Api\Mail\DeferredMailer;
+use Kocluk\Api\Mail\FakeMailer;
 use Kocluk\Api\Tests\Support\ApiTestCase;
 use Kocluk\Api\Tests\Support\TestDatabase;
 use Kocluk\Api\Tests\Support\ThrowingMailer;
@@ -167,5 +169,56 @@ final class EmailVerificationTest extends ApiTestCase
 
         self::assertSame(200, $this->sessionStatus($this->jar($response), $app));
         self::assertSame(200, $this->login(self::PASSWORD, [], ['Origin' => self::ORIGIN], $app)->status());
+    }
+
+    public function test_registration_queues_the_verification_mail_until_flush(): void
+    {
+        $fake = new FakeMailer();
+        $deferred = new DeferredMailer($fake);
+        $app = $this->app([], $deferred);
+
+        $response = $this->register([], ['Origin' => self::ORIGIN], $app);
+
+        self::assertSame(201, $response->status());
+        self::assertSame(0, $fake->count(), 'SMTP isteğin içinde çalışmamalı.');
+        self::assertSame(1, $deferred->pending());
+        self::assertSame(1, $this->countRows('email_verifications'));
+
+        $deferred->flush();
+
+        self::assertSame(0, $deferred->pending());
+        self::assertSame(1, $fake->count());
+
+        $mail = $fake->last();
+
+        self::assertIsArray($mail);
+        self::assertSame(self::EMAIL, $mail['to']);
+        self::assertStringContainsString(
+            self::ORIGIN . '/#/eposta-dogrula?token=',
+            (string) $mail['html'],
+        );
+
+        $token = $this->extractToken((string) $mail['html'], 'eposta-dogrula');
+
+        self::assertSame(200, $this->verifyEmail($token)->status());
+        self::assertNotNull($this->userRow()['email_verified_at']);
+    }
+
+    public function test_a_deferred_verification_failure_discards_the_token(): void
+    {
+        $deferred = new DeferredMailer(new ThrowingMailer());
+        $app = $this->app([], $deferred);
+
+        $response = $this->register([], ['Origin' => self::ORIGIN], $app);
+
+        self::assertSame(201, $response->status());
+        self::assertSame(1, $this->countRows('email_verifications'));
+        self::assertSame(1, $deferred->pending());
+
+        $deferred->flush();
+
+        self::assertSame(0, $deferred->pending());
+        self::assertSame(0, $this->countRows('email_verifications'));
+        self::assertNull($this->userRow()['email_verified_at']);
     }
 }

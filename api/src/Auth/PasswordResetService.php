@@ -6,7 +6,7 @@ namespace Kocluk\Api\Auth;
 
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Http\Request;
-use Kocluk\Api\Mail\Mailer;
+use Kocluk\Api\Mail\DeferredMailer;
 use Kocluk\Api\Mail\Templates;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
@@ -42,7 +42,7 @@ final class PasswordResetService
         private readonly Database $database,
         private readonly SessionService $sessions,
         private readonly RateLimiter $rateLimiter,
-        private readonly Mailer $mailer,
+        private readonly DeferredMailer $mailer,
         private readonly Templates $templates,
     ) {
     }
@@ -108,10 +108,30 @@ final class PasswordResetService
 
         try {
             $message = $this->templates->reset((string) $user['display_name'], $token);
-            $this->mailer->send((string) $user['email'], $message['subject'], $message['html']);
         } catch (Throwable $error) {
             // The token never reached the user; remove it instead of leaving
             // a usable credential in the database.
+            $this->discard($hash);
+            self::logFailure('password reset', $error);
+
+            return;
+        }
+
+        $onFailure = function (Throwable $error) use ($hash): void {
+            $this->discard($hash);
+            self::logFailure('password reset', $error);
+        };
+
+        try {
+            // SMTP must not run before the 202 leaves the server: a known
+            // address would otherwise take longer than an unknown one.
+            $this->mailer->queue(
+                (string) $user['email'],
+                $message['subject'],
+                $message['html'],
+                $onFailure,
+            );
+        } catch (Throwable $error) {
             $this->discard($hash);
             self::logFailure('password reset', $error);
         }

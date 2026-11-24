@@ -12,6 +12,7 @@ use Kocluk\Api\Db\Database;
 use Kocluk\Api\Http\Request;
 use Kocluk\Api\Http\Response;
 use Kocluk\Api\Http\Router;
+use Kocluk\Api\Mail\DeferredMailer;
 use Kocluk\Api\Mail\Mailer;
 use Kocluk\Api\Mail\PhpMailerMailer;
 use Kocluk\Api\Mail\Templates;
@@ -66,7 +67,7 @@ final class App
 
     private ?AuthService $auth = null;
 
-    private ?Mailer $mailer;
+    private ?DeferredMailer $mailer;
 
     private ?Templates $templates = null;
 
@@ -84,7 +85,9 @@ final class App
         ?Mailer $mailer = null,
     ) {
         $this->database = $database;
-        $this->mailer = $mailer;
+        $this->mailer = $mailer instanceof DeferredMailer
+            ? $mailer
+            : ($mailer !== null ? new DeferredMailer($mailer, true) : null);
         $this->router = new Router();
 
         $this->addRoute('GET', '/api/health', $this->health(...));
@@ -389,9 +392,9 @@ final class App
         );
     }
 
-    private function mailer(): Mailer
+    private function mailer(): DeferredMailer
     {
-        return $this->mailer ??= new PhpMailerMailer($this->config);
+        return $this->mailer ??= new DeferredMailer(new PhpMailerMailer($this->config));
     }
 
     private function templates(): Templates

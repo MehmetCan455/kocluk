@@ -1,6 +1,9 @@
 import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom/vitest';
 import { createRequire } from 'node:module';
+import Dexie from 'dexie';
+import { beforeEach } from 'vitest';
+import { KoclukDB, db, getActiveDbOrNull, setActiveDb } from '@/db/db';
 
 const require = createRequire(import.meta.url);
 
@@ -282,3 +285,23 @@ function cloneForIndexedDb<T>(value: T, seen = new WeakMap<object, unknown>()): 
 
 globalThis.structuredClone = ((value: unknown) =>
   cloneForIndexedDb(value)) as typeof structuredClone;
+
+/**
+ * Every test runs against a deterministic, empty database. The `db` proxy is
+ * rebound to a fresh instance before each test and the store is deleted first,
+ * so a test never inherits rows or an open connection from another test.
+ */
+export const TEST_DB_NAME = 'kocluk-test';
+
+setActiveDb(new KoclukDB(TEST_DB_NAME));
+
+beforeEach(async () => {
+  const previous = getActiveDbOrNull();
+  setActiveDb(null);
+  if (previous?.isOpen()) {
+    await previous.close();
+  }
+  await Dexie.delete(TEST_DB_NAME);
+  setActiveDb(new KoclukDB(TEST_DB_NAME));
+  await db.open();
+});

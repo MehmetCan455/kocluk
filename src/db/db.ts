@@ -17,6 +17,8 @@ import type {
   ScheduleTask,
   ScheduleWeek,
   Subject,
+  SyncMetaRow,
+  SyncQueueRow,
   Topic,
   TopicBook,
   TopicProgress,
@@ -52,9 +54,11 @@ export class KoclukDB extends Dexie {
   scheduleRows!: Table<ScheduleRow, string>;
   scheduleTasks!: Table<ScheduleTask, string>;
   topicProgress!: Table<TopicProgress, string>;
+  syncQueue!: Table<SyncQueueRow, string>;
+  syncMeta!: Table<SyncMetaRow, string>;
 
-  constructor() {
-    super('kocluk');
+  constructor(name = 'kocluk') {
+    super(name);
 
     this.version(1).stores({
       settings: 'key',
@@ -126,7 +130,53 @@ export class KoclukDB extends Dexie {
       scheduleTasks: 'id, weekId, rowId, dayIndex, completedAt, updatedAt, deletedAt',
       topicProgress: 'id, &topicId, done, updatedAt, deletedAt',
     });
+
+    // v7 adds the sync queue and its key/value metadata. Both stores are new,
+    // so the upgrade is purely additive: every existing table and row stays.
+    this.version(7).stores({
+      syncQueue: 'id, table, rowId, op, createdAt, updatedAt, attempts, status, lastError',
+      syncMeta: 'key',
+    });
   }
 }
 
-export const db = new KoclukDB();
+let activeDb: KoclukDB | null = null;
+
+/** Makes `database` the target of the module-level `db` proxy. */
+export function setActiveDb(database: KoclukDB | null): void {
+  activeDb = database;
+}
+
+/** Returns the active database, or null when none was opened yet. */
+export function getActiveDbOrNull(): KoclukDB | null {
+  return activeDb;
+}
+
+/** Returns the active database; callers that must not fail use `getActiveDbOrNull`. */
+export function getActiveDb(): KoclukDB {
+  if (!activeDb) {
+    throw new Error('Veritabanı açılmadı');
+  }
+  return activeDb;
+}
+
+/**
+ * Compatibility layer for the 40+ modules that import the old singleton.
+ * Every property and method is forwarded to the currently active database, so
+ * `db.transaction`, `db.tables`, `db.delete()` and `db.open()` keep working
+ * after the per-user database manager switches accounts.
+ */
+export const db: KoclukDB = new Proxy({} as KoclukDB, {
+  get(_target, property) {
+    const database = getActiveDb();
+    const value = Reflect.get(database, property, database);
+    return typeof value === 'function' ? value.bind(database) : value;
+  },
+  set(_target, property, value) {
+    const database = getActiveDb();
+    return Reflect.set(database, property, value, database);
+  },
+  has(_target, property) {
+    return Reflect.has(getActiveDb(), property);
+  },
+});

@@ -378,3 +378,25 @@ export interface BookProgress {
   done: boolean;
   hasTotalPages: boolean;
 }
+
+export type SyncQueueStatus = 'pending' | 'dead';
+
+/** One local mutation waiting to be pushed to the sync API. */
+export interface SyncQueueRow {
+  /** `${table}:${rowId}`; a row can only have one queued mutation. */
+  id: string;
+  table: string;
+  rowId: string;
+  op: 'upsert' | 'delete';
+  createdAt: string;
+  updatedAt: string;
+  attempts: number;
+  status: SyncQueueStatus;
+  lastError?: string | null;
+}
+
+/** Local sync bookkeeping such as the last seen change cursor. */
+export interface SyncMetaRow {
+  key: string;
+  value: unknown;
+}

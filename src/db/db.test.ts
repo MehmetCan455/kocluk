@@ -69,6 +69,8 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {
     'scheduleWeeks',
     'settings',
     'subjects',
+    'syncMeta',
+    'syncQueue',
     'topicBooks',
     'topicProgress',
     'topics',
@@ -505,10 +507,11 @@ test('resetDb temizler, seedOnboarded onboarding ayarını yazar', async () => {
 });
 
 test('v2/v3 geçişi projeksiyon üretir, v4/v5 program ve çizelge tablolarını ekler', async () => {
+  const name = db.name;
   await db.close();
-  await Dexie.delete('kocluk');
+  await Dexie.delete(name);
 
-  const legacy = new Dexie('kocluk');
+  const legacy = new Dexie(name);
   legacy.version(1).stores({
     settings: 'key',
     subjects: 'id, &seedKey, exam, order',
@@ -573,10 +576,11 @@ test('v2/v3 geçişi projeksiyon üretir, v4/v5 program ve çizelge tabloların�
 });
 
 test('v5 geçişi eski program kayıtlarını ve dosyalarını korur', async () => {
+  const name = db.name;
   await db.close();
-  await Dexie.delete('kocluk');
+  await Dexie.delete(name);
 
-  const legacy = new Dexie('kocluk');
+  const legacy = new Dexie(name);
   legacy.version(1).stores({
     settings: 'key',
     subjects: 'id, &seedKey, exam, order',

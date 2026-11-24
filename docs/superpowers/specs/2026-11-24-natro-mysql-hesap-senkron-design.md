@@ -278,7 +278,8 @@ namespace'ler ve `LOCAL_SCOPE` değişmez; onlar diskteki kimliklerin parçasıd
 - Çerez: üretimde `__Host-kocluk_session`; `HttpOnly; Secure; SameSite=Lax;
   Path=/`. Geliştirmede Secure olmayan `kocluk_session`.
 - Kayan süre 30 gün, mutlak üst sınır 90 gün. `last_seen_at` en fazla 5
-  dakikada bir güncellenir.
+  dakikada bir güncellenir. Tarayıcı çerezi 90 günlük mutlak sınıra göre
+  taşınır; sunucu 30 gün boşta kalan oturumu reddeder.
 - Giriş, yalnızca o tarayıcıdaki önceki oturumu iptal eder; aynı kullanıcının
   diğer cihazlardaki oturumları korunur. Çoklu cihaz senkronu bunu gerektirir.
 - Şifre değişimi, işlemi yapan oturum dışındaki tüm oturumları iptal eder;
@@ -310,7 +311,8 @@ namespace'ler ve `LOCAL_SCOPE` değişmez; onlar diskteki kimliklerin parçasıd
   (token URL fragment'ında; sunucuya Referer ile gitmez). 30 dakika geçerli,
   tek kullanım.
 - E-posta doğrulama bağlantısı benzer; doğrulama zorunlu değilse uygulama
-  içinde hatırlatma gösterilir.
+  içinde hatırlatma gösterilir. Kayıt sırasında doğrulama e-postası
+  gönderilemezse kayıt yine de tamamlanır; kullanıcı doğrulanmamış kalır.
 - Gönderim hatası kullanıcıya "e-posta gönderilemedi" olarak döner; token
   yine oluşturulmaz veya iptal edilir.
 

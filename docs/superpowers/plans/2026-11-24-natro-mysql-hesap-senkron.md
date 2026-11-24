@@ -423,8 +423,12 @@ git commit -m "feat(api): add account export, deletion and privacy consent"
 - Create: `api/src/Sync/ChangeLog.php`
 - Create: `api/src/Sync/SyncService.php`
 - Modify: `api/src/App.php`
+- Modify: `api/src/Account/AccountService.php` (TableMap'i kullan; `SELECT *` yerine açık kolonlar; export'u tek transaction'a al)
+- Modify: `api/src/Auth/SessionService.php` (validate `users` ile join; silinmiş kullanıcı oturumu geçersiz)
 - Test: `api/tests/Integration/SyncPushTest.php`
 - Test: `api/tests/Unit/TableMapTest.php`
+- Test: `api/tests/Integration/AccountTest.php` (TableMap uyumu, export kolonları)
+- Test: `api/tests/Unit/SessionServiceTest.php` (orphan session)
 
 **Interfaces:**
 - Produces:
@@ -455,6 +459,8 @@ Expected: FAIL.
 - [ ] **Step 3: TableMap, ChangeLog ve push'u yaz**
 
 - `TableMap::TABLES` spec §8.1'deki 13 anahtar; her definition `table`, `columns` (API→DB), `required`, `natural`, `pk`, `immutable`.
+- `TableMap` tek kaynaktır: `AccountService` kendi kopyasını bırakır, export/delete tablo listesini ve açık kolonları buradan alır; export tek transaction içinde okunur. Böylece yeni bir senkron tablosu export/silmeden sessizce düşmez.
+- `SessionService::validate`, oturumun `users` satırı hâlâ varken geçerli olmasını doğrular; hesap silme ile yarışan bir login orphan oturum bırakamaz.
 - `push`: gövde `deviceId` + `changes`; max 100, 1 MB; her satır `transaction`; `user_id` oturumdan; `updated_at` clamp `[now+5m]`; LWW; natural unique ihlali yakala → kanonik satır; `applied` sonucunda `row` döner; change log.
 - `settings`: `user_settings.data` JSON; rowId userId.
 - `activityLogs`: insert-only; `deletedAt` update; `updatedAt` yoksa sunucu zamanı.

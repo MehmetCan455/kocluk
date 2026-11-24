@@ -31,7 +31,7 @@ final class HealthTest extends TestCase
 
         $parsed = new DateTimeImmutable($serverTime);
 
-        self::assertSame('UTC', $parsed->getTimezone()->getName());
+        self::assertSame(0, $parsed->getOffset());
         self::assertLessThanOrEqual(5, abs($parsed->getTimestamp() - time()));
     }
 

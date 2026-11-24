@@ -1,0 +1,48 @@
+# Kocluk API — front controller, directory protection, no directory listing.
+#
+# Deployed as public_html/api/.htaccess. Every request under /api is answered
+# by index.php; source, tooling and dependency directories are never served.
+# AllowOverride must include "Options FileInfo AuthConfig" on the cPanel host.
+
+Options -Indexes
+DirectoryIndex index.php
+
+# Everything except the front controller is denied below. These blocks are the
+# fallback that also holds when mod_rewrite is unavailable.
+<IfModule mod_authz_core.c>
+    <FilesMatch "^(?!index\.php$).+\.php$">
+        Require all denied
+    </FilesMatch>
+
+    <FilesMatch "\.(?:sql|md|json|lock|dist)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    <FilesMatch "^(?!index\.php$).+\.php$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+
+    <FilesMatch "\.(?:sql|md|json|lock|dist)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Source, CLI, migration, test and vendor directories: 403, never listed.
+    RewriteRule ^(?:src|bin|migrations|tests|vendor)(?:/|$) - [F,NC,L]
+
+    # Configuration and tooling files.
+    RewriteRule ^(?:config\.php|config\.example\.php|composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?|\.gitignore)$ - [F,NC,L]
+
+    # Data and documentation artefacts anywhere in the tree.
+    RewriteRule \.(?:sql|md|json)$ - [F,NC,L]
+
+    # Unknown paths become the front controller; the router answers 404/405.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>

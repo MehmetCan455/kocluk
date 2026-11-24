@@ -24,4 +24,13 @@ final class Clock
     {
         return self::now()->format('Y-m-d H:i:s.u');
     }
+
+    /**
+     * ISO-8601 UTC timestamp with microseconds, e.g.
+     * "2026-11-24T12:00:00.000000Z"; the wire format for serverTime fields.
+     */
+    public static function iso(?DateTimeImmutable $at = null): string
+    {
+        return ($at ?? self::now())->format('Y-m-d\TH:i:s.u\Z');
+    }
 }

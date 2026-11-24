@@ -15,7 +15,11 @@ DirectoryIndex index.php
         Require all denied
     </FilesMatch>
 
-    <FilesMatch "\.(?:sql|md|json|lock|dist)$">
+    <FilesMatch "\.(?:sql|md|json|log|env|ini|bak|sh|dist|lock)$">
+        Require all denied
+    </FilesMatch>
+
+    <FilesMatch "^\.">
         Require all denied
     </FilesMatch>
 </IfModule>
@@ -25,7 +29,12 @@ DirectoryIndex index.php
         Deny from all
     </FilesMatch>
 
-    <FilesMatch "\.(?:sql|md|json|lock|dist)$">
+    <FilesMatch "\.(?:sql|md|json|log|env|ini|bak|sh|dist|lock)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+
+    <FilesMatch "^\.">
         Order allow,deny
         Deny from all
     </FilesMatch>
@@ -34,14 +43,20 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Source, CLI, migration, test and vendor directories: 403, never listed.
-    RewriteRule ^(?:src|bin|migrations|tests|vendor)(?:/|$) - [F,NC,L]
+    # Source, CLI, migration, test, vendor and VCS directories: 403. The
+    # leading "/*" tolerates "//src/..." paths: per-directory rewrite input
+    # keeps one leading slash when the request has a double slash.
+    RewriteRule ^/*(?:src|bin|migrations|tests|vendor|\.git)(?:/|$) - [F,NC,L]
 
     # Configuration and tooling files.
-    RewriteRule ^(?:config\.php|config\.example\.php|composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?|\.gitignore)$ - [F,NC,L]
+    RewriteRule ^/*(?:config\.php|config\.example\.php|composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?)$ - [F,NC,L]
 
-    # Data and documentation artefacts anywhere in the tree.
-    RewriteRule \.(?:sql|md|json)$ - [F,NC,L]
+    # Data, log and documentation artefacts anywhere in the tree. The API error
+    # log may sit next to an in-tree config, so .log must be denied too.
+    RewriteRule \.(?:sql|md|json|log|env|ini|bak|sh)$ - [F,NC,L]
+
+    # Dotfiles (.env, .gitignore, ...); ACME challenges stay reachable.
+    RewriteRule (?:^|/)\.(?!well-known(?:/|$)) - [F,NC,L]
 
     # Unknown paths become the front controller; the router answers 404/405.
     RewriteCond %{REQUEST_FILENAME} !-f

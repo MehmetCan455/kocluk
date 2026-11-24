@@ -7,6 +7,7 @@ namespace Kocluk\Api\Sync;
 use DateTimeImmutable;
 use DateTimeZone;
 use JsonException;
+use LogicException;
 use Throwable;
 
 /**
@@ -19,9 +20,10 @@ use Throwable;
  *   * `ownerKey`  client-side ownership field used only as an assertion
  *   * `pk`        API field that identifies a row
  *   * `columns`   API field => DB column
- *   * `required`  API fields that an upsert must carry
+ *   * `required`  API fields that an upsert must carry and may not be null
  *   * `immutable` API fields that cannot change after the first insert
  *   * `natural`   DB columns of the active natural key (unique index)
+ *   * `rules`     per-field type, maximum width/bytes, numeric range and enum
  *
  * The map also drives account export/deletion, so a new synced table cannot be
  * silently missing there. Only public API fields are produced by toApi();
@@ -44,6 +46,54 @@ final class TableMap
         'geometryMode',
     ];
 
+    private const EXAM_TYPE_VALUES = ['TYT', 'AYT'];
+
+    private const AYT_ALAN_VALUES = ['sayisal', 'ea', 'sozel', 'tumu'];
+
+    private const EXAM_KIND_VALUES = ['full', 'branch'];
+
+    private const BRANCH_VALUES = [
+        'tyt-turkce',
+        'tyt-sosyal',
+        'tyt-matematik',
+        'tyt-fen',
+        'ayt-sayisal-matematik',
+        'ayt-sayisal-fen',
+        'ayt-ea-matematik',
+        'ayt-ea-edebiyat-sosyal-1',
+        'ayt-sozel-edebiyat-sosyal-1',
+        'ayt-sozel-sosyal-2',
+    ];
+
+    private const USER_BOOK_STATUS_VALUES = ['active', 'completed', 'archived'];
+
+    private const ACTIVITY_TYPE_VALUES = ['book_pages', 'page_set', 'topic_review'];
+
+    private const ACTIVITY_SOURCE_VALUES = ['task', 'manual'];
+
+    private const SCHEDULE_TASK_TYPE_VALUES = ['book', 'topic', 'free'];
+
+    private const RULE_ID = ['type' => 'id'];
+
+    private const RULE_TIMESTAMP = ['type' => 'timestamp'];
+
+    private const RULE_DATE = ['type' => 'date'];
+
+    private const RULE_BOOL = ['type' => 'bool'];
+
+    private const RULE_TEXT = ['type' => 'string', 'maxBytes' => 65535];
+
+    private const RULE_MEDIUM_TEXT = ['type' => 'string', 'maxBytes' => 16777215];
+
+    private const RULE_ORDER = ['type' => 'int', 'min' => 0, 'max' => 2147483647];
+
+    private const RULE_UNSIGNED = ['type' => 'int', 'min' => 0, 'max' => 4294967295];
+
+    private const RULE_SMALL_UNSIGNED = ['type' => 'int', 'min' => 0, 'max' => 65535];
+
+    /** Monday = 1 … Sunday = 7, matching the client schedule domain. */
+    private const RULE_DAY_INDEX = ['type' => 'int', 'min' => 1, 'max' => 7];
+
     /** @var array<string, array<string, mixed>> */
     private const TABLES = [
         'subjects' => [
@@ -65,11 +115,17 @@ final class TableMap
             'required' => ['id', 'seedKey', 'exam', 'name', 'slug', 'icon', 'order', 'updatedAt'],
             'immutable' => ['id', 'seedKey'],
             'natural' => ['seed_key'],
-            'timestamps' => ['updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => ['order'],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'seedKey' => ['type' => 'string', 'max' => 64],
+                'exam' => ['type' => 'string', 'max' => 8, 'enum' => self::EXAM_TYPE_VALUES],
+                'name' => ['type' => 'string', 'max' => 255],
+                'slug' => ['type' => 'string', 'max' => 64],
+                'icon' => ['type' => 'string', 'max' => 64],
+                'order' => self::RULE_ORDER,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'topics' => [
             'table' => 'topics',
@@ -90,11 +146,17 @@ final class TableMap
             'required' => ['id', 'subjectId', 'name', 'order', 'isCustom', 'createdAt', 'updatedAt'],
             'immutable' => ['id', 'seedKey'],
             'natural' => ['seed_key'],
-            'timestamps' => ['createdAt', 'updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => ['isCustom'],
-            'integers' => ['order'],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'seedKey' => ['type' => 'string', 'max' => 64],
+                'subjectId' => self::RULE_ID,
+                'name' => ['type' => 'string', 'max' => 255],
+                'order' => self::RULE_ORDER,
+                'isCustom' => self::RULE_BOOL,
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'exams' => [
             'table' => 'exams',
@@ -117,11 +179,19 @@ final class TableMap
             'required' => ['id', 'type', 'name', 'date', 'note', 'createdAt', 'updatedAt'],
             'immutable' => ['id'],
             'natural' => [],
-            'timestamps' => ['createdAt', 'updatedAt', 'deletedAt'],
-            'dates' => ['date'],
-            'booleans' => [],
-            'integers' => [],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'type' => ['type' => 'string', 'max' => 8, 'enum' => self::EXAM_TYPE_VALUES],
+                'name' => ['type' => 'string', 'max' => 255],
+                'date' => self::RULE_DATE,
+                'alan' => ['type' => 'string', 'max' => 16, 'enum' => self::AYT_ALAN_VALUES],
+                'kind' => ['type' => 'string', 'max' => 16, 'enum' => self::EXAM_KIND_VALUES],
+                'branch' => ['type' => 'string', 'max' => 64, 'enum' => self::BRANCH_VALUES],
+                'note' => self::RULE_TEXT,
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'examResults' => [
             'table' => 'exam_results',
@@ -142,11 +212,17 @@ final class TableMap
             'required' => ['id', 'examId', 'subjectId', 'correct', 'wrong', 'blank', 'net', 'updatedAt'],
             'immutable' => ['id', 'examId', 'subjectId'],
             'natural' => ['exam_id', 'subject_id'],
-            'timestamps' => ['updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => ['correct', 'wrong', 'blank'],
-            'decimals' => ['net'],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'examId' => self::RULE_ID,
+                'subjectId' => self::RULE_ID,
+                'correct' => self::RULE_SMALL_UNSIGNED,
+                'wrong' => self::RULE_SMALL_UNSIGNED,
+                'blank' => self::RULE_SMALL_UNSIGNED,
+                'net' => ['type' => 'decimal', 'min' => -9999.99, 'max' => 9999.99],
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'notes' => [
             'table' => 'notes',
@@ -163,11 +239,13 @@ final class TableMap
             'required' => ['topicId', 'contentHtml', 'plainText', 'updatedAt'],
             'immutable' => ['topicId'],
             'natural' => [],
-            'timestamps' => ['updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => [],
-            'decimals' => [],
+            'rules' => [
+                'topicId' => self::RULE_ID,
+                'contentHtml' => self::RULE_MEDIUM_TEXT,
+                'plainText' => self::RULE_MEDIUM_TEXT,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'catalogBooks' => [
             'table' => 'catalog_books',
@@ -189,11 +267,18 @@ final class TableMap
             'required' => ['id', 'title', 'totalPages', 'createdAt', 'updatedAt'],
             'immutable' => ['id'],
             'natural' => [],
-            'timestamps' => ['createdAt', 'updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => ['totalPages'],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'title' => ['type' => 'string', 'max' => 255],
+                'publisher' => ['type' => 'string', 'max' => 255],
+                'exam' => ['type' => 'string', 'max' => 8, 'enum' => self::EXAM_TYPE_VALUES],
+                'subjectSlug' => ['type' => 'string', 'max' => 64],
+                'totalPages' => self::RULE_UNSIGNED,
+                'edition' => ['type' => 'string', 'max' => 64],
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'userBooks' => [
             'table' => 'user_books',
@@ -214,11 +299,17 @@ final class TableMap
             'required' => ['id', 'bookId', 'status', 'createdAt', 'updatedAt'],
             'immutable' => ['id', 'bookId'],
             'natural' => ['book_id'],
-            'timestamps' => ['startedAt', 'createdAt', 'updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => ['totalPagesOverride'],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'bookId' => self::RULE_ID,
+                'totalPagesOverride' => self::RULE_UNSIGNED,
+                'note' => self::RULE_TEXT,
+                'status' => ['type' => 'string', 'max' => 16, 'enum' => self::USER_BOOK_STATUS_VALUES],
+                'startedAt' => self::RULE_TIMESTAMP,
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'activityLogs' => [
             'table' => 'activity_logs',
@@ -240,11 +331,18 @@ final class TableMap
             'required' => ['id', 'type', 'source', 'createdAt'],
             'immutable' => ['id'],
             'natural' => ['task_id'],
-            'timestamps' => ['createdAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => ['fromPage', 'toPage'],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'type' => ['type' => 'string', 'max' => 32, 'enum' => self::ACTIVITY_TYPE_VALUES],
+                'userBookId' => self::RULE_ID,
+                'topicId' => self::RULE_ID,
+                'fromPage' => self::RULE_UNSIGNED,
+                'toPage' => self::RULE_UNSIGNED,
+                'taskId' => self::RULE_ID,
+                'source' => ['type' => 'string', 'max' => 16, 'enum' => self::ACTIVITY_SOURCE_VALUES],
+                'createdAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
             'insertOnly' => true,
         ],
         'scheduleWeeks' => [
@@ -263,11 +361,14 @@ final class TableMap
             'required' => ['id', 'weekStart', 'note', 'createdAt', 'updatedAt'],
             'immutable' => ['id', 'weekStart'],
             'natural' => ['week_start'],
-            'timestamps' => ['createdAt', 'updatedAt', 'deletedAt'],
-            'dates' => ['weekStart'],
-            'booleans' => [],
-            'integers' => [],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'weekStart' => self::RULE_DATE,
+                'note' => self::RULE_TEXT,
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'scheduleRows' => [
             'table' => 'schedule_rows',
@@ -287,11 +388,16 @@ final class TableMap
             'required' => ['id', 'weekId', 'label', 'order', 'createdAt', 'updatedAt'],
             'immutable' => ['id'],
             'natural' => [],
-            'timestamps' => ['createdAt', 'updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => ['order'],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'weekId' => self::RULE_ID,
+                'subjectId' => self::RULE_ID,
+                'label' => ['type' => 'string', 'max' => 255],
+                'order' => self::RULE_ORDER,
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'scheduleTasks' => [
             'table' => 'schedule_tasks',
@@ -318,11 +424,23 @@ final class TableMap
             'required' => ['id', 'weekId', 'rowId', 'dayIndex', 'type', 'createdAt', 'updatedAt'],
             'immutable' => ['id'],
             'natural' => [],
-            'timestamps' => ['completedAt', 'missedAt', 'createdAt', 'updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => ['dayIndex', 'fromPage', 'toPage'],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'weekId' => self::RULE_ID,
+                'rowId' => self::RULE_ID,
+                'dayIndex' => self::RULE_DAY_INDEX,
+                'type' => ['type' => 'string', 'max' => 16, 'enum' => self::SCHEDULE_TASK_TYPE_VALUES],
+                'userBookId' => self::RULE_ID,
+                'fromPage' => self::RULE_UNSIGNED,
+                'toPage' => self::RULE_UNSIGNED,
+                'topicId' => self::RULE_ID,
+                'title' => ['type' => 'string', 'max' => 255],
+                'completedAt' => self::RULE_TIMESTAMP,
+                'missedAt' => self::RULE_TIMESTAMP,
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'topicProgress' => [
             'table' => 'topic_progress',
@@ -340,11 +458,14 @@ final class TableMap
             'required' => ['id', 'topicId', 'done', 'updatedAt'],
             'immutable' => ['id', 'topicId'],
             'natural' => ['topic_id'],
-            'timestamps' => ['doneAt', 'updatedAt', 'deletedAt'],
-            'dates' => [],
-            'booleans' => ['done'],
-            'integers' => [],
-            'decimals' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'topicId' => self::RULE_ID,
+                'done' => self::RULE_BOOL,
+                'doneAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
         ],
         'settings' => [
             'table' => 'user_settings',
@@ -357,11 +478,10 @@ final class TableMap
             'required' => ['userId', 'updatedAt'],
             'immutable' => ['userId'],
             'natural' => [],
-            'timestamps' => ['updatedAt'],
-            'dates' => [],
-            'booleans' => [],
-            'integers' => [],
-            'decimals' => [],
+            'rules' => [
+                'userId' => self::RULE_ID,
+                'updatedAt' => self::RULE_TIMESTAMP,
+            ],
             'json' => 'data',
             'settings' => self::ACCOUNT_SETTINGS,
         ],
@@ -378,6 +498,16 @@ final class TableMap
     public static function has(string $apiKey): bool
     {
         return isset(self::TABLES[$apiKey]);
+    }
+
+    /**
+     * Account-level setting names accepted and returned by the sync API.
+     *
+     * @return list<string>
+     */
+    public static function settingsFields(): array
+    {
+        return self::ACCOUNT_SETTINGS;
     }
 
     /**
@@ -422,8 +552,7 @@ final class TableMap
     }
 
     /**
-     * Rejects fields that are not part of the public API row. Called before
-     * any row of a push batch is written so a typo cannot partially apply.
+     * Rejects fields that are not part of the public API row.
      *
      * @param array<string, mixed> $row
      */
@@ -444,6 +573,10 @@ final class TableMap
      * API row => DB column values. Optional fields absent from the row are
      * written as NULL because a client row is a full replacement, not a patch.
      *
+     * Required fields must be present and non-null; every value is checked
+     * against its type, maximum width/bytes, numeric range and enum before it
+     * reaches MariaDB, so malformed rows stay row-level validation errors.
+     *
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */
@@ -457,16 +590,28 @@ final class TableMap
             if (!array_key_exists($field, $row)) {
                 throw new InvalidRowValue('validation_failed', 'Zorunlu alan eksik: ' . $field);
             }
+
+            if ($row[$field] === null) {
+                throw new InvalidRowValue('validation_failed', 'Zorunlu alan null olamaz: ' . $field);
+            }
+        }
+
+        // Settings have no userId column; validate the identity field that is
+        // only carried by the wire row.
+        $pk = (string) $definition['pk'];
+
+        if (!isset($definition['columns'][$pk]) && array_key_exists($pk, $row)) {
+            self::toDbValue($row[$pk], $definition, $pk);
         }
 
         $db = [];
 
         foreach ($definition['columns'] as $field => $column) {
             $field = (string) $field;
-            $hasValue = array_key_exists($field, $row);
+            $hasValue = array_key_exists($field, $row) && $row[$field] !== null;
 
             $db[$column] = $hasValue
-                ? self::toDbValue($column, $row[$field], $definition, $field)
+                ? self::toDbValue($row[$field], $definition, $field)
                 : null;
         }
 
@@ -494,7 +639,9 @@ final class TableMap
 
     /**
      * DB row => public API fields. Unknown DB columns (server_updated_at,
-     * active_* and the ownership column) are not copied.
+     * active_* and the ownership column) are not copied. The settings read
+     * path filters the stored JSON through the account-level allowlist so a
+     * legacy device key never leaks back to a client.
      *
      * @param array<string, mixed> $row
      * @return array<string, mixed>
@@ -504,29 +651,13 @@ final class TableMap
         $definition = self::definition($apiKey);
 
         if (isset($definition['json'])) {
+            $data = self::settingsData($row[$definition['json']] ?? null);
             $api = [];
 
-            $data = [];
-
-            if (isset($row[$definition['json']]) && is_string($row[$definition['json']])) {
-                try {
-                    $decoded = json_decode(
-                        (string) $row[$definition['json']],
-                        true,
-                        64,
-                        JSON_THROW_ON_ERROR,
-                    );
-
-                    if (is_array($decoded)) {
-                        $data = $decoded;
-                    }
-                } catch (JsonException) {
-                    $data = [];
+            foreach (self::ACCOUNT_SETTINGS as $field) {
+                if (array_key_exists($field, $data)) {
+                    $api[$field] = $data[$field];
                 }
-            }
-
-            foreach ($data as $field => $value) {
-                $api[(string) $field] = $value;
             }
 
             // Identity and LWW fields are server-owned; stored JSON cannot
@@ -547,7 +678,7 @@ final class TableMap
                 continue;
             }
 
-            $api[$field] = self::toApiValue($field, $column, $row[$column], $definition);
+            $api[$field] = self::toApiValue($field, $row[$column], $definition);
         }
 
         return $api;
@@ -638,69 +769,107 @@ final class TableMap
     /**
      * @param array<string, mixed> $definition
      */
-    private static function toDbValue(
-        string $column,
-        mixed $value,
-        array $definition,
-        string $field,
-    ): mixed {
-        if ($value === null) {
-            return null;
+    private static function toDbValue(mixed $value, array $definition, string $field): mixed
+    {
+        $rule = $definition['rules'][$field] ?? null;
+
+        if (!is_array($rule)) {
+            throw new LogicException('Eksik alan kuralı: ' . $field);
         }
 
-        if (in_array($field, $definition['timestamps'], true)) {
-            return self::timestampSql($value, $field);
-        }
+        return match ((string) ($rule['type'] ?? 'string')) {
+            'id' => self::assertRowId($value, $field),
+            'timestamp' => self::timestampSql($value, $field),
+            'date' => self::dateSql($value, $field),
+            'bool' => self::boolSql($value, $field),
+            'int' => self::intSql($value, $rule, $field),
+            'decimal' => self::decimalSql($value, $rule, $field),
+            'string' => self::textSql($value, $rule, $field),
+            default => throw new InvalidRowValue('validation_failed', 'Geçersiz alan tipi: ' . $field),
+        };
+    }
 
-        if (in_array($field, $definition['dates'], true)) {
-            return self::dateSql($value, $field);
-        }
-
-        if (in_array($field, $definition['booleans'], true)) {
-            if (is_bool($value)) {
-                return $value ? 1 : 0;
-            }
-
-            if ($value === 0 || $value === 1) {
-                return $value;
-            }
-
-            throw new InvalidRowValue('validation_failed', 'Geçersiz mantıksal değer: ' . $field);
-        }
-
-        if (in_array($field, $definition['integers'], true)) {
-            if (is_int($value)) {
-                return $value;
-            }
-
-            if (is_string($value) && preg_match('/^-?\d+$/', $value) === 1) {
-                return (int) $value;
-            }
-
-            throw new InvalidRowValue('validation_failed', 'Geçersiz sayı: ' . $field);
-        }
-
-        if (in_array($field, $definition['decimals'], true)) {
-            if (is_int($value) || is_float($value)) {
-                return (string) $value;
-            }
-
-            if (is_string($value) && is_numeric($value)) {
-                return $value;
-            }
-
-            throw new InvalidRowValue('validation_failed', 'Geçersiz sayı: ' . $field);
-        }
-
+    /**
+     * @param array<string, mixed> $rule
+     */
+    private static function textSql(mixed $value, array $rule, string $field): string
+    {
         if (!is_string($value)) {
             throw new InvalidRowValue('validation_failed', 'Metin bekleniyordu: ' . $field);
         }
 
-        if ($column === 'id' || str_ends_with($column, '_id')) {
-            return self::assertRowId($value, $field);
+        if (isset($rule['max']) && mb_strlen($value) > (int) $rule['max']) {
+            throw new InvalidRowValue('validation_failed', 'Metin çok uzun: ' . $field);
+        }
+
+        if (isset($rule['maxBytes']) && strlen($value) > (int) $rule['maxBytes']) {
+            throw new InvalidRowValue('validation_failed', 'Metin çok uzun: ' . $field);
+        }
+
+        if (isset($rule['enum']) && !in_array($value, $rule['enum'], true)) {
+            throw new InvalidRowValue('validation_failed', 'Geçersiz değer: ' . $field);
         }
 
         return $value;
+    }
+
+    /**
+     * @param array<string, mixed> $rule
+     */
+    private static function intSql(mixed $value, array $rule, string $field): int
+    {
+        if (is_int($value)) {
+            $number = $value;
+        } elseif (is_string($value) && preg_match('/^-?\d+$/', $value) === 1) {
+            $number = (int) $value;
+        } else {
+            throw new InvalidRowValue('validation_failed', 'Geçersiz sayı: ' . $field);
+        }
+
+        $min = isset($rule['min']) ? (int) $rule['min'] : PHP_INT_MIN;
+        $max = isset($rule['max']) ? (int) $rule['max'] : PHP_INT_MAX;
+
+        if ($number < $min || $number > $max) {
+            throw new InvalidRowValue('validation_failed', 'Sayı aralık dışında: ' . $field);
+        }
+
+        return $number;
+    }
+
+    /**
+     * @param array<string, mixed> $rule
+     */
+    private static function decimalSql(mixed $value, array $rule, string $field): string
+    {
+        if (is_int($value) || is_float($value)) {
+            $number = (float) $value;
+        } elseif (is_string($value) && is_numeric($value)) {
+            $number = (float) $value;
+        } else {
+            throw new InvalidRowValue('validation_failed', 'Geçersiz sayı: ' . $field);
+        }
+
+        $min = isset($rule['min']) ? (float) $rule['min'] : -PHP_FLOAT_MAX;
+        $max = isset($rule['max']) ? (float) $rule['max'] : PHP_FLOAT_MAX;
+
+        if ($number < $min || $number > $max) {
+            throw new InvalidRowValue('validation_failed', 'Sayı aralık dışında: ' . $field);
+        }
+
+        return is_string($value) ? $value : (string) $value;
+    }
+
+    private static function boolSql(mixed $value, string $field): int
+    {
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
+        }
+
+        if ($value === 0 || $value === 1) {
+            return $value;
+        }
+
+        throw new InvalidRowValue('validation_failed', 'Geçersiz mantıksal değer: ' . $field);
     }
 
     private static function dateSql(mixed $value, string $field): string
@@ -726,29 +895,39 @@ final class TableMap
     /**
      * @param array<string, mixed> $definition
      */
-    private static function toApiValue(
-        string $field,
-        string $column,
-        mixed $value,
-        array $definition,
-    ): mixed {
+    private static function toApiValue(string $field, mixed $value, array $definition): mixed
+    {
         if ($value === null) {
             return null;
         }
 
-        if (in_array($field, $definition['timestamps'], true)) {
-            return self::apiTimestamp($value);
+        $rule = $definition['rules'][$field] ?? null;
+        $type = is_array($rule) ? (string) ($rule['type'] ?? 'string') : 'string';
+
+        return match ($type) {
+            'timestamp' => self::apiTimestamp($value),
+            'bool' => (bool) (int) $value,
+            'int' => (int) $value,
+            default => $value,
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function settingsData(mixed $value): array
+    {
+        if (!is_string($value)) {
+            return [];
         }
 
-        if (in_array($field, $definition['booleans'], true)) {
-            return (bool) (int) $value;
+        try {
+            $decoded = json_decode($value, true, 64, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
         }
 
-        if (in_array($field, $definition['integers'], true)) {
-            return (int) $value;
-        }
-
-        return $value;
+        return is_array($decoded) ? $decoded : [];
     }
 
     private static function apiTimestamp(mixed $value): ?string

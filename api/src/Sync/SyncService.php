@@ -83,14 +83,9 @@ final class SyncService
             );
         }
 
-        foreach ($changes as $change) {
-            $this->assertChangeShape($change);
-        }
-
         $results = [];
 
         foreach ($changes as $change) {
-            /** @var array<string, mixed> $change */
             $results[] = $this->apply($userId, $change);
         }
 
@@ -98,22 +93,64 @@ final class SyncService
     }
 
     /**
-     * @param array<string, mixed> $change
+     * Applies one change. Row shape problems (unknown table/field, bad op,
+     * missing row, invalid value) are row-level errors here and never stop the
+     * neighbours. Only the request envelope and the 100-change / 1 MB limits
+     * abort the whole batch.
+     *
      * @return array<string, mixed>
      */
-    private function apply(string $userId, array $change): array
+    private function apply(string $userId, mixed $change): array
     {
-        $table = (string) $change['table'];
-        $op = (string) $change['op'];
+        if (!is_array($change)) {
+            return self::errorRow('', null, 'validation_failed', 'Değişiklik nesnesi bekleniyordu.');
+        }
+
+        $table = $change['table'] ?? null;
+
+        if (!is_string($table) || !TableMap::has($table)) {
+            return self::errorRow(
+                is_string($table) ? $table : '',
+                null,
+                is_string($table) ? 'unknown_table' : 'validation_failed',
+                is_string($table) ? 'Bilinmeyen tablo: ' . $table : 'table alanı zorunlu.',
+            );
+        }
+
         $definition = TableMap::definition($table);
-        $ownerKey = (string) $definition['ownerKey'];
+        $op = $change['op'] ?? null;
+
+        if (!in_array($op, ['upsert', 'delete'], true)) {
+            return self::errorRow($table, null, 'validation_failed', 'op upsert veya delete olmalı.');
+        }
+
         $row = is_array($change['row'] ?? null) ? $change['row'] : null;
+
+        if ($op === 'upsert' && $row === null) {
+            return self::errorRow($table, null, 'validation_failed', 'upsert için row zorunlu.');
+        }
+
+        $rowIdHint = self::rowIdHint($definition, $row);
+
+        if ($row !== null) {
+            try {
+                TableMap::assertFields($table, $row);
+            } catch (InvalidRowValue $error) {
+                return self::errorRow($table, $rowIdHint, $error->errorCode, $error->getMessage());
+            }
+        }
+
+        if ($op === 'delete' && $row === null && !is_string($change['rowId'] ?? null)) {
+            return self::errorRow($table, null, 'validation_failed', 'delete için rowId zorunlu.');
+        }
+
+        $ownerKey = (string) $definition['ownerKey'];
 
         if ($row !== null && array_key_exists($ownerKey, $row)) {
             $claimed = $row[$ownerKey];
 
             if (!is_string($claimed) || !hash_equals($userId, $claimed)) {
-                return self::errorRow($table, null, 'forbidden', 'Bu satır başka bir hesaba ait.');
+                return self::errorRow($table, $rowIdHint, 'forbidden', 'Bu satır başka bir hesaba ait.');
             }
         }
 
@@ -133,7 +170,7 @@ final class SyncService
             try {
                 $rowId = TableMap::rowId($table, $row);
             } catch (InvalidRowValue $error) {
-                return self::errorRow($table, null, $error->errorCode, $error->getMessage());
+                return self::errorRow($table, $rowIdHint, $error->errorCode, $error->getMessage());
             }
         }
 
@@ -153,6 +190,15 @@ final class SyncService
             return $this->applyUpsert($userId, $table, $rowId, $row);
         } catch (InvalidRowValue $error) {
             return self::errorRow($table, $rowId, $error->errorCode, $error->getMessage());
+        } catch (PDOException $error) {
+            // Safety net for values that still reach MariaDB (for example a
+            // column added without a TableMap rule): SQLSTATE 22xxx/23xxx are
+            // data errors and must stay row-level, not become a batch 500.
+            if (self::isDataError($error)) {
+                return self::errorRow($table, $rowId, 'validation_failed', 'Satır verisi geçersiz.');
+            }
+
+            throw $error;
         }
     }
 
@@ -184,6 +230,10 @@ final class SyncService
             $timestamp,
             $adjusted,
         ): array {
+            if (!$this->lockUser($userId)) {
+                return self::errorRow($table, $rowId, 'forbidden', 'Hesap bulunamadı.');
+            }
+
             $existing = $this->fetchExisting($userId, $table, $rowId);
 
             if ($existing === null) {
@@ -220,6 +270,10 @@ final class SyncService
         $dbRow = TableMap::toDb($table, $row);
 
         return $this->database->transaction(function () use ($userId, $table, $rowId, $dbRow): array {
+            if (!$this->lockUser($userId)) {
+                return self::errorRow($table, $rowId, 'forbidden', 'Hesap bulunamadı.');
+            }
+
             $existing = $this->fetchExisting($userId, $table, $rowId);
 
             if ($existing !== null) {
@@ -291,6 +345,10 @@ final class SyncService
             $timestamp,
             $adjusted,
         ): array {
+            if (!$this->lockUser($userId)) {
+                return self::errorRow($table, $rowId, 'forbidden', 'Hesap bulunamadı.');
+            }
+
             $existing = $this->fetchExisting($userId, $table, $rowId);
 
             if ($existing === null) {
@@ -520,7 +578,7 @@ final class SyncService
         return $this->database->fetchOne(
             sprintf(
                 'SELECT %s FROM `%s` WHERE `%s` = ? AND %s AND `deleted_at` IS NULL'
-                . ' ORDER BY `server_updated_at` DESC LIMIT 1',
+                . ' ORDER BY `server_updated_at` DESC LIMIT 1 FOR UPDATE',
                 self::columnList(self::selectColumns($table)),
                 $definition['table'],
                 $definition['owner'],
@@ -555,49 +613,37 @@ final class SyncService
     }
 
     /**
-     * @param array<string, mixed> $change
+     * Locks the account row for the duration of one push row transaction.
+     *
+     * Account deletion locks the same users row first, so either the delete
+     * waits and then removes the freshly written rows, or this push sees the
+     * account gone and writes nothing.
      */
-    private function assertChangeShape(mixed $change): void
+    private function lockUser(string $userId): bool
     {
-        if (!is_array($change)) {
-            throw self::requestError('validation_failed', 'Değişiklik nesnesi bekleniyordu.');
+        return $this->database->fetchOne(
+            'SELECT `id` FROM `users` WHERE `id` = ? AND `deleted_at` IS NULL FOR UPDATE',
+            [$userId],
+        ) !== null;
+    }
+
+    /**
+     * Best-effort row id for an error result, so the client can mark the
+     * offending queue entry without trusting an invalid id.
+     *
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed>|null $row
+     */
+    private static function rowIdHint(array $definition, ?array $row): ?string
+    {
+        if ($row === null) {
+            return null;
         }
 
-        $table = $change['table'] ?? null;
+        $pk = (string) $definition['pk'];
+        $value = $row[$pk] ?? null;
 
-        if (!is_string($table)) {
-            throw self::requestError('validation_failed', 'table alanı zorunlu.');
-        }
-
-        try {
-            TableMap::definition($table);
-        } catch (InvalidRowValue $error) {
-            throw self::requestError($error->errorCode, $error->getMessage());
-        }
-
-        $op = $change['op'] ?? null;
-
-        if (!in_array($op, ['upsert', 'delete'], true)) {
-            throw self::requestError('validation_failed', 'op upsert veya delete olmalı.');
-        }
-
-        $row = $change['row'] ?? null;
-
-        if ($op === 'upsert' && !is_array($row)) {
-            throw self::requestError('validation_failed', 'upsert için row zorunlu.');
-        }
-
-        if (is_array($row)) {
-            try {
-                TableMap::assertFields($table, $row);
-            } catch (InvalidRowValue $error) {
-                throw self::requestError($error->errorCode, $error->getMessage());
-            }
-        }
-
-        if ($op === 'delete' && !is_array($row) && !is_string($change['rowId'] ?? null)) {
-            throw self::requestError('validation_failed', 'delete için rowId zorunlu.');
-        }
+        return is_string($value) && $value !== '' && strlen($value) <= 36 ? $value : null;
     }
 
     /**
@@ -691,5 +737,18 @@ final class SyncService
     private static function isDuplicate(PDOException $error): bool
     {
         return $error->getCode() === '23000' && (int) ($error->errorInfo[1] ?? 0) === 1062;
+    }
+
+    /**
+     * SQLSTATE class 22 (data exception) and 23 (integrity constraint) are
+     * caused by the submitted row, not by the server. They are mapped to a
+     * row-level validation error; connection, deadlock and syntax errors keep
+     * their 500.
+     */
+    private static function isDataError(PDOException $error): bool
+    {
+        $state = (string) $error->getCode();
+
+        return str_starts_with($state, '22') || str_starts_with($state, '23');
     }
 }

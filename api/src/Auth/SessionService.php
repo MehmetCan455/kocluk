@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Http\Request;
+use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\Clock;
 use Kocluk\Api\Support\Uuid;
 
@@ -65,35 +66,55 @@ final class SessionService
     /**
      * Creates a session row and returns the raw token for the cookie.
      *
+     * The users row is locked FOR UPDATE in the same transaction as the
+     * session INSERT. Account deletion locks the same row, so a login racing a
+     * delete either waits (and its session is then removed) or sees the
+     * account gone and writes no session.
+     *
      * @return array{token: string, csrfToken: string, expiresAt: string, createdAt: string}
      */
     public function create(string $userId, Request $request): array
     {
-        $token = Uuid::token(32);
-        $csrfToken = Uuid::token(32);
-        $now = Clock::now();
-        $expiresAt = $now->modify('+' . self::SLIDING_TTL_DAYS . ' days');
+        return $this->database->transaction(function () use ($userId, $request): array {
+            $user = $this->database->fetchOne(
+                'SELECT `id` FROM `users` WHERE `id` = ? AND `deleted_at` IS NULL FOR UPDATE',
+                [$userId],
+            );
 
-        $this->database->execute(
-            'INSERT INTO `sessions` (`id`, `user_id`, `csrf_token`, `expires_at`, `created_at`, `last_seen_at`, `ip`)'
-            . ' VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [
-                Uuid::hashToken($token),
-                $userId,
-                $csrfToken,
-                self::sql($expiresAt),
-                self::sql($now),
-                self::sql($now),
-                self::normaliseIp($request->ip),
-            ],
-        );
+            if ($user === null) {
+                throw new ApiException(
+                    'unauthenticated',
+                    'Oturum oluşturulamadı.',
+                    401,
+                );
+            }
 
-        return [
-            'token' => $token,
-            'csrfToken' => $csrfToken,
-            'expiresAt' => self::sql($expiresAt),
-            'createdAt' => self::sql($now),
-        ];
+            $token = Uuid::token(32);
+            $csrfToken = Uuid::token(32);
+            $now = Clock::now();
+            $expiresAt = $now->modify('+' . self::SLIDING_TTL_DAYS . ' days');
+
+            $this->database->execute(
+                'INSERT INTO `sessions` (`id`, `user_id`, `csrf_token`, `expires_at`, `created_at`, `last_seen_at`, `ip`)'
+                . ' VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [
+                    Uuid::hashToken($token),
+                    $userId,
+                    $csrfToken,
+                    self::sql($expiresAt),
+                    self::sql($now),
+                    self::sql($now),
+                    self::normaliseIp($request->ip),
+                ],
+            );
+
+            return [
+                'token' => $token,
+                'csrfToken' => $csrfToken,
+                'expiresAt' => self::sql($expiresAt),
+                'createdAt' => self::sql($now),
+            ];
+        });
     }
 
     /**

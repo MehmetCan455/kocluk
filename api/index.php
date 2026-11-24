@@ -26,7 +26,10 @@ try {
     $configPath = getenv('KOCLUK_CONFIG') ?: null;
 
     if ($configPath === null) {
-        foreach ([__DIR__ . '/config.php', '/home/u2964068/kocluk-config.php'] as $candidate) {
+        // Prefer the file outside public_html. api/config.php is only a local
+        // development fallback and is denied by .htaccess; it must never
+        // shadow the production configuration.
+        foreach (['/home/u2964068/kocluk-config.php', __DIR__ . '/config.php'] as $candidate) {
             if (is_file($candidate)) {
                 $configPath = $candidate;
                 break;

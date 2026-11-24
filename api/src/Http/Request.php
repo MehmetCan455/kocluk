@@ -34,6 +34,7 @@ final class Request
         private readonly array $query,
         private readonly string $body,
         public readonly string $ip,
+        private readonly bool $secure = false,
     ) {
         if (strlen($body) > self::MAX_BODY_BYTES) {
             throw self::bodyTooLarge();
@@ -66,6 +67,7 @@ final class Request
             $query,
             self::readBody(),
             (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
+            self::detectSecure(),
         );
     }
 
@@ -83,6 +85,7 @@ final class Request
         string $body = '',
         array $cookies = [],
         string $ip = '127.0.0.1',
+        bool $secure = false,
     ): self {
         [$path, $query] = self::parseTarget($target);
 
@@ -92,7 +95,16 @@ final class Request
             $normalised[strtolower($name)] = $value;
         }
 
-        return new self(strtoupper($method), $path, $normalised, $cookies, $query, $body, $ip);
+        return new self(strtoupper($method), $path, $normalised, $cookies, $query, $body, $ip, $secure);
+    }
+
+    /**
+     * Whether the request reached PHP over TLS. Session cookies use Secure in
+     * production regardless; this covers staging/development over HTTPS.
+     */
+    public function isSecure(): bool
+    {
+        return $this->secure;
     }
 
     /**
@@ -215,6 +227,21 @@ final class Request
         fclose($handle);
 
         return $body === false ? '' : $body;
+    }
+
+    /**
+     * TLS is reported by the web server itself ($_SERVER['HTTPS'] or the
+     * listening port); proxy headers such as X-Forwarded-Proto are not trusted.
+     */
+    private static function detectSecure(): bool
+    {
+        $https = $_SERVER['HTTPS'] ?? '';
+
+        if (is_string($https) && $https !== '' && strtolower($https) !== 'off') {
+            return true;
+        }
+
+        return (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
     }
 
     private static function bodyTooLarge(): ApiException

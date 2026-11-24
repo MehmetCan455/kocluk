@@ -9,13 +9,15 @@ use PHPMailer\PHPMailer\PHPMailer;
 use Throwable;
 
 /**
- * SMTP transport backed by the vendored PHPMailer 6.x sources (spec §7.4).
+ * SMTP transport backed by the vendored PHPMailer sources (spec §7.4).
  *
- * The cPanel host has no Composer, so api/lib/PHPMailer is committed and the
- * three class files are required here. Configuration comes from
- * config.mail (host, port, username, password, encryption, from_address,
- * from_name). Any transport failure becomes mail_failed / 502; the caller
- * decides whether that aborts the request (never for registration).
+ * Vendored from PHPMailer/PHPMailer v6.9.3 (LGPL-2.1; see
+ * api/lib/PHPMailer/LICENSE). The cPanel host has no Composer, so that
+ * directory is committed and the three class files are required here.
+ * Configuration comes from config.mail (host, port, username, password,
+ * encryption, from_address, from_name). Any transport failure becomes
+ * mail_failed / 502; the caller decides whether that aborts the request
+ * (never for registration).
  */
 final class PhpMailerMailer implements Mailer
 {
@@ -35,12 +37,12 @@ final class PhpMailerMailer implements Mailer
     {
         $mail = $config['mail'] ?? null;
         $this->mailConfig = is_array($mail) ? $mail : [];
-
-        $this->loadVendor();
     }
 
     public function send(string $to, string $subject, string $html): void
     {
+        $this->loadVendor();
+
         try {
             $port = $this->port();
             $encryption = $this->encryption($port);

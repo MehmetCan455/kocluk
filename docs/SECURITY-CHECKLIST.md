@@ -235,8 +235,8 @@ Açık güvenlik bulguları:
 - [x] Geçici `--defaults-extra-file` `0600`; parola process listesinde yok.
 - [x] gzip (`wb9`); dosya adı `kocluk-YYYYMMDD-HHMMSS.sql.gz`.
 - [x] **Tüm kopyalarda 14 gün saklama:** günlük, Pazar `weekly/` ve offsite
-      kopyaları aynı 14 gün sınırıyla silinir. 56 günlük haftalık arşiv yoktur;
-      tasarım §11'deki 14 gün sözü ile uyumludur.
+      kopyaları aynı 14 gün sınırıyla silinir; tasarım §11'deki 14 gün sözü ile
+      uyumludur.
 - [x] `public_html` içindeki dizin reddedilir; dizin `0700`, dosya `0600`.
 - [x] Offsite dizini verilirse kopyalar ve orada da 14 gün temizlik yapar;
       verilmezse uyarır.

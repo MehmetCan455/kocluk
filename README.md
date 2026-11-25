@@ -209,7 +209,7 @@ Sunucuda günlük yedek `api/bin/backup.php` ile alınır:
   satır satır `SELECT`).
 - Çıktı gzip: `/home/u2964068/kocluk-backups/kocluk-YYYYMMDD-HHMMSS.sql.gz`.
 - 14 gün günlük saklama; Pazar günleri `weekly/` altında **en fazla 14 günlük**
-  kopya. Haftalık kopya da 14 günden eskiyse silinir; 56 günlük arşiv yoktur.
+  kopya. Haftalık kopya da 14 günden eskiyse silinir.
 - Yedek dizini `public_html` dışında, izin `700`; dosyalar `600`.
 - `backup.offsite_dir` tanımlıysa ayrıca oraya kopyalanır ve orada da 14 gün
   saklanır. Tanımlı değilse haftalık olarak şifreli biçimde bilgisayara indir;

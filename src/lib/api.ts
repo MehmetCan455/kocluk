@@ -204,10 +204,22 @@ async function request<T>(
     return undefined as T;
   }
   if (payload === undefined) {
+    // A 2xx that is not JSON is not an application answer: a host/WAF page, a
+    // captive portal or a proxy interrupted the response. Keep the status and
+    // content type so a beta report identifies the source without logging the
+    // body (which may contain a portal or account page).
+    const contentType = response.headers.get('Content-Type');
+    const server = response.headers.get('Server');
+    const details = { status: response.status, contentType, server, path };
+    const typeLabel = contentType?.split(';')[0]?.trim() || 'bilinmeyen içerik';
+
+    console.warn('kocluk-api: JSON olmayan yanıt', details);
+
     throw new ApiError(
       response.status,
       'invalid_response',
-      'Sunucu geçerli bir JSON yanıtı döndürmedi.',
+      `Sunucudan beklenmeyen bir yanıt geldi (HTTP ${response.status}, ${typeLabel}); otomatik olarak yeniden denenecek.`,
+      details,
     );
   }
 

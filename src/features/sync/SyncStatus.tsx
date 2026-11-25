@@ -294,7 +294,9 @@ export function SyncStatus({ variant = 'panel', state, onSyncNow }: SyncStatusPr
 
       {sync.status === 'offline' ? (
         <p className="text-sm text-muted">
-          İnternet bağlantısı gelince otomatik olarak yeniden denenecek.
+          Bağlantı kurulamadı; internet gelince otomatik olarak yeniden denenecek.
+          İnternet açıksa <span className="font-medium">Şimdi senkronize et</span>’e
+          bas.
         </p>
       ) : null}
 

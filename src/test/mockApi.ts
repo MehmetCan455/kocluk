@@ -21,6 +21,8 @@ export interface MockApiCall {
 export interface MockApiResponse {
   status?: number;
   body?: unknown;
+  /** Unparsed body (e.g. an HTML error page); `body` is JSON-encoded. */
+  rawBody?: string;
   headers?: Record<string, string>;
   /** Simulate a transport failure instead of an HTTP response. */
   networkError?: true;
@@ -72,6 +74,12 @@ function toResponse(reply: MockApiResponse): Response {
     body = JSON.stringify(reply.body);
     if (!headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json; charset=utf-8');
+    }
+  }
+  if (reply.rawBody !== undefined && status !== 204) {
+    body = reply.rawBody;
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'text/html; charset=utf-8');
     }
   }
 

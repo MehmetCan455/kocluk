@@ -159,3 +159,29 @@ test('ağ hatasını status 0 ve network_error olarak döndürür', async () => 
   expect(error.details).toBeNull();
   expect(error.message).toContain('ulaşılamadı');
 });
+
+test('2xx HTML yanıtını teşhis bilgisiyle invalid_response yapar', async () => {
+  installMockApi({
+    'GET /api/sync/status': {
+      status: 200,
+      rawBody: '<!DOCTYPE html><html><body>Ara sunucu sayfası</body></html>',
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        Server: 'LiteSpeed',
+      },
+    },
+  });
+
+  const error = await captureError(api.get('/api/sync/status'));
+
+  expect(error.status).toBe(200);
+  expect(error.code).toBe('invalid_response');
+  expect(error.details).toMatchObject({
+    status: 200,
+    contentType: 'text/html; charset=utf-8',
+    server: 'LiteSpeed',
+  });
+  expect(error.message).toContain('text/html');
+  expect(error.message).toContain('yeniden denenecek');
+  expect(error.message).not.toContain('DOCTYPE');
+});

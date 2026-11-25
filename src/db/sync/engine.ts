@@ -183,7 +183,11 @@ async function runSync(
   // databases opened outside `dbManager` (tests, future restore flows).
   setSettingsSyncEnabled(db, initialPullDone);
 
-  if (!browserOnline()) {
+  if (!browserOnline() && !options.forceStatus) {
+    // `navigator.onLine` is only a hint: it is false on some VPNs, after
+    // sleep/resume and in embedded browsers while traffic still works. An
+    // explicit (app-open/manual) run therefore tries the network anyway; a
+    // real outage still ends as `offline` through the transport error.
     const counts = await readCounts(db);
     return {
       status: 'offline',
@@ -295,9 +299,11 @@ async function retryDelay(db: KoclukDB, error: unknown): Promise<number | null> 
     if (error.status === 429) {
       return Math.max(1, error.retryAfterSeconds ?? 60) * 1000;
     }
-    if (error.status !== 0 && error.status < 500) {
+    if (error.status !== 0 && error.status < 500 && error.code !== 'invalid_response') {
       // 4xx is a validation/session answer; a blind automatic retry would
       // simply fail again. The next trigger or the user's action retries.
+      // `invalid_response` (2xx but not JSON) is transient host/proxy noise and
+      // is retried with the network backoff below instead.
       return null;
     }
   }

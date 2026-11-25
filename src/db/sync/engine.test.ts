@@ -120,6 +120,9 @@ class FakeSyncServer implements SyncApiClient {
 
   rateLimited = false;
 
+  /** Answer the next GET with a non-JSON 2xx page (host/WAF page). */
+  htmlResponse = false;
+
   private nextId = 1;
 
   constructor() {
@@ -154,6 +157,9 @@ class FakeSyncServer implements SyncApiClient {
     }
     if (this.rateLimited) {
       throw new ApiError(429, 'rate_limited', 'Çok fazla istek.', null, 120);
+    }
+    if (this.htmlResponse) {
+      throw new ApiError(200, 'invalid_response', 'Sunucudan beklenmeyen bir yanıt geldi.');
     }
 
     if (path.startsWith(PULL_PATH)) {
@@ -543,6 +549,38 @@ test('ağ hatası kuyruğu silmez, durumu offline yapar', async () => {
   expect(await database.syncQueue.get('userBooks:ub-1')).toMatchObject({
     status: 'pending',
   });
+});
+
+test('JSON olmayan 2xx yanıtı otomatik yeniden deneme planlar', async () => {
+  const database = await createDatabase('invalid-response');
+  const server = new FakeSyncServer();
+  server.htmlResponse = true;
+
+  const failed = await syncNow(database, server, 'csrf', { forceStatus: true });
+
+  expect(failed.status).toBe('error');
+  expect(failed.error).toContain('invalid_response');
+  expect(failed.nextRetryMs).toBe(30_000);
+
+  server.htmlResponse = false;
+  const recovered = await syncNow(database, server, 'csrf', { forceStatus: true });
+
+  expect(recovered.status).toBe('synced');
+  expect(recovered.nextRetryMs).toBeNull();
+});
+
+test('tarayıcı çevrimdışı dese de zorunlu senkron ağa çıkar', async () => {
+  const database = await createDatabase('false-offline');
+  const server = new FakeSyncServer();
+  Object.defineProperty(window.navigator, 'onLine', {
+    configurable: true,
+    value: false,
+  });
+
+  const result = await syncNow(database, server, 'csrf', { forceStatus: true });
+
+  expect(server.calls.length).toBeGreaterThan(0);
+  expect(result.status).toBe('synced');
 });
 
 test('CSRF yokken push atlanır, bekleyen kayıt durumu pending olur', async () => {

@@ -1036,13 +1036,14 @@ git commit -m "feat(account): add legacy transfer, account panel and privacy pag
 
 - [ ] **Step 1: Mock API testlerini/ senaryosunu yaz**
 
-Mock API: `/api/health`, `/api/auth/register|login|logout|session`, `/api/auth/forgot-password`, `/api/sync/push|pull|status|full`, `/api/account/export`. Cookie `kocluk_session`; CSRF; in-memory + JSON persistence; hata formatı aynı.
+Mock API tüm UI akışlarını kapsar: `/api/health`, `/api/auth/register|login|logout|session|update-profile|change-password|forgot-password|reset-password|verify-email`, `/api/auth/delete-account`, `/api/account/export`, `/api/sync/push|pull|status|full`. Cookie `kocluk_session`; CSRF; `hasData`/`hasUserData`; in-memory + JSON persistence; hata formatı aynı; testler arasında `DELETE /api/__test__/reset` veya ayrı data dosyası.
 
 E2E:
 - Kayıt ol, onboarding'i geç, kitap ekle.
 - İkinci browser context aynı hesapla giriş; kitap görünür.
 - Çevrimdışıyken tikle; online olunca senkron.
-- Çıkış/giriş; veri kalıcı.
+- Profil/şifre değiştir; çıkış/giriş; veri kalıcı; hesap export; hesap silme.
+- Local preview: auth ekranları, onboarding, kitap ekleme, senkron göstergesi; mock veri dosyası silinerek temiz başlangıç.
 
 - [ ] **Step 2: Kırmızıyı gör**
 
@@ -1051,11 +1052,11 @@ Expected: FAIL.
 
 - [ ] **Step 3: Mock API ve preview'ı yaz**
 
-- Node `http` server; JSON body; cookie parse; `crypto.randomUUID`; basit token; CORS yok (aynı origin proxy).
+- Node `http` server; JSON body; cookie parse; `crypto.randomUUID`; basit token; CSRF; CORS yok (aynı origin proxy).
 - Vite proxy: `server.proxy['/api'] = 'http://localhost:8787'`.
-- `package.json`: `"mock:api": "node scripts/mock-api.mjs"`.
-- Playwright `webServer`: mock API + `npm run dev`; veya `npm run build` + `vite preview`.
-- README'ye local preview adımları: iki terminal `npm run mock:api`, `npm run dev`; `http://localhost:5173`.
+- `package.json`: `"mock:api": "node scripts/mock-api.mjs"`, `"dev:mock": "concurrently ..."` (veya iki terminal).
+- Playwright `webServer` dizisi: mock API + `npm run dev`; veya `npm run build` + `vite preview`.
+- README'ye local preview adımları: iki terminal `npm run mock:api`, `npm run dev`; `http://localhost:5173`; test hesabı mock veride.
 
 - [ ] **Step 4: Local preview göster**
 

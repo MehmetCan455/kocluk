@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/AuthProvider';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
-import { Modal } from '@/components/ui/Modal';
 import { AuthLayout, authInputClass } from './AuthLayout';
 import { authErrorMessage, isValidEmail } from './authError';
 
@@ -21,7 +20,6 @@ export function RegisterPage() {
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -162,13 +160,14 @@ export function RegisterPage() {
           </div>
           <p id="kayit-gizlilik-hint" className="text-xs text-muted">
             Kayıt olmak için bu onay gerekli.{' '}
-            <button
-              type="button"
-              onClick={() => setPrivacyOpen(true)}
+            <Link
+              to="/gizlilik"
+              target="_blank"
+              rel="noopener noreferrer"
               className="font-medium text-[var(--accent)] underline"
             >
               Aydınlatma metnini oku
-            </button>
+            </Link>
           </p>
         </div>
 
@@ -182,39 +181,6 @@ export function RegisterPage() {
           {submitting ? 'Hesap oluşturuluyor…' : 'Kayıt ol'}
         </Button>
       </form>
-
-      <Modal
-        open={privacyOpen}
-        title="Aydınlatma metni"
-        onClose={() => setPrivacyOpen(false)}
-        footer={
-          <Button variant="secondary" onClick={() => setPrivacyOpen(false)}>
-            Anladım
-          </Button>
-        }
-      >
-        <div className="space-y-3 text-sm text-muted">
-          <p>
-            Hesabında e-posta adresin, görünen adın ve çalışma verilerin (dersler,
-            konular, denemeler, kitaplar, planlar ve notlar) sunucuda saklanır.
-          </p>
-          <p>
-            Veriler Türkiye&apos;deki Natro sunucularında tutulur; yurt dışına
-            aktarılmaz. Fotoğraflar ve ekler yalnızca bu cihazda kalır, sunucuya
-            yüklenmez.
-          </p>
-          <p>
-            Verilerin hesabını açık tuttuğun sürece ve yasal saklama yükümlülükleri
-            boyunca saklanır. Hesabını sildiğinde kullanıcı satırların ve oturumların
-            silinir; yedek kopyalar en fazla 14 gün içinde döner.
-          </p>
-          <p>
-            KVKK kapsamında verilerine erişme, düzeltme, silme ve işlemeye itiraz
-            etme hakların vardır. Başvuru için destek@zirveacademy.com adresine
-            yazabilirsin.
-          </p>
-        </div>
-      </Modal>
     </AuthLayout>
   );
 }

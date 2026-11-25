@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CATALOG_SEED } from '@/data/catalogBooks';
 import { CURRICULUM } from '@/data/curriculum';
 import { seedCatalog } from '@/db/catalogRepository';
-import { db, type SettingsRow } from '@/db/db';
+import { db, type KoclukDB, type SettingsRow } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import { seedCurriculum } from '@/db/seed';
 import { isActiveRow } from '@/db/softDelete';
@@ -1216,8 +1216,13 @@ async function addBlob(
  * The whole archive is still built in memory (streaming is out of scope for
  * v1). `onProgress` lets the settings panel show reading/blob/zip progress and
  * warn about large archives.
+ *
+ * `db` is the database to export. The default wrapper `exportBackup` exports
+ * the active account database; the legacy transfer screen passes the old
+ * `kocluk` database so its photos and attachments are included in the backup.
  */
-export async function exportBackup(
+export async function exportDatabaseBackup(
+  db: KoclukDB,
   onProgress?: BackupProgressHandler,
 ): Promise<Blob> {
   const report = (progress: BackupProgress) => {
@@ -1400,4 +1405,9 @@ export async function exportBackup(
   await db.settings.put({ key: 'lastBackupAt', value: exportedAt });
   report({ phase: 'zip', percent: 100, current: totalFiles, total: totalFiles });
   return blob;
+}
+
+/** Exports the active account database as a zip backup. */
+export function exportBackup(onProgress?: BackupProgressHandler): Promise<Blob> {
+  return exportDatabaseBackup(db, onProgress);
 }

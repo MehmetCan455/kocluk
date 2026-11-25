@@ -253,7 +253,10 @@ export function Onboarding() {
               </div>
             </dl>
             <p className="text-xs text-muted">
-              Verilerin yalnızca bu cihazda saklanır; hesap, bulut ya da reklam yoktur.
+              Verilerin hesabında ve bu cihazda saklanır; cihazların arasında eşitlenir.
+              Fotoğraflar ve ekler yalnızca bu cihazda kalır. Reklam ve üçüncü taraf
+              izleme yoktur. Eski cihaz verilerini daha sonra Ayarlar → Hesap
+              bölümünden aktarabilirsin.
             </p>
           </div>
         ) : null}

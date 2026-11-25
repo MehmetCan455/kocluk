@@ -89,6 +89,8 @@ test('türev araması sonuçları gruplar ve sonuca tıklayınca konuya gider', 
 test('Ctrl+K ile açılır, Escape ile kapanır', async () => {
   renderApp('/');
 
+  // Wait for the app shell: the auth gate mounts it after its local checks.
+  await screen.findByRole('button', { name: 'Ara' });
   await userEvent.keyboard('{Control>}k{/Control}');
   expect(await screen.findByRole('dialog', { name: 'Ara' })).toBeInTheDocument();
 

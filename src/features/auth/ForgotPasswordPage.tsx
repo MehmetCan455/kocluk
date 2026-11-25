@@ -50,10 +50,10 @@ export function ForgotPasswordPage() {
     return (
       <AuthLayout
         title="Şifremi unuttum"
-        description="Hesabına bağlı e-posta adresine sıfırlama bağlantısı gönderdik."
+        description="Bu adres kayıtlıysa sıfırlama bağlantısı gönderildi."
       >
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">E-posta gönderildi</h2>
+          <h2 className="text-lg font-semibold">İstek alındı</h2>
           <p className="text-sm text-muted">
             Gelen kutunu ve gereksiz klasörünü kontrol et. Bağlantıyı 30 dakika içinde
             kullanabilirsin. E-posta gelmediyse adresi doğru yazdığından emin olup

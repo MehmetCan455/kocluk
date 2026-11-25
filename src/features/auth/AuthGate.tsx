@@ -4,10 +4,11 @@ import { useAuth } from '@/app/AuthProvider';
 import { AppShell } from '@/app/AppShell';
 import { SettingsProvider } from '@/app/SettingsProvider';
 import { SyncProvider } from '@/app/SyncProvider';
-import { AUTH_ONLY_PATHS, AuthRoutes, AppRoutes, PUBLIC_AUTH_PATHS } from '@/app/routes';
+import { AUTH_ONLY_PATHS, AuthRoutes, AppRoutes, PRIVACY_PATH, PUBLIC_AUTH_PATHS } from '@/app/routes';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { closeActiveDb, openUserDb } from '@/db/dbManager';
+import { LegacyTransferPrompt } from '@/features/account/LegacyTransferPrompt';
 
 function isOneOf(pathname: string, paths: readonly string[]): boolean {
   return paths.includes(pathname);
@@ -61,6 +62,7 @@ export function AuthGate({ openDb = openUserDb, closeDb = closeActiveDb }: AuthG
   const userId = user?.id ?? null;
   const isPublicAuthPath = isOneOf(pathname, PUBLIC_AUTH_PATHS);
   const isAuthOnlyPath = isOneOf(pathname, AUTH_ONLY_PATHS);
+  const isPrivacyPath = pathname === PRIVACY_PATH;
   const requiresDb =
     (status === 'signedIn' || status === 'offline') && userId !== null && !isPublicAuthPath;
 
@@ -112,7 +114,7 @@ export function AuthGate({ openDb = openUserDb, closeDb = closeActiveDb }: AuthG
   }
 
   if (status === 'signedOut') {
-    return isAuthOnlyPath ? <AuthRoutes /> : <Navigate to="/giris" replace />;
+    return isAuthOnlyPath || isPrivacyPath ? <AuthRoutes /> : <Navigate to="/giris" replace />;
   }
 
   // A signed-in user never sees the login/register screens.
@@ -143,12 +145,14 @@ export function AuthGate({ openDb = openUserDb, closeDb = closeActiveDb }: AuthG
   }
 
   return (
-    <SyncProvider key={userId}>
-      <SettingsProvider>
-        <AppShell>
-          <AppRoutes />
-        </AppShell>
-      </SettingsProvider>
-    </SyncProvider>
+    <LegacyTransferPrompt key={userId} userId={userId}>
+      <SyncProvider key={userId}>
+        <SettingsProvider>
+          <AppShell>
+            <AppRoutes />
+          </AppShell>
+        </SettingsProvider>
+      </SyncProvider>
+    </LegacyTransferPrompt>
   );
 }

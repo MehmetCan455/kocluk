@@ -1,25 +1,46 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/app/AuthProvider';
-import { api } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { ApiError, api } from '@/lib/api';
 import { AuthLayout } from './AuthLayout';
 import { authErrorMessage } from './authError';
 
 type VerifyState = 'verifying' | 'done' | 'error';
 
+/**
+ * A network failure, a timeout or a 5xx may succeed on a retry with the same
+ * token. `invalid_token` and other 4xx answers are definitive and hidden behind
+ * a "request a new link" hint instead of a retry loop.
+ */
+function isTransientVerifyError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) {
+    return true;
+  }
+  return (
+    error.status === 0 ||
+    error.status === 408 ||
+    error.status === 429 ||
+    error.status >= 500
+  );
+}
+
 export function VerifyEmailPage() {
   const { status, csrfToken, refresh } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const token = searchParams.get('token')?.trim() ?? '';
   const [state, setState] = useState<VerifyState>(token === '' ? 'error' : 'verifying');
+  const [retryable, setRetryable] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [error, setError] = useState<string | null>(
     token === '' ? 'Doğrulama bağlantısı geçersiz veya eksik.' : null,
   );
   // The token is single use. React StrictMode runs effects twice in
   // development; a second request would consume nothing and wrongly report
-  // the link as invalid, so each token is requested at most once. The request
-  // itself is not cancelled when the effect re-runs, otherwise StrictMode's
-  // setup/cleanup/setup cycle would swallow the only successful response.
+  // the link as invalid, so each token is requested at most once (a manual
+  // retry clears this marker). The request itself is not cancelled when the
+  // effect re-runs, otherwise StrictMode's setup/cleanup/setup cycle would
+  // swallow the only successful response.
   const requestedToken = useRef<string | null>(null);
   const mountedRef = useRef(true);
 
@@ -47,6 +68,19 @@ export function VerifyEmailPage() {
           return;
         }
         setState('done');
+        setRetryable(false);
+        // The token is spent and must not stay in the address bar or history.
+        setSearchParams(
+          (current) => {
+            if (!current.has('token')) {
+              return current;
+            }
+            const next = new URLSearchParams(current);
+            next.delete('token');
+            return next;
+          },
+          { replace: true },
+        );
         if (status === 'signedIn' || status === 'offline') {
           try {
             await refresh();
@@ -61,12 +95,22 @@ export function VerifyEmailPage() {
         setError(
           authErrorMessage(caught, 'E-posta adresi doğrulanamadı. Lütfen tekrar dene.'),
         );
+        setRetryable(isTransientVerifyError(caught));
         setState('error');
       }
     }
 
     void verify();
-  }, [token, csrfToken, status, refresh]);
+  }, [token, csrfToken, status, refresh, retryKey, setSearchParams]);
+
+  function retry() {
+    setError(null);
+    setRetryable(false);
+    setState('verifying');
+    // Allow the same token to be sent once more.
+    requestedToken.current = null;
+    setRetryKey((value) => value + 1);
+  }
 
   return (
     <AuthLayout
@@ -106,10 +150,14 @@ export function VerifyEmailPage() {
           <p role="alert" className="text-sm text-danger">
             {error}
           </p>
-          <p className="text-sm text-muted">
-            Bağlantı daha önce kullanılmış veya süresi dolmuş olabilir. Hesabına giriş
-            yapıp yeni bir doğrulama e-postası isteyebilirsin.
-          </p>
+          {retryable ? (
+            <Button onClick={retry}>Tekrar dene</Button>
+          ) : (
+            <p className="text-sm text-muted">
+              Bağlantı daha önce kullanılmış veya süresi dolmuş olabilir. Hesabına
+              giriş yapıp yeni bir doğrulama e-postası isteyebilirsin.
+            </p>
+          )}
         </div>
       ) : null}
     </AuthLayout>

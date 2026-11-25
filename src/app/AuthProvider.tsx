@@ -80,6 +80,12 @@ interface AuthContextValue extends AuthState {
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  /**
+   * Signs out without calling the API. Used after account deletion, where the
+   * server already removed every session and the cookie; calling logout would
+   * only produce a 401.
+   */
+  signOutLocally: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -350,6 +356,18 @@ export function AuthProvider({ children, initialAuth }: AuthProviderProps) {
     }
   }, [applySignedOut, beginAuthAttempt]);
 
+  /**
+   * Local-only sign-out for flows where the server session is already gone
+   * (account deletion). The logout barrier stops an in-flight session refresh
+   * from resurrecting the deleted account, and `applySignedOut` clears the
+   * offline hint so the next start does not open a database for it.
+   */
+  const signOutLocally = useCallback((): void => {
+    sequenceRef.current += 1;
+    logoutBarrierRef.current = true;
+    applySignedOut();
+  }, [applySignedOut]);
+
   useEffect(() => {
     mountedRef.current = true;
     const handleUnauthorized = (event: Event) => {
@@ -407,8 +425,9 @@ export function AuthProvider({ children, initialAuth }: AuthProviderProps) {
       register,
       logout,
       refresh,
+      signOutLocally,
     }),
-    [state, login, register, logout, refresh],
+    [state, login, register, logout, refresh, signOutLocally],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

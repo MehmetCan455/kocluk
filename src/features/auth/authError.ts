@@ -14,6 +14,8 @@ export function authErrorMessage(error: unknown, fallback: string): string {
   switch (error.code) {
     case 'invalid_credentials':
       return 'E-posta veya şifre hatalı.';
+    case 'invalid_password':
+      return 'Şifre hatalı.';
     case 'email_taken':
       return 'Bu e-posta adresi zaten kayıtlı. Giriş yapmayı dene.';
     case 'invalid_token':

@@ -163,7 +163,7 @@ test('başarılı kayıt oturum açar ve onboarding ekranına gider', async () =
   expect(call.body).not.toHaveProperty('inviteCode');
 });
 
-test('şifremi unuttum formu 202 sonrası gönderildi mesajı gösterir', async () => {
+test('şifremi unuttum formu 202 sonrası nötr gönderildi mesajı gösterir', async () => {
   const user = userEvent.setup();
   const api = install({
     'POST /api/auth/forgot-password': { status: 202, body: { ok: true } },
@@ -174,9 +174,11 @@ test('şifremi unuttum formu 202 sonrası gönderildi mesajı gösterir', async 
   await user.type(screen.getByLabelText('E-posta'), 'deniz@example.com');
   await user.click(screen.getByRole('button', { name: 'Sıfırlama bağlantısı gönder' }));
 
+  expect(await screen.findByRole('heading', { name: 'İstek alındı' })).toBeInTheDocument();
   expect(
-    await screen.findByRole('heading', { name: 'E-posta gönderildi' }),
+    screen.getByText('Bu adres kayıtlıysa sıfırlama bağlantısı gönderildi.'),
   ).toBeInTheDocument();
+  expect(screen.queryByText(/Hesabına bağlı/)).not.toBeInTheDocument();
   expect(api.callsTo('POST', '/api/auth/forgot-password')[0]?.body).toEqual({
     email: 'deniz@example.com',
   });

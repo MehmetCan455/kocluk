@@ -7,6 +7,7 @@ import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { VerifyEmailPage } from '@/features/auth/VerifyEmailPage';
+import { PrivacyPage } from '@/features/account/PrivacyPage';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { PhotoDetail } from '@/features/photos/PhotoDetail';
 import { PhotosPage } from '@/features/photos/PhotosPage';
@@ -61,6 +62,9 @@ export const AUTH_ONLY_PATHS: readonly string[] = ['/giris', '/kayit', '/sifremi
 /** Screens reached from an e-mail link; usable with or without a session. */
 export const PUBLIC_AUTH_PATHS: readonly string[] = ['/sifre-sifirla', '/eposta-dogrula'];
 
+/** The privacy notice is readable signed out and signed in. */
+export const PRIVACY_PATH = '/gizlilik';
+
 /**
  * The account routes. They are rendered outside `SettingsProvider` because no
  * user database is open while the visitor is signed out.
@@ -73,6 +77,7 @@ export function AuthRoutes() {
       <Route path="/sifremi-unuttum" element={<ForgotPasswordPage />} />
       <Route path="/sifre-sifirla" element={<ResetPasswordPage />} />
       <Route path="/eposta-dogrula" element={<VerifyEmailPage />} />
+      <Route path={PRIVACY_PATH} element={<PrivacyPage />} />
       <Route path="*" element={<Navigate to="/giris" replace />} />
     </Routes>
   );
@@ -120,6 +125,8 @@ export function AppRoutes() {
         <Route path="/program" element={<SchedulePage />} />
 
         <Route path="/ayarlar" element={<SettingsPage />} />
+
+        <Route path={PRIVACY_PATH} element={<PrivacyPage />} />
 
         <Route
           path="*"

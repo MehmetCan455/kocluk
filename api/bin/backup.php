@@ -49,7 +49,8 @@ Kullanım: php api/bin/backup.php [seçenekler]
 
   --dir=PATH          Yedek dizini (varsayılan: config backup.dir veya
                       /home/u2964068/kocluk-backups). public_html içinde olamaz.
-  --keep-days=N       Günlük yedek saklama süresi (varsayılan: 14).
+  --keep-days=N       Günlük yedek saklama süresi (varsayılan: config
+                      backup.keep_days veya 14).
   --offsite-dir=PATH  Yedeği ayrıca bu dizine kopyala. Boşsa yalnızca uyarı verir.
   --pdo               mysqldump olsa bile PDO dökümünü kullan (testler için).
   -h, --help          Bu metni göster.
@@ -61,13 +62,13 @@ TEXT;
 
 /**
  * @param list<string> $argv
- * @return array{dir: ?string, keep_days: int, offsite_dir: ?string, force_pdo: bool, help: bool}
+ * @return array{dir: ?string, keep_days: ?int, offsite_dir: ?string, force_pdo: bool, help: bool}
  */
 function backupParseOptions(array $argv): array
 {
     $options = [
         'dir' => null,
-        'keep_days' => BACKUP_DEFAULT_KEEP_DAYS,
+        'keep_days' => null,
         'offsite_dir' => null,
         'force_pdo' => false,
         'help' => false,
@@ -120,7 +121,10 @@ function backupParseOptions(array $argv): array
         throw new InvalidArgumentException('Bilinmeyen seçenek: ' . $argument);
     }
 
-    if ($options['keep_days'] < 1 || $options['keep_days'] > 3650) {
+    if (
+        $options['keep_days'] !== null
+        && ($options['keep_days'] < 1 || $options['keep_days'] > 3650)
+    ) {
         throw new InvalidArgumentException('--keep-days 1 ile 3650 arasında olmalı.');
     }
 
@@ -552,6 +556,22 @@ if (!is_array($config)) {
 $databaseConfig = is_array($config['db'] ?? null) ? $config['db'] : [];
 $backupConfig = is_array($config['backup'] ?? null) ? $config['backup'] : [];
 
+$keepDays = $options['keep_days'];
+
+if ($keepDays === null) {
+    $configuredKeepDays = $backupConfig['keep_days'] ?? BACKUP_DEFAULT_KEEP_DAYS;
+
+    if (is_string($configuredKeepDays) && ctype_digit($configuredKeepDays)) {
+        $configuredKeepDays = (int) $configuredKeepDays;
+    }
+
+    if (!is_int($configuredKeepDays) || $configuredKeepDays < 1 || $configuredKeepDays > 3650) {
+        backupFail('backup.keep_days 1 ile 3650 arasında bir tam sayı olmalı.', 2);
+    }
+
+    $keepDays = $configuredKeepDays;
+}
+
 try {
     $directory = backupAssertDirectoryPath(
         (string) ($options['dir'] ?? $backupConfig['dir'] ?? BACKUP_DEFAULT_DIR),
@@ -618,7 +638,7 @@ if ($size === false || $size === 0) {
 
 @chmod($target, 0600);
 
-$removed = backupPrune($directory, 'kocluk-*.sql.gz', $options['keep_days']);
+$removed = backupPrune($directory, 'kocluk-*.sql.gz', $keepDays);
 $warnings = [];
 
 if (gmdate('N') === '7') {
@@ -674,7 +694,7 @@ if ($offsiteDirectory !== '') {
 fwrite(STDOUT, 'Yedek tamam: ' . $target . ' (' . backupFormatBytes((int) $size)
     . ', ' . $method . ($rows !== null ? ', ' . $rows . ' satır' : '') . ")\n");
 fwrite(STDOUT, 'Temizlik: ' . $removed . ' eski günlük yedek silindi (saklama: '
-    . $options['keep_days'] . " gün).\n");
+    . $keepDays . " gün).\n");
 
 foreach ($warnings as $warning) {
     fwrite(STDERR, 'UYARI: ' . $warning . "\n");

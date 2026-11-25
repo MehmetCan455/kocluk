@@ -23,15 +23,18 @@
 | Güvenlik başlıkları | ✅/⚠️ | API'de HSTS dahil; statik kök HSTS cPanel'de doğrulanacak |
 | Yedekleme | ✅/⚠️ | Günlük + PDO fallback + **tüm kopyalarda 14 gün**; offsite ve restore tatbikatı açık |
 | KVKK | ⚠️ | Metin ve akış var; hukuki inceleme ve canlı süreçler açık |
-| Staging verisi | ✅/⚠️ | Config fail-closed + ayrı DB kuralı yazılı; ortam ve marker henüz kurulmadı |
+| Staging verisi | ✅/⚠️ | Config yol/Host ile fail-closed + ayrı DB kuralı yazılı; ortam henüz kurulmadı |
 | Bağımlılık denetimi | ⚠️ | 4 moderate yalnızca build/dev zincirinde; yüksek/kritik yok |
 
 Açık güvenlik bulguları:
 
-1. **STAGING-CONFIG (kod düzeltildi, ortam açık):** `ConfigFile` staging
-   `.kocluk-staging` işaretini görünce yalnızca staging config'i seçiyor;
-   `ConfigGuard` `app.env=staging` + `_staging` DB zorunluluğu getiriyor.
-   Staging ortamında marker'ın oluştuğu ve `/api/health` yanıtının
+1. **STAGING-CONFIG (kod düzeltildi, ortam açık):** `ConfigFile` staging'i
+   belge kökündeki `/staging` segmentinden veya `staging.zirveacademy.com`
+   Host'undan algılıyor; bu bağlamda yalnızca
+   `/home/u2964068/kocluk-staging-config.php` seçiliyor. Marker yalnızca ek
+   doğrulama; yokluğu production config'e düşürmez. `ConfigGuard` staging
+   bağlamında config yolunu, `app.env=staging` ve `_staging` DB adını
+   doğruluyor. Staging `/api/health` yanıtının `environment=staging` +
    `database=u2964068_staging` döndüğü **canlı staging'de doğrulanmalı**
    (Blocker).
 2. **STATIC-HSTS:** API yanıtlarına HSTS eklendi; statik `index.html`/asset
@@ -168,9 +171,9 @@ Açık güvenlik bulguları:
       dışında.
 - [x] `api/config.php` `.gitignore`'da; repoda yalnızca `config.example.php`.
 - [x] `config.example.php` gerçek parola/token içermez; örnek değerler boş.
-- [x] `.cpanel.yml` gerçek config kopyalamaz (yalnızca `config.example.php`
-      kopyalanır); deploy sonunda `api/config.php` varsa siler; dış config'e
-      dokunmaz.
+- [x] `.cpanel.yml` gerçek config kopyalamaz; `api/` dosyaları (örnek config
+      dahil) kopyalanır ama deploy sonunda `api/config.php` varsa silinir;
+      dış config'e dokunulmaz.
 - [x] Repoda özel anahtar/API anahtarı/parola taraması yapıldı; bulgu yok.
 - [ ] **Blocker:** Config ve log dosyaları `600`, yedek dizini `700`.
 - [ ] **Blocker:** Canlı DB/SMTP parolaları parola yöneticisinde; staging'den
@@ -234,9 +237,9 @@ Açık güvenlik bulguları:
       --default-character-set=utf8mb4`; yoksa PDO fallback.
 - [x] Geçici `--defaults-extra-file` `0600`; parola process listesinde yok.
 - [x] gzip (`wb9`); dosya adı `kocluk-YYYYMMDD-HHMMSS.sql.gz`.
-- [x] **Tüm kopyalarda 14 gün saklama:** günlük, Pazar `weekly/` ve offsite
-      kopyaları aynı 14 gün sınırıyla silinir; tasarım §11'deki 14 gün sözü ile
-      uyumludur.
+- [x] **Tüm kopyalarda en fazla 14 gün saklama:** `keep_days` 1-14 aralığında;
+      günlük, Pazar `weekly/` ve offsite kopyaları aynı `keep_days` değeriyle
+      silinir, 14 günü aşamaz. Tasarım §11'deki 14 gün sözü ile uyumludur.
 - [x] `public_html` içindeki dizin reddedilir; dizin `0700`, dosya `0600`.
 - [x] Offsite dizini verilirse kopyalar ve orada da 14 gün temizlik yapar;
       verilmezse uyarır.
@@ -289,15 +292,18 @@ Açık güvenlik bulguları:
 - [x] Staging'e yalnızca uydurma veri kuralı yazılı.
 - [x] Canlı DB'nin staging'e kopyalanmaması kuralı yazılı; canlı yedek staging'e
       yüklenmez, canlı restore ayrı izole DB'de ve onayla yapılır.
-- [x] Staging web config'i fail-closed: `.kocluk-staging` marker'ı varsa
-      yalnızca `/home/u2964068/kocluk-staging-config.php`; `ConfigGuard`
-      `app.env=staging` + `_staging` DB zorunluluğu getirir.
+- [x] Staging web config'i marker'dan bağımsız fail-closed: belge kökünde
+      `/staging` segmenti veya `staging.zirveacademy.com` Host'u staging
+      bağlamı sayılır; yalnızca
+      `/home/u2964068/kocluk-staging-config.php` seçilir. `ConfigGuard`
+      ayrıca config yolunu, `app.env=staging` ve `_staging` DB adını doğrular.
+      `.kocluk-staging` yalnızca ek doğrulamadır.
 - [ ] **Blocker:** Staging ortamı kuruldu; DB adı `u2964068_staging`, config
-      `/home/u2964068/kocluk-staging-config.php`, marker
-      `/home/u2964068/staging/.kocluk-staging` var.
+      `/home/u2964068/kocluk-staging-config.php`; marker varsa
+      `/home/u2964068/staging/.kocluk-staging` (yokluğu seçimi değiştirmez).
 - [ ] **Blocker:** Staging `/api/health` yanıtı `environment=staging` ve
       `database=u2964068_staging` döndürüyor; production config/DB'ye
-      bağlanmadığı doğrulandı.
+      bağlanmadığı doğrulandı. Marker silinmişken de aynı sonuç alındı.
 - [ ] **Blocker:** Staging'de gerçek kullanıcı verisi yok; smoke sonrası
       hesaplar silindi/DB sıfırlandı.
 - [ ] **Blocker:** Staging ve canlı `.cpanel.yml` `DEPLOYPATH` değerleri
@@ -321,8 +327,9 @@ Açık güvenlik bulguları:
 ## 16. Yayınlama ve değişiklik yönetimi
 
 - [x] `.cpanel.yml` `dist/` + `api/` kopyalar; dış config'e dokunmaz,
-      `api/config.php` varsa siler ve yalnızca staging `DEPLOYPATH` değerinde
-      `.kocluk-staging` marker'ı oluşturur.
+      `api/config.php` varsa siler. `DEPLOYPATH` yolu `/staging` ile
+      bittiğinde `.kocluk-staging` marker'ını oluşturur; marker seçici değil,
+      ek doğrulamadır.
 - [x] Canlı deploy bu görevde yapılmadı; `main`'e push/merge yok.
 - [x] Staging → smoke → kullanıcı onayı → canlı sırası belgelendi.
 - [x] Migration `schema_migrations` ile idempotent; tekrar çalıştırma güvenli.

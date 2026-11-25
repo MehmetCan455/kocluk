@@ -208,12 +208,14 @@ Sunucuda günlük yedek `api/bin/backup.php` ile alınır:
   --default-character-set=utf8mb4`; yoksa PDO fallback (`SHOW CREATE TABLE` +
   satır satır `SELECT`).
 - Çıktı gzip: `/home/u2964068/kocluk-backups/kocluk-YYYYMMDD-HHMMSS.sql.gz`.
-- 14 gün günlük saklama; Pazar günleri `weekly/` altında **en fazla 14 günlük**
-  kopya. Haftalık kopya da 14 günden eskiyse silinir.
+- Günlük saklama `keep_days` ile 1-14 gün (varsayılan 14); Pazar günleri
+  `weekly/` altında **en fazla 14 günlük** kopya. Haftalık kopya da 14 günden
+  eskiyse silinir.
 - Yedek dizini `public_html` dışında, izin `700`; dosyalar `600`.
-- `backup.offsite_dir` tanımlıysa ayrıca oraya kopyalanır ve orada da 14 gün
-  saklanır. Tanımlı değilse haftalık olarak şifreli biçimde bilgisayara indir;
-  yedeği repoya, buluta veya `public_html` içine koyma.
+- `backup.offsite_dir` tanımlıysa ayrıca oraya kopyalanır; offsite kopyaları
+  **aynı `keep_days` değerini** izler ve 14 günü aşamaz. Tanımlı değilse
+  haftalık olarak şifreli biçimde bilgisayara indir; yedeği repoya, buluta veya
+  `public_html` içine koyma.
 
 Kurulum:
 
@@ -362,13 +364,16 @@ Gerçek config repoda **yoktur**: canlı config
 `.cpanel.yml` deploy sonunda `public_html/api/config.php` varsa siler; böylece
 yanlışlıkla repoya giren bir config dış config'i gölgeleyemez.
 
-Staging'de `.cpanel.yml`, `DEPLOYPATH` staging kökü olduğunda
-`staging/.kocluk-staging` işaretini oluşturur. `ConfigFile` bu işareti görürse
-yalnızca `/home/u2964068/kocluk-staging-config.php` dosyasını seçer;
-production config veya `api/config.php` fallback'i devre dışıdır. `app.env`
-`staging` değilse ya da DB adı `_staging` içermiyorsa API 500 ile durur
-(fail-closed). `/api/health` staging'de `environment` ve `database` alanlarını
-döndürür; ikisi de doğrulanmadan staging smoke'u yapılmaz.
+Staging, `.kocluk-staging` işaretinden **bağımsız** olarak belge kökü yolundaki
+`/staging` segmentinden (veya web isteğinin Host'u `staging.zirveacademy.com`
+ise) algılanır. Staging bağlamında yalnızca
+`/home/u2964068/kocluk-staging-config.php` adayı kullanılır; production config
+veya `api/config.php` fallback'i **hiçbir zaman** seçilmez. Staging config yoksa
+veya config yolu staging dosyası değilse API 500 ile durur (fail-closed).
+`.kocluk-staging` yalnızca ek bir doğrulamadır; yokluğu staging'i production'a
+çevirmez. `ConfigGuard` ayrıca `app.env=staging` ve DB adında `_staging`
+zorunluluğu getirir. `/api/health` staging'de `environment` ve `database`
+alanlarını döndürür; ikisi de doğrulanmadan staging smoke'u yapılmaz.
 
 Sunucuda Node.js gerekmez; `dist/` depoda commit edilir. `.gitattributes`
 sayesinde `dist/` dosyaları checkout sırasında satır sonu dönüşümüne uğramaz.
@@ -422,9 +427,10 @@ Netlify'a da taşınabilir; yalnızca taban yolunu ortama göre ayarlaman gereki
 - Yazma isteklerinde CSRF token + Origin kontrolü.
 - Giriş/kayıt/şifre sıfırlama ve senkron uçlarında hız sınırı; ayrıca genel
   300/saat/IP sınırı (`/api/health` muaf).
-- Staging web istekleri `.kocluk-staging` işaretiyle yalnızca staging config'i
-  yükler; `app.env=staging` ve `_staging` DB adı zorunludur, aksi hâlde API
-  fail-closed 500 döner.
+- Staging web istekleri belge kökü `/staging` segmenti veya staging Host'uyla
+  algılanır ve yalnızca staging config'i yükler; marker yoksa bile production
+  config seçilmez. `app.env=staging` ve `_staging` DB adı zorunludur, aksi
+  hâlde API fail-closed 500 döner.
 - Her sorgu oturumdaki kullanıcıyla sınırlı; PDO prepared statement ve
   tablo/kolon beyaz listesi.
 - Not HTML'i DOMPurify ile temizlenir; API JSON döner.

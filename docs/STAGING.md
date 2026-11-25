@@ -130,22 +130,27 @@ Notlar:
 
 ### Staging config izolasyonu (kritik)
 
-Staging web istekleri production config'e **asla** düşmemelidir. Bu iki
-mekanizmayla garanti edilir:
+Staging web istekleri production config'e **asla** düşmemelidir. Seçim
+`.kocluk-staging` işaretine bağlı değildir:
 
-1. `.cpanel.yml`, `DEPLOYPATH=/home/u2964068/staging/` olduğunda staging belge
-   kökünde `.kocluk-staging` işaret dosyasını oluşturur. `ConfigFile` bu
-   işareti görürse yalnızca `/home/u2964068/kocluk-staging-config.php`
-   adayını kullanır; production config ve `api/config.php` fallback'i devre
-   dışıdır.
-2. `ConfigGuard`, `app.env` `staging` değilse veya DB adı `_staging`
-   içermiyorsa isteği 500 ile reddeder. Bu kontrol web, migration ve backup
-   CLI'lerinde çalışır.
+1. `ConfigFile`, belge kökü yolunda **tam bir `staging` segmenti** varsa
+   (belgelenen `/home/u2964068/staging`) veya istek Host'u
+   `staging.zirveacademy.com` ise staging bağlamındadır. Bu bağlamda yalnızca
+   `/home/u2964068/kocluk-staging-config.php` adayı kullanılır; production
+   config ve `api/config.php` fallback'i hiçbir zaman seçilmez. Staging config
+   yoksa API 500 verir (fail-closed); production config'e düşmez.
+2. `ConfigGuard`, staging bağlamında config yolunun tam olarak staging config
+   olduğunu, `app.env=staging` olduğunu ve DB adının `_staging` içerdiğini
+   doğrular. Aynı kontrol migration ve backup CLI'lerinde de çalışır.
+   `app.env=staging` başka bir yerde production config/DB ile birleşirse yine
+   reddedilir.
 
-İşaret dosyası yoksa staging API bilinçli olarak çalışmaz (fail-closed). Bu
-durumda `.cpanel.yml` içindeki `DEPLOYPATH` satırının tam olarak
-`/home/u2964068/staging/` olduğunu kontrol et ve yeniden deploy et. Canlı
-`public_html` deploy'unda bu işaret oluşmaz.
+`.cpanel.yml`, `DEPLOYPATH` yolu `/staging` ile bittiğinde `.kocluk-staging`
+işaretini oluşturur; bu yalnızca **ek doğrulamadır**, seçici değildir. İşaret
+silinse veya deploy yolu sonunda slash farkı olsa bile yukarıdaki yol/Host
+kontrolü staging'i production'a çevirmez. Canlı `public_html` deploy'unda
+işaret silinir; staging yolu `/staging` segmenti taşımadığı için canlı asla
+staging config'e düşmez.
 
 ## 5. `staging` dalı
 
@@ -193,8 +198,10 @@ Beklenen:
 - `/home/u2964068/staging/index.html` ve `assets/` var.
 - `/home/u2964068/staging/api/index.php` var.
 - `/home/u2964068/staging/api/config.php` **yok** (config dışarıda).
-- `/home/u2964068/staging/.kocluk-staging` **var**; yoksa staging API
-  fail-closed çalışmaz, deploy durdurulur.
+- `/home/u2964068/staging/.kocluk-staging` **var** (ek doğrulama). Yoksa da
+  `/staging` yol segmenti staging config'i seçer; yine de marker'ın
+  oluşmaması deploy yolunun beklenenden farklı olduğuna işaret eder, kontrol
+  et.
 - `dist/` klasörü belge kökünün içine iç içe kopyalanmamış.
 
 Deploy yolu yanlışsa `.cpanel.yml` düzeltilir, `staging` dalına commit edilir
@@ -238,9 +245,10 @@ Beklenen: `HTTP/2 200`, JSON içinde `"environment":"staging"` ve
 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
 `Referrer-Policy: strict-origin-when-cross-origin` başlıkları.
 
-Bu iki alan görünmüyorsa **dur**: web isteği staging config'i yüklememiştir;
-production config/DB'ye bağlanma riski vardır. Marker ve config'i düzeltmeden
-smoke testine devam etme.
+Bu iki alan görünmüyorsa **dur**: web isteği staging config'i yüklememiştir.
+`/staging` belge kökü, Host ve config dosyasını düzeltmeden smoke testine
+devam etme. Production config'in yüklendiğini düşündüren hiçbir durumda test
+yapma.
 
 ## 8. Staging yedeği (cron)
 

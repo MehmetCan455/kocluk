@@ -54,7 +54,7 @@ Açık güvenlik bulguları:
    veri sorumlusu/iletişim bilgilerinin teyidi gerekir (Blocker).
 7. **PHP-LOCAL:** Bu makinede başlangıçta PHP yoktu; taşınabilir PHP 8.4.28
    ile `php -l` ve seçili birim testleri çalıştırıldı. MariaDB gerektiren tam
-   PHPUnit paketi (247 test, 3064 assertion) CI'da yeşil geçti.
+   PHPUnit paketi (257 test, 3105 assertion) CI'da yeşil geçti.
 
 ### Doğrulama kayıtları (2026-11-25)
 
@@ -66,9 +66,9 @@ Açık güvenlik bulguları:
 | `npm run test:e2e` | ✅ 4 auth/sync E2E geçti |
 | `npm audit --audit-level=high` | ✅ Çıkış 0; 4 moderate (build/dev zinciri) |
 | `php -l` (tüm `api/**/*.php`) | ✅ Sözdizimi hatası yok (PHP 8.4.28) |
-| PHPUnit `Config/ConfigGuard/Response/TableMap` | ✅ 42 test, 493 assertion |
+| PHPUnit `Config/ConfigGuard/Response/TableMap/Health` | ✅ 60 test, 591 assertion |
 | `git diff --check` | ✅ Boşluk hatası yok |
-| GitHub Actions `CI` (run 45543767125) | ✅ `web`, `e2e`, `api` (247 PHPUnit testi, 3064 assertion) yeşil |
+| GitHub Actions `CI` (run 45546836308) | ✅ `web`, `e2e`, `api` (257 PHPUnit testi, 3105 assertion) yeşil |
 | Staging/canlı deploy | ⛔ Bu görevde yapılmadı |
 
 ---

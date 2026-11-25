@@ -1052,7 +1052,19 @@ final class SyncService
             return;
         }
 
-        if ($minId === 0 || $minId > $since + 1) {
+        if ($minId === 0) {
+            // No retained log. If the account still has data, the client's
+            // cursor belongs to a purged history and needs a full snapshot.
+            // An account with no data (or a cursor from another account) is
+            // harmless: return the empty page instead of forcing a full pull.
+            if ($this->hasSyncedRow($userId)) {
+                throw self::cursorExpired();
+            }
+
+            return;
+        }
+
+        if ($minId > $since + 1) {
             throw self::cursorExpired();
         }
     }

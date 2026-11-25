@@ -159,7 +159,8 @@ export function RegisterPage() {
             </label>
           </div>
           <p id="kayit-gizlilik-hint" className="text-xs text-muted">
-            Kayıt olmak için bu onay gerekli.{' '}
+            Kayıt olmak için bu onay gerekli. 18 yaşından küçüksem veli iznim
+            olduğunu onaylıyorum.{' '}
             <Link
               to="/gizlilik"
               target="_blank"

@@ -1,12 +1,20 @@
 import JSZip from 'jszip';
 import { z } from 'zod';
-import { CATALOG_SEED } from '@/data/catalogBooks';
+import { CATALOG_SEED, isSharedCatalogBook } from '@/data/catalogBooks';
 import { CURRICULUM } from '@/data/curriculum';
 import { seedCatalog } from '@/db/catalogRepository';
 import { db, type KoclukDB, type SettingsRow } from '@/db/db';
 import { toPhotoSearch } from '@/db/photoSearch';
 import { seedCurriculum } from '@/db/seed';
 import { isActiveRow } from '@/db/softDelete';
+import { SYNCED_TABLES, queueRowId, type SyncedTable } from '@/db/sync/constants';
+import { INITIAL_PULL_DONE_KEY } from '@/db/sync/meta';
+import {
+  markRemoteTransaction,
+  nextTimestamp,
+  setSettingsSyncEnabled,
+  syncUserId,
+} from '@/db/sync/queue';
 import type {
   ActivityLog,
   AppSettings,
@@ -23,6 +31,7 @@ import type {
   ScheduleTask,
   ScheduleTable,
   ScheduleWeek,
+  SyncQueueRow,
   TopicProgress,
   UserBook,
 } from '@/domain/types';
@@ -1045,6 +1054,18 @@ export async function readBackupSummary(file: File): Promise<BackupSummary> {
 }
 
 /**
+ * Row identity of a restored synced row; `notes` is keyed by topicId and
+ * `settings` is handled separately because its id is the account.
+ */
+function restoredRowId(
+  table: SyncedTable,
+  row: Record<string, unknown>,
+): string | null {
+  const value = table === 'notes' ? row.topicId : row.id;
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
+/**
  * Replaces every table in one Dexie transaction. All validation, blob loading,
  * sanitizing and projection rebuilding happens before the transaction starts;
  * a failure at any point leaves the current database untouched.
@@ -1136,7 +1157,10 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
   }
 
   try {
-    await db.transaction('rw', db.tables, async () => {
+    const preservedDeviceId = (await db.syncMeta.get('deviceId'))?.value;
+
+    await db.transaction('rw', db.tables, async (transaction) => {
+      markRemoteTransaction(transaction);
       await Promise.all(db.tables.map((table) => table.clear()));
       await db.settings.bulkPut(restored.settings);
       await db.subjects.bulkPut(restored.subjects);
@@ -1163,6 +1187,65 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
       // patchSettings intentionally skips undefined values. Delete the row so
       // a restored device never shows a backup date it did not create.
       await db.settings.delete('lastBackupAt');
+
+      // Restore semantics (review finding): the restored snapshot becomes the
+      // local push authority. It is queued in full, the settings gate opens,
+      // and the device identity survives the table clear. The server still
+      // wins a row whose updatedAt is newer, so a stale backup cannot silently
+      // overwrite newer cloud data; the next pull applies those rows.
+      if (preservedDeviceId !== undefined) {
+        await db.syncMeta.put({ key: 'deviceId', value: preservedDeviceId });
+      }
+      await db.syncMeta.put({ key: INITIAL_PULL_DONE_KEY, value: true });
+
+      const now = nextTimestamp();
+      const queued = new Map<string, SyncQueueRow>();
+
+      for (const table of SYNCED_TABLES) {
+        if (table === 'settings') {
+          continue;
+        }
+        const rows = (await db.table(table).toArray()) as Array<Record<string, unknown>>;
+        for (const row of rows) {
+          const rowId = restoredRowId(table, row);
+          if (rowId === null) {
+            continue;
+          }
+          if (table === 'catalogBooks' && isSharedCatalogBook(rowId)) {
+            continue;
+          }
+          queued.set(queueRowId(table, rowId), {
+            id: queueRowId(table, rowId),
+            table,
+            rowId,
+            op: 'upsert',
+            createdAt: now,
+            updatedAt: now,
+            attempts: 0,
+            status: 'pending',
+            lastError: null,
+          });
+        }
+      }
+
+      const userId = syncUserId(db);
+      if (userId !== null) {
+        queued.set(queueRowId('settings', userId), {
+          id: queueRowId('settings', userId),
+          table: 'settings',
+          rowId: userId,
+          op: 'upsert',
+          createdAt: now,
+          updatedAt: now,
+          attempts: 0,
+          status: 'pending',
+          lastError: null,
+        });
+      }
+
+      if (queued.size > 0) {
+        await db.syncQueue.bulkPut([...queued.values()]);
+      }
     });
   } catch (error: unknown) {
     if (isStorageQuotaError(error)) {
@@ -1172,6 +1255,11 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
       cause: error,
     });
   }
+
+  // The restore queued the settings row and marked the first pull done; open
+  // the in-memory gate immediately so an edit before the next sync still
+  // enqueues.
+  setSettingsSyncEnabled(db, true);
 
   // Catalog rows have no version marker, so seed missing starter books on
   // every import. The seed never overwrites existing rows, including user

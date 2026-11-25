@@ -1481,3 +1481,37 @@ test('v5 yedeğinde kitabın dersi eski konuların çoğunluğundan türetilir',
   expect(await getTopicDone(hareket.id)).toBe(true);
 });
 
+test('geri yükleme cihaz kimliğini korur ve snapshot ı ilk push otoritesi yapar', async () => {
+  await seedOnboarded(seed, { seedVersion: CURRICULUM.version });
+  const createdAt = new Date().toISOString();
+  await db.catalogBooks.put({
+    id: 'custom-book-restore',
+    ownerId: LOCAL_SCOPE,
+    title: 'Geri Yüklenen Kitap',
+    totalPages: 100,
+    createdAt,
+    updatedAt: createdAt,
+  });
+  const userBook = await addCatalogBookToShelf('custom-book-restore');
+
+  const exported = await exportBackup();
+  await db.syncMeta.put({ key: 'deviceId', value: 'device-abc' });
+  await db.syncMeta.put({ key: 'lastChangeId', value: 99 });
+
+  await importBackup(new File([exported], 'geri-yukle.zip'));
+
+  // The device identity is not backup data and must survive the table clear.
+  expect((await db.syncMeta.get('deviceId'))?.value).toBe('device-abc');
+  // A restored snapshot is the local push authority: settings sync opens and
+  // every restored synced row is queued, so the next run uploads it.
+  expect((await db.syncMeta.get('initialPullDone'))?.value).toBe(true);
+  expect(await db.syncQueue.get(`userBooks:${userBook.id}`)).toMatchObject({
+    table: 'userBooks',
+    op: 'upsert',
+    status: 'pending',
+  });
+  // The cursor belonged to the replaced local data set; a fresh pull decides
+  // the next cursor instead of skipping rows the backup never saw.
+  expect(await db.syncMeta.get('lastChangeId')).toBeUndefined();
+});
+

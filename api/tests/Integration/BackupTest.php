@@ -97,7 +97,9 @@ final class BackupTest extends TestCase
         self::assertStringContainsString('DROP TABLE IF EXISTS `users`;', $dump);
         self::assertStringContainsString('SET FOREIGN_KEY_CHECKS=0;', $dump);
         self::assertStringContainsString('Çağrı Şen', $dump);
-        self::assertStringContainsString('İkinci "satır"', $dump);
+        self::assertStringContainsString('İlk satır', $dump);
+        // PDO::quote escapes the double quotes in the stored note.
+        self::assertStringContainsString('İkinci \\"satır\\"', $dump);
 
         self::assertMatchesRegularExpression(
             '/INSERT INTO `user_books` \([^)]*`id`/',

@@ -9,8 +9,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * The web front controller and the migration CLI must resolve configuration in
- * exactly the same order: KOCLUK_CONFIG, then the file outside public_html,
- * then the in-tree api/config.php development fallback.
+ * exactly the same order: KOCLUK_CONFIG, then the staging marker (which allows
+ * only the staging config), then the production file outside public_html and
+ * the in-tree api/config.php development fallback.
  */
 final class ConfigTest extends TestCase
 {
@@ -35,8 +36,21 @@ final class ConfigTest extends TestCase
             putenv('KOCLUK_CONFIG=' . $this->envBackup);
         }
 
-        foreach (glob($this->root . '/*') ?: [] as $file) {
-            @unlink($file);
+        $entries = array_merge(
+            glob($this->root . '/*') ?: [],
+            glob($this->root . '/.*') ?: [],
+        );
+
+        foreach ($entries as $file) {
+            if (basename($file) === '.' || basename($file) === '..') {
+                continue;
+            }
+
+            if (is_dir($file)) {
+                @rmdir($file);
+            } else {
+                @unlink($file);
+            }
         }
 
         @rmdir($this->root);
@@ -101,6 +115,54 @@ final class ConfigTest extends TestCase
         self::assertSame('production', $config['app']['env']);
         self::assertTrue($config['session']['secure']);
         self::assertSame('__Host-kocluk_session', $config['session']['cookie_name']);
+    }
+
+    public function test_staging_marker_selects_only_the_staging_config(): void
+    {
+        $marker = $this->root . '/.kocluk-staging';
+        $staging = $this->root . '/staging.php';
+        $production = $this->root . '/production.php';
+
+        self::assertNotFalse(file_put_contents($marker, "staging\n"));
+        self::assertNotFalse(file_put_contents($staging, '<?php return [];'));
+        self::assertNotFalse(file_put_contents($production, '<?php return [];'));
+
+        self::assertTrue(ConfigFile::isStagingRoot($this->root, $marker));
+        self::assertSame(
+            [$staging],
+            ConfigFile::candidates($this->root, $production, $staging, $marker),
+        );
+        self::assertSame(
+            $staging,
+            ConfigFile::path($this->root, $production, $staging, $marker),
+        );
+    }
+
+    public function test_staging_marker_without_config_fails_closed(): void
+    {
+        $marker = $this->root . '/.kocluk-staging';
+        $production = $this->root . '/production.php';
+
+        self::assertNotFalse(file_put_contents($marker, "staging\n"));
+        self::assertNotFalse(file_put_contents($production, '<?php return [];'));
+
+        self::assertNull(ConfigFile::path(
+            $this->root,
+            $production,
+            $this->root . '/missing-staging.php',
+            $marker,
+        ));
+    }
+
+    public function test_staging_marker_is_detected_next_to_the_api_root(): void
+    {
+        $api = $this->root . '/api';
+        self::assertTrue(mkdir($api));
+        self::assertFalse(ConfigFile::isStagingRoot($api));
+
+        self::assertNotFalse(file_put_contents($this->root . '/.kocluk-staging', 'staging'));
+
+        self::assertTrue(ConfigFile::isStagingRoot($api));
     }
 
     public function test_example_config_uses_a_plain_cookie_in_development(): void

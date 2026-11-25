@@ -19,7 +19,8 @@ $root = dirname(__DIR__);
 require $root . '/src/bootstrap.php';
 
 // Same candidate order as api/index.php (src/Support/ConfigFile.php):
-// KOCLUK_CONFIG, then the file outside public_html, then api/config.php.
+// KOCLUK_CONFIG, then the staging marker (staging config only), then the
+// production file outside public_html and api/config.php.
 $configPath = \Kocluk\Api\Support\ConfigFile::path($root);
 
 if ($configPath === null) {
@@ -27,10 +28,20 @@ if ($configPath === null) {
     exit(1);
 }
 
-/** @var array<string, mixed> $config */
 $config = require $configPath;
 
+if (!is_array($config)) {
+    fwrite(STDERR, "Yapılandırma bir dizi döndürmeli: " . $configPath . "\n");
+    exit(1);
+}
+
 try {
+    \Kocluk\Api\Support\ConfigGuard::assertSafe(
+        $config,
+        \Kocluk\Api\Support\ConfigFile::isStagingRoot($root),
+        $configPath,
+    );
+
     $dbConfig = is_array($config['db'] ?? null) ? $config['db'] : [];
     $database = \Kocluk\Api\Db\Database::connect($dbConfig);
     $migrator = new \Kocluk\Api\Db\Migrator($database, $root . '/migrations');

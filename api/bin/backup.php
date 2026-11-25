@@ -7,15 +7,16 @@ declare(strict_types=1);
  *
  * Usage:
  *   php api/bin/backup.php [--dir=PATH] [--keep-days=14]
- *                          [--offsite-dir=PATH] [--pdo]
+ *                          [--offsite-dir=PATH] [--weekly] [--pdo]
  *
  * The script prefers mysqldump with a temporary 0600 option file so the
  * database password never appears in the process list or in the repository.
  * When exec()/mysqldump is unavailable it falls back to a PDO dump that reads
  * information_schema, skips PERSISTENT/VIRTUAL generated columns and streams
  * rows into a gzip file. Both paths write kocluk-YYYYMMDD-HHMMSS.sql.gz under
- * a directory outside public_html, keep 14 daily files, keep an 8-week Sunday
- * copy in weekly/, and optionally copy the archive to backup.offsite_dir.
+ * a directory outside public_html, keep 14 days of daily files, keep 14 days
+ * of Sunday copies in weekly/, and optionally copy the archive to
+ * backup.offsite_dir with the same retention.
  *
  * Cron (03:00 server time, adjust the PHP path if needed):
  *   0 3 * * * KOCLUK_CONFIG=/home/u2964068/kocluk-config.php \
@@ -27,11 +28,16 @@ declare(strict_types=1);
 
 use Kocluk\Api\Db\Database;
 use Kocluk\Api\Support\ConfigFile;
+use Kocluk\Api\Support\ConfigGuard;
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit(1);
 }
+
+// Backups contain personal data. Create temporary SQL, error and archive
+// files owner-only regardless of the hosting account's default umask.
+umask(0077);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
@@ -39,8 +45,11 @@ const BACKUP_DEFAULT_DIR = '/home/u2964068/kocluk-backups';
 
 const BACKUP_DEFAULT_KEEP_DAYS = 14;
 
-/** Eight weekly Sunday copies, matching the design's weekly archive. */
-const BACKUP_WEEKLY_KEEP_DAYS = 56;
+/**
+ * The design promises 14-day deletion everywhere, including weekly copies.
+ * Do not extend this beyond BACKUP_DEFAULT_KEEP_DAYS.
+ */
+const BACKUP_WEEKLY_KEEP_DAYS = 14;
 
 function backupUsage(): string
 {
@@ -52,6 +61,7 @@ Kullanım: php api/bin/backup.php [seçenekler]
   --keep-days=N       Günlük yedek saklama süresi (varsayılan: config
                       backup.keep_days veya 14).
   --offsite-dir=PATH  Yedeği ayrıca bu dizine kopyala. Boşsa yalnızca uyarı verir.
+  --weekly            Pazar kontrolünü beklemeden weekly/ kopyasını üret.
   --pdo               mysqldump olsa bile PDO dökümünü kullan (testler için).
   -h, --help          Bu metni göster.
 
@@ -62,7 +72,14 @@ TEXT;
 
 /**
  * @param list<string> $argv
- * @return array{dir: ?string, keep_days: ?int, offsite_dir: ?string, force_pdo: bool, help: bool}
+ * @return array{
+ *     dir: ?string,
+ *     keep_days: ?int,
+ *     offsite_dir: ?string,
+ *     force_pdo: bool,
+ *     weekly: bool,
+ *     help: bool
+ * }
  */
 function backupParseOptions(array $argv): array
 {
@@ -71,6 +88,7 @@ function backupParseOptions(array $argv): array
         'keep_days' => null,
         'offsite_dir' => null,
         'force_pdo' => false,
+        'weekly' => false,
         'help' => false,
     ];
 
@@ -82,6 +100,11 @@ function backupParseOptions(array $argv): array
 
         if ($argument === '--pdo') {
             $options['force_pdo'] = true;
+            continue;
+        }
+
+        if ($argument === '--weekly') {
+            $options['weekly'] = true;
             continue;
         }
 
@@ -270,6 +293,11 @@ function backupDumpWithMysqldump(string $binary, array $databaseConfig, string $
         $output = [];
         $status = 1;
         @exec($command, $output, $status);
+
+        // The shell redirect creates these files with the process umask;
+        // chmod again so a different caller umask can never widen them.
+        @chmod($targetSql, 0600);
+        @chmod($errorFile, 0600);
 
         $size = is_file($targetSql) ? filesize($targetSql) : false;
         $ok = $status === 0 && $size !== false && $size > 0;
@@ -490,6 +518,29 @@ function backupDumpWithPdo(Database $database, string $target): int
     return $rowsWritten;
 }
 
+/**
+ * Removes abandoned .kocluk-*.sql/.err files from an interrupted run.
+ */
+function backupCleanupStaleTemps(string $directory, int $olderThanSeconds = 86400): int
+{
+    $deleted = 0;
+    $cutoff = time() - $olderThanSeconds;
+
+    foreach (glob($directory . '/.kocluk-*') ?: [] as $file) {
+        if (!is_file($file)) {
+            continue;
+        }
+
+        $modified = @filemtime($file);
+
+        if ($modified !== false && $modified < $cutoff && @unlink($file)) {
+            $deleted++;
+        }
+    }
+
+    return $deleted;
+}
+
 function backupPrune(string $directory, string $pattern, int $keepDays): int
 {
     $deleted = 0;
@@ -553,6 +604,16 @@ if (!is_array($config)) {
     backupFail('Yapılandırma bir dizi döndürmeli: ' . $configPath);
 }
 
+try {
+    ConfigGuard::assertSafe(
+        $config,
+        ConfigFile::isStagingRoot(dirname(__DIR__)),
+        $configPath,
+    );
+} catch (Throwable $error) {
+    backupFail($error->getMessage());
+}
+
 $databaseConfig = is_array($config['db'] ?? null) ? $config['db'] : [];
 $backupConfig = is_array($config['backup'] ?? null) ? $config['backup'] : [];
 
@@ -593,6 +654,8 @@ try {
 } catch (Throwable $error) {
     backupFail($error->getMessage());
 }
+
+$staleTemps = backupCleanupStaleTemps($directory);
 
 $stamp = gmdate('Ymd-His');
 $target = $directory . '/kocluk-' . $stamp . '.sql.gz';
@@ -641,7 +704,7 @@ if ($size === false || $size === 0) {
 $removed = backupPrune($directory, 'kocluk-*.sql.gz', $keepDays);
 $warnings = [];
 
-if (gmdate('N') === '7') {
+if ($options['weekly'] || gmdate('N') === '7') {
     try {
         $weeklyDirectory = $directory . '/weekly';
         backupEnsureDirectory($weeklyDirectory);
@@ -681,7 +744,19 @@ if ($offsiteDirectory !== '') {
         }
 
         @chmod($offsiteTarget, 0600);
-        fwrite(STDOUT, 'Offsite kopya: ' . $offsiteTarget . "\n");
+
+        // Offsite is a copy, not an archive: keep the same 14-day promise.
+        $offsiteRemoved = backupPrune(
+            $offsiteDirectory,
+            'kocluk-*.sql.gz',
+            $keepDays,
+        );
+
+        fwrite(
+            STDOUT,
+            'Offsite kopya: ' . $offsiteTarget
+            . ' (' . $offsiteRemoved . " eski dosya silindi)\n",
+        );
     } catch (Throwable $error) {
         $offsiteFailed = true;
         $warnings[] = 'Offsite kopya başarısız: ' . $error->getMessage();
@@ -695,6 +770,10 @@ fwrite(STDOUT, 'Yedek tamam: ' . $target . ' (' . backupFormatBytes((int) $size)
     . ', ' . $method . ($rows !== null ? ', ' . $rows . ' satır' : '') . ")\n");
 fwrite(STDOUT, 'Temizlik: ' . $removed . ' eski günlük yedek silindi (saklama: '
     . $keepDays . " gün).\n");
+
+if ($staleTemps > 0) {
+    fwrite(STDOUT, 'Temizlik: ' . $staleTemps . " yarım kalmış geçici dosya silindi.\n");
+}
 
 foreach ($warnings as $warning) {
     fwrite(STDERR, 'UYARI: ' . $warning . "\n");

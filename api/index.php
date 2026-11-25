@@ -16,6 +16,7 @@ use Kocluk\Api\App;
 use Kocluk\Api\Http\Request;
 use Kocluk\Api\Support\ApiException;
 use Kocluk\Api\Support\ConfigFile;
+use Kocluk\Api\Support\ConfigGuard;
 
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
@@ -25,7 +26,8 @@ require __DIR__ . '/src/bootstrap.php';
 
 try {
     // Same candidate order as api/bin/migrate.php (src/Support/ConfigFile.php):
-    // KOCLUK_CONFIG, then the file outside public_html, then api/config.php.
+    // KOCLUK_CONFIG, then the staging marker (staging config only), then the
+    // production file outside public_html and api/config.php.
     $configPath = ConfigFile::path(__DIR__);
 
     if ($configPath === null) {
@@ -37,6 +39,12 @@ try {
     if (!is_array($config)) {
         throw new RuntimeException('Yapılandırma bir dizi döndürmeli: ' . $configPath);
     }
+
+    ConfigGuard::assertSafe(
+        $config,
+        ConfigFile::isStagingRoot(__DIR__),
+        $configPath,
+    );
 
     $appConfig = is_array($config['app'] ?? null) ? $config['app'] : [];
     $logFile = $appConfig['log_file'] ?? dirname($configPath) . '/kocluk-api-error.log';

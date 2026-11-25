@@ -47,6 +47,17 @@ final class App
     private const STATE_CHANGING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
     /**
+     * Design §7.3: a general 300 requests/hour/IP ceiling on top of the
+     * narrower per-route limits. Health is exempt so the load balancer can
+     * still probe the API while the database is unavailable.
+     */
+    private const GENERAL_RATE_LIMIT = 300;
+
+    private const GENERAL_RATE_WINDOW_SECONDS = 3600;
+
+    private const GENERAL_RATE_EXEMPT_PATHS = ['/api/health'];
+
+    /**
      * Writes that must work before a session exists. When the browser is
      * already signed in they still require the CSRF token.
      */
@@ -118,6 +129,18 @@ final class App
     public function handle(Request $request): Response
     {
         try {
+            if (
+                !in_array($request->path, self::GENERAL_RATE_EXEMPT_PATHS, true)
+                && isset($this->registered[$request->method . ' ' . $request->path])
+            ) {
+                $this->rateLimiter()->assert(
+                    'general',
+                    $request->ip,
+                    self::GENERAL_RATE_LIMIT,
+                    self::GENERAL_RATE_WINDOW_SECONDS,
+                );
+            }
+
             $this->guard($request);
 
             return $this->router->dispatch($request);
@@ -228,10 +251,28 @@ final class App
 
     private function health(Request $request): Response
     {
-        return Response::json([
+        $app = is_array($this->config['app'] ?? null) ? $this->config['app'] : [];
+        $environment = is_string($app['env'] ?? null) && $app['env'] !== ''
+            ? $app['env']
+            : 'production';
+
+        $payload = [
             'ok' => true,
             'serverTime' => Clock::iso(),
-        ]);
+            'environment' => $environment,
+        ];
+
+        // Non-production health output is the staging smoke check: it proves
+        // the web request loaded the staging config and its database, without
+        // exposing any production database name.
+        if ($environment === 'staging') {
+            $db = is_array($this->config['db'] ?? null) ? $this->config['db'] : [];
+            $payload['database'] = is_string($db['database'] ?? null)
+                ? $db['database']
+                : '';
+        }
+
+        return Response::json($payload);
     }
 
     private function register(Request $request): Response

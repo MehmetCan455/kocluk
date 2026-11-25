@@ -138,25 +138,39 @@ final class Database
     }
 
     /**
-     * Yields rows one at a time so the backup CLI does not build a whole table
-     * in PHP memory.
+     * Streams rows from an unbuffered MySQL result so a backup does not hold a
+     * whole table in PHP or in the PDO client buffer.
+     *
+     * The caller must not run another query on this connection until the
+     * generator is exhausted (or destroyed); closeCursor() releases the
+     * server-side result in the finally block.
      *
      * @return iterable<int, array<string, mixed>>
      */
     public function iterate(string $sql): iterable
     {
-        $statement = $this->pdo->query($sql);
-
-        if ($statement === false) {
-            throw new RuntimeException('Sorgu çalıştırılamadı.');
-        }
+        // PDO MySQL defaults to buffered results; switch this connection to
+        // unbuffered while the generator is alive, then restore the default.
+        // No other query may run on this connection until iteration finishes.
+        $this->pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+        $statement = null;
 
         try {
+            $statement = $this->pdo->query($sql);
+
+            if ($statement === false) {
+                throw new RuntimeException('Sorgu çalıştırılamadı.');
+            }
+
             while (($row = $statement->fetch(PDO::FETCH_ASSOC)) !== false) {
                 yield $row;
             }
         } finally {
-            $statement->closeCursor();
+            if ($statement !== null && $statement !== false) {
+                $statement->closeCursor();
+            }
+
+            $this->pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
         }
     }
 

@@ -19,8 +19,9 @@ final class HealthTest extends TestCase
         $payload = $this->payload($response->body());
 
         self::assertSame(200, $response->status());
-        self::assertSame(['ok', 'serverTime'], array_keys($payload));
+        self::assertSame(['ok', 'serverTime', 'environment'], array_keys($payload));
         self::assertTrue($payload['ok']);
+        self::assertSame('test', $payload['environment']);
 
         $serverTime = (string) $payload['serverTime'];
 
@@ -33,6 +34,21 @@ final class HealthTest extends TestCase
 
         self::assertSame(0, $parsed->getOffset());
         self::assertLessThanOrEqual(5, abs($parsed->getTimestamp() - time()));
+    }
+
+    public function test_staging_health_reports_the_staging_database(): void
+    {
+        $engine = new App(null, [
+            'app' => ['env' => 'staging'],
+            'db' => ['database' => 'u2964068_staging'],
+        ]);
+
+        $response = $engine->handle(Request::create('GET', '/api/health'));
+        $payload = $this->payload($response->body());
+
+        self::assertSame(200, $response->status());
+        self::assertSame('staging', $payload['environment']);
+        self::assertSame('u2964068_staging', $payload['database']);
     }
 
     public function test_health_carries_json_and_security_headers(): void

@@ -55,6 +55,23 @@ final class ChangeLog
     }
 
     /**
+     * `changed_at` of the oldest retained change, or null when the account's
+     * log is empty. Used to detect whether an old account's early log was
+     * purged before a new device's first full pull.
+     */
+    public function oldestChangedAt(string $userId): ?string
+    {
+        $row = $this->database->fetchOne(
+            'SELECT `changed_at` FROM `sync_changes` WHERE `user_id` = ? ORDER BY `id` ASC LIMIT 1',
+            [$userId],
+        );
+
+        $value = $row['changed_at'] ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
      * Changes after a cursor, oldest first (spec §8.3).
      *
      * The caller asks for one row more than the page so it can tell whether

@@ -260,6 +260,39 @@ final class TableMapTest extends TestCase
         self::assertSame(self::UPDATED_AT, $api['doneAt']);
     }
 
+    public function test_decimal_values_are_numbers_on_the_wire(): void
+    {
+        $db = TableMap::toDb('examResults', [
+            'id' => self::ID,
+            'examId' => self::OTHER_ID,
+            'subjectId' => self::ID,
+            'correct' => 20,
+            'wrong' => 5,
+            'blank' => 0,
+            'net' => 18.75,
+            'updatedAt' => self::UPDATED_AT,
+        ]);
+
+        // MariaDB returns DECIMAL as a string; the API contract is a JSON
+        // number so the client cannot concatenate or produce NaN totals.
+        self::assertSame('18.75', $db['net']);
+
+        $api = TableMap::toApi('examResults', $db);
+
+        self::assertIsFloat($api['net']);
+        self::assertSame(18.75, $api['net']);
+
+        $fromString = TableMap::toApi('examResults', array_replace($db, ['net' => '18.75']));
+
+        self::assertIsFloat($fromString['net']);
+        self::assertSame(18.75, $fromString['net']);
+
+        $integral = TableMap::toApi('examResults', array_replace($db, ['net' => '20.00']));
+
+        self::assertIsFloat($integral['net']);
+        self::assertSame(20.0, $integral['net']);
+    }
+
     public function test_activity_logs_have_no_updated_at_column(): void
     {
         self::assertArrayNotHasKey('updatedAt', TableMap::definition('activityLogs')['columns']);

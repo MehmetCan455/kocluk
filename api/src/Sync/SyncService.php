@@ -550,8 +550,41 @@ final class SyncService
                 return $this->insert($userId, $table, $rowId, $dbRow, 'upsert', $adjusted);
             }
 
-            if (($existing['deleted_at'] ?? null) !== null) {
+            // Identity and natural-key fields are immutable. A row that tries
+            // to change one is a different logical row; return the canonical
+            // server row instead of silently applying half of the change.
+            // Delete + insert (a new id) is the supported way to change them.
+            if (self::immutableChanged($definition, $dbRow, $existing)) {
                 return self::conflictRow($table, $rowId, $existing);
+            }
+
+            $tombstoned = ($existing['deleted_at'] ?? null) !== null;
+
+            if ($tombstoned) {
+                // A tombstone loses to an explicitly newer active row: the
+                // user deleted the book/topic and added it back, or a second
+                // device re-created the same deterministic id. Equality keeps
+                // the tombstone (last writer wins, server wins ties).
+                if (!self::isNewer($timestamp, (string) ($existing['updated_at'] ?? ''))) {
+                    return self::conflictRow($table, $rowId, $existing);
+                }
+
+                // Reviving must not create a second active row for the same
+                // natural key; the other row is canonical and the client
+                // rekeys to it.
+                $canonical = $this->findCanonical($userId, $table, $dbRow);
+
+                if ($canonical !== null && self::rowIdentity($table, $canonical) !== $rowId) {
+                    return self::conflictRow($table, $rowId, $canonical);
+                }
+
+                $this->update($userId, $table, $rowId, $dbRow, $definition);
+                $this->changeLog->append($userId, $table, $rowId, 'upsert');
+
+                $canonical = $dbRow;
+                $canonical[(string) $definition['owner']] = $userId;
+
+                return self::appliedRow($table, $rowId, $canonical, $adjusted);
             }
 
             if (!self::isNewer($timestamp, (string) ($existing['updated_at'] ?? ''))) {
@@ -759,6 +792,47 @@ final class SyncService
     }
 
     /**
+     * True when the incoming row tries to change an immutable field (identity,
+     * natural key or exam-result parent). Such a change is a different logical
+     * row and must go through delete + insert, never a silent partial update.
+     *
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed> $dbRow
+     * @param array<string, mixed> $existing
+     */
+    private static function immutableChanged(array $definition, array $dbRow, array $existing): bool
+    {
+        foreach ($definition['immutable'] as $field) {
+            $column = $definition['columns'][$field] ?? null;
+
+            if (!is_string($column) || !array_key_exists($column, $dbRow)) {
+                continue;
+            }
+
+            $incoming = $dbRow[$column];
+            $current = $existing[$column] ?? null;
+
+            if ($incoming === null && $current === null) {
+                continue;
+            }
+
+            if ((string) $incoming !== (string) $current) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function rowIdentity(string $table, array $row): string
+    {
+        return (string) ($row[TableMap::idColumn($table)] ?? '');
+    }
+
+    /**
      * @param array<string, mixed> $dbRow
      * @param array<string, mixed> $definition
      */
@@ -957,22 +1031,84 @@ final class SyncService
     }
 
     /**
-     * `since = 0` means "from the start of the retained log", so it is never
-     * expired: `sync_changes.id` is a global AUTO_INCREMENT and the first id
-     * of almost every account is greater than 1. Only a real cursor can have
-     * a gap, and a gap exists when the oldest retained row for this account is
-     * beyond `since + 1`. The client then falls back to a full pull
-     * (spec §6.4, §8.3).
+     * `since = 0` means "from the start of the retained log", but on an old
+     * account that start may already be missing changes from before the
+     * 90-day purge. A fresh device must then get a full snapshot instead of a
+     * silently incomplete incremental page.
+     *
+     * A real cursor (`since > 0`) is expired when the account has no retained
+     * log at all or when the oldest retained id is beyond `since + 1`. The
+     * client answers with GET /api/sync/full (spec §6.4, §8.3).
      */
     private function assertCursorRetained(string $userId, int $since): void
     {
+        $minId = $this->changeLog->minId($userId);
+
         if ($since <= 0) {
+            if ($this->requiresFullSnapshot($userId, $minId)) {
+                throw self::cursorExpired();
+            }
+
             return;
         }
 
-        if ($this->changeLog->minId($userId) > $since + 1) {
+        if ($minId === 0 || $minId > $since + 1) {
             throw self::cursorExpired();
         }
+    }
+
+    /**
+     * True when an empty or truncated-looking log cannot prove that a
+     * `since=0` client has seen every row. An account with data but no change
+     * rows has been purged; an account whose oldest retained change is more
+     * than a day after registration has lost its earlier log.
+     */
+    private function requiresFullSnapshot(string $userId, int $minId): bool
+    {
+        if ($minId === 0) {
+            return $this->hasSyncedRow($userId);
+        }
+
+        $oldest = $this->changeLog->oldestChangedAt($userId);
+
+        if ($oldest === null) {
+            return true;
+        }
+
+        $user = $this->database->fetchOne(
+            'SELECT `created_at` FROM `users` WHERE `id` = ? AND `deleted_at` IS NULL',
+            [$userId],
+        );
+
+        $createdAt = $user['created_at'] ?? null;
+
+        if (!is_string($createdAt) || $createdAt === '') {
+            return true;
+        }
+
+        return self::fromSql($oldest)->getTimestamp()
+            - self::fromSql($createdAt)->getTimestamp() > 86400;
+    }
+
+    private function hasSyncedRow(string $userId): bool
+    {
+        foreach (TableMap::keys() as $table) {
+            $definition = TableMap::definition($table);
+            $row = $this->database->fetchOne(
+                sprintf(
+                    'SELECT 1 AS `present` FROM `%s` WHERE `%s` = ? LIMIT 1',
+                    $definition['table'],
+                    $definition['owner'],
+                ),
+                [$userId],
+            );
+
+            if ($row !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function cursorExpired(): ApiException

@@ -211,6 +211,15 @@ günlük satırları cron ile silinir; daha eski imleci olan istemci tam çekme
 yapar. Bu yöntem zaman damgası çakışması ve sayfalama sorununu ortadan
 kaldırır.
 
+İmleç süresi kuralları:
+
+- `since > 0` ve hesabın günlüğü tamamen boşsa ya da en eski kalan kimlik
+  `since + 1`'den büyükse `410 cursor_expired`.
+- `since = 0` (yeni cihaz) hesapta veri varken günlük boşsa ya da en eski
+  kalan değişiklik hesap oluşturulmasından bir günden fazla sonraysa yine
+  `410` döner. Böylece temizlik sonrası yeni cihaz yalnızca son 90 günü alıp
+  eski satırları sessizce kaçırmaz; tam çekme yapar.
+
 ### 6.5 Deterministik kimlikler ve doğal anahtar çakışması
 
 Aynı doğal anahtarın iki cihazda iki farklı `id` ile oluşmasını engellemek
@@ -245,6 +254,16 @@ namespace'ler ve `LOCAL_SCOPE` değişmez; onlar diskteki kimliklerin parçasıd
   `activityLogs.topicId`, `scheduleTasks.topicId`, `activityLogs.userBookId`,
   `scheduleTasks.userBookId`, `scheduleRows.weekId`, `scheduleTasks.weekId` ve
   ayarlardaki `hiddenSubjects`.
+  - Taşımada hedef cihazın tohum satırı varsa tohum kimliği kanoniktir: eski
+    satırın içeriği ve referansları hedef `seedKey` kimliğine taşınır; hedef
+    tohum satırı silinmez. Böylece yalnızca tohumu olan başka bir cihaz aynı
+    `seedKey` yüzünden yerel benzersiz indekste çakışmaz.
+  - Konu ilerlemesi her zaman `TOPIC_PROGRESS_NAMESPACE` deterministik
+    kimliğiyle yazılır; aksi halde `setTopicDone` ikinci bir satır üretip
+    benzersiz `topicId` indeksini ihlal eder.
+  - Ders yeniden anahtarlanırken `examResults.subjectId` sunucuda değişmez;
+    sonuç eski kimlikte tombstone edilir ve yeni ders için kanonik/ deterministik
+    kimlikle yeniden eklenir.
 - Yeniden anahtarlama başarısız olursa satır kuyrukta `dead` işaretlenir ve
   Ayarlar → Senkron'da "Gönderilemeyen kayıt" olarak gösterilir; kuyruk
   tıkanmaz.
@@ -420,9 +439,18 @@ alınmaz; oturumdaki kullanıcı yazılır.
 - `notes` anahtarı `(userId, topicId)`; `settings` anahtarı `userId`.
 - Görev tamamlandıysa ve aktif aktivite yoksa, çekme sonrası istemci görev
   alanlarından aktivite oluşturur. Görev tamamlanmadıysa ve aktif aktivite
-  varsa aktivite silinmiş işaretlenir.
-- Silme yarışı: `deleted_at` dolu satır, daha yeni `updated_at` ile gelen
-  güncellemeyi kabul etmez; sunucu tombstone'u döner.
+  varsa aktivite silinmiş işaretlenir. Silinmiş plan görevi (plan düzenlemesi)
+  geçmiş aktivitesini korur.
+- Silme yarışı: `deleted_at` dolu satır, aynı veya daha eski `updated_at` ile
+  gelen güncellemeyi kabul etmez ve sunucu tombstone'u döner. Açıkça daha yeni
+  bir aktif satır ise silmeyi geri alır (LWW): kitabı silip yeniden eklemek
+  veya ikinci cihazın aynı deterministik satırı yeniden oluşturması çalışır.
+  Canlanan satırın doğal anahtarı başka bir aktif satırla çakışıyorsa sunucu o
+  kanonik satırı `conflict` olarak döner.
+- Kimlik ve doğal anahtar alanları (`id`, `bookId`, `seedKey`, `weekStart`,
+  `topicId`, `examId`, `subjectId`) aktif satırda değiştirilemez; değişiklik
+  `conflict` döner. Yeni kimlik gerekiyorsa istemci eski satırı siler ve yeni
+  satırı ekler.
 
 ### 8.5 Durum ve tam çekme
 
@@ -431,6 +459,7 @@ alınmaz; oturumdaki kullanıcı yazılır.
 ```json
 {
   "hasData": true,
+  "hasUserData": true,
   "counts": { "userBooks": 3, "scheduleTasks": 42, "notes": 12 },
   "cursor": 12345,
   "serverTime": "2026-11-24T12:00:00.000000Z"
@@ -444,6 +473,9 @@ alınmaz; oturumdaki kullanıcı yazılır.
   ve full yanıtları tombstone'ları yine taşır. Yalnızca `user_settings` satırı
   varsa hesap "boş" sayılır; böylece onboarding ayarları veri taşıma kapısını
   kapatmaz.
+- `hasUserData`, `hasData`'dan farklı olarak otomatik tohum ders/konularını ve
+  ayarları saymaz. Taşıma ekranı bunu kullanır; ilk senkronun gönderdiği
+  müfredat taşıma kapısını kalıcı olarak kapatmaz.
 - `cursor`, hesabın son `sync_changes` kimliğidir; tam çekme sonrası istemciye
   başlangıç imleci olarak verilir.
 - Taşıma ekranı bu uca bakar; `hasData: false` ve eski yerel veri varsa taşıma
@@ -503,6 +535,8 @@ alınmaz; oturumdaki kullanıcı yazılır.
    ekranı: "Hesabıma aktar", "Yedek indir", "Boş başla".
 4. Taşıma kopyalar; eski DB silinmez; kimlikler korunur; eksik müfredat
    `seedKey` ile tamamlanır; sonra kuyruk yüklenir. İşlem idempotenttir.
+   Hedefte aynı `seedKey`/`weekStart`/`bookId` varsa hedef kimlik kanoniktir:
+   eski içerik ve notlar o kimliğe birleştirilir, hedef satır silinmez.
 5. Hesap dolu ve eski yerel veri varsa otomatik birleştirme yapılmaz; bilgi
    verilir, yedek indirilebilir.
 6. Boş hesapta müfredat deterministik kimliklerle tohumlanır, kuyruğa girer,
@@ -575,6 +609,9 @@ alınmaz; oturumdaki kullanıcı yazılır.
   TABLE / SELECT) aynı cron'dan çalışır.
 - Geri yükleme staging'de denenir; README'de adımlar yazılır.
 - Uygulama içi zip yedeği (v6) korunur; sunucu yedeği onun yerine geçmez.
+  Geri yükleme tüm yerel tabloları değiştirir, cihaz kimliğini korur ve geri
+  yüklenen senkron satırlarını kuyruğa alır; snapshot yerel push otoritesidir,
+  ancak sunucudaki daha yeni satır `updatedAt` ile kazanır.
 - Yedek dosyaları şifrelenir veya yalnızca güvenli kanaldan taşınır.
 
 ## 13. Yayınlama ve ortamlar

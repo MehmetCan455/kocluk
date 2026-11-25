@@ -339,6 +339,18 @@ final class MigrationTest extends TestCase
         self::assertSame('YES', $column['is_nullable']);
     }
 
+    public function test_sync_changes_has_the_retention_index(): void
+    {
+        $row = self::$db->fetchOne(
+            'SELECT `index_name` AS index_name FROM `information_schema`.`statistics`
+             WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `column_name` = ?',
+            ['sync_changes', 'changed_at'],
+        );
+
+        self::assertIsArray($row);
+        self::assertSame('idx_sync_changes_changed_at', $row['index_name']);
+    }
+
     public function test_running_migrations_again_is_a_no_op(): void
     {
         self::assertSame([], TestDatabase::migrate());

@@ -241,6 +241,11 @@ Açık güvenlik bulguları:
       günlük, Pazar `weekly/` ve offsite kopyaları aynı `keep_days` değeriyle
       silinir, 14 günü aşamaz. Tasarım §11'deki 14 gün sözü ile uyumludur.
 - [x] `public_html` içindeki dizin reddedilir; dizin `0700`, dosya `0600`.
+- [x] `api/bin/maintenance.php` 90 günden eski `sync_changes`, kullanılmış/
+      süresi dolmuş token, iptal/süresi dolmuş oturum ve pencere dışı
+      `rate_limits` satırlarını temizler; `changed_at` indeksi vardır.
+- [ ] **Blocker:** Canlıda günlük `04:00` bakım cron'u kuruldu ve ilk
+      `--dry-run` çıktısı kontrol edildi.
 - [x] Offsite dizini verilirse kopyalar ve orada da 14 gün temizlik yapar;
       verilmezse uyarır.
 - [x] BackupTest: PDO dökümü, gzip, generated kolon dışlama, günlük/haftalık

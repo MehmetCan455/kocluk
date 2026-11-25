@@ -204,6 +204,99 @@ final class SyncPushTest extends ApiTestCase
         self::assertCount(1, $this->changes($account['userId']));
     }
 
+    public function test_reviving_a_tombstone_does_not_create_a_second_active_natural_key(): void
+    {
+        $account = $this->account();
+        $firstId = Uuid::v4();
+        $secondId = Uuid::v4();
+        $t1 = $this->minutesAgo(40);
+        $t2 = $this->minutesAgo(30);
+        $t3 = $this->minutesAgo(20);
+        $t4 = $this->minutesAgo(10);
+
+        $this->push(
+            [['table' => 'subjects', 'op' => 'upsert', 'row' => $this->subject($firstId, 'tyt-matematik', 'Eski', $t1)]],
+            $account['csrf'],
+            $account['jar'],
+        );
+        $this->push(
+            [['table' => 'subjects', 'op' => 'delete', 'rowId' => $firstId, 'updatedAt' => $t2]],
+            $account['csrf'],
+            $account['jar'],
+        );
+        $this->push(
+            [['table' => 'subjects', 'op' => 'upsert', 'row' => $this->subject($secondId, 'tyt-matematik', 'Yeni', $t3)]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $revive = $this->push(
+            [['table' => 'subjects', 'op' => 'upsert', 'row' => $this->subject($firstId, 'tyt-matematik', 'Dirilt', $t4)]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $result = $this->payload($revive)['results'][0];
+
+        self::assertSame('conflict', $result['status']);
+        self::assertSame($secondId, $result['row']['id']);
+        self::assertSame('Yeni', $result['row']['name']);
+        self::assertSame(1, $this->activeSubjectCount($account['userId'], 'tyt-matematik'));
+    }
+
+    public function test_immutable_identity_fields_cannot_be_changed_by_an_upsert(): void
+    {
+        $account = $this->account();
+        $id = Uuid::v4();
+        $examId = Uuid::v4();
+        $subjectId = Uuid::v4();
+        $otherSubject = Uuid::v4();
+        $t1 = $this->minutesAgo(20);
+        $t2 = $this->minutesAgo(10);
+
+        $result = [
+            'id' => $id,
+            'examId' => $examId,
+            'subjectId' => $subjectId,
+            'correct' => 10,
+            'wrong' => 2,
+            'blank' => 0,
+            'net' => 9.5,
+            'updatedAt' => $t1,
+            'deletedAt' => null,
+        ];
+
+        $first = $this->push(
+            [['table' => 'examResults', 'op' => 'upsert', 'row' => $result]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        self::assertSame('applied', $this->payload($first)['results'][0]['status']);
+
+        $changed = $result;
+        $changed['subjectId'] = $otherSubject;
+        $changed['updatedAt'] = $t2;
+
+        $second = $this->push(
+            [['table' => 'examResults', 'op' => 'upsert', 'row' => $changed]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $conflict = $this->payload($second)['results'][0];
+
+        self::assertSame('conflict', $conflict['status']);
+        self::assertSame($subjectId, $conflict['row']['subjectId']);
+        self::assertSame($id, $conflict['row']['id']);
+
+        $row = $this->syncRow('exam_results', $account['userId'], $id);
+
+        self::assertIsArray($row);
+        self::assertSame($subjectId, $row['subject_id']);
+        self::assertCount(1, $this->changes($account['userId']));
+    }
+
     public function test_activity_logs_keep_one_active_row_per_task(): void
     {
         $account = $this->account();
@@ -581,7 +674,8 @@ final class SyncPushTest extends ApiTestCase
         self::assertSame($deletedAt, $againResult['row']['deletedAt']);
         self::assertCount(2, $this->changes($account['userId']));
 
-        // Tombstone wins over a newer update (spec §8.4).
+        // An explicitly newer active row revives the tombstone (LWW). This is
+        // the delete → re-add book/topic flow on the same deterministic id.
         $revive = $this->push(
             [['table' => 'notes', 'op' => 'upsert', 'row' => $this->note($topicId, $later, '<p>Yeni</p>')]],
             $account['csrf'],
@@ -590,15 +684,47 @@ final class SyncPushTest extends ApiTestCase
 
         $reviveResult = $this->payload($revive)['results'][0];
 
-        self::assertSame('conflict', $reviveResult['status']);
-        self::assertSame($deletedAt, $reviveResult['row']['deletedAt']);
-        self::assertCount(2, $this->changes($account['userId']));
+        self::assertSame('applied', $reviveResult['status']);
+        self::assertNull($reviveResult['row']['deletedAt']);
+        self::assertSame('<p>Yeni</p>', $reviveResult['row']['contentHtml']);
+
+        $row = $this->syncRow('notes', $account['userId'], $topicId);
+
+        self::assertIsArray($row);
+        self::assertNull($row['deleted_at']);
+        self::assertSame('<p>Yeni</p>', $row['content_html']);
+        self::assertCount(3, $this->changes($account['userId']));
+
+        // A second delete, then an older update: the tombstone wins ties and
+        // older timestamps; only a strictly newer row may revive it.
+        $laterPlus = $this->minutesAgo(5);
+        $deletedAgain = $this->push(
+            [['table' => 'notes', 'op' => 'delete', 'rowId' => $topicId, 'updatedAt' => $laterPlus]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        self::assertSame('applied', $this->payload($deletedAgain)['results'][0]['status']);
+        self::assertCount(4, $this->changes($account['userId']));
+
+        $staleRevive = $this->push(
+            [['table' => 'notes', 'op' => 'upsert', 'row' => $this->note($topicId, $later, '<p>Eski</p>')]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $staleResult = $this->payload($staleRevive)['results'][0];
+
+        self::assertSame('conflict', $staleResult['status']);
+        self::assertSame($laterPlus, $staleResult['row']['deletedAt']);
+        self::assertSame('<p>Yeni</p>', $staleResult['row']['contentHtml']);
+        self::assertCount(4, $this->changes($account['userId']));
 
         $row = $this->syncRow('notes', $account['userId'], $topicId);
 
         self::assertIsArray($row);
         self::assertNotNull($row['deleted_at']);
-        self::assertSame('<p>Not</p>', $row['content_html']);
+        self::assertSame('<p>Yeni</p>', $row['content_html']);
 
         // A delete of a row the server never saw is a harmless no-op.
         $unknown = $this->push(
@@ -611,7 +737,7 @@ final class SyncPushTest extends ApiTestCase
 
         self::assertSame('applied', $unknownResult['status']);
         self::assertNull($unknownResult['row']);
-        self::assertCount(2, $this->changes($account['userId']));
+        self::assertCount(4, $this->changes($account['userId']));
     }
 
     public function test_invalid_timestamps_are_reported_per_row(): void
@@ -635,6 +761,47 @@ final class SyncPushTest extends ApiTestCase
         self::assertSame('invalid_timestamp', $result['error']['code']);
         self::assertSame(0, $this->userRowCount('user_books', $account['userId']));
         self::assertCount(0, $this->changes($account['userId']));
+    }
+
+    public function test_a_book_can_be_deleted_and_added_again_with_the_same_id(): void
+    {
+        $account = $this->account();
+        $id = Uuid::v4();
+        $bookId = Uuid::v4();
+        $t1 = $this->minutesAgo(30);
+        $t2 = $this->minutesAgo(20);
+        $t3 = $this->minutesAgo(10);
+
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($id, $bookId, $t1)]],
+            $account['csrf'],
+            $account['jar'],
+        );
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'delete', 'rowId' => $id, 'updatedAt' => $t2]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $readd = $this->push(
+            [['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook($id, $bookId, $t3, 'Yeniden')]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $result = $this->payload($readd)['results'][0];
+
+        self::assertSame('applied', $result['status']);
+        self::assertNull($result['row']['deletedAt']);
+        self::assertSame('Yeniden', $result['row']['note']);
+
+        $row = $this->syncRow('user_books', $account['userId'], $id);
+
+        self::assertIsArray($row);
+        self::assertNull($row['deleted_at']);
+        self::assertSame('Yeniden', $row['note']);
+        self::assertSame(1, $this->activeBookCount($account['userId'], $bookId));
+        self::assertCount(3, $this->changes($account['userId']));
     }
 
     public function test_settings_are_one_account_level_row_per_user(): void
@@ -938,6 +1105,28 @@ final class SyncPushTest extends ApiTestCase
             'SELECT COUNT(*) AS `total` FROM `activity_logs`'
             . ' WHERE `user_id` = ? AND `task_id` = ? AND `deleted_at` IS NULL',
             [$userId, $taskId],
+        );
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    private function activeSubjectCount(string $userId, string $seedKey): int
+    {
+        $row = TestDatabase::database()->fetchOne(
+            'SELECT COUNT(*) AS `total` FROM `subjects`'
+            . ' WHERE `user_id` = ? AND `seed_key` = ? AND `deleted_at` IS NULL',
+            [$userId, $seedKey],
+        );
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    private function activeBookCount(string $userId, string $bookId): int
+    {
+        $row = TestDatabase::database()->fetchOne(
+            'SELECT COUNT(*) AS `total` FROM `user_books`'
+            . ' WHERE `user_id` = ? AND `book_id` = ? AND `deleted_at` IS NULL',
+            [$userId, $bookId],
         );
 
         return (int) ($row['total'] ?? 0);

@@ -908,6 +908,10 @@ final class TableMap
             'timestamp' => self::apiTimestamp($value),
             'bool' => (bool) (int) $value,
             'int' => (int) $value,
+            // MariaDB returns DECIMAL/NUMERIC as a string. The wire contract is
+            // still a JSON number: a string `net` would turn exam totals into
+            // "20" + "18.75" concatenation and NaN on the client (design §8.1).
+            'decimal' => (float) $value,
             default => $value,
         };
     }

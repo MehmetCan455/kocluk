@@ -302,6 +302,105 @@ final class SyncPullTest extends ApiTestCase
         self::assertFalse($payload['hasMore']);
     }
 
+    public function test_pull_reports_cursor_expired_when_the_whole_log_was_purged(): void
+    {
+        $account = $this->account();
+
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook(Uuid::v4(), Uuid::v4(), $this->minutesAgo(10))]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $cursor = $this->payload($this->get('/api/sync/pull', $account['jar']))['nextCursor'];
+
+        TestDatabase::database()->execute(
+            'DELETE FROM `sync_changes` WHERE `user_id` = ?',
+            [$account['userId']],
+        );
+
+        $expired = $this->get('/api/sync/pull?since=' . $cursor, $account['jar']);
+
+        self::assertSame(410, $expired->status());
+        self::assertSame('cursor_expired', $this->payload($expired)['error']['code']);
+
+        // The full snapshot is the documented recovery and still carries the
+        // row whose log entry is gone.
+        $full = $this->payload($this->get('/api/sync/full', $account['jar']));
+
+        self::assertCount(1, $full['tables']['userBooks']);
+    }
+
+    public function test_fresh_device_on_an_old_account_after_the_purge_gets_a_full_snapshot(): void
+    {
+        $account = $this->account();
+
+        $this->push(
+            [['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook(Uuid::v4(), Uuid::v4(), $this->minutesAgo(10))]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        TestDatabase::database()->execute(
+            'DELETE FROM `sync_changes` WHERE `user_id` = ?',
+            [$account['userId']],
+        );
+
+        // A brand-new device has no cursor. The account still has data but no
+        // retained log, so an incremental since=0 page would silently lose the
+        // row; the server must force the full snapshot instead.
+        $response = $this->get('/api/sync/pull?since=0', $account['jar']);
+
+        self::assertSame(410, $response->status());
+        self::assertSame('cursor_expired', $this->payload($response)['error']['code']);
+    }
+
+    public function test_fresh_device_on_a_truncated_log_gets_a_full_snapshot(): void
+    {
+        $account = $this->account();
+
+        $this->push([
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook(Uuid::v4(), Uuid::v4(), $this->minutesAgo(20))],
+            ['table' => 'userBooks', 'op' => 'upsert', 'row' => $this->userBook(Uuid::v4(), Uuid::v4(), $this->minutesAgo(10))],
+        ], $account['csrf'], $account['jar']);
+
+        TestDatabase::database()->execute(
+            'UPDATE `users` SET `created_at` = ? WHERE `id` = ?',
+            [
+                Clock::now()->modify('-100 days')->format('Y-m-d H:i:s.u'),
+                $account['userId'],
+            ],
+        );
+
+        $log = $this->changes($account['userId']);
+
+        // The cron purged the first change but retained the second: minId is
+        // not 0, yet a since=0 client still cannot see the whole history.
+        TestDatabase::database()->execute(
+            'DELETE FROM `sync_changes` WHERE `id` = ?',
+            [(int) $log[0]['id']],
+        );
+
+        $response = $this->get('/api/sync/pull?since=0', $account['jar']);
+
+        self::assertSame(410, $response->status());
+        self::assertSame('cursor_expired', $this->payload($response)['error']['code']);
+    }
+
+    public function test_empty_account_still_accepts_a_first_pull_without_a_snapshot(): void
+    {
+        $account = $this->account();
+
+        $response = $this->get('/api/sync/pull?since=0', $account['jar']);
+
+        self::assertSame(200, $response->status());
+
+        $payload = $this->payload($response);
+
+        self::assertSame([], $payload['changes']);
+        self::assertSame(0, $payload['nextCursor']);
+    }
+
     public function test_pull_only_returns_the_signed_in_users_changes(): void
     {
         $alpha = $this->account();

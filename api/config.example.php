@@ -64,6 +64,14 @@ $config = [
         'offsite_dir' => getenv('KOCLUK_BACKUP_OFFSITE_DIR') ?: '',
         'keep_days' => 14,
     ],
+    // Retention cron (api/bin/maintenance.php). The 90-day change log is a
+    // client contract: do not shorten it, or every device with an older cursor
+    // would be forced into a full pull. Rate-limit rows only need to outlive
+    // the longest window (1 hour); 24 hours leaves room for debugging.
+    'maintenance' => [
+        'change_log_days' => 90,
+        'rate_limit_hours' => 24,
+    ],
     // Optional sync tuning. The default matches the design spec (20 MB); lower
     // it to fail GET /api/sync/full with payload_too_large earlier. Tests set
     // this through the App config instead of building a 20 MB fixture.

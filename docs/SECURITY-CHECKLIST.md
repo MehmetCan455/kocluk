@@ -59,7 +59,7 @@ Açık güvenlik bulguları:
 | `php -l` (tüm `api/**/*.php`) | ✅ Sözdizimi hatası yok (PHP 8.4.28) |
 | PHPUnit `Response/Config/TableMap` | ✅ 33 test, 471 assertion |
 | `git diff --check` | ✅ Boşluk hatası yok |
-| GitHub Actions `CI` (run 45539969445) | ✅ `web`, `e2e`, `api` (230 PHPUnit testi) yeşil |
+| GitHub Actions `CI` (run 45540444193) | ✅ `web`, `e2e`, `api` (230 PHPUnit testi) yeşil |
 | Staging/canlı deploy | ⛔ Bu görevde yapılmadı |
 
 ---

@@ -26,13 +26,19 @@ cPanel → **MySQL Databases**:
 
 ## 2. E-posta / SMTP
 
-cPanel → **Email Accounts** → `no-reply@zirveacademy.com` oluştur.
-**Connect Devices** ekranından SMTP bilgilerini al:
+Natro'da e-posta cPanel'in **Email Accounts** bölümünde değil, Natro'nun
+**E-posta Sitesi Yönetimi / XMail** panelindedir. Orada `no-reply@zirveacademy.com`
+hesabını oluştur. cPanel'de "Connect Devices" olmasa da XMail'in standart
+ayarları şunlardır:
 
-- Host: genellikle `mail.zirveacademy.com` veya `smtp.zirveacademy.com`
+- Host: `mail.kurumsaleposta.com`
 - Port: `465` (SSL) veya `587` (STARTTLS)
-- Kullanıcı: `no-reply@zirveacademy.com`
-- Şifre: e-posta hesabının şifresi
+- Kullanıcı: `no-reply@zirveacademy.com` (tam adres)
+- Şifre: XMail'de belirlediğin e-posta şifresi
+
+`mail.zirveacademy.com` kullanma; alan adının MX kayıtları
+`mx-01.kurumsaleposta.com` / `mx-02.kurumsaleposta.com` ve SMTP sunucusu
+`mail.kurumsaleposta.com`.
 
 SPF/DKIM kayıtlarının cPanel'de açık olduğunu kontrol et. Şifre sıfırlama
 e-postasını kendi Gmail/Outlook adresine göndererek test et.
@@ -65,7 +71,7 @@ return [
     ],
     'invite_code' => 'ZIRVE-BETA-2026',
     'mail' => [
-        'host' => 'mail.zirveacademy.com',
+        'host' => 'mail.kurumsaleposta.com',
         'port' => 465,
         'username' => 'no-reply@zirveacademy.com',
         'password' => 'BURAYA_MAIL_SIFRESI',

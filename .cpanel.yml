@@ -11,9 +11,10 @@
 # /home/u2964068/staging/ (see docs/STAGING.md). Never merge the staging branch
 # back into main: that would deploy staging paths to production.
 #
-# The .kocluk-staging marker is created ONLY when DEPLOYPATH is the staging
-# document root; any stray marker is removed on a live deploy. ConfigFile
-# treats the marker as a fail-closed switch: staging web requests may load
+# The .kocluk-staging marker is an extra assertion, not the config selector.
+# It is created when DEPLOYPATH ends in /staging (with or without a trailing
+# slash); any stray marker is removed on a live deploy. ConfigFile selects
+# staging from the docroot path segment or the staging Host and then allows
 # only /home/u2964068/kocluk-staging-config.php, never the production config
 # or the in-tree api/config.php.
 deployment:
@@ -25,4 +26,4 @@ deployment:
     - mkdir -p $DEPLOYPATH/api
     - /bin/cp -R api/. $DEPLOYPATH/api/
     - rm -f $DEPLOYPATH/api/config.php
-    - if [ "$DEPLOYPATH" = "/home/u2964068/staging/" ]; then touch $DEPLOYPATH/.kocluk-staging; else rm -f $DEPLOYPATH/.kocluk-staging; fi
+    - case "$DEPLOYPATH" in */staging/|*/staging) touch "$DEPLOYPATH/.kocluk-staging" ;; *) rm -f "$DEPLOYPATH/.kocluk-staging" ;; esac

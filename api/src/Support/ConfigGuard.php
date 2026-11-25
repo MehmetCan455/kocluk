@@ -10,11 +10,13 @@ use RuntimeException;
  * Refuses configuration that would mix staging and production data.
  *
  * This runs in the web front controller and in every CLI tool that opens the
- * database. It is intentionally strict: a staging document root must load a
- * config with app.env=staging and a database whose name contains "_staging";
- * the production config path is never accepted there. A config that declares
- * app.env=staging is also checked outside the web root, so a mistyped
- * KOCLUK_CONFIG cannot point the staging back up at the live database.
+ * database. It is intentionally strict:
+ *   * a staging context may load only the staging config path (the marker is
+ *     not required for the context, and its absence cannot relax this rule);
+ *   * app.env=staging always requires a database whose name contains
+ *     "_staging", even outside the staging docroot;
+ *   * the production config path is never accepted in a staging context or
+ *     when app.env=staging.
  */
 final class ConfigGuard
 {
@@ -23,31 +25,47 @@ final class ConfigGuard
      */
     public static function assertSafe(
         array $config,
-        bool $stagingRoot,
+        bool $stagingContext,
         ?string $configPath = null,
+        ?string $stagingPath = null,
     ): void {
         $app = is_array($config['app'] ?? null) ? $config['app'] : [];
         $env = is_string($app['env'] ?? null) && $app['env'] !== ''
             ? $app['env']
             : 'production';
+        $expectedStagingPath = $stagingPath ?? ConfigFile::STAGING_PATH;
+
+        // A staging config path is itself a staging context, even when the
+        // caller could not infer one from the docroot/Host (CLI clone).
+        if ($configPath !== null && $configPath === $expectedStagingPath) {
+            $stagingContext = true;
+        }
+
+        if ($stagingContext) {
+            if ($configPath === null || $configPath !== $expectedStagingPath) {
+                throw new RuntimeException(
+                    'Staging bağlamında yalnızca staging config dosyası kullanılabilir.',
+                );
+            }
+        }
 
         if (
-            $stagingRoot
-            && $configPath !== null
+            $configPath !== null
             && $configPath === ConfigFile::PRODUCTION_PATH
+            && ($stagingContext || $env === 'staging')
         ) {
             throw new RuntimeException(
-                'Staging belge kökü production config dosyasını kullanmayı reddetti.',
+                'Production config dosyası staging bağlamında kullanılamaz.',
             );
         }
 
-        if (!$stagingRoot && $env !== 'staging') {
+        if (!$stagingContext && $env !== 'staging') {
             return;
         }
 
         if ($env !== 'staging') {
             throw new RuntimeException(
-                'Staging belge kökündeki config app.env=staging olmalı.',
+                'Staging bağlamındaki config app.env=staging olmalı.',
             );
         }
 

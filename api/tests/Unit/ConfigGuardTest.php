@@ -83,6 +83,62 @@ final class ConfigGuardTest extends TestCase
         );
     }
 
+    public function test_staging_context_requires_the_staging_config_path(): void
+    {
+        $this->expectException(RuntimeException::class);
+
+        ConfigGuard::assertSafe(
+            [
+                'app' => ['env' => 'staging'],
+                'db' => ['database' => 'u2964068_staging'],
+            ],
+            true,
+            '/home/u2964068/other-config.php',
+        );
+    }
+
+    public function test_staging_config_path_alone_enforces_staging_environment(): void
+    {
+        $this->expectException(RuntimeException::class);
+
+        ConfigGuard::assertSafe(
+            [
+                'app' => ['env' => 'production'],
+                'db' => ['database' => 'u2964068_kocluk'],
+            ],
+            false,
+            ConfigFile::STAGING_PATH,
+        );
+    }
+
+    public function test_staging_startup_guard_refuses_a_production_database_without_a_marker(): void
+    {
+        $this->expectException(RuntimeException::class);
+
+        ConfigGuard::assertSafe(
+            [
+                'app' => ['env' => 'staging'],
+                'db' => ['database' => 'u2964068_kocluk'],
+            ],
+            true,
+            ConfigFile::STAGING_PATH,
+        );
+    }
+
+    public function test_staging_env_outside_staging_context_rejects_the_production_config(): void
+    {
+        $this->expectException(RuntimeException::class);
+
+        ConfigGuard::assertSafe(
+            [
+                'app' => ['env' => 'staging'],
+                'db' => ['database' => 'u2964068_staging'],
+            ],
+            false,
+            ConfigFile::PRODUCTION_PATH,
+        );
+    }
+
     public function test_production_root_still_accepts_the_production_config(): void
     {
         ConfigGuard::assertSafe(

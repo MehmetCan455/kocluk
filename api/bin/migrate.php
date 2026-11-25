@@ -19,7 +19,7 @@ $root = dirname(__DIR__);
 require $root . '/src/bootstrap.php';
 
 // Same candidate order as api/index.php (src/Support/ConfigFile.php):
-// KOCLUK_CONFIG, then the staging marker (staging config only), then the
+// KOCLUK_CONFIG, then the staging context (docroot path or web Host), then the
 // production file outside public_html and api/config.php.
 $configPath = \Kocluk\Api\Support\ConfigFile::path($root);
 
@@ -38,7 +38,7 @@ if (!is_array($config)) {
 try {
     \Kocluk\Api\Support\ConfigGuard::assertSafe(
         $config,
-        \Kocluk\Api\Support\ConfigFile::isStagingRoot($root),
+        \Kocluk\Api\Support\ConfigFile::isStagingContext($root),
         $configPath,
     );
 

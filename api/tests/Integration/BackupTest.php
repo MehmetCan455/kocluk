@@ -149,6 +149,17 @@ final class BackupTest extends TestCase
         self::assertSame(0600, fileperms($weeklyFiles[0]) & 0777);
     }
 
+    public function test_keep_days_above_fourteen_is_rejected(): void
+    {
+        [$exitCode, , $stderr] = $this->runBackup([
+            '--pdo',
+            '--keep-days=15',
+        ]);
+
+        self::assertSame(2, $exitCode);
+        self::assertStringContainsString('1 ile 14', $stderr);
+    }
+
     public function test_backup_removes_stale_temporary_files(): void
     {
         $this->insertUser('Stale Temp');

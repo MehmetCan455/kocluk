@@ -26,9 +26,11 @@ require __DIR__ . '/src/bootstrap.php';
 
 try {
     // Same candidate order as api/bin/migrate.php (src/Support/ConfigFile.php):
-    // KOCLUK_CONFIG, then the staging marker (staging config only), then the
+    // KOCLUK_CONFIG, then the staging context (path segment or Host), then the
     // production file outside public_html and api/config.php.
-    $configPath = ConfigFile::path(__DIR__);
+    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+    $host = is_string($host) ? $host : '';
+    $configPath = ConfigFile::path(__DIR__, null, null, null, $host);
 
     if ($configPath === null) {
         throw new RuntimeException('Kocluk yapılandırması bulunamadı (KOCLUK_CONFIG).');
@@ -42,7 +44,7 @@ try {
 
     ConfigGuard::assertSafe(
         $config,
-        ConfigFile::isStagingRoot(__DIR__),
+        ConfigFile::isStagingContext(__DIR__, $host),
         $configPath,
     );
 

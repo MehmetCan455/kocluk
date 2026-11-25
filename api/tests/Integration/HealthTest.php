@@ -51,6 +51,27 @@ final class HealthTest extends TestCase
         self::assertSame('u2964068_staging', $payload['database']);
     }
 
+    public function test_front_controller_refuses_staging_env_with_a_production_database(): void
+    {
+        $configPath = $this->configFile([
+            'app' => ['env' => 'staging'],
+            'db' => ['database' => 'u2964068_kocluk'],
+        ]);
+
+        try {
+            $result = $this->runFrontController($configPath, 'GET', '/api/health');
+        } finally {
+            @unlink($configPath);
+        }
+
+        self::assertSame(0, $result['exit'], $result['stderr']);
+
+        $payload = $this->payload($result['stdout']);
+
+        self::assertSame('internal_error', $payload['error']['code']);
+        self::assertStringNotContainsString('u2964068_kocluk', $result['stdout']);
+    }
+
     public function test_health_carries_json_and_security_headers(): void
     {
         $response = $this->app()->handle(Request::create('GET', '/api/health'));

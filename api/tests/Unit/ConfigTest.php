@@ -36,24 +36,7 @@ final class ConfigTest extends TestCase
             putenv('KOCLUK_CONFIG=' . $this->envBackup);
         }
 
-        $entries = array_merge(
-            glob($this->root . '/*') ?: [],
-            glob($this->root . '/.*') ?: [],
-        );
-
-        foreach ($entries as $file) {
-            if (basename($file) === '.' || basename($file) === '..') {
-                continue;
-            }
-
-            if (is_dir($file)) {
-                @rmdir($file);
-            } else {
-                @unlink($file);
-            }
-        }
-
-        @rmdir($this->root);
+        $this->removeDirectory($this->root);
     }
 
     public function test_external_config_is_tried_before_the_in_tree_fallback(): void
@@ -165,6 +148,82 @@ final class ConfigTest extends TestCase
         self::assertTrue(ConfigFile::isStagingRoot($api));
     }
 
+    public function test_staging_docroot_without_marker_never_resolves_production(): void
+    {
+        $api = $this->root . '/staging/api';
+        self::assertTrue(mkdir($api, 0777, true));
+
+        $staging = $this->root . '/staging-config.php';
+        $production = $this->root . '/production.php';
+        self::assertNotFalse(file_put_contents($production, '<?php return [];'));
+
+        // No marker and no staging config: fail closed, never production.
+        self::assertNull(ConfigFile::path($api, $production, $staging));
+        self::assertSame(
+            [$staging],
+            ConfigFile::candidates($api, $production, $staging),
+        );
+
+        self::assertNotFalse(file_put_contents($staging, '<?php return [];'));
+        self::assertSame($staging, ConfigFile::path($api, $production, $staging));
+    }
+
+    public function test_staging_host_without_marker_fails_closed(): void
+    {
+        $staging = $this->root . '/staging-host.php';
+        $production = $this->root . '/production.php';
+        self::assertNotFalse(file_put_contents($production, '<?php return [];'));
+
+        // No marker; the Host selects staging, so production is not a
+        // candidate even though it exists.
+        self::assertNull(ConfigFile::path(
+            $this->root,
+            $production,
+            $staging,
+            null,
+            'staging.zirveacademy.com',
+        ));
+
+        self::assertNotFalse(file_put_contents($staging, '<?php return [];'));
+        self::assertSame($staging, ConfigFile::path(
+            $this->root,
+            $production,
+            $staging,
+            null,
+            'staging.zirveacademy.com:443',
+        ));
+    }
+
+    public function test_production_root_still_resolves_production(): void
+    {
+        $production = $this->root . '/production.php';
+        $staging = $this->root . '/staging.php';
+        self::assertNotFalse(file_put_contents($production, '<?php return [];'));
+        self::assertNotFalse(file_put_contents($staging, '<?php return [];'));
+
+        self::assertSame($production, ConfigFile::path(
+            $this->root,
+            $production,
+            $staging,
+            null,
+            'zirveacademy.com',
+        ));
+        self::assertFalse(ConfigFile::isStagingContext($this->root, 'zirveacademy.com'));
+    }
+
+    public function test_staging_context_is_detected_by_path_or_host(): void
+    {
+        $api = $this->root . '/staging/api';
+        self::assertTrue(mkdir($api, 0777, true));
+
+        self::assertTrue(ConfigFile::isStagingContext($api));
+        self::assertTrue(ConfigFile::isStagingContext(
+            $this->root,
+            'staging.zirveacademy.com',
+        ));
+        self::assertFalse(ConfigFile::isStagingContext($this->root, 'zirveacademy.com'));
+    }
+
     public function test_example_config_uses_a_plain_cookie_in_development(): void
     {
         $config = $this->exampleConfig(['APP_ENV' => 'development']);
@@ -172,6 +231,29 @@ final class ConfigTest extends TestCase
         self::assertSame('development', $config['app']['env']);
         self::assertFalse($config['session']['secure']);
         self::assertSame('kocluk_session', $config['session']['cookie_name']);
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        foreach (scandir($directory) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            $path = $directory . '/' . $entry;
+
+            if (is_dir($path)) {
+                $this->removeDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+
+        @rmdir($directory);
     }
 
     /**

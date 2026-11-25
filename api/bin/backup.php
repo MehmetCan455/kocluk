@@ -23,7 +23,7 @@ declare(strict_types=1);
  *     /usr/local/bin/php /home/u2964068/public_html/api/bin/backup.php \
  *     >> /home/u2964068/kocluk-backups/cron.log 2>&1
  *
- * Restore steps live in README.md ("Sunucu yedeği ve geri yükleme").
+ * Restore steps live in README.md ("Geri yükleme tatbikatı").
  */
 
 use Kocluk\Api\Db\Database;
@@ -58,7 +58,7 @@ Kullanım: php api/bin/backup.php [seçenekler]
 
   --dir=PATH          Yedek dizini (varsayılan: config backup.dir veya
                       /home/u2964068/kocluk-backups). public_html içinde olamaz.
-  --keep-days=N       Günlük yedek saklama süresi (varsayılan: config
+  --keep-days=N       Günlük yedek saklama süresi, 1-14 (varsayılan: config
                       backup.keep_days veya 14).
   --offsite-dir=PATH  Yedeği ayrıca bu dizine kopyala. Boşsa yalnızca uyarı verir.
   --weekly            Pazar kontrolünü beklemeden weekly/ kopyasını üret.
@@ -146,9 +146,9 @@ function backupParseOptions(array $argv): array
 
     if (
         $options['keep_days'] !== null
-        && ($options['keep_days'] < 1 || $options['keep_days'] > 3650)
+        && ($options['keep_days'] < 1 || $options['keep_days'] > 14)
     ) {
-        throw new InvalidArgumentException('--keep-days 1 ile 3650 arasında olmalı.');
+        throw new InvalidArgumentException('--keep-days 1 ile 14 arasında olmalı.');
     }
 
     return $options;
@@ -607,7 +607,7 @@ if (!is_array($config)) {
 try {
     ConfigGuard::assertSafe(
         $config,
-        ConfigFile::isStagingRoot(dirname(__DIR__)),
+        ConfigFile::isStagingContext(dirname(__DIR__)),
         $configPath,
     );
 } catch (Throwable $error) {
@@ -626,8 +626,8 @@ if ($keepDays === null) {
         $configuredKeepDays = (int) $configuredKeepDays;
     }
 
-    if (!is_int($configuredKeepDays) || $configuredKeepDays < 1 || $configuredKeepDays > 3650) {
-        backupFail('backup.keep_days 1 ile 3650 arasında bir tam sayı olmalı.', 2);
+    if (!is_int($configuredKeepDays) || $configuredKeepDays < 1 || $configuredKeepDays > 14) {
+        backupFail('backup.keep_days 1 ile 14 arasında bir tam sayı olmalı.', 2);
     }
 
     $keepDays = $configuredKeepDays;

@@ -4,6 +4,7 @@ import type { Subject } from '@/domain/types';
 import { KoclukDB, db, getActiveDb, getActiveDbOrNull, setActiveDb } from './db';
 import { activeUserId, closeActiveDb, openLegacyDb, openUserDb } from './dbManager';
 import { getMeta, setMeta } from './sync/meta';
+import { whenQueueIdle } from './sync/queue';
 
 const subject: Subject = {
   id: 's1',
@@ -51,6 +52,22 @@ test('kullanıcı verileri birbirinden izole kalır', async () => {
   track(await openUserDb('u1'));
   expect(await db.subjects.get('s1')).toMatchObject({ name: 'Matematik' });
   expect(await db.subjects.count()).toBe(1);
+});
+
+test('openUserDb ilk pull öncesi settings kuyruğa yazmaz, sonra yazar', async () => {
+  const fresh = track(await openUserDb('u-settings'));
+  await fresh.settings.put({ key: 'profileName', value: 'Varsayılan' });
+  await whenQueueIdle();
+  expect(await fresh.syncQueue.count()).toBe(0);
+
+  await setMeta(fresh, 'initialPullDone', true);
+  const reopened = track(await openUserDb('u-settings'));
+  await reopened.settings.put({ key: 'profileName', value: 'Profil' });
+  await whenQueueIdle();
+
+  expect(await reopened.syncQueue.get('settings:u-settings')).toMatchObject({
+    status: 'pending',
+  });
 });
 
 test('openUserDb önceki aktif DB yi kapatır', async () => {

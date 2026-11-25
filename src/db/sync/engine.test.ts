@@ -16,8 +16,9 @@ import {
   syncNow,
   type SyncApiClient,
 } from './engine';
-import { getMeta, setMeta } from './meta';
+import { getMeta, setMeta, INITIAL_PULL_DONE_KEY } from './meta';
 import {
+  enqueueChange,
   installSyncHooks,
   markDead,
   setApplyingRemote,
@@ -33,13 +34,25 @@ function now(offsetMs = 0): string {
   return new Date(Date.now() + offsetMs).toISOString();
 }
 
-async function createDatabase(label: string): Promise<KoclukDB> {
+interface CreateDatabaseOptions {
+  /** Default true: an already established device uses push → pull. */
+  initialPullDone?: boolean;
+}
+
+async function createDatabase(
+  label: string,
+  options: CreateDatabaseOptions = {},
+): Promise<KoclukDB> {
+  const initialPullDone = options.initialPullDone ?? true;
   identifier += 1;
   const name = `kocluk-sync-engine-${label}-${identifier}`;
   await Dexie.delete(name);
   const database = new KoclukDB(name);
   await database.open();
-  installSyncHooks(database, 'user-1');
+  installSyncHooks(database, 'user-1', { settingsSyncEnabled: initialPullDone });
+  if (initialPullDone) {
+    await setMeta(database, INITIAL_PULL_DONE_KEY, true);
+  }
   opened.push(database);
   return database;
 }
@@ -92,6 +105,9 @@ interface ServerResult {
 class FakeSyncServer implements SyncApiClient {
   readonly calls: string[] = [];
 
+  /** Raw push envelopes, in request order (asserted for first-open rules). */
+  readonly pushBodies: PushRequestBody[] = [];
+
   readonly tables = new Map<SyncedTable, Map<string, Record<string, unknown>>>();
 
   readonly log: Array<{ id: number; table: SyncedTable; rowId: string }> = [];
@@ -121,6 +137,7 @@ class FakeSyncServer implements SyncApiClient {
     }
 
     const request = body as PushRequestBody;
+    this.pushBodies.push(request);
     const results = request.changes.map((change) => this.apply(change));
     return { results, serverTime: this.serverTime } as T;
   }
@@ -287,6 +304,90 @@ test('push → pull → status sırasıyla çalışır ve durumu kaydeder', asyn
   expect(await database.syncQueue.count()).toBe(0);
   expect(await getMeta(database, 'lastSyncAt')).toBe(result.lastSyncAt);
   expect(await getMeta(database, 'serverTime')).toBe(server.serverTime);
+});
+
+test('ilk senkron sunucu ayarlarını yerel varsayılanlarla ezmez', async () => {
+  const database = await createDatabase('first-open', { initialPullDone: false });
+  await database.settings.bulkPut([
+    { key: 'profileName', value: 'Yerel Varsayılan' },
+    { key: 'examName', value: 'Yerel Sınav' },
+    { key: 'hiddenSubjects', value: ['s-local'] },
+    { key: 'seedVersion', value: 1 },
+  ]);
+  await database.subjects.add(subject('s-local'));
+  await whenQueueIdle();
+
+  // The settings hook is gated until the first pull, so seeding alone queues
+  // nothing. Simulate the row an affected (pre-fix) device already had.
+  expect(await database.syncQueue.get('settings:user-1')).toBeUndefined();
+  await enqueueChange(database, 'settings', 'user-1');
+  await whenQueueIdle();
+  expect(await database.syncQueue.get('settings:user-1')).toMatchObject({
+    status: 'pending',
+  });
+
+  const server = new FakeSyncServer();
+  server.seed('settings', {
+    userId: 'user-1',
+    profileName: 'Sunucu Profili',
+    examName: 'Sunucu Sınavı',
+    examDate: '2027-06-20',
+    hiddenSubjects: ['s-server'],
+    onboardingDone: true,
+    updatedAt: now(60_000),
+  });
+
+  const result = await syncNow(database, server, 'csrf');
+
+  // First sync is pull → push → status.
+  expect(server.calls[0]).toMatch(`GET ${PULL_PATH}`);
+  expect(server.calls[1]).toBe('POST /api/sync/push');
+  expect(server.calls[2]).toBe(`GET ${STATUS_PATH}`);
+
+  const pushedTables = server.pushBodies.flatMap((body) =>
+    body.changes.map((change) => change.table),
+  );
+  expect(pushedTables).not.toContain('settings');
+  expect(pushedTables).toContain('subjects');
+
+  expect((await database.settings.get('profileName'))?.value).toBe('Sunucu Profili');
+  expect((await database.settings.get('examName'))?.value).toBe('Sunucu Sınavı');
+  expect((await database.settings.get('hiddenSubjects'))?.value).toEqual(['s-server']);
+  expect(await database.syncQueue.get('settings:user-1')).toBeUndefined();
+  expect(await getMeta(database, INITIAL_PULL_DONE_KEY)).toBe(true);
+  expect(result.status).toBe('synced');
+});
+
+test('ilk pull öncesi settings kuyruğa girmez, pull sonrası girer', async () => {
+  const database = await createDatabase('fresh-settings', { initialPullDone: false });
+  await database.settings.put({ key: 'accent', value: '#ff0000' });
+  await database.settings.put({ key: 'scheduleMode', value: 'manual' });
+  await database.settings.put({ key: 'profileName', value: 'Yerel Profil' });
+  await whenQueueIdle();
+
+  // Device-only keys and account defaults alike stay out of the queue until
+  // the server row has been read.
+  expect(await database.syncQueue.get('settings:user-1')).toBeUndefined();
+  expect(await database.syncQueue.count()).toBe(0);
+
+  const server = new FakeSyncServer();
+  const result = await syncNow(database, server, 'csrf');
+
+  expect(result.status).toBe('synced');
+  expect(server.calls.map((call) => call.split('?')[0])).toEqual([
+    `GET ${PULL_PATH}`,
+    `GET ${STATUS_PATH}`,
+  ]);
+  expect(server.pushBodies).toHaveLength(0);
+  expect((await database.settings.get('accent'))?.value).toBe('#ff0000');
+  expect(await getMeta(database, INITIAL_PULL_DONE_KEY)).toBe(true);
+
+  // The initial pull completed, so later settings changes sync again.
+  await database.settings.put({ key: 'profileName', value: 'Yeni Profil' });
+  await whenQueueIdle();
+  expect(await database.syncQueue.get('settings:user-1')).toMatchObject({
+    status: 'pending',
+  });
 });
 
 test('iki cihaz aynı sunucu üzerinden senkronlanır', async () => {

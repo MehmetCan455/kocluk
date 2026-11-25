@@ -1,10 +1,16 @@
 import { ApiError } from '@/lib/api';
 import type { KoclukDB } from '../db';
 import { STATUS_PATH } from './constants';
-import { getMeta, setMeta } from './meta';
+import { INITIAL_PULL_DONE_KEY, getMeta, setMeta } from './meta';
 import { pullAll, type PullApiClient } from './pull';
 import { pushOnce, type PushApiClient, type PushSummary } from './push';
-import { deadCount, onQueueWrite, pendingCount } from './queue';
+import {
+  deadCount,
+  discardSettingsChange,
+  onQueueWrite,
+  pendingCount,
+  setSettingsSyncEnabled,
+} from './queue';
 
 /**
  * The sync state machine (design §9.5).
@@ -143,6 +149,11 @@ async function runSync(
   let error: string | null = null;
   let status: SyncRunStatus = 'synced';
 
+  const initialPullDone = (await getMeta(db, INITIAL_PULL_DONE_KEY)) === true;
+  // Keep the queue gate aligned with the persisted first-pull state even for
+  // databases opened outside `dbManager` (tests, future restore flows).
+  setSettingsSyncEnabled(db, initialPullDone);
+
   if (!browserOnline()) {
     const counts = await readCounts(db);
     return {
@@ -158,12 +169,31 @@ async function runSync(
   }
 
   try {
-    const before = await readCounts(db);
-    if (csrfToken !== null && csrfToken !== '' && before.pending > 0) {
-      pushed = await pushOnce(db, apiClient, csrfToken);
-    }
+    if (initialPullDone) {
+      const before = await readCounts(db);
+      if (csrfToken !== null && csrfToken !== '' && before.pending > 0) {
+        pushed = await pushOnce(db, apiClient, csrfToken);
+      }
 
-    pulled = await pullAll(db, apiClient);
+      pulled = await pullAll(db, apiClient);
+    } else {
+      // First sync on this device is pull → push, not push → pull. A fresh
+      // account database seeds default settings (and seedVersion), and pushing
+      // those before reading would overwrite the real account row on the
+      // server (design §9.3). Settings stay gated until the pull completes.
+      await discardSettingsChange(db);
+      pulled = await pullAll(db, apiClient);
+      // A settings write made while the pull was in flight is gated too; any
+      // entry that still slipped in is stale before the first push.
+      await discardSettingsChange(db);
+      await setMeta(db, INITIAL_PULL_DONE_KEY, true);
+      setSettingsSyncEnabled(db, true);
+
+      const afterPull = await readCounts(db);
+      if (csrfToken !== null && csrfToken !== '' && afterPull.pending > 0) {
+        pushed = await pushOnce(db, apiClient, csrfToken);
+      }
+    }
 
     const payload = await apiClient.get<unknown>(STATUS_PATH);
     const receivedAt = new Date();

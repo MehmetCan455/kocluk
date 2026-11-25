@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { GraduationCap, Search } from 'lucide-react';
 import { useAppSettings } from '@/app/SettingsProvider';
 import { cn } from '@/components/ui/cn';
+import { SyncStatus } from '@/features/sync/SyncStatus';
 import { NAV_ITEMS, SECONDARY_NAV_ITEMS, type NavigationItem } from './navItems';
 
 function sidebarLinkClass({ isActive }: { isActive: boolean }): string {
@@ -71,17 +72,20 @@ export function Sidebar({ onSearch }: SidebarProps) {
       </nav>
 
       <div className="shrink-0 border-t border-line p-4">
-        <div className="flex items-center gap-3">
-          <span
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent)]"
-            aria-hidden="true"
-          >
-            {initial}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{profileName || 'Profil'}</p>
-            <p className="truncate text-xs text-muted">{settings.examName || 'YKS Takip'}</p>
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent)]"
+              aria-hidden="true"
+            >
+              {initial}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{profileName || 'Profil'}</p>
+              <p className="truncate text-xs text-muted">{settings.examName || 'YKS Takip'}</p>
+            </div>
           </div>
+          <SyncStatus variant="bar" />
         </div>
       </div>
     </aside>

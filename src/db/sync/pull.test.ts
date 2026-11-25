@@ -1,7 +1,8 @@
 import Dexie from 'dexie';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Attachment, Book, CatalogBook, Photo, Subject, UserBook } from '@/domain/types';
 import { ApiError } from '@/lib/api';
+import { SETTINGS_UPDATED_EVENT } from '@/lib/events';
 import { KoclukDB } from '../db';
 import { FULL_PATH, PULL_PATH, SYNCED_TABLES } from './constants';
 import { getMeta, setMeta } from './meta';
@@ -318,6 +319,78 @@ test('sunucudan gelen null alanlar undefined olarak saklanır (yedek uyumu)', as
   // Backup schemas use `z.string().optional()`, which rejects an explicit null.
   expect(subject !== undefined && 'deletedAt' in subject).toBe(false);
   expect(book !== undefined && 'deletedAt' in book).toBe(false);
+});
+
+test('pull uygulanan settings satırı ayar güncelleme olayı yayınlar', async () => {
+  const listener = vi.fn();
+  window.addEventListener(SETTINGS_UPDATED_EVENT, listener);
+
+  try {
+    const { client } = recordingClient(() => ({
+      changes: [
+        {
+          table: 'settings',
+          row: {
+            userId: 'user-1',
+            profileName: 'Sunucu Profili',
+            examName: 'Sunucu Sınavı',
+            onboardingDone: true,
+            hiddenSubjects: [],
+            updatedAt: now(),
+          },
+        },
+      ],
+      nextCursor: 21,
+      hasMore: false,
+    }));
+
+    const result = await pullOnce(database, client);
+
+    expect(result.applied).toBe(1);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect((await database.settings.get('profileName'))?.value).toBe(
+      'Sunucu Profili',
+    );
+  } finally {
+    window.removeEventListener(SETTINGS_UPDATED_EVENT, listener);
+  }
+});
+
+test('bekleyen settings satırı atlanınca ayar güncelleme olayı yayınlanmaz', async () => {
+  await database.settings.put({ key: 'profileName', value: 'Yerel Profil' });
+  await whenQueueIdle();
+  expect(await database.syncQueue.get('settings:user-1')).toMatchObject({
+    status: 'pending',
+  });
+
+  const listener = vi.fn();
+  window.addEventListener(SETTINGS_UPDATED_EVENT, listener);
+
+  try {
+    const { client } = recordingClient(() => ({
+      changes: [
+        {
+          table: 'settings',
+          row: {
+            userId: 'user-1',
+            profileName: 'Sunucu Profili',
+            onboardingDone: true,
+            updatedAt: now(60_000),
+          },
+        },
+      ],
+      nextCursor: 22,
+      hasMore: false,
+    }));
+
+    const result = await pullOnce(database, client);
+
+    expect(result.applied).toBe(0);
+    expect(listener).not.toHaveBeenCalled();
+    expect((await database.settings.get('profileName'))?.value).toBe('Yerel Profil');
+  } finally {
+    window.removeEventListener(SETTINGS_UPDATED_EVENT, listener);
+  }
 });
 
 test('bilinmeyen tablo ve kimliksiz satır atlanır, imleç ilerler', async () => {

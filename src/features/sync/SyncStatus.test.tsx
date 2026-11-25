@@ -148,3 +148,80 @@ test('Ayarlar sayfasında canlı durum ve elle senkron çalışır', async () =>
     expect(mockApi?.callsTo('GET', '/api/sync/status')).toHaveLength(2);
   });
 });
+
+test('masaüstü kenar çubuğunda da senkron göstergesi vardır', async () => {
+  await seedOnboarded({ version: 1, subjects: [] });
+  mockApi = installMockApi({
+    'GET /api/sync/pull': {
+      body: { changes: [], nextCursor: 0, hasMore: false },
+    },
+    'GET /api/sync/status': {
+      body: {
+        hasData: false,
+        counts: {},
+        cursor: 0,
+        serverTime: new Date().toISOString(),
+      },
+    },
+  });
+
+  renderApp('/ayarlar');
+  await screen.findByRole('button', { name: 'Şimdi senkronize et' });
+
+  expect(
+    screen.getAllByRole('link', { name: /Senkron durumu:/ }).length,
+  ).toBeGreaterThan(0);
+});
+
+test('pull edilen ayarlar yeniden yükleme olmadan görünür', async () => {
+  await seedOnboarded(
+    { version: 1, subjects: [] },
+    { profileName: 'Yerel Profil', examName: 'Yerel Sınav' },
+  );
+
+  let deliverSettings = false;
+  const emptyPull = { changes: [], nextCursor: 0, hasMore: false };
+  const serverSettingsRow = {
+    userId: 'test-user',
+    profileName: 'Sunucu Profili',
+    examName: 'Sunucu Sınavı',
+    examDate: '2027-06-20',
+    hiddenSubjects: [],
+    onboardingDone: true,
+    updatedAt: new Date().toISOString(),
+  };
+
+  mockApi = installMockApi({
+    'GET /api/sync/pull': () => ({
+      body: deliverSettings
+        ? {
+            changes: [{ table: 'settings', row: serverSettingsRow }],
+            nextCursor: 1,
+            hasMore: false,
+          }
+        : emptyPull,
+    }),
+    'GET /api/sync/status': {
+      body: {
+        hasData: true,
+        counts: {},
+        cursor: 1,
+        serverTime: new Date().toISOString(),
+      },
+    },
+  });
+
+  renderApp('/ayarlar');
+
+  const profile = await screen.findByLabelText('Ad soyad');
+  expect(profile).toHaveValue('Yerel Profil');
+  expect(screen.getByLabelText('Sınav adı')).toHaveValue('Yerel Sınav');
+
+  deliverSettings = true;
+  await userEvent.click(screen.getByRole('button', { name: 'Şimdi senkronize et' }));
+
+  await waitFor(() => {
+    expect(profile).toHaveValue('Sunucu Profili');
+  });
+  expect(screen.getByLabelText('Sınav adı')).toHaveValue('Sunucu Sınavı');
+});

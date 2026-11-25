@@ -1,4 +1,5 @@
 import { KoclukDB, getActiveDbOrNull, setActiveDb } from './db';
+import { INITIAL_PULL_DONE_KEY } from './sync/meta';
 import { installSyncHooks } from './sync/queue';
 
 /** The pre-account local database, kept only for the one-time transfer. */
@@ -75,9 +76,13 @@ export function openUserDb(userId: string): Promise<KoclukDB> {
     await closeActiveDbNow();
     const database = new KoclukDB(userDbName(userId));
     await database.open();
+    // A fresh device keeps `settings` out of the queue until its first pull:
+    // seeded defaults must not overwrite the account's server row.
+    const initialPullDone =
+      (await database.syncMeta.get(INITIAL_PULL_DONE_KEY))?.value === true;
     // Hooks are installed only on an opened account database: the legacy
     // database and the test database never enqueue anything.
-    installSyncHooks(database, userId);
+    installSyncHooks(database, userId, { settingsSyncEnabled: initialPullDone });
     setActiveDb(database);
     return database;
   });

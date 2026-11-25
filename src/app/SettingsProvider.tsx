@@ -15,6 +15,7 @@ import { migrateLegacyShelfFromLocalData } from '@/db/legacyMigration';
 import { DEFAULT_SETTINGS, getSettings, patchSettings, seedCurriculum } from '@/db/repositories';
 import { repairScheduleDayIndexes } from '@/db/scheduleMigration';
 import type { AppSettings } from '@/domain/types';
+import { SETTINGS_UPDATED_EVENT } from '@/lib/events';
 import { applyAccent } from './theme';
 
 export type SettingsUpdateResult =
@@ -44,11 +45,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const pendingUpdates = useRef<Partial<AppSettings>>({});
   const settingsRef = useRef(settings);
   const writeSequence = useRef(0);
+  // A canonical settings row can arrive while the initial load is in flight;
+  // the newer read must win instead of being overwritten by the stale one.
+  const readSequence = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      const request = readSequence.current + 1;
+      readSequence.current = request;
       const loaded = await getSettings();
 
       if (loaded.seedVersion < CURRICULUM.version) {
@@ -89,7 +95,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         console.error('Eski kitaplar rafa taşınamadı', error);
       }
 
-      if (!cancelled) {
+      if (!cancelled && request === readSequence.current) {
         const next = { ...loaded, ...pendingUpdates.current };
         pendingUpdates.current = {};
         settingsRef.current = next;
@@ -153,11 +159,34 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshSettings = useCallback(async () => {
+    const request = readSequence.current + 1;
+    readSequence.current = request;
+    const writeAtStart = writeSequence.current;
     const loaded = await getSettings();
+
+    // A newer read or a settings write started while this one was in flight;
+    // its state is fresher than this snapshot.
+    if (request !== readSequence.current || writeAtStart !== writeSequence.current) {
+      return;
+    }
+
     pendingUpdates.current = {};
     settingsRef.current = loaded;
     setSettings(loaded);
   }, []);
+
+  // Pull/full/apply writes account settings directly to Dexie. Reload them so
+  // the profile, exam and onboarding screens show the server value without a
+  // page refresh (design §9.5).
+  useEffect(() => {
+    const handleSettingsUpdated = () => {
+      void refreshSettings();
+    };
+    window.addEventListener(SETTINGS_UPDATED_EVENT, handleSettingsUpdated);
+    return () => {
+      window.removeEventListener(SETTINGS_UPDATED_EVENT, handleSettingsUpdated);
+    };
+  }, [refreshSettings]);
 
   const value = useMemo(
     () => ({ settings, updateSettings, refreshSettings, loading }),

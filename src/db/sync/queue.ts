@@ -1,5 +1,6 @@
 import Dexie, { type Transaction } from 'dexie';
 import type { SyncQueueRow } from '@/domain/types';
+import { notifySettingsUpdated } from '@/lib/events';
 import type { KoclukDB } from '../db';
 import {
   ACCOUNT_SETTINGS,
@@ -136,6 +137,27 @@ const installedHooks = new WeakSet<KoclukDB>();
 const syncUserIds = new WeakMap<KoclukDB, string>();
 const transactionWrites = new WeakMap<Transaction, Map<string, PendingQueueWrite>>();
 
+/**
+ * Accounts whose `settings` changes may enter the queue. It stays off until
+ * the first pull has brought the server's row: a fresh device seeds default
+ * settings (and `seedVersion`) on open, and pushing those before reading would
+ * overwrite a real account's profile/exam settings.
+ */
+const settingsSyncDatabases = new WeakSet<KoclukDB>();
+
+/** Enables or disables settings enqueueing for one account database. */
+export function setSettingsSyncEnabled(db: KoclukDB, enabled: boolean): void {
+  if (enabled) {
+    settingsSyncDatabases.add(db);
+  } else {
+    settingsSyncDatabases.delete(db);
+  }
+}
+
+export function isSettingsSyncEnabled(db: KoclukDB): boolean {
+  return settingsSyncDatabases.has(db);
+}
+
 let flushChain: Promise<void> = Promise.resolve();
 
 /** Waits until every queue row scheduled by completed transactions is written. */
@@ -152,13 +174,26 @@ export async function whenQueueIdle(): Promise<void> {
  * when a user database is opened (dbManager/AuthGate), never at module scope:
  * the hooks need the account id and must not run against the legacy database.
  * Installing twice on the same instance is a no-op.
+ *
+ * `settingsSyncEnabled` defaults to true for direct callers/tests; the account
+ * opener passes the persisted `initialPullDone` state so a fresh device keeps
+ * settings out of the queue until its first pull.
  */
-export function installSyncHooks(db: KoclukDB, userId: string): void {
+export interface InstallSyncHooksOptions {
+  settingsSyncEnabled?: boolean;
+}
+
+export function installSyncHooks(
+  db: KoclukDB,
+  userId: string,
+  options: InstallSyncHooksOptions = {},
+): void {
   if (installedHooks.has(db)) {
     return;
   }
   installedHooks.add(db);
   syncUserIds.set(db, userId);
+  setSettingsSyncEnabled(db, options.settingsSyncEnabled ?? true);
 
   for (const table of SYNCED_TABLES) {
     if (table === 'settings') {
@@ -172,6 +207,18 @@ export function installSyncHooks(db: KoclukDB, userId: string): void {
 /** Account id of an installed database, falling back to its name. */
 export function syncUserId(db: KoclukDB): string | null {
   return syncUserIds.get(db) ?? userIdFromDatabaseName(db.name);
+}
+
+/**
+ * Drops a queued settings change before the initial pull. A fresh device
+ * seeds `seedVersion` and default settings, and those must never win over the
+ * account row that the first pull brings.
+ */
+export async function discardSettingsChange(db: KoclukDB): Promise<void> {
+  const userId = syncUserId(db);
+  if (userId !== null) {
+    await db.syncQueue.delete(queueRowId('settings', userId));
+  }
 }
 
 function installTableHooks(db: KoclukDB, tableName: SyncedTable): void {
@@ -215,6 +262,9 @@ function installSettingsHooks(db: KoclukDB, userId: string): void {
   const table = db.table('settings');
   const schedule = (transaction: Transaction): void => {
     if (isRemoteTransaction(transaction)) {
+      return;
+    }
+    if (!isSettingsSyncEnabled(db)) {
       return;
     }
     scheduleQueueWrite(db, transaction, 'settings', userId, 'upsert');
@@ -481,7 +531,7 @@ export async function applyServerRow(
   }
 
   const store = table === 'settings' ? db.settings : db.table(table);
-  return db.transaction('rw', [store, db.syncQueue], async (transaction) => {
+  const applied = await db.transaction('rw', [store, db.syncQueue], async (transaction) => {
     if (options.skipIfPending) {
       const identity = apiRowId(table, row);
       if (identity !== null) {
@@ -496,6 +546,13 @@ export async function applyServerRow(
     await putServerRow(db, table, row);
     return true;
   });
+
+  // Applied account settings must reach SettingsProvider without a reload.
+  if (applied && table === 'settings') {
+    notifySettingsUpdated();
+  }
+
+  return applied;
 }
 
 /**

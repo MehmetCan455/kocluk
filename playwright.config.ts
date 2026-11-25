@@ -1,10 +1,17 @@
 import { defineConfig } from '@playwright/test';
 
-const BASE_URL = 'http://localhost:4173/';
+// The E2E stack is the local mock API + Vite dev server. Dedicated ports keep
+// it separate from the manual preview (`npm run mock:api` + `npm run dev` on
+// 8787/5173) so both can run at the same time. `VITE_API_PROXY_TARGET` only
+// changes the dev proxy target; production keeps the same-origin `/api` path.
+const APP_PORT = 4173;
+const API_PORT = 8788;
+const BASE_URL = `http://localhost:${APP_PORT}/`;
+const API_URL = `http://127.0.0.1:${API_PORT}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 60_000,
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,
@@ -16,10 +23,26 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: {
-    command: 'npm run build && npm run preview -- --port 4173 --strictPort',
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-  },
+  webServer: [
+    {
+      command: 'npm run mock:api',
+      url: `${API_URL}/api/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      env: {
+        MOCK_API_HOST: '127.0.0.1',
+        MOCK_API_PORT: String(API_PORT),
+        MOCK_API_DATA_FILE: 'scripts/mock-api-e2e-data.json',
+      },
+    },
+    {
+      command: `npm run dev -- --port ${APP_PORT} --strictPort`,
+      url: BASE_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        VITE_API_PROXY_TARGET: API_URL,
+      },
+    },
+  ],
 });

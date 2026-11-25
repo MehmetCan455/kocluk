@@ -50,5 +50,15 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+    server: {
+      // Local preview/E2E talk to the Node mock API. Production keeps the
+      // same-origin PHP API, so this proxy is a dev-server-only concern.
+      proxy: {
+        '/api': {
+          target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8787',
+          changeOrigin: false,
+        },
+      },
+    },
   };
 });

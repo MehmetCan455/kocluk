@@ -26,12 +26,39 @@ varsayılan taban yolu da `/`'dir; GitHub Pages için `VITE_BASE=/kocluk/` ayarl
 
 ```bash
 npm run dev        # geliştirme sunucusu
+npm run mock:api   # yerel mock API (http://127.0.0.1:8787)
 npm run typecheck  # TypeScript tip kontrolü
 npm test           # Vitest izleme modu
 npm run test:run   # Vitest tek seferlik
 npm run build      # tip kontrolü + üretim derlemesi (dist/)
 npm run preview    # üretim derlemesini kök adreste önizle
-npm run test:e2e   # Playwright uçtan uca testleri (derleme + preview başlatır)
+npm run test:e2e   # Playwright uçtan uca testleri (mock API + Vite başlatır)
+```
+
+## Yerel önizleme (mock API)
+
+Hesap ve senkron akışlarını canlı PHP/MySQL sunucusuna ihtiyaç duymadan görmek
+için iki terminal kullan:
+
+1. Terminal 1: `npm run mock:api` → `http://127.0.0.1:8787`
+2. Terminal 2: `npm run dev` → `http://localhost:5173`
+
+Vite `/api` isteklerini mock API'ye yönlendirir. Hazır demo hesap:
+`deneme@kocluk.local` / `deneme1234`. Kayıt ekranından yeni hesap da
+açabilirsin. Veriler `scripts/mock-api-data.json` dosyasında tutulur
+(gitignore'da); temiz başlangıç için mock'u durdurup dosyayı sil, sonra yeniden
+başlat. Çalışırken sıfırlamak için:
+
+```bash
+curl -X DELETE http://127.0.0.1:8787/api/__test__/reset
+```
+
+Bu mock yalnızca yerel önizleme ve E2E içindir, üretim paketine girmez; gerçek
+sözleşme `api/` altındaki PHP API'dir. Playwright aynı mock'u 8788/4173
+portlarında, ayrı bir veri dosyasıyla başlatır:
+
+```bash
+npm run test:e2e -- tests/e2e/auth-sync.spec.ts
 ```
 
 ## Kitaplar, konu durumu ve haftalık plan

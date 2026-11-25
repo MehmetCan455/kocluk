@@ -6,3 +6,5 @@ test-results/
 *.local
 .worktrees/
 *.tsbuildinfo
+scripts/mock-api-data.json
+scripts/mock-api-e2e-data.json

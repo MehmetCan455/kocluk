@@ -70,7 +70,7 @@ const SECTIONS: ReadonlyArray<{ title: string; body: readonly string[] }> = [
   {
     title: 'Değişiklikler',
     body: [
-      'Bu metin önemli bir değişiklikte güncellenir ve yeni sürüm kayıt sırasında yeniden onayına sunulur. Son güncelleme: 25 Kasım 2026.',
+      'Bu metin önemli bir değişiklikte güncellenir ve yeni sürüm kayıt sırasında yeniden onayına sunulur. Son güncelleme: 24 Kasım 2026.',
     ],
   },
 ];

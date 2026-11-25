@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { finishOnboarding, TEST_NAME } from './helpers';
+import { ensureSignedIn, finishOnboarding, TEST_NAME } from './helpers';
 
 test('manifest kurulabilir ve uygulama ilk yüklemeden sonra çevrimdışı açılır', async ({
   context,
   page,
 }) => {
+  await ensureSignedIn(page, TEST_NAME);
   await page.goto('./');
   await finishOnboarding(page, TEST_NAME, 'Tümü');
 
@@ -58,6 +59,7 @@ test('manifest kurulabilir ve uygulama ilk yüklemeden sonra çevrimdışı aç�
 });
 
 test('kurulum istemi beforeinstallprompt sonrası görünür ve kapatılabilir', async ({ page }) => {
+  await ensureSignedIn(page, TEST_NAME);
   await page.goto('./');
   await expect(page.getByRole('heading', { name: 'Seni tanıyalım' })).toBeVisible();
 

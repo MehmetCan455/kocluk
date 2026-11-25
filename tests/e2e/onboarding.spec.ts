@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { finishOnboarding } from './helpers';
+import { ensureSignedIn, finishOnboarding } from './helpers';
 
 test('ilk açılışta onboarding tamamlanır ve ana sayfa açılır', async ({ page }) => {
+  await ensureSignedIn(page, 'Ada');
   await page.goto('./');
 
   await expect(page.getByRole('heading', { name: 'Seni tanıyalım' })).toBeVisible();
@@ -21,6 +22,7 @@ test('ilk açılışta onboarding tamamlanır ve ana sayfa açılır', async ({ 
 });
 
 test('onboarding tamamlanmadan korumalı rota açılmaz', async ({ page }) => {
+  await ensureSignedIn(page, 'Koruma Testi');
   await page.goto('./#/ayarlar');
   await expect(page.getByRole('heading', { name: 'Seni tanıyalım' })).toBeVisible();
 

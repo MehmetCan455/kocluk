@@ -39,24 +39,23 @@ npm test              # Vitest izleme modu
 npm run test:run      # Vitest tek seferlik
 npm run build         # tip kontrolü + üretim derlemesi (dist/)
 npm run preview       # üretim derlemesini kök adreste önizle
-npm run test:e2e      # hesap/senkron E2E (mock API + Vite başlatır)
-npm run test:e2e:auth # aynı auth/sync E2E spec'i
-npm run test:e2e:legacy # hesap öncesi eski spec'ler (bilerek kırmızı)
+npm run test:e2e      # tüm Playwright E2E (mock API + üretim önizlemesi)
+npm run test:e2e:auth # yalnızca auth/sync E2E spec'i
+npm run test:e2e:legacy # hesap öncesi spec'ler (ortak auth fixture ile)
 npm run live:preview  # eski canlı sürümü yerelde aç (docs/ROLLBACK.md)
 ```
 
 CI (GitHub Actions) şunları çalıştırır: `typecheck`, `test:run`, `build`,
-`npm audit --audit-level=high`, yalnızca auth/sync Playwright E2E
-(`npm run test:e2e`), PHP lint ve PHPUnit (MariaDB 10.6 servisi).
-`.github/workflows/ci.yml` bu işlerin kaynağıdır. CI legacy spec'leri
-çalıştırmaz; `test:e2e:legacy` bilerek kırmızıdır ve merge gate değildir.
+`npm audit --audit-level=high`, tüm Playwright E2E (`npm run test:e2e`),
+PHP lint ve PHPUnit (MariaDB 10.6 servisi). `.github/workflows/ci.yml` bu
+işlerin kaynağıdır.
 
 `auth-sync.spec.ts` hesap, senkron, profil/şifre, export ve hesap silme
 akışlarını kapsar. `backup`, `branch-exams`, `exams`, `onboarding`, `photos`,
-`program`, `pwa`, `responsive` ve `tracking` spec'leri hesap öncesi dönemden
-kaldı; ortak auth fixture'ı eklenene kadar `npm run test:e2e:legacy`
-**bilerek kırmızıdır** ve merge gate değildir. Günlük doğrulama
-`npm run test:e2e` ile yapılır.
+`program`, `pwa`, `responsive` ve `tracking` spec'leri ortak `ensureSignedIn`
+fixture'ı ile her test için yeni bir hesap açar; hepsi CI merge gate'idir.
+Playwright üretim derlemesini (`npm run build` + `vite preview`) çalıştırır,
+böylece manifest ve service worker testleri gerçek çıktıyı doğrular.
 
 ## Yerel önizleme (mock API)
 
@@ -235,6 +234,23 @@ KOCLUK_CONFIG=/home/u2964068/kocluk-config.php /usr/local/bin/php /home/u2964068
 ```
 
 `cron.log` dosyasını `chmod 600` yap; içinde kişisel veri tutma.
+
+### Bakım ve saklama cron'u
+
+`api/bin/maintenance.php` 90 günden eski senkron değişiklik günlüğünü,
+kullanılmış/süresi dolmuş şifre sıfırlama ve e-posta doğrulama tokenlarını,
+iptal/süresi dolmuş oturumları ve pencere dışı hız sınırı satırlarını siler.
+Kullanıcı içeriğine dokunmaz. Değişiklik günlüğü saklama süresi 90 günden kısa
+ayarlanamaz; daha eski imleci olan cihaz `410` alıp tam çekme yapar.
+
+cPanel → **Cron Jobs** → günlük `04:00` (yedekten bir saat sonra):
+
+```bash
+KOCLUK_CONFIG=/home/u2964068/kocluk-config.php /usr/local/bin/php /home/u2964068/public_html/api/bin/maintenance.php >> /home/u2964068/kocluk-backups/maintenance.log 2>&1
+```
+
+Önce sayıları görmek için `--dry-run` ekle. Log dosyası `public_html` dışında
+ve yalnızca toplam sayıları içerir; `chmod 600` yap.
 
 İlk yedeği doğrula:
 

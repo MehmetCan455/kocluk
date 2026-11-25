@@ -38,10 +38,10 @@ export default defineConfig({
       },
     },
     {
-      command: `npm run dev -- --port ${APP_PORT} --strictPort`,
+      command: `npm run build && npm run preview -- --port ${APP_PORT} --strictPort`,
       url: BASE_URL,
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      timeout: 180_000,
       env: {
         VITE_API_PROXY_TARGET: API_URL,
       },

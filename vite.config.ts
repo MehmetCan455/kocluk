@@ -52,7 +52,18 @@ export default defineConfig(({ mode }) => {
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     server: {
       // Local preview/E2E talk to the Node mock API. Production keeps the
-      // same-origin PHP API, so this proxy is a dev-server-only concern.
+      // same-origin PHP API, so this is a dev/preview-server-only concern.
+      proxy: {
+        '/api': {
+          target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8787',
+          changeOrigin: false,
+        },
+      },
+    },
+    preview: {
+      // The E2E suite runs against the production build so the manifest and
+      // service worker exist exactly as deployed; the same mock API proxy is
+      // needed there too.
       proxy: {
         '/api': {
           target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8787',

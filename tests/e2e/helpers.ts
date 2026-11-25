@@ -1,6 +1,38 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 export const TEST_NAME = 'E2E Öğrenci';
+
+const E2E_PASSWORD = 'e2e-sifre-123';
+
+/**
+ * Registers a throwaway account and leaves its session cookie in the page
+ * context. Every legacy spec assumed a pre-auth app with a single local
+ * database; the shared auth gate now requires a signed-in user before the
+ * onboarding flow is reachable.
+ */
+export async function ensureSignedIn(
+  page: Page,
+  displayName = TEST_NAME,
+): Promise<void> {
+  const session = await page.request.get('/api/auth/session');
+  if (session.ok()) {
+    return;
+  }
+
+  const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@kocluk.local`;
+  const baseURL = test.info().project.use.baseURL ?? 'http://localhost:4173/';
+  const registered = await page.request.post('/api/auth/register', {
+    headers: { Origin: new URL(baseURL).origin },
+    data: {
+      email,
+      password: E2E_PASSWORD,
+      displayName,
+      privacyAccepted: true,
+    },
+  });
+
+  expect(registered.status()).toBe(201);
+}
 
 /** Walks the four onboarding steps assuming the onboarding route is visible. */
 export async function finishOnboarding(
@@ -19,12 +51,17 @@ export async function finishOnboarding(
   await expect(page.getByRole('heading', { name: 'Genel Bakış' })).toBeVisible();
 }
 
-/** Opens the deployed base path and completes onboarding in a fresh context. */
+/**
+ * Opens the deployed base path with a signed-in account and completes
+ * onboarding in a fresh context. An already signed-in context (for example
+ * after clearing all local data) reuses its session.
+ */
 export async function completeOnboarding(
   page: Page,
   name = TEST_NAME,
   alan: 'Sayısal' | 'Eşit Ağırlık' | 'Sözel' | 'Tümü' = 'Tümü',
 ): Promise<void> {
+  await ensureSignedIn(page, name);
   await page.goto('./');
   await finishOnboarding(page, name, alan);
 }

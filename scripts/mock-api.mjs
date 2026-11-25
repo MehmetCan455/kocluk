@@ -390,7 +390,7 @@ function normalizeTimestamp(value) {
     return null;
   }
 
-  return date.toISOString().replace(/\.(\d{3})Z$/, '.$1000Z');
+  return date.toISOString().replace(/\.(\d{3})Z$/, (_match, millis) => `.${millis}000Z`);
 }
 
 function normalizedNow() {
@@ -874,7 +874,7 @@ function applyUpsert(data, userId, table, rowId, row) {
     return appliedRow(table, rowId, stored, adjusted);
   }
 
-  if (existing.deletedAt !== null) {
+  if (existing.deletedAt !== null && existing.deletedAt !== undefined) {
     return conflictRow(table, rowId, existing);
   }
 

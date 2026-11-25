@@ -41,7 +41,7 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -56,7 +56,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Auth and sync E2E
+      - name: Playwright E2E
         run: npm run test:e2e
 
       - name: Upload Playwright artifacts

@@ -556,6 +556,27 @@ test('son yazan kazanır, tombstone, ayar silme ve activity log kuralları', asy
     },
   ]);
   expect(settings.results[0].status).toBe('applied');
+  expect(settings.results[0].row.updatedAt).toMatch(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}000Z$/,
+  );
+
+  // A newer settings update must win; the mock used to produce a malformed
+  // normalized timestamp (".Z") and answer every later push with conflict.
+  const newerSettings = new Date(Date.parse(current) + 1000).toISOString();
+  const updatedSettings = await push(account.cookie, account.csrf, [
+    {
+      table: 'settings',
+      op: 'upsert',
+      row: {
+        userId: account.user.id,
+        updatedAt: newerSettings,
+        onboardingDone: true,
+        profileName: 'Yeni Profil',
+      },
+    },
+  ]);
+  expect(updatedSettings.results[0].status).toBe('applied');
+  expect(updatedSettings.results[0].row.profileName).toBe('Yeni Profil');
 
   const settingsDelete = await push(account.cookie, account.csrf, [
     { table: 'settings', op: 'delete', rowId: account.user.id, updatedAt: newer },

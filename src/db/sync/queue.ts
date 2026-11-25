@@ -375,13 +375,24 @@ function sortQueueRows(left: SyncQueueRow, right: SyncQueueRow): number {
   return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
 }
 
-/** Oldest pending queue rows, at most one push batch. Dead rows never block. */
+/**
+ * Settings always go first: the row is a single account-level upsert and an
+ * onboarding/profile change must not wait behind a curriculum seed backlog.
+ * Other rows keep the deterministic oldest-first order.
+ */
+function sortPendingRows(left: SyncQueueRow, right: SyncQueueRow): number {
+  const leftPriority = left.table === 'settings' ? 0 : 1;
+  const rightPriority = right.table === 'settings' ? 0 : 1;
+  return leftPriority - rightPriority || sortQueueRows(left, right);
+}
+
+/** Pending queue rows, at most one push batch. Dead rows never block. */
 export async function pendingChanges(
   db: KoclukDB,
   limit = MAX_PUSH_CHANGES,
 ): Promise<SyncQueueRow[]> {
   const rows = await db.syncQueue.where('status').equals('pending').toArray();
-  rows.sort(sortQueueRows);
+  rows.sort(sortPendingRows);
   return rows.slice(0, Math.max(0, limit));
 }
 
@@ -725,8 +736,16 @@ async function dropNaturalKeyConflicts(
 }
 
 async function putSettingsRow(db: KoclukDB, row: Record<string, unknown>): Promise<void> {
+  // `onboardingDone` is a one-way local invariant: a stale server row (usually
+  // the first sync's default `false`) must never pull a completed account back
+  // into onboarding. There is no reset-onboarding feature, so true is final.
+  const onboardingDone = (await db.settings.get('onboardingDone'))?.value === true;
+
   for (const field of ACCOUNT_SETTINGS) {
     const value = row[field];
+    if (field === 'onboardingDone' && onboardingDone && value !== true) {
+      continue;
+    }
     if (value === undefined || value === null) {
       await db.settings.delete(field);
     } else {

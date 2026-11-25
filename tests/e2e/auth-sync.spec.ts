@@ -249,6 +249,43 @@ test('kayıt, onboarding, kitap ekleme ve ikinci cihazda senkron', async ({
   }
 });
 
+test('onboarding tamamlandıktan sonra yenilemede onboarding geri gelmez', async ({
+  page,
+}) => {
+  await registerAndOnboard(page);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Genel Bakış' }),
+  ).toBeVisible();
+
+  // The account's first sync already published the default settings row
+  // (`onboardingDone:false`); the reload's pull must not downgrade the local
+  // completed flag even while the seed backlog is still being pushed.
+  await page.reload();
+
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Genel Bakış' }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole('heading', { name: 'Seni tanıyalım' }),
+  ).not.toBeVisible();
+
+  await page.goto('./#/kitaplar');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Kitaplar' }),
+  ).toBeVisible({ timeout: 30_000 });
+
+  // The completed flag eventually reaches the server as well.
+  await expect
+    .poll(
+      async () => {
+        const settings = await readServerTable(page, 'settings');
+        return settings[0]?.onboardingDone ?? null;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+});
+
 test('çevrimdışı işaretlenen konu çevrimiçi olunca senkronlanır', async ({
   page,
 }) => {

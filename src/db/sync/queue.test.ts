@@ -333,6 +333,83 @@ test('ölü settings kaydı yalnızca kuyruktan çıkar, hesap ayarlarını silm
   expect(await database.syncQueue.get('settings:user-1')).toBeUndefined();
 });
 
+test('pendingChanges settings kuyruğunu seed birikiminden önce döndürür', async () => {
+  for (let index = 0; index < 5; index += 1) {
+    await database.userBooks.add(userBook(`ub-${index}`));
+  }
+  await whenQueueIdle();
+
+  // The settings change is the newest queue row (onboarding is completed after
+  // the curriculum seed), but it must still lead the next push.
+  await database.settings.put({ key: 'onboardingDone', value: true });
+  await whenQueueIdle();
+
+  const all = await pendingChanges(database);
+  expect(all.map((row) => row.id)).toEqual([
+    'settings:user-1',
+    'userBooks:ub-0',
+    'userBooks:ub-1',
+    'userBooks:ub-2',
+    'userBooks:ub-3',
+    'userBooks:ub-4',
+  ]);
+  expect(all[0].createdAt > all[1].createdAt).toBe(true);
+
+  // One-row batches include settings even when 100 seed rows are waiting.
+  expect((await pendingChanges(database, 1)).map((row) => row.id)).toEqual([
+    'settings:user-1',
+  ]);
+});
+
+test('sunucu onboardingDone false değeri yerel true değerini ezmez, diğer ayarları uygular', async () => {
+  await database.settings.bulkPut([
+    { key: 'onboardingDone', value: true },
+    { key: 'profileName', value: 'Yerel Profil' },
+    { key: 'examDate', value: '2027-06-19' },
+    { key: 'examName', value: 'Yerel Sınav' },
+    { key: 'hiddenSubjects', value: ['s-local'] },
+    { key: 'geometryMode', value: 'combined' },
+  ]);
+  await whenQueueIdle();
+
+  const applied = await applyServerRow(database, 'settings', {
+    userId: 'user-1',
+    profileName: 'Sunucu Profili',
+    examDate: '2027-07-01',
+    examName: 'Sunucu Sınavı',
+    hiddenSubjects: ['s-server'],
+    geometryMode: 'separate',
+    onboardingDone: false,
+    updatedAt: NOW,
+  });
+
+  expect(applied).toBe(true);
+
+  const settings = await database.settings.toArray();
+  const value = (key: string): unknown => settings.find((row) => row.key === key)?.value;
+  // Only the one-way onboarding downgrade is blocked; every other account
+  // setting still follows the server row.
+  expect(value('onboardingDone')).toBe(true);
+  expect(value('profileName')).toBe('Sunucu Profili');
+  expect(value('examDate')).toBe('2027-07-01');
+  expect(value('examName')).toBe('Sunucu Sınavı');
+  expect(value('hiddenSubjects')).toEqual(['s-server']);
+  expect(value('geometryMode')).toBe('separate');
+});
+
+test('yeni hesap sunucudan gelen onboardingDone false değerini alabilir', async () => {
+  await database.settings.put({ key: 'onboardingDone', value: false });
+  await whenQueueIdle();
+
+  await applyServerRow(database, 'settings', {
+    userId: 'user-1',
+    onboardingDone: false,
+    updatedAt: NOW,
+  });
+
+  expect((await database.settings.get('onboardingDone'))?.value).toBe(false);
+});
+
 test('yalnızca ölü kayıt silinebilir', async () => {
   await database.userBooks.add(userBook('ub-pending'));
   await whenQueueIdle();

@@ -12,6 +12,7 @@ import {
   pendingChanges,
   pendingCount,
   retryDead,
+  enqueueChange,
   setApplyingRemote,
   whenQueueIdle,
 } from './queue';
@@ -157,6 +158,25 @@ test('3 değişiklik gönderilir, applied kuyruğu temizler', async () => {
   }
   expect(await pendingCount(database)).toBe(0);
   expect(await database.syncQueue.count()).toBe(0);
+});
+
+test('updatedAt eksik eski satır kuyruk zamanıyla gönderilir', async () => {
+  const legacy = subject('legacy-subject');
+  delete (legacy as { updatedAt?: string }).updatedAt;
+  setApplyingRemote(true);
+  await database.subjects.add(legacy);
+  setApplyingRemote(false);
+  await enqueueChange(database, 'subjects', 'legacy-subject');
+
+  const { client, calls } = recordingClient((body) => appliedResults(body));
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary.applied).toBe(1);
+  expect(calls[0].body.changes[0].row).toMatchObject({
+    id: 'legacy-subject',
+    updatedAt: expect.any(String),
+  });
+  expect(await pendingCount(database)).toBe(0);
 });
 
 test('silinen ve yeniden eklenen raf kitabı tek aktif upsert olarak kuyruğa girer', async () => {

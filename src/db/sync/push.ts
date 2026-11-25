@@ -8,6 +8,7 @@ import {
   MAX_PUSH_BYTES,
   PUSH_PATH,
   SYNCED_TABLE_SET,
+  SYNC_TABLES_WITH_UPDATED_AT,
   SYNC_TABLE_FIELDS,
   apiRowId,
   type SyncedTable,
@@ -367,6 +368,15 @@ async function buildChange(
 
   if (apiRowId(table, row) === null) {
     return null;
+  }
+  // Legacy/transferred rows may predate the `updatedAt` column. The server
+  // requires it for every synced table, so use the queue timestamp rather than
+  // dead-lettering the row forever.
+  if (
+    SYNC_TABLES_WITH_UPDATED_AT.has(table) &&
+    (typeof row.updatedAt !== 'string' || row.updatedAt === '')
+  ) {
+    row.updatedAt = localUpdatedAt;
   }
   return { table, op: 'upsert', row };
 }

@@ -582,6 +582,35 @@ test('v2/v3 geçişi projeksiyon üretir, v4/v5 program ve çizelge tabloların�
   expect(await db.photos.count()).toBe(1);
 });
 
+test('v8 geçişi examResults net string lerini sayıya çevirir', async () => {
+  const name = db.name;
+  await db.close();
+  await Dexie.delete(name);
+
+  const legacy = new Dexie(name);
+  legacy.version(7).stores({
+    examResults: 'id, examId, subjectId',
+  });
+  await legacy.open();
+  await legacy.table('examResults').add({
+    id: 'er-eski',
+    examId: 'exam-1',
+    subjectId: 'subject-1',
+    correct: 20,
+    wrong: 5,
+    blank: 0,
+    net: '18.75',
+    updatedAt: '2026-11-01T10:00:00.000Z',
+  });
+  legacy.close();
+
+  await db.open();
+
+  const migrated = await db.examResults.get('er-eski');
+  expect(migrated?.net).toBe(18.75);
+  expect(typeof migrated?.net).toBe('number');
+});
+
 test('v5 geçişi eski program kayıtlarını ve dosyalarını korur', async () => {
   const name = db.name;
   await db.close();

@@ -37,8 +37,12 @@ final class SyncStatusTest extends ApiTestCase
 
         $payload = $this->payload($response);
 
-        self::assertSame(['hasData', 'counts', 'cursor', 'serverTime'], array_keys($payload));
+        self::assertSame(
+            ['hasData', 'hasUserData', 'counts', 'cursor', 'serverTime'],
+            array_keys($payload),
+        );
         self::assertFalse($payload['hasData']);
+        self::assertFalse($payload['hasUserData']);
         self::assertSame(TableMap::keys(), array_keys($payload['counts']));
 
         foreach ($payload['counts'] as $table => $count) {
@@ -62,6 +66,7 @@ final class SyncStatusTest extends ApiTestCase
         $payload = $this->payload($this->get('/api/sync/status', $account['jar']));
 
         self::assertFalse($payload['hasData']);
+        self::assertFalse($payload['hasUserData']);
         self::assertSame(1, $payload['counts']['settings']);
         self::assertSame(0, $payload['counts']['userBooks']);
 
@@ -69,6 +74,88 @@ final class SyncStatusTest extends ApiTestCase
 
         self::assertCount(1, $log);
         self::assertSame((int) $log[0]['id'], $payload['cursor']);
+    }
+
+    public function test_seeded_subjects_and_topics_do_not_count_as_user_data(): void
+    {
+        $account = $this->account();
+        $subjectId = Uuid::v4();
+
+        $this->push([
+            [
+                'table' => 'subjects',
+                'op' => 'upsert',
+                'row' => $this->subject($subjectId, 'tyt-matematik', 'Matematik', $this->minutesAgo(20)),
+            ],
+            [
+                'table' => 'topics',
+                'op' => 'upsert',
+                'row' => $this->topic(Uuid::v4(), $subjectId, 'Temel Kavramlar', false, 'tyt-matematik-temel', $this->minutesAgo(10)),
+            ],
+            [
+                'table' => 'topics',
+                'op' => 'upsert',
+                'row' => $this->topic(Uuid::v4(), $subjectId, 'İkinci Tohum', false, 'tyt-matematik-ikinci', $this->minutesAgo(5)),
+            ],
+        ], $account['csrf'], $account['jar']);
+
+        $payload = $this->payload($this->get('/api/sync/status', $account['jar']));
+
+        // General status still sees data; the transfer gate ignores seeds.
+        self::assertTrue($payload['hasData']);
+        self::assertFalse($payload['hasUserData']);
+        self::assertSame(1, $payload['counts']['subjects']);
+        self::assertSame(2, $payload['counts']['topics']);
+    }
+
+    public function test_custom_topics_count_as_user_data(): void
+    {
+        $account = $this->account();
+        $subjectId = Uuid::v4();
+
+        $this->push([
+            [
+                'table' => 'subjects',
+                'op' => 'upsert',
+                'row' => $this->subject($subjectId, 'tyt-matematik', 'Matematik', $this->minutesAgo(20)),
+            ],
+            [
+                'table' => 'topics',
+                'op' => 'upsert',
+                'row' => $this->topic(Uuid::v4(), $subjectId, 'Kendi Konum', true, null, $this->minutesAgo(10)),
+            ],
+        ], $account['csrf'], $account['jar']);
+
+        $payload = $this->payload($this->get('/api/sync/status', $account['jar']));
+
+        self::assertTrue($payload['hasData']);
+        self::assertTrue($payload['hasUserData']);
+    }
+
+    public function test_custom_catalog_books_count_as_user_data(): void
+    {
+        $account = $this->account();
+
+        $this->push([
+            [
+                'table' => 'catalogBooks',
+                'op' => 'upsert',
+                'row' => [
+                    'id' => Uuid::v4(),
+                    'title' => 'Kendi Kitabım',
+                    'totalPages' => 120,
+                    'createdAt' => $this->minutesAgo(20),
+                    'updatedAt' => $this->minutesAgo(10),
+                    'deletedAt' => null,
+                ],
+            ],
+        ], $account['csrf'], $account['jar']);
+
+        $payload = $this->payload($this->get('/api/sync/status', $account['jar']));
+
+        self::assertTrue($payload['hasData']);
+        self::assertTrue($payload['hasUserData']);
+        self::assertSame(1, $payload['counts']['catalogBooks']);
     }
 
     public function test_status_counts_data_rows_and_closes_the_migration_gate(): void
@@ -84,6 +171,7 @@ final class SyncStatusTest extends ApiTestCase
         $payload = $this->payload($this->get('/api/sync/status', $account['jar']));
 
         self::assertTrue($payload['hasData']);
+        self::assertTrue($payload['hasUserData']);
         self::assertSame(2, $payload['counts']['userBooks']);
         self::assertSame(1, $payload['counts']['notes']);
         self::assertSame(0, $payload['counts']['subjects']);
@@ -110,6 +198,7 @@ final class SyncStatusTest extends ApiTestCase
         $active = $this->payload($this->get('/api/sync/status', $account['jar']));
 
         self::assertTrue($active['hasData']);
+        self::assertTrue($active['hasUserData']);
         self::assertSame(2, $active['counts']['userBooks']);
 
         // One tombstone: only the remaining active row counts.
@@ -136,6 +225,7 @@ final class SyncStatusTest extends ApiTestCase
         $tombstones = $this->payload($this->get('/api/sync/status', $account['jar']));
 
         self::assertFalse($tombstones['hasData']);
+        self::assertFalse($tombstones['hasUserData']);
         self::assertSame(0, $tombstones['counts']['userBooks']);
         self::assertSame(0, $tombstones['counts']['settings']);
         self::assertSame(0, $tombstones['counts']['notes']);
@@ -385,6 +475,52 @@ final class SyncStatusTest extends ApiTestCase
             $jar,
             $app,
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function subject(string $id, string $seedKey, string $name, string $updatedAt): array
+    {
+        return [
+            'id' => $id,
+            'seedKey' => $seedKey,
+            'exam' => 'TYT',
+            'name' => $name,
+            'slug' => 'matematik',
+            'icon' => 'book',
+            'order' => 1,
+            'updatedAt' => $updatedAt,
+            'deletedAt' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function topic(
+        string $id,
+        string $subjectId,
+        string $name,
+        bool $isCustom,
+        ?string $seedKey,
+        string $updatedAt,
+    ): array {
+        $row = [            'id' => $id,
+            'subjectId' => $subjectId,
+            'name' => $name,
+            'order' => 1,
+            'isCustom' => $isCustom,
+            'createdAt' => $updatedAt,
+            'updatedAt' => $updatedAt,
+            'deletedAt' => null,
+        ];
+
+        if ($seedKey !== null) {
+            $row['seedKey'] = $seedKey;
+        }
+
+        return $row;
     }
 
     /**

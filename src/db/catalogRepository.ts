@@ -2,6 +2,7 @@ import { CATALOG_SEED, catalogBookId } from '@/data/catalogBooks';
 import type { CatalogBook } from '@/domain/types';
 import { matchesTokens, tokenizeTr } from '@/lib/normalize';
 import { db } from './db';
+import { markRemoteTransaction } from './sync/queue';
 
 /** Non-deleted catalog rows, ordered by title for stable pickers and lists. */
 function listActiveCatalogBooks(): Promise<CatalogBook[]> {
@@ -35,7 +36,11 @@ export async function seedCatalog(): Promise<void> {
     updatedAt: now,
   }));
 
-  await db.transaction('rw', db.catalogBooks, async () => {
+  await db.transaction('rw', db.catalogBooks, async (transaction) => {
+    // The shared catalog ships with the app and is not synced (design §6.2).
+    // Without this marker every fresh device would upload hundreds of seed
+    // rows as the user's private books on its first push.
+    markRemoteTransaction(transaction);
     const existing = await db.catalogBooks.bulkGet(rows.map((row) => row.id));
     const existingIds = new Set(
       existing.filter((row): row is CatalogBook => row !== undefined).map((row) => row.id),

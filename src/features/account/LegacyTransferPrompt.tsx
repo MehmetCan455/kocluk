@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { getActiveDbOrNull } from '@/db/db';
 import {
+  LocalDataTransferBlockedError,
+  TRANSFER_DONE_KEY,
   TRANSFER_PROMPT_KEY,
   downloadLegacyBackup,
-  fetchCloudHasData,
+  fetchCloudHasUserData,
   hasLegacyData,
+  localUserDataSummary,
   transferDecision,
   transferLegacyData,
   type TransferSummary,
@@ -19,17 +22,25 @@ import { getMeta, setMeta } from '@/db/sync/meta';
  *
  * The gate runs inside AuthGate's ready branch, after `kocluk-u-<userId>` is
  * open but before `SettingsProvider` can seed and queue defaults. That order
- * matters: the server must still be empty when the transfer is decided, and
- * only then may the first sync run.
+ * matters: the server must still be free of user data when the transfer is
+ * decided, and only then may the first sync run.
  *
- * The app is mounted immediately when there is no legacy data, the prompt was
- * already answered, or the account status cannot be read (offline): the
- * Settings section offers the same transfer explicitly. A cloud-full account
- * is never merged automatically; the user only gets an explanation, a backup
- * download and a close button.
- */
+ * The gate is deliberately retriable. A failed legacy read or an unavailable
+ * status leaves the prompt unanswered and shows a retry; only an explicit
+ * answer ("Boş başla", "Kapat" for a cloud-full account, or a successful
+ * transfer) writes a marker. `TRANSFER_DONE_KEY` also suppresses the prompt if
+ * the user completed the transfer from Settings instead. */
 
-type Phase = 'checking' | 'offer' | 'cloud-full' | 'transferring' | 'done' | 'ready';
+type Phase =
+  | 'checking'
+  | 'offer'
+  | 'cloud-full'
+  | 'local-full'
+  | 'unavailable'
+  | 'legacy-error'
+  | 'transferring'
+  | 'done'
+  | 'ready';
 
 export interface LegacyTransferPromptProps {
   userId: string;
@@ -58,6 +69,7 @@ function Frame({ children }: { children: ReactNode }) {
 
 export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptProps) {
   const [phase, setPhase] = useState<Phase>('checking');
+  const [checkKey, setCheckKey] = useState(0);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [summary, setSummary] = useState<TransferSummary | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(
@@ -69,15 +81,44 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
     let cancelled = false;
     async function decide() {
       const active = getActiveDbOrNull();
-      const marker = active ? await getMeta(active, TRANSFER_PROMPT_KEY) : undefined;
-      if (marker === 'done' || marker === 'dismissed') {
+      if (!active) {
         if (!cancelled) {
           setPhase('ready');
         }
         return;
       }
 
-      const legacy = await hasLegacyData().catch(() => false);
+      try {
+        const [promptMarker, doneMarker] = await Promise.all([
+          getMeta(active, TRANSFER_PROMPT_KEY),
+          getMeta(active, TRANSFER_DONE_KEY),
+        ]);
+        if (
+          doneMarker === true ||
+          promptMarker === 'done' ||
+          promptMarker === 'dismissed'
+        ) {
+          if (!cancelled) {
+            setPhase('ready');
+          }
+          return;
+        }
+      } catch {
+        if (!cancelled) {
+          setPhase('legacy-error');
+        }
+        return;
+      }
+
+      let legacy: boolean;
+      try {
+        legacy = await hasLegacyData();
+      } catch {
+        if (!cancelled) {
+          setPhase('legacy-error');
+        }
+        return;
+      }
       if (!legacy) {
         if (!cancelled) {
           setPhase('ready');
@@ -85,32 +126,50 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
         return;
       }
 
-      let cloudHasData: boolean | null = null;
+      let localHasUserData = false;
       try {
-        cloudHasData = await fetchCloudHasData();
+        localHasUserData = (await localUserDataSummary(active)).hasUserData;
       } catch {
-        cloudHasData = null;
+        if (!cancelled) {
+          setPhase('legacy-error');
+        }
+        return;
+      }
+
+      let cloudHasUserData: boolean | null = null;
+      try {
+        cloudHasUserData = await fetchCloudHasUserData();
+      } catch {
+        cloudHasUserData = null;
       }
       if (cancelled) {
         return;
       }
 
-      const decision = transferDecision(legacy, cloudHasData);
+      const decision = transferDecision(legacy, cloudHasUserData, localHasUserData);
       if (decision === 'offer') {
         setPhase('offer');
       } else if (decision === 'cloud-full') {
         setPhase('cloud-full');
+      } else if (decision === 'local-full') {
+        setPhase('local-full');
       } else {
-        // Unknown cloud state must not block the app; Settings keeps the
-        // explicit transfer entry point.
-        setPhase('ready');
+        // The status could not be read. Keep the prompt retriable and do not
+        // write an "answered" marker.
+        setPhase('unavailable');
       }
     }
     void decide();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [checkKey]);
+
+  function retryCheck() {
+    setMessage(null);
+    setPhase('checking');
+    setCheckKey((value) => value + 1);
+  }
 
   async function downloadBackup() {
     setBusy(true);
@@ -135,12 +194,15 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
       setSummary(result);
       await markPrompt('done');
       setPhase('done');
-    } catch {
+    } catch (caught: unknown) {
       setMessage({
         tone: 'error',
-        text: 'Aktarım tamamlanamadı. Eski veriler değiştirilmedi; tekrar deneyebilirsin.',
+        text:
+          caught instanceof LocalDataTransferBlockedError
+            ? caught.message
+            : 'Aktarım tamamlanamadı. Eski veriler değiştirilmedi; tekrar deneyebilirsin.',
       });
-      setPhase('offer');
+      setPhase(caught instanceof LocalDataTransferBlockedError ? 'local-full' : 'offer');
     }
   }
 
@@ -155,6 +217,11 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
     setBusy(true);
     await markPrompt('dismissed');
     setBusy(false);
+    setPhase('ready');
+  }
+
+  /** Lets the app start without recording an answer; the prompt returns next time. */
+  function continueWithoutAnswer() {
     setPhase('ready');
   }
 
@@ -201,7 +268,10 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
         <p className="text-sm text-muted">
           {summary
             ? `${summary.total} kayıt hesabına kopyalandı.`
-            : 'Eski veriler hesabına kopyalandı.'}{' '}
+            : 'Eski veriler hesabına kopyalandı.'}
+          {summary && summary.skipped > 0
+            ? ` ${summary.skipped} kayıt çakışma nedeniyle atlandı.`
+            : ''}{' '}
           Fotoğraflar ve ekler bu cihazda kaldı; eski veritabanı silinmedi.
         </p>
         <Button onClick={() => setPhase('ready')}>Uygulamaya devam et</Button>
@@ -209,14 +279,83 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
     );
   }
 
+  if (phase === 'legacy-error') {
+    return (
+      <Frame>
+        <h1 className="text-xl font-semibold">Eski veriler kontrol edilemedi</h1>
+        <p className="text-sm text-muted">
+          Tarayıcı depolamasına erişilemedi veya okuma yarıda kaldı. Hiçbir veri
+          değiştirilmedi. Bağlantını kontrol edip tekrar deneyebilirsin.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={retryCheck}>Tekrar dene</Button>
+          <Button variant="ghost" onClick={continueWithoutAnswer}>
+            Daha sonra
+          </Button>
+        </div>
+      </Frame>
+    );
+  }
+
+  if (phase === 'unavailable') {
+    return (
+      <Frame>
+        <h1 className="text-xl font-semibold">Hesap durumu kontrol edilemedi</h1>
+        <p className="text-sm text-muted">
+          Hesabının boş olduğunu doğrulayamadığımız için taşıma önerilmiyor. Böylece
+          mevcut hesap verilerinle eski veriler karışmaz. İnternet bağlantını kontrol
+          edip tekrar dene.
+        </p>
+        <p className="text-xs text-muted">
+          Bu ekranı atlarsan taşıma sorusu bir sonraki açılışta yeniden sorulur.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={retryCheck}>Tekrar dene</Button>
+          <Button variant="ghost" onClick={continueWithoutAnswer}>
+            Daha sonra
+          </Button>
+        </div>
+      </Frame>
+    );
+  }
+
+  if (phase === 'local-full') {
+    return (
+      <Frame>
+        <h1 className="text-xl font-semibold">Bu cihazda hesap verisi var</h1>
+        <p className="text-sm text-muted">
+          Bu hesabın yerel veritabanında zaten kullanıcı verisi var. Otomatik
+          birleştirme, kimlikler ve bağlı kayıtlar karışabileceği için yapılmıyor.
+          Önce Ayarlar → Yedekleme bölümünden yedek indir; yerel verileri temizledikten
+          sonra taşımayı tekrar dene.
+        </p>
+        {message ? (
+          <p role="alert" className="text-sm text-danger">
+            {message.text}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => void downloadBackup()} disabled={busy}>
+            <CloudDownload className="h-4 w-4" aria-hidden="true" />
+            {busy ? 'Hazırlanıyor…' : 'Eski verilerin yedeğini indir'}
+          </Button>
+          <Button variant="ghost" onClick={continueWithoutAnswer}>
+            Kapat
+          </Button>
+        </div>
+      </Frame>
+    );
+  }
+
   if (phase === 'cloud-full') {
     return (
       <Frame>
-        <h1 className="text-xl font-semibold">Hesabında kayıtlı veri var</h1>
+        <h1 className="text-xl font-semibold">Hesabında kayıtlı kullanıcı verisi var</h1>
         <p className="text-sm text-muted">
-          Bu hesap boş değil. Eski cihaz verilerinle otomatik birleştirme yapılmadı;
-          iki veri kümesinin karışmasını engellemek için önce yedek indirmeni öneririz.
-          Eski veriler bu cihazda korunur.
+          Bu hesapta senin oluşturduğun veriler var (ör. deneme, not, kitap, plan veya
+          özel konu). Eski cihaz verilerinle otomatik birleştirme yapılmadı; iki veri
+          kümesinin karışmasını engellemek için önce yedek indirmeni öneririz. Eski
+          veriler bu cihazda korunur.
         </p>
         {message ? (
           <p role="alert" className="text-sm text-danger">
@@ -248,8 +387,9 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
         cihazlarınla eşitlenir.
       </p>
       <p className="text-sm text-muted">
-        Fotoğraflar ve ekler yalnızca bu cihazda kalır; sunucuya yüklenmez. Eski
-        veritabanı hiçbir seçenekte silinmez.
+        Aynı kimlikli kayıtlar güncellenir; çakışan kitaplar veya planlar atlanabilir ve
+        atlanan sayısı aktarım sonunda gösterilir. Fotoğraflar ve ekler yalnızca bu
+        cihazda kalır; sunucuya yüklenmez. Eski veritabanı hiçbir seçenekte silinmez.
       </p>
 
       {message ? (

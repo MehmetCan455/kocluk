@@ -19,3 +19,16 @@ export const CATALOG_SEED: readonly CatalogBookSeed[] = [
 export function catalogBookId(title: string, publisher: string, edition: string): string {
   return deterministicId(CATALOG_NAMESPACE, `${title}|${publisher}|${edition}`);
 }
+
+/**
+ * Seed catalog ids are the only rows that ship with the app and must never be
+ * uploaded as a user's private books. Custom books — including rows pulled
+ * from another device without the local `ownerId` marker — are not in this set.
+ */
+const SHARED_CATALOG_IDS: ReadonlySet<string> = new Set(
+  CATALOG_SEED.map((seed) => catalogBookId(seed.title, seed.publisher, seed.edition)),
+);
+
+export function isSharedCatalogBook(id: string): boolean {
+  return SHARED_CATALOG_IDS.has(id);
+}

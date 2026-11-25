@@ -1,9 +1,69 @@
+import Dexie from 'dexie';
 import { KoclukDB, getActiveDbOrNull, setActiveDb } from './db';
 import { INITIAL_PULL_DONE_KEY } from './sync/meta';
 import { installSyncHooks } from './sync/queue';
 
 /** The pre-account local database, kept only for the one-time transfer. */
 export const LEGACY_DB_NAME = 'kocluk';
+
+/** How long a local account-copy deletion may take before it is reported. */
+export const LOCAL_COPY_DELETE_TIMEOUT_MS = 4000;
+
+export type LocalCopyDeleteReason = 'refused' | 'timeout' | 'failed';
+
+/** A local account-copy deletion that was refused, blocked or rejected. */
+export class LocalCopyDeleteError extends Error {
+  readonly reason: LocalCopyDeleteReason;
+
+  constructor(reason: LocalCopyDeleteReason, message: string) {
+    super(message);
+    this.name = 'LocalCopyDeleteError';
+    this.reason = reason;
+  }
+}
+
+/** Only `kocluk-u-<userId>` names may ever be deleted; `kocluk` never can. */
+export function canDeleteUserDbCopy(name: string | null): name is string {
+  return name !== null && name.startsWith(USER_DB_PREFIX) && name !== LEGACY_DB_NAME;
+}
+
+/**
+ * Deletes one local account database with a hard timeout.
+ *
+ * A blocked IndexedDB delete (another tab, an open connection) never resolves,
+ * so a bare `Dexie.delete` would leave the caller stuck on "Siliniyor…". The
+ * timeout converts that into a reportable failure; the caller keeps the copy.
+ */
+export async function deleteUserDatabaseCopy(
+  name: string,
+  timeoutMs = LOCAL_COPY_DELETE_TIMEOUT_MS,
+): Promise<void> {
+  if (!canDeleteUserDbCopy(name)) {
+    throw new LocalCopyDeleteError('refused', 'Yerel kopya adı geçersiz.');
+  }
+
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      Dexie.delete(name),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new LocalCopyDeleteError('timeout', 'Yerel kopya silinemedi.')),
+          Math.max(1, timeoutMs),
+        );
+      }),
+    ]);
+  } catch (error: unknown) {
+    if (error instanceof LocalCopyDeleteError) {
+      throw error;
+    }
+    throw new LocalCopyDeleteError('failed', 'Yerel kopya silinemedi.');
+  } finally {
+    if (timer !== null) {
+      clearTimeout(timer);
+    }
+  }
+}
 
 const USER_DB_PREFIX = 'kocluk-u-';
 
@@ -54,7 +114,9 @@ async function closeActiveDbNow(): Promise<void> {
   const database = getActiveDbOrNull();
   setActiveDb(null);
   if (database?.isOpen()) {
-    await database.close();
+    // Disable auto-open so a late live query or effect cannot silently reopen
+    // the database we are about to replace or delete.
+    database.close({ disableAutoOpen: true });
   }
 }
 

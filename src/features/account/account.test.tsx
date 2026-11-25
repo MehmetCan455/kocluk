@@ -15,6 +15,7 @@ import {
   userDbName,
 } from '@/db/dbManager';
 import { patchSettings, seedCurriculum } from '@/db/repositories';
+import { TRANSFER_DONE_KEY, TRANSFER_PROMPT_KEY } from '@/db/transfer';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { seedOnboarded } from '@/test/fixtures';
 import {
@@ -22,6 +23,7 @@ import {
   type MockApi,
   type MockApiCall,
   type MockApiReply,
+  type MockApiResponse,
 } from '@/test/mockApi';
 import { TEST_AUTH_USER, renderApp } from '@/test/renderApp';
 
@@ -43,6 +45,7 @@ function syncRoutes(
     'GET /api/sync/status': {
       body: {
         hasData: false,
+        hasUserData: false,
         counts: {},
         cursor: 0,
         serverTime: new Date().toISOString(),
@@ -84,6 +87,12 @@ async function createLegacyExam(): Promise<void> {
       { key: 'profileName', value: 'Eski Kullanıcı' },
       { key: 'onboardingDone', value: true },
     ]);
+    await legacy.notes.add({
+      topicId: 'missing-topic',
+      contentHtml: '<p>Eksik konu</p>',
+      plainText: 'Eksik konu',
+      updatedAt: '2026-11-18T10:00:00.000Z',
+    });
   } finally {
     legacy.close();
   }
@@ -107,6 +116,7 @@ afterEach(async () => {
   cleanup();
   mock?.restore();
   mock = null;
+  vi.restoreAllMocks();
   localStorage.clear();
   vi.unstubAllGlobals();
   await closeActiveDb();
@@ -316,6 +326,179 @@ test('hesap silmede oturum önce düşmüşse yerel kopya silinmez', async () =>
   expect(await Dexie.exists(LEGACY_DB_NAME)).toBe(true);
 });
 
+test('durum okunamazsa taşıma kapısı tekrar denenebilir ve cevaplandı işaretlenmez', async () => {
+  const user = userEvent.setup();
+  await createUserDatabase();
+  await createLegacyExam();
+  let fail = true;
+  install(
+    syncRoutes({
+      'GET /api/sync/status': (): MockApiResponse =>
+        fail
+          ? { networkError: true }
+          : {
+              body: {
+                hasData: true,
+                hasUserData: false,
+                counts: {},
+                cursor: 0,
+                serverTime: new Date().toISOString(),
+              },
+            },
+    }),
+  );
+
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  expect(
+    await screen.findByRole('heading', { name: 'Hesap durumu kontrol edilemedi' }),
+  ).toBeInTheDocument();
+  const active = getActiveDbOrNull();
+  expect(await active?.syncMeta.get(TRANSFER_PROMPT_KEY)).toBeUndefined();
+
+  fail = false;
+  await user.click(screen.getByRole('button', { name: 'Tekrar dene' }));
+
+  expect(await screen.findByRole('button', { name: 'Hesabıma aktar' })).toBeInTheDocument();
+});
+
+test('yerel hesapta kullanıcı verisi varsa hem ilk giriş hem Ayarlar taşımayı reddeder', async () => {
+  const user = userEvent.setup();
+  await createUserDatabase();
+  const database = await openUserDb(TEST_AUTH_USER.id);
+  openedUser = database.name;
+  await database.exams.add({
+    id: 'local-exam',
+    type: 'TYT',
+    name: 'Yerel Deneme',
+    date: '2026-11-18',
+    kind: 'full',
+    note: '',
+    createdAt: '2026-11-18T10:00:00.000Z',
+    updatedAt: '2026-11-18T10:00:00.000Z',
+  });
+  await closeActiveDb();
+  await createLegacyExam();
+  install(syncRoutes());
+
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  expect(
+    await screen.findByRole('heading', { name: 'Bu cihazda hesap verisi var' }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Hesabıma aktar' })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Kapat' }));
+  expect(await screen.findByRole('heading', { name: 'Ayarlar' })).toBeInTheDocument();
+  const active = getActiveDbOrNull();
+  expect(await active?.syncMeta.get(TRANSFER_PROMPT_KEY)).toBeUndefined();
+
+  await user.click(
+    await screen.findByRole('button', { name: 'Eski verileri aktar' }),
+  );
+  expect(
+    await screen.findByText(/Bu hesapta zaten yerel veriler var/),
+  ).toBeInTheDocument();
+});
+
+test('tamamlanan ayar aktarımı ilk giriş sorusunu tekrar göstermez', async () => {
+  const database = await openUserDb(TEST_AUTH_USER.id);
+  openedUser = database.name;
+  await seedCurriculum({ version: 1, subjects: [] });
+  await patchSettings({ onboardingDone: true });
+  await database.syncMeta.put({ key: TRANSFER_DONE_KEY, value: true });
+  await closeActiveDb();
+  await createLegacyExam();
+  install(syncRoutes());
+
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  expect(await screen.findByRole('heading', { name: 'Ayarlar' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Hesabıma aktar' })).not.toBeInTheDocument();
+});
+
+test('sunucu yalnızca tohum verisi içeriyorsa Ayarlar üzerinden taşıma yapılabilir', async () => {
+  const user = userEvent.setup();
+  await createUserDatabase();
+  await createLegacyExam();
+  install(
+    syncRoutes({
+      'GET /api/sync/status': {
+        body: {
+          hasData: true,
+          hasUserData: false,
+          counts: { subjects: 12, topics: 200 },
+          cursor: 3,
+          serverTime: new Date().toISOString(),
+        },
+      },
+    }),
+  );
+
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  await user.click(await screen.findByRole('button', { name: 'Boş başla' }));
+  expect(await screen.findByRole('heading', { name: 'Ayarlar' })).toBeInTheDocument();
+
+  await user.click(
+    await screen.findByRole('button', { name: 'Eski verileri aktar' }),
+  );
+  expect(
+    await screen.findByRole('dialog', { name: 'Eski verileri aktar' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/atlanan sayısı aktarım sonunda gösterilir/)).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Aktar' }));
+  expect(await screen.findByText(/Aktarım tamamlandı/)).toBeInTheDocument();
+});
+
+test('eski veri okuma hatası taşıma kapısında görünür ve tekrar denenebilir', async () => {
+  const user = userEvent.setup();
+  await createUserDatabase();
+  const exists = vi
+    .spyOn(Dexie, 'exists')
+    .mockRejectedValueOnce(new Error('storage blocked'));
+
+  install(syncRoutes());
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  expect(
+    await screen.findByRole('heading', { name: 'Eski veriler kontrol edilemedi' }),
+  ).toBeInTheDocument();
+
+  exists.mockRestore();
+  await user.click(screen.getByRole('button', { name: 'Tekrar dene' }));
+
+  expect(await screen.findByRole('heading', { name: 'Ayarlar' })).toBeInTheDocument();
+});
+
+test('yerel kopya silinemezse çıkış yapılır ve giriş ekranında bildirilir', async () => {
+  const user = userEvent.setup();
+  await createEmptyLegacyDb();
+  await createUserDatabase();
+  install(syncRoutes({ 'POST /api/auth/delete-account': { body: { ok: true } } }));
+  vi.spyOn(Dexie, 'delete').mockRejectedValueOnce(new Error('blocked'));
+
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  await user.click(await screen.findByRole('button', { name: 'Hesabımı sil' }));
+  await user.type(screen.getByLabelText('Şifren'), 'gizli-sifre-123');
+  await user.click(
+    screen.getByRole('checkbox', { name: /Bu cihazdaki yerel kopyayı da sil/ }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Hesabımı kalıcı olarak sil' }));
+
+  expect(await screen.findByRole('heading', { name: 'Giriş yap' })).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      'Yerel kopya silinemedi. Bu cihazdaki hesap verileri korunuyor.',
+    ),
+  ).toBeInTheDocument();
+  expect(await Dexie.exists(userDbName(TEST_AUTH_USER.id))).toBe(true);
+  expect(await Dexie.exists(LEGACY_DB_NAME)).toBe(true);
+  expect(activeUserId()).toBeNull();
+});
+
 test('gizlilik sayfası veri kategorilerini, Natro yu ve cihazda kalan fotoğrafları anlatır', async () => {
   renderApp('/gizlilik', { authUser: null });
 
@@ -423,7 +606,7 @@ test('e-posta doğrulama geçici hatada aynı tokenla tekrar dener', async () =>
   expect(calls[1]?.body).toEqual({ token: 'verify-retry' });
 });
 
-test('bulut doluysa otomatik birleştirme önermez, yedek ve kapat sunar', async () => {
+test('bulut kullanıcı verisi doluysa otomatik birleştirme önermez, yedek ve kapat sunar', async () => {
   const user = userEvent.setup();
   await seedOnboarded(CURRICULUM);
   await createLegacyExam();
@@ -432,6 +615,7 @@ test('bulut doluysa otomatik birleştirme önermez, yedek ve kapat sunar', async
       'GET /api/sync/status': {
         body: {
           hasData: true,
+          hasUserData: true,
           counts: { exams: 1 },
           cursor: 3,
           serverTime: new Date().toISOString(),
@@ -443,7 +627,9 @@ test('bulut doluysa otomatik birleştirme önermez, yedek ve kapat sunar', async
   renderApp('/ayarlar');
 
   expect(
-    await screen.findByRole('heading', { name: 'Hesabında kayıtlı veri var' }),
+    await screen.findByRole('heading', {
+      name: 'Hesabında kayıtlı kullanıcı verisi var',
+    }),
   ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Hesabıma aktar' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Yedek indir' })).toBeInTheDocument();
@@ -458,6 +644,30 @@ test('bulut doluysa otomatik birleştirme önermez, yedek ve kapat sunar', async
   expect(await active!.exams.count()).toBe(0);
 });
 
+test('sunucuda yalnızca tohum verisi varsa taşıma önerilir', async () => {
+  const user = userEvent.setup();
+  await createUserDatabase();
+  await createLegacyExam();
+  install(
+    syncRoutes({
+      'GET /api/sync/status': {
+        body: {
+          hasData: true,
+          hasUserData: false,
+          counts: { subjects: 12, topics: 200 },
+          cursor: 3,
+          serverTime: new Date().toISOString(),
+        },
+      },
+    }),
+  );
+
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  await user.click(await screen.findByRole('button', { name: 'Hesabıma aktar' }));
+  expect(await screen.findByText(/Aktarım tamamlandı/)).toBeInTheDocument();
+});
+
 test('ilk girişte eski veriyi hesaba aktarır ve uygulamayı açar', async () => {
   const user = userEvent.setup();
   await createUserDatabase();
@@ -466,9 +676,13 @@ test('ilk girişte eski veriyi hesaba aktarır ve uygulamayı açar', async () =
 
   renderApp('/ayarlar', { openDb: openUserDb });
 
+  expect(
+    await screen.findByText(/çakışan kitaplar veya planlar atlanabilir/),
+  ).toBeInTheDocument();
   await user.click(await screen.findByRole('button', { name: 'Hesabıma aktar' }));
 
   expect(await screen.findByText(/Aktarım tamamlandı/)).toBeInTheDocument();
+  expect(screen.getByText(/1 kayıt çakışma nedeniyle atlandı/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Uygulamaya devam et' }));
 
   expect(await screen.findByRole('heading', { name: 'Ayarlar' })).toBeInTheDocument();

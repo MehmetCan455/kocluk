@@ -1,5 +1,6 @@
 import type { SyncQueueRow } from '@/domain/types';
 import { ApiError } from '@/lib/api';
+import { isSharedCatalogBook } from '@/data/catalogBooks';
 import type { KoclukDB } from '../db';
 import { DEFAULT_SETTINGS } from '../repositories';
 import {
@@ -109,6 +110,20 @@ export async function pushOnce(
     }
 
     const table = row.table as SyncedTable;
+
+    // The shared catalog ships with the app and must never be uploaded as the
+    // user's private books (design §6.2). Old queues or a restore can still
+    // contain a seed row; resolve it locally without a request.
+    if (table === 'catalogBooks' && row.op === 'upsert') {
+      const local = await db.catalogBooks.get(row.rowId);
+      if (local !== undefined && isSharedCatalogBook(local.id)) {
+        if (await markApplied(db, row.id, row.updatedAt)) {
+          summary.applied += 1;
+          continue;
+        }
+      }
+    }
+
     const change = await buildChange(db, row, table);
     if (change === null) {
       if (await markDead(db, row.id, 'validation_failed', row.updatedAt)) {

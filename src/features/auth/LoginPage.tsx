@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/AuthProvider';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
+import { clearAccountNotice, readAccountNotice } from '@/lib/accountNotice';
 import { AuthLayout, authInputClass } from './AuthLayout';
 import { authErrorMessage, isValidEmail } from './authError';
 
@@ -27,6 +28,7 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [accountNotice, setAccountNotice] = useState(() => readAccountNotice());
   const resetDone = passwordResetMessage(location.state);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -51,6 +53,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login({ email: email.trim(), password });
+      clearAccountNotice();
       navigate('/', { replace: true });
     } catch (caught: unknown) {
       setError(authErrorMessage(caught, 'Giriş yapılamadı. Lütfen tekrar dene.'));
@@ -72,6 +75,25 @@ export function LoginPage() {
       }
     >
       <form noValidate className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
+        {accountNotice ? (
+          <div
+            role="alert"
+            className="space-y-2 rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"
+          >
+            <p>{accountNotice}</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                clearAccountNotice();
+                setAccountNotice(null);
+              }}
+            >
+              Yerel kopyayı koru
+            </Button>
+          </div>
+        ) : null}
+
         {resetDone ? (
           <p
             role="status"

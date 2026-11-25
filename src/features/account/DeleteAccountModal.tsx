@@ -1,4 +1,3 @@
-import Dexie from 'dexie';
 import { useEffect, useState, type FormEvent } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/app/AuthProvider';
@@ -6,8 +5,13 @@ import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { getActiveDbOrNull } from '@/db/db';
-import { closeActiveDb, userDbName } from '@/db/dbManager';
+import {
+  closeActiveDb,
+  deleteUserDatabaseCopy,
+  userDbName,
+} from '@/db/dbManager';
 import { ApiError, api } from '@/lib/api';
+import { setAccountNotice } from '@/lib/accountNotice';
 import { authErrorMessage } from '@/features/auth/authError';
 
 /**
@@ -84,11 +88,28 @@ export function DeleteAccountModal({ open, onClose }: DeleteAccountModalProps) {
     // must not block the local sign-out; the copy is simply kept.
     await closeActiveDb().catch(() => undefined);
 
+    let localCopyFailed = false;
     if (deleteLocalCopy && accountDatabaseName === expectedDatabaseName) {
-      await Dexie.delete(expectedDatabaseName).catch(() => undefined);
+      try {
+        await deleteUserDatabaseCopy(expectedDatabaseName);
+      } catch {
+        // Blocked/rejected deletes keep the data (the safe direction) and are
+        // reported on the login screen after sign-out.
+        localCopyFailed = true;
+      }
+    } else if (deleteLocalCopy) {
+      // Never delete a database that is not this account's copy.
+      localCopyFailed = true;
+    }
+
+    if (localCopyFailed) {
+      setAccountNotice(
+        'Yerel kopya silinemedi. Bu cihazdaki hesap verileri korunuyor.',
+      );
     }
 
     setBusy(false);
+    // The server account is gone; sign out even when the local copy failed.
     signOutLocally();
     onClose();
   }

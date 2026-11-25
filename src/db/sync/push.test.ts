@@ -1,6 +1,7 @@
 import Dexie from 'dexie';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import type { ActivityLog, CatalogBook, Subject, Topic, UserBook } from '@/domain/types';
+import { CATALOG_SEED, catalogBookId } from '@/data/catalogBooks';
 import { ApiError } from '@/lib/api';
 import { LOCAL_SCOPE } from '@/lib/namespaces';
 import { KoclukDB } from '../db';
@@ -418,6 +419,31 @@ test('settings push hesap düzeyi alanları gönderir, cihaz ayarlarını gönde
   });
   expect(change.row).not.toHaveProperty('accent');
   expect(change.row).not.toHaveProperty('scheduleMode');
+  expect(await pendingCount(database)).toBe(0);
+});
+
+test('ortak katalog tohumu sunucuya gönderilmez', async () => {
+  const seedCatalogBook = CATALOG_SEED[0];
+  const seed: CatalogBook = {
+    id: catalogBookId(
+      seedCatalogBook.title,
+      seedCatalogBook.publisher,
+      seedCatalogBook.edition,
+    ),
+    title: seedCatalogBook.title,
+    totalPages: seedCatalogBook.totalPages,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  await database.catalogBooks.add(seed);
+  await whenQueueIdle();
+  expect(await pendingCount(database)).toBe(1);
+
+  const { client, calls } = recordingClient((body) => appliedResults(body));
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(calls).toHaveLength(0);
+  expect(summary).toEqual({ applied: 1, conflicts: 0, errors: 0 });
   expect(await pendingCount(database)).toBe(0);
 });
 

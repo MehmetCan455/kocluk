@@ -8,10 +8,12 @@ import { Field } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { getActiveDbOrNull } from '@/db/db';
 import {
+  LocalDataTransferBlockedError,
   TRANSFER_DONE_KEY,
   downloadLegacyBackup,
-  fetchCloudHasData,
+  fetchCloudHasUserData,
   hasLegacyData,
+  localUserDataSummary,
   transferLegacyData,
 } from '@/db/transfer';
 import { getMeta } from '@/db/sync/meta';
@@ -352,9 +354,9 @@ interface LegacyTransferSectionProps {
 
 /**
  * "Eski veriler" section for Settings. It only offers the transfer after the
- * cloud status proved the account is empty; a non-empty account gets an
- * information message and a backup download instead. Nothing is merged
- * automatically and the old database is never deleted.
+ * cloud status proved the account has no user data and the active local account
+ * is fresh/seed-only; otherwise it explains the refusal and offers a backup.
+ * Nothing is merged automatically and the old database is never deleted.
  */
 function LegacyTransferSection({ userId }: LegacyTransferSectionProps) {
   const [legacy, setLegacy] = useState<boolean | null>(null);
@@ -362,23 +364,46 @@ function LegacyTransferSection({ userId }: LegacyTransferSectionProps) {
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [message, setMessage] = useState<StatusMessage | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [loadKey, setLoadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const active = getActiveDbOrNull();
-      const marker = active ? await getMeta(active, TRANSFER_DONE_KEY) : undefined;
-      const exists = await hasLegacyData().catch(() => false);
-      if (!cancelled) {
-        setTransferred(marker === true);
-        setLegacy(exists);
+      try {
+        const active = getActiveDbOrNull();
+        const marker = active ? await getMeta(active, TRANSFER_DONE_KEY) : undefined;
+        const exists = await hasLegacyData();
+        if (!cancelled) {
+          setTransferred(marker === true);
+          setLegacy(exists);
+          setLoadError(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadError(true);
+        }
       }
     }
     void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadKey]);
+
+  if (loadError) {
+    return (
+      <Card className="space-y-4">
+        <h2 className="text-base font-semibold">Eski veriler</h2>
+        <p role="alert" className="text-sm text-danger">
+          Eski veriler kontrol edilemedi. Tarayıcı depolamasına erişilemiyor olabilir.
+        </p>
+        <Button variant="secondary" onClick={() => setLoadKey((value) => value + 1)}>
+          Tekrar dene
+        </Button>
+      </Card>
+    );
+  }
 
   if (legacy !== true) {
     return null;
@@ -388,11 +413,23 @@ function LegacyTransferSection({ userId }: LegacyTransferSectionProps) {
     setBusy(true);
     setMessage(null);
     try {
-      const cloudHasData = await fetchCloudHasData();
-      if (cloudHasData) {
+      const active = getActiveDbOrNull();
+      if (active) {
+        const local = await localUserDataSummary(active);
+        if (local.hasUserData) {
+          setMessage({
+            tone: 'error',
+            text: 'Bu hesapta zaten yerel veriler var. Taşıma yalnızca boş ya da yalnızca tohum verisi olan bir hesaba yapılabilir. Önce Ayarlar → Yedekleme bölümünden yedek indirip yerel verileri temizle.',
+          });
+          return;
+        }
+      }
+
+      const cloudHasUserData = await fetchCloudHasUserData();
+      if (cloudHasUserData) {
         setMessage({
           tone: 'error',
-          text: 'Hesabında kayıtlı veri var. Otomatik birleştirme yapılmadı; eski veriler bu cihazda korunuyor. Önce yedek indirebilirsin.',
+          text: 'Hesabında kayıtlı kullanıcı verisi var. Otomatik birleştirme yapılmadı; eski veriler bu cihazda korunuyor. Önce yedek indirebilirsin.',
         });
         return;
       }
@@ -428,12 +465,20 @@ function LegacyTransferSection({ userId }: LegacyTransferSectionProps) {
       setTransferred(true);
       setMessage({
         tone: 'success',
-        text: `Aktarım tamamlandı: ${summary.total} kayıt kopyalandı. Eski veriler bu cihazda korunuyor.`,
+        text:
+          `Aktarım tamamlandı: ${summary.total} kayıt kopyalandı.` +
+          (summary.skipped > 0
+            ? ` ${summary.skipped} kayıt çakışma nedeniyle atlandı.`
+            : '') +
+          ' Eski veriler bu cihazda korunuyor.',
       });
-    } catch {
+    } catch (caught: unknown) {
       setMessage({
         tone: 'error',
-        text: 'Aktarım tamamlanamadı. Eski veriler değiştirilmedi; tekrar deneyebilirsin.',
+        text:
+          caught instanceof LocalDataTransferBlockedError
+            ? caught.message
+            : 'Aktarım tamamlanamadı. Eski veriler değiştirilmedi; tekrar deneyebilirsin.',
       });
     } finally {
       setBusy(false);
@@ -492,9 +537,10 @@ function LegacyTransferSection({ userId }: LegacyTransferSectionProps) {
         }
       >
         <p className="text-sm text-muted">
-          Eski veriler hesabına kopyalanacak. Aynı kimlikli kayıtlar güncellenir, yeni
-          kayıtlar eklenir. Eski veritabanı silinmez ve istersen sonra yedek
-          indirebilirsin.
+          Eski veriler hesabına kopyalanacak. Aynı kimlikli kayıtlar güncellenir; çakışan
+          kitaplar veya planlar atlanabilir ve atlanan sayısı aktarım sonunda gösterilir.
+          Yerel hesabında kullanıcı verisi varsa taşıma reddedilir. Eski veritabanı
+          silinmez; istersen yedek indirebilirsin.
         </p>
       </Modal>
     </Card>

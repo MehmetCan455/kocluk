@@ -1,8 +1,17 @@
 import Dexie from 'dexie';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import type { Subject } from '@/domain/types';
 import { KoclukDB, db, getActiveDb, getActiveDbOrNull, setActiveDb } from './db';
-import { activeUserId, closeActiveDb, openLegacyDb, openUserDb } from './dbManager';
+import { seedCatalog } from './catalogRepository';
+import {
+  LEGACY_DB_NAME,
+  LocalCopyDeleteError,
+  activeUserId,
+  closeActiveDb,
+  deleteUserDatabaseCopy,
+  openLegacyDb,
+  openUserDb,
+} from './dbManager';
 import { getMeta, setMeta } from './sync/meta';
 import { whenQueueIdle } from './sync/queue';
 
@@ -115,8 +124,75 @@ test('activeUserId aktif DB adından türetilir', async () => {
   expect(activeUserId()).toBe('c4');
 });
 
-test('openLegacyDb kocluk DB sini açar ama aktif yapmaz', async () => {
-  const legacy = track(await openLegacyDb());
+test('deleteUserDatabaseCopy yalnızca kullanıcı DB sini siler, kocluk u reddeder', async () => {
+  const name = 'kocluk-u-delete-helper';
+  const database = new KoclukDB(name);
+  await database.open();
+  database.close();
+  expect(await Dexie.exists(name)).toBe(true);
+
+  await deleteUserDatabaseCopy(name);
+  expect(await Dexie.exists(name)).toBe(false);
+
+  await expect(deleteUserDatabaseCopy(LEGACY_DB_NAME)).rejects.toMatchObject({
+    reason: 'refused',
+  });
+});
+
+test('deleteUserDatabaseCopy engellenen silmeyi zaman aşımıyla bildirir', async () => {
+  const spy = vi
+    .spyOn(Dexie, 'delete')
+    .mockReturnValue(new Promise<void>(() => undefined) as never);
+
+  try {
+    await expect(deleteUserDatabaseCopy('kocluk-u-blocked', 20)).rejects.toMatchObject({
+      reason: 'timeout',
+    });
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test('deleteUserDatabaseCopy reddedilen silmeyi hata olarak bildirir', async () => {
+  const spy = vi
+    .spyOn(Dexie, 'delete')
+    .mockRejectedValue(new Error('blocked'));
+
+  try {
+    await expect(deleteUserDatabaseCopy('kocluk-u-rejected')).rejects.toBeInstanceOf(
+      LocalCopyDeleteError,
+    );
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test('katalog tohumu senkron kuyruğuna girmez, özel kitap girer', async () => {
+  const database = track(await openUserDb('u-catalog-hooks'));
+  const created = new Date().toISOString();
+
+  await seedCatalog();
+  await whenQueueIdle();
+  expect(
+    await database.syncQueue.where('table').equals('catalogBooks').count(),
+  ).toBe(0);
+
+  await database.catalogBooks.add({
+    id: 'custom-book',
+    ownerId: 'local',
+    title: 'Özel Kitap',
+    totalPages: 10,
+    createdAt: created,
+    updatedAt: created,
+  });
+  await whenQueueIdle();
+
+  expect(await database.syncQueue.get('catalogBooks:custom-book')).toMatchObject({
+    status: 'pending',
+  });
+});
+
+test('openLegacyDb kocluk DB sini açar ama aktif yapmaz', async () => {  const legacy = track(await openLegacyDb());
 
   expect(legacy.name).toBe('kocluk');
   expect(legacy.isOpen()).toBe(true);

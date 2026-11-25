@@ -5,9 +5,11 @@ import { LEGACY_DB_NAME, closeActiveDb, openUserDb } from './dbManager';
 import { getMeta } from './sync/meta';
 import { whenQueueIdle } from './sync/queue';
 import {
+  LocalDataTransferBlockedError,
   TRANSFER_DONE_KEY,
-  fetchCloudHasData,
+  fetchCloudHasUserData,
   hasLegacyData,
+  localUserDataSummary,
   transferDecision,
   transferLegacyData,
   type TransferSummary,
@@ -202,7 +204,7 @@ test('eski veriyi kimlikleri koruyarak hesap veritabanına kopyalar, eski DB yi 
   expect(await legacy.notes.count()).toBe(1);
 });
 
-test('taşıma iki kez çalıştırılabilir; duplicate oluşmaz', async () => {
+test('tamamlanan taşıma ikinci kez reddedilir; hedef veri değişmez', async () => {
   await seedLegacyData();
   const target = await openUser('transfer-twice');
 
@@ -222,10 +224,12 @@ test('taşıma iki kez çalıştırılabilir; duplicate oluşmaz', async () => {
     userBooks: await target.userBooks.count(),
   };
 
-  const second = await transferLegacyData('transfer-twice');
+  await expect(transferLegacyData('transfer-twice')).rejects.toBeInstanceOf(
+    LocalDataTransferBlockedError,
+  );
 
-  expect(second.total).toBe(first.total);
   expect(progress.at(-1)?.[0]).toBe(progress.at(-1)?.[1]);
+  expect(first.total).toBeGreaterThan(0);
   expect(await target.subjects.count()).toBe(counts.subjects);
   expect(await target.topics.count()).toBe(counts.topics);
   expect(await target.exams.count()).toBe(counts.exams);
@@ -235,14 +239,9 @@ test('taşıma iki kez çalıştırılabilir; duplicate oluşmaz', async () => {
   expect(await target.books.count()).toBe(counts.books);
   expect(await target.topicBooks.count()).toBe(counts.topicBooks);
   expect(await target.userBooks.count()).toBe(counts.userBooks);
-  await whenQueueIdle();
-  expect(await target.syncQueue.count()).toBe(
-    await target.syncQueue.where('status').equals('pending').count(),
-  );
 });
 
-test('aynı seedKey farklı kimlikle varsa tohum satırı çoğaltmadan değiştirir', async () => {
-  const target = await openUser('transfer-seed');
+test('aynı seedKey farklı kimlikle varsa tohum satırı çoğaltmadan değiştirir', async () => {  const target = await openUser('transfer-seed');
   await target.subjects.put({
     id: 'new-seed-subject',
     seedKey: 'tyt-matematik',
@@ -277,7 +276,42 @@ test('aynı seedKey farklı kimlikle varsa tohum satırı çoğaltmadan değişt
   ).toBe(1);
 });
 
-test('tohum ders değişirken kullanıcının oluşturduğu konu korunur', async () => {
+test('kullanıcı verisi olan yerel hesapta taşıma reddedilir ve hedef değişmez', async () => {
+  const target = await openUser('transfer-used');
+  await target.exams.add({
+    id: 'local-exam',
+    type: 'TYT',
+    name: 'Yerel Deneme',
+    date: '2026-11-18',
+    kind: 'full',
+    note: '',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await target.notes.add({
+    topicId: 'local-topic',
+    contentHtml: '<p>Yerel not</p>',
+    plainText: 'Yerel not',
+    updatedAt: now,
+  });
+
+  await seedLegacyData();
+  const summary = await localUserDataSummary(target);
+  expect(summary.hasUserData).toBe(true);
+
+  await expect(transferLegacyData('transfer-used')).rejects.toBeInstanceOf(
+    LocalDataTransferBlockedError,
+  );
+
+  expect(await target.exams.get('local-exam')).toBeDefined();
+  expect(await target.notes.get('local-topic')).toBeDefined();
+  expect(await target.subjects.count()).toBe(0);
+  expect(await target.topics.count()).toBe(0);
+  expect(await target.books.count()).toBe(0);
+  expect(await target.photos.count()).toBe(0);
+});
+
+test('özel konu da kullanıcı verisi sayılır ve taşıma reddedilir', async () => {
   const target = await openUser('transfer-custom-topic');
   await target.subjects.put({
     id: 'new-seed-subject',
@@ -300,33 +334,265 @@ test('tohum ders değişirken kullanıcının oluşturduğu konu korunur', async
   });
 
   await seedLegacyData();
-  await transferLegacyData('transfer-custom-topic');
+
+  await expect(transferLegacyData('transfer-custom-topic')).rejects.toBeInstanceOf(
+    LocalDataTransferBlockedError,
+  );
 
   expect(await target.topics.get('custom-topic')).toMatchObject({
-    subjectId: 'legacy-mat',
+    subjectId: 'new-seed-subject',
     name: 'Kendi Konum',
     isCustom: true,
   });
-  await whenQueueIdle();
-  expect(await target.syncQueue.get('topics:custom-topic')).toMatchObject({
-    status: 'pending',
-  });
+  expect(await target.subjects.get('legacy-mat')).toBeUndefined();
 });
 
-test('bulut doluysa taşıma önerilmez; durum bilinmiyorsa engellenir', () => {
-  expect(transferDecision(true, true)).toBe('cloud-full');
-  expect(transferDecision(true, false)).toBe('offer');
-  expect(transferDecision(false, false)).toBe('none');
-  expect(transferDecision(false, true)).toBe('none');
-  expect(transferDecision(true, null)).toBe('unavailable');
+test('taze hesapta tüm bağımlı referanslar yeni tohum kimliklerine çevrilir', async () => {
+  const target = await openUser('transfer-remap');
+  await target.subjects.put({
+    id: 'new-seed-subject',
+    seedKey: 'tyt-matematik',
+    exam: 'TYT',
+    name: 'Matematik',
+    slug: 'matematik',
+    icon: 'calculator',
+    order: 1,
+    updatedAt: now,
+  });
+  await target.topics.bulkPut([
+    {
+      id: 'new-seed-topic',
+      seedKey: 'tyt-matematik-temel',
+      subjectId: 'new-seed-subject',
+      name: 'Temel Kavramlar',
+      order: 1,
+      isCustom: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'new-seed-topic-2',
+      seedKey: 'tyt-matematik-ikinci',
+      subjectId: 'new-seed-subject',
+      name: 'İkinci Konu',
+      order: 2,
+      isCustom: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+  await target.settings.put({
+    key: 'hiddenSubjects',
+    value: ['new-seed-subject'],
+  });
+
+  await seedLegacyData();
+  const legacy = await openLegacy();
+  await legacy.topics.add({
+    id: 'legacy-topic-2',
+    seedKey: 'tyt-matematik-ikinci',
+    subjectId: 'legacy-mat',
+    name: 'İkinci Konu',
+    order: 2,
+    isCustom: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await legacy.notes.add({
+    topicId: 'new-seed-topic-2',
+    contentHtml: '<p>Taşınan not</p>',
+    plainText: 'Taşınan not',
+    updatedAt: now,
+  });
+  await legacy.examResults.add({
+    id: 'ref-result',
+    examId: 'legacy-exam',
+    subjectId: 'new-seed-subject',
+    correct: 10,
+    wrong: 2,
+    blank: 0,
+    net: 9.5,
+    updatedAt: now,
+  });
+  await legacy.activityLogs.add({
+    id: 'ref-log',
+    type: 'topic_review',
+    topicId: 'new-seed-topic-2',
+    source: 'manual',
+    createdAt: now,
+  });
+  await legacy.scheduleWeeks.add({
+    id: 'legacy-week',
+    weekStart: '2026-11-16',
+    note: '',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await legacy.scheduleRows.add({
+    id: 'legacy-row',
+    weekId: 'legacy-week',
+    subjectId: 'new-seed-subject',
+    label: 'Matematik',
+    order: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await legacy.scheduleTasks.add({
+    id: 'legacy-task',
+    weekId: 'legacy-week',
+    rowId: 'legacy-row',
+    dayIndex: 1,
+    type: 'free',
+    topicId: 'new-seed-topic-2',
+    title: 'Görev',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await legacy.photos.add({
+    id: 'ref-photo',
+    examType: 'TYT',
+    subjectId: 'new-seed-subject',
+    topicId: 'new-seed-topic-2',
+    note: 'Taşınan fotoğraf',
+    blob: new Blob(['x'], { type: 'image/jpeg' }),
+    thumbBlob: new Blob(['t'], { type: 'image/jpeg' }),
+    width: 10,
+    height: 10,
+    mastered: false,
+    practiceCount: 0,
+    createdAt: now,
+  });
+  await legacy.attachments.add({
+    id: 'ref-attachment',
+    topicId: 'new-seed-topic-2',
+    name: 'ek.pdf',
+    mime: 'application/pdf',
+    size: 1,
+    blob: new Blob(['p'], { type: 'application/pdf' }),
+    createdAt: now,
+  });
+  await legacy.practiceSessions.add({
+    id: 'ref-session',
+    createdAt: now,
+    updatedAt: now,
+    filters: {
+      subjectIds: ['new-seed-subject'],
+      topicIds: ['new-seed-topic-2'],
+      count: 1,
+    },
+    photoIds: [],
+    results: {},
+  });
+  await legacy.scheduleEntries.add({
+    id: 'ref-entry',
+    day: 1,
+    startTime: '09:00',
+    endTime: '10:00',
+    title: 'Ders',
+    subjectId: 'new-seed-subject',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await legacy.settings.put({
+    key: 'hiddenSubjects',
+    value: ['new-seed-subject'],
+  });
+  legacy.close();
+
+  await transferLegacyData('transfer-remap');
+
+  expect(await target.subjects.get('new-seed-subject')).toBeUndefined();
+  expect(await target.topics.get('new-seed-topic')).toBeUndefined();
+  expect(await target.topics.get('new-seed-topic-2')).toBeUndefined();
+  expect(await target.notes.get('legacy-topic-2')).toMatchObject({
+    topicId: 'legacy-topic-2',
+    plainText: 'Taşınan not',
+  });
+  expect(await target.notes.get('new-seed-topic-2')).toBeUndefined();
+  expect(await target.examResults.get('ref-result')).toMatchObject({
+    subjectId: 'legacy-mat',
+  });
+  expect(await target.activityLogs.get('ref-log')).toMatchObject({
+    topicId: 'legacy-topic-2',
+  });
+  expect(await target.scheduleRows.get('legacy-row')).toMatchObject({
+    subjectId: 'legacy-mat',
+  });
+  expect(await target.scheduleTasks.get('legacy-task')).toMatchObject({
+    topicId: 'legacy-topic-2',
+  });
+  expect(await target.photos.get('ref-photo')).toMatchObject({
+    subjectId: 'legacy-mat',
+    topicId: 'legacy-topic-2',
+  });
+  expect(await target.photoSearch.get('ref-photo')).toMatchObject({
+    subjectId: 'legacy-mat',
+    topicId: 'legacy-topic-2',
+  });
+  expect(await target.attachments.get('ref-attachment')).toMatchObject({
+    topicId: 'legacy-topic-2',
+  });
+  expect(await target.practiceSessions.get('ref-session')).toMatchObject({
+    filters: { subjectIds: ['legacy-mat'], topicIds: ['legacy-topic-2'] },
+  });
+  expect(await target.scheduleEntries.get('ref-entry')).toMatchObject({
+    subjectId: 'legacy-mat',
+  });
+  expect((await target.settings.get('hiddenSubjects'))?.value).toEqual(['legacy-mat']);
+});
+
+test('eksik ebeveyne bağlı alt kayıtlar yetim bırakılmaz', async () => {
+  const target = await openUser('transfer-orphans');
+  const legacy = await openLegacy();
+  await legacy.notes.add({
+    topicId: 'missing-topic',
+    contentHtml: '<p>Yetim</p>',
+    plainText: 'Yetim',
+    updatedAt: now,
+  });
+  await legacy.activityLogs.add({
+    id: 'orphan-log',
+    type: 'book_pages',
+    userBookId: 'missing-book',
+    source: 'manual',
+    createdAt: now,
+  });
+  await legacy.scheduleTasks.add({
+    id: 'orphan-task',
+    weekId: 'missing-week',
+    rowId: 'missing-row',
+    dayIndex: 1,
+    type: 'free',
+    title: 'Yetim görev',
+    createdAt: now,
+    updatedAt: now,
+  });
+  legacy.close();
+
+  const summary = await transferLegacyData('transfer-orphans');
+
+  expect(await target.notes.count()).toBe(0);
+  expect(await target.activityLogs.count()).toBe(0);
+  expect(await target.scheduleTasks.count()).toBe(0);
+  expect(summary.skipped).toBe(3);
+});
+
+test('bulut kullanıcı verisi doluysa taşıma önerilmez; durum bilinmiyorsa engellenir', () => {
+  expect(transferDecision(true, true, false)).toBe('cloud-full');
+  expect(transferDecision(true, false, false)).toBe('offer');
+  expect(transferDecision(false, false, false)).toBe('none');
+  expect(transferDecision(false, true, false)).toBe('none');
+  expect(transferDecision(true, null, false)).toBe('unavailable');
+  expect(transferDecision(true, false, true)).toBe('local-full');
+  expect(transferDecision(true, true, true)).toBe('local-full');
 });
 
 test('okunamayan durum yanıtı taşıma kapısını güvenli tarafa çeker', async () => {
   const mock = installMockApi({
-    'GET /api/sync/status': { body: { counts: {} } },
+    'GET /api/sync/status': { body: { counts: {}, hasData: false } },
   });
 
-  await expect(fetchCloudHasData()).rejects.toThrow('Senkron durumu okunamadı.');
+  await expect(fetchCloudHasUserData()).rejects.toThrow('Senkron durumu okunamadı.');
 
   mock.restore();
 });

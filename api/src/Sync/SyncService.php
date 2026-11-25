@@ -224,7 +224,18 @@ final class SyncService
      * close the gate: onboarding defaults must not hide the "this account is
      * empty" state.
      *
-     * @return array{hasData: bool, counts: array<string, int>, cursor: int, serverTime: string}
+     * `hasData` is the general "does this account have any active synced row"
+     * signal. `hasUserData` additionally ignores seeded subjects/topics: it is
+     * what the legacy-transfer screen uses, because a first sync of the shipped
+     * curriculum must not close the transfer gate forever.
+     *
+     * @return array{
+     *     hasData: bool,
+     *     hasUserData: bool,
+     *     counts: array<string, int>,
+     *     cursor: int,
+     *     serverTime: string
+     * }
      */
     public function status(string $userId): array
     {
@@ -258,8 +269,49 @@ final class SyncService
                 }
             }
 
+            // Subjects and topics are seeded automatically on every device;
+            // only rows the user created count as their own data. The server
+            // stores only custom catalog books, so any active catalog row is
+            // user-created as well.
+            $hasUserData = $counts['catalogBooks'] > 0;
+            foreach ([
+                'exams',
+                'examResults',
+                'notes',
+                'userBooks',
+                'activityLogs',
+                'scheduleWeeks',
+                'scheduleRows',
+                'scheduleTasks',
+                'topicProgress',
+            ] as $table) {
+                if ($counts[$table] > 0) {
+                    $hasUserData = true;
+                }
+            }
+
+            if ($counts['topics'] > 0) {
+                $topics = TableMap::definition('topics');
+                $row = $this->database->fetchOne(
+                    sprintf(
+                        'SELECT COUNT(*) AS `total` FROM `%s` WHERE `%s` = ?'
+                        . ' AND `%s` = 1 AND `%s` IS NULL',
+                        $topics['table'],
+                        $topics['owner'],
+                        $topics['columns']['isCustom'],
+                        $topics['columns']['deletedAt'],
+                    ),
+                    [$userId],
+                );
+
+                if ((int) ($row['total'] ?? 0) > 0) {
+                    $hasUserData = true;
+                }
+            }
+
             return [
                 'hasData' => $hasData,
+                'hasUserData' => $hasUserData,
                 'counts' => $counts,
                 'cursor' => $this->changeLog->maxId($userId),
                 'serverTime' => Clock::iso(),

@@ -270,7 +270,7 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
             ? `${summary.total} kayıt hesabına kopyalandı.`
             : 'Eski veriler hesabına kopyalandı.'}
           {summary && summary.skipped > 0
-            ? ` ${summary.skipped} kayıt çakışma nedeniyle atlandı.`
+            ? ` ${summary.skipped} bağlı kayıt eksik üst kayıt nedeniyle atlandı.`
             : ''}{' '}
           Fotoğraflar ve ekler bu cihazda kaldı; eski veritabanı silinmedi.
         </p>
@@ -387,9 +387,10 @@ export function LegacyTransferPrompt({ userId, children }: LegacyTransferPromptP
         cihazlarınla eşitlenir.
       </p>
       <p className="text-sm text-muted">
-        Aynı kimlikli kayıtlar güncellenir; çakışan kitaplar veya planlar atlanabilir ve
-        atlanan sayısı aktarım sonunda gösterilir. Fotoğraflar ve ekler yalnızca bu
-        cihazda kalır; sunucuya yüklenmez. Eski veritabanı hiçbir seçenekte silinmez.
+        Aynı kimlikli kayıtlar güncellenir; üst kaydı bulunmayan bağlı kayıtlar
+        atlanabilir ve atlanan sayısı aktarım sonunda gösterilir. Fotoğraflar ve
+        ekler yalnızca bu cihazda kalır; sunucuya yüklenmez. Eski veritabanı hiçbir
+        seçenekte silinmez.
       </p>
 
       {message ? (

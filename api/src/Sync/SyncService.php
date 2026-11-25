@@ -280,12 +280,33 @@ final class SyncService
                 'notes',
                 'userBooks',
                 'activityLogs',
-                'scheduleWeeks',
                 'scheduleRows',
                 'scheduleTasks',
                 'topicProgress',
             ] as $table) {
                 if ($counts[$table] > 0) {
+                    $hasUserData = true;
+                }
+            }
+
+            // Opening `/program` auto-creates an empty week. That is not user
+            // content; a week counts only with a non-empty note. A week with a
+            // row/task is already covered by the active row/task counts above.
+            if ($counts['scheduleWeeks'] > 0) {
+                $weeks = TableMap::definition('scheduleWeeks');
+                $row = $this->database->fetchOne(
+                    sprintf(
+                        'SELECT COUNT(*) AS `total` FROM `%s` WHERE `%s` = ?'
+                        . ' AND TRIM(`%s`) <> \'\' AND `%s` IS NULL',
+                        $weeks['table'],
+                        $weeks['owner'],
+                        $weeks['columns']['note'],
+                        $weeks['columns']['deletedAt'],
+                    ),
+                    [$userId],
+                );
+
+                if ((int) ($row['total'] ?? 0) > 0) {
                     $hasUserData = true;
                 }
             }

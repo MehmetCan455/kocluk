@@ -668,6 +668,46 @@ test('sunucuda yalnızca tohum verisi varsa taşıma önerilir', async () => {
   expect(await screen.findByText(/Aktarım tamamlandı/)).toBeInTheDocument();
 });
 
+test('program açılışının oluşturduğu boş hafta taşımayı engellemez', async () => {
+  await createUserDatabase();
+  install(syncRoutes());
+
+  const first = renderApp('/program', { openDb: openUserDb });
+
+  expect(
+    await screen.findByRole('heading', { name: 'Ders Çalışma Çizelgesi' }),
+  ).toBeInTheDocument();
+  await waitFor(async () => {
+    const active = getActiveDbOrNull();
+    expect(await active?.scheduleWeeks.count()).toBe(1);
+  });
+
+  first.unmount();
+  mock?.restore();
+  mock = null;
+  await createLegacyExam();
+  install(
+    syncRoutes({
+      'GET /api/sync/status': {
+        body: {
+          hasData: true,
+          hasUserData: false,
+          counts: { subjects: 12, topics: 200, scheduleWeeks: 1 },
+          cursor: 3,
+          serverTime: new Date().toISOString(),
+        },
+      },
+    }),
+  );
+
+  renderApp('/ayarlar', { openDb: openUserDb });
+
+  expect(await screen.findByRole('button', { name: 'Hesabıma aktar' })).toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: 'Bu cihazda hesap verisi var' }),
+  ).not.toBeInTheDocument();
+});
+
 test('ilk girişte eski veriyi hesaba aktarır ve uygulamayı açar', async () => {
   const user = userEvent.setup();
   await createUserDatabase();
@@ -677,12 +717,14 @@ test('ilk girişte eski veriyi hesaba aktarır ve uygulamayı açar', async () =
   renderApp('/ayarlar', { openDb: openUserDb });
 
   expect(
-    await screen.findByText(/çakışan kitaplar veya planlar atlanabilir/),
+    await screen.findByText(/üst kaydı bulunmayan bağlı kayıtlar atlanabilir/),
   ).toBeInTheDocument();
   await user.click(await screen.findByRole('button', { name: 'Hesabıma aktar' }));
 
   expect(await screen.findByText(/Aktarım tamamlandı/)).toBeInTheDocument();
-  expect(screen.getByText(/1 kayıt çakışma nedeniyle atlandı/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/1 bağlı kayıt eksik üst kayıt nedeniyle atlandı/),
+  ).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Uygulamaya devam et' }));
 
   expect(await screen.findByRole('heading', { name: 'Ayarlar' })).toBeInTheDocument();

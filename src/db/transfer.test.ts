@@ -4,6 +4,7 @@ import type { KoclukDB } from './db';
 import { LEGACY_DB_NAME, closeActiveDb, openUserDb } from './dbManager';
 import { getMeta } from './sync/meta';
 import { whenQueueIdle } from './sync/queue';
+import { addRow, addTask, getOrCreateWeek, saveWeekNote } from './scheduleRepository';
 import {
   LocalDataTransferBlockedError,
   TRANSFER_DONE_KEY,
@@ -241,7 +242,8 @@ test('tamamlanan taşıma ikinci kez reddedilir; hedef veri değişmez', async (
   expect(await target.userBooks.count()).toBe(counts.userBooks);
 });
 
-test('aynı seedKey farklı kimlikle varsa tohum satırı çoğaltmadan değiştirir', async () => {  const target = await openUser('transfer-seed');
+test('aynı seedKey farklı kimlikle varsa tohum satırı çoğaltmadan değiştirir', async () => {
+  const target = await openUser('transfer-seed');
   await target.subjects.put({
     id: 'new-seed-subject',
     seedKey: 'tyt-matematik',
@@ -493,6 +495,13 @@ test('taze hesapta tüm bağımlı referanslar yeni tohum kimliklerine çevrilir
     createdAt: now,
     updatedAt: now,
   });
+  await legacy.topicProgress.add({
+    id: 'ref-progress',
+    topicId: 'new-seed-topic-2',
+    done: true,
+    doneAt: now,
+    updatedAt: now,
+  });
   await legacy.settings.put({
     key: 'hiddenSubjects',
     value: ['new-seed-subject'],
@@ -538,6 +547,10 @@ test('taze hesapta tüm bağımlı referanslar yeni tohum kimliklerine çevrilir
   expect(await target.scheduleEntries.get('ref-entry')).toMatchObject({
     subjectId: 'legacy-mat',
   });
+  expect(await target.topicProgress.get('ref-progress')).toMatchObject({
+    topicId: 'legacy-topic-2',
+    done: true,
+  });
   expect((await target.settings.get('hiddenSubjects'))?.value).toEqual(['legacy-mat']);
 });
 
@@ -575,6 +588,88 @@ test('eksik ebeveyne bağlı alt kayıtlar yetim bırakılmaz', async () => {
   expect(await target.activityLogs.count()).toBe(0);
   expect(await target.scheduleTasks.count()).toBe(0);
   expect(summary.skipped).toBe(3);
+});
+
+test('boş plan haftası kullanıcı verisi sayılmaz ve taşımayı engellemez', async () => {
+  const target = await openUser('transfer-empty-week');
+
+  const week = await getOrCreateWeek('2026-11-16');
+
+  expect(week.week.id).toBeTruthy();
+  expect(await target.scheduleWeeks.count()).toBe(1);
+  expect((await localUserDataSummary(target)).hasUserData).toBe(false);
+
+  await seedLegacyData();
+  const summary = await transferLegacyData('transfer-empty-week');
+
+  expect(summary.total).toBeGreaterThan(0);
+  expect(await target.subjects.get('legacy-mat')).toBeDefined();
+});
+
+test('plan notu veya satırı olan hafta kullanıcı verisi sayılır', async () => {
+  const withNote = await openUser('transfer-week-note');
+  const noteWeek = await getOrCreateWeek('2026-11-16');
+  await saveWeekNote(noteWeek.week.id, 'Plan notu');
+  expect((await localUserDataSummary(withNote)).hasUserData).toBe(true);
+
+  const withRow = await openUser('transfer-week-row');
+  const rowWeek = await getOrCreateWeek('2026-11-23');
+  await addRow(rowWeek.week.id, 'Matematik');
+  expect((await localUserDataSummary(withRow)).hasUserData).toBe(true);
+
+  const withTask = await openUser('transfer-week-task');
+  const taskWeek = await getOrCreateWeek('2026-11-30');
+  const row = await addRow(taskWeek.week.id, 'Fizik');
+  await addTask({
+    weekId: taskWeek.week.id,
+    rowId: row.id,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Görev',
+  });
+  // Keep only the task live; it still makes the week user content.
+  await withTask.scheduleRows.update(row.id, { deletedAt: now });
+  expect((await localUserDataSummary(withTask)).hasUserData).toBe(true);
+
+  await seedLegacyData();
+  await expect(transferLegacyData('transfer-week-task')).rejects.toBeInstanceOf(
+    LocalDataTransferBlockedError,
+  );
+});
+
+test('silinmiş not, deneme ve hafta yerel taşımayı engellemez', async () => {
+  const target = await openUser('transfer-tombstones');
+
+  await target.notes.add({
+    topicId: 'deleted-topic',
+    contentHtml: '',
+    plainText: '',
+    updatedAt: now,
+    deletedAt: now,
+  });
+  await target.exams.add({
+    id: 'deleted-exam',
+    type: 'TYT',
+    name: 'Silinmiş Deneme',
+    date: '2026-11-18',
+    kind: 'full',
+    note: '',
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: now,
+  });
+  const week = await getOrCreateWeek('2026-11-16');
+  await saveWeekNote(week.week.id, 'Eski plan');
+  await target.scheduleWeeks.update(week.week.id, { deletedAt: now });
+
+  expect((await localUserDataSummary(target)).hasUserData).toBe(false);
+
+  await seedLegacyData();
+  const summary = await transferLegacyData('transfer-tombstones');
+
+  expect(summary.total).toBeGreaterThan(0);
+  expect(await target.notes.get('deleted-topic')).toMatchObject({ deletedAt: now });
+  expect(await target.exams.get('deleted-exam')).toMatchObject({ deletedAt: now });
 });
 
 test('bulut kullanıcı verisi doluysa taşıma önerilmez; durum bilinmiyorsa engellenir', () => {

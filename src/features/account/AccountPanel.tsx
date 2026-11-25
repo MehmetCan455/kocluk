@@ -468,7 +468,7 @@ function LegacyTransferSection({ userId }: LegacyTransferSectionProps) {
         text:
           `Aktarım tamamlandı: ${summary.total} kayıt kopyalandı.` +
           (summary.skipped > 0
-            ? ` ${summary.skipped} kayıt çakışma nedeniyle atlandı.`
+            ? ` ${summary.skipped} bağlı kayıt eksik üst kayıt nedeniyle atlandı.`
             : '') +
           ' Eski veriler bu cihazda korunuyor.',
       });
@@ -537,10 +537,10 @@ function LegacyTransferSection({ userId }: LegacyTransferSectionProps) {
         }
       >
         <p className="text-sm text-muted">
-          Eski veriler hesabına kopyalanacak. Aynı kimlikli kayıtlar güncellenir; çakışan
-          kitaplar veya planlar atlanabilir ve atlanan sayısı aktarım sonunda gösterilir.
-          Yerel hesabında kullanıcı verisi varsa taşıma reddedilir. Eski veritabanı
-          silinmez; istersen yedek indirebilirsin.
+          Eski veriler hesabına kopyalanacak. Aynı kimlikli kayıtlar güncellenir; üst
+          kaydı bulunmayan bağlı kayıtlar atlanabilir ve atlanan sayısı aktarım sonunda
+          gösterilir. Yerel hesabında kullanıcı verisi varsa taşıma reddedilir. Eski
+          veritabanı silinmez; istersen yedek indirebilirsin.
         </p>
       </Modal>
     </Card>

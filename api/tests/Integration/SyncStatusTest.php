@@ -158,6 +158,88 @@ final class SyncStatusTest extends ApiTestCase
         self::assertSame(1, $payload['counts']['catalogBooks']);
     }
 
+    public function test_empty_plan_week_is_not_user_data_but_content_is(): void
+    {
+        $account = $this->account();
+        $weekId = Uuid::v4();
+
+        $this->push([
+            [
+                'table' => 'scheduleWeeks',
+                'op' => 'upsert',
+                'row' => [
+                    'id' => $weekId,
+                    'weekStart' => '2026-11-16',
+                    'note' => '',
+                    'createdAt' => $this->minutesAgo(30),
+                    'updatedAt' => $this->minutesAgo(30),
+                    'deletedAt' => null,
+                ],
+            ],
+        ], $account['csrf'], $account['jar']);
+
+        $empty = $this->payload($this->get('/api/sync/status', $account['jar']));
+
+        // The general status sees the auto-created week; the transfer gate
+        // must not treat it as user content.
+        self::assertTrue($empty['hasData']);
+        self::assertFalse($empty['hasUserData']);
+        self::assertSame(1, $empty['counts']['scheduleWeeks']);
+
+        $rowId = Uuid::v4();
+        $this->push([
+            [
+                'table' => 'scheduleRows',
+                'op' => 'upsert',
+                'row' => [
+                    'id' => $rowId,
+                    'weekId' => $weekId,
+                    'label' => 'Matematik',
+                    'order' => 1,
+                    'createdAt' => $this->minutesAgo(20),
+                    'updatedAt' => $this->minutesAgo(20),
+                    'deletedAt' => null,
+                ],
+            ],
+        ], $account['csrf'], $account['jar']);
+
+        self::assertTrue(
+            $this->payload($this->get('/api/sync/status', $account['jar']))['hasUserData'],
+        );
+
+        $this->push([
+            [
+                'table' => 'scheduleRows',
+                'op' => 'delete',
+                'rowId' => $rowId,
+                'updatedAt' => $this->minutesAgo(15),
+            ],
+        ], $account['csrf'], $account['jar']);
+
+        self::assertFalse(
+            $this->payload($this->get('/api/sync/status', $account['jar']))['hasUserData'],
+        );
+
+        $this->push([
+            [
+                'table' => 'scheduleWeeks',
+                'op' => 'upsert',
+                'row' => [
+                    'id' => $weekId,
+                    'weekStart' => '2026-11-16',
+                    'note' => 'Plan notu',
+                    'createdAt' => $this->minutesAgo(30),
+                    'updatedAt' => $this->minutesAgo(5),
+                    'deletedAt' => null,
+                ],
+            ],
+        ], $account['csrf'], $account['jar']);
+
+        self::assertTrue(
+            $this->payload($this->get('/api/sync/status', $account['jar']))['hasUserData'],
+        );
+    }
+
     public function test_status_counts_data_rows_and_closes_the_migration_gate(): void
     {
         $account = $this->account();
@@ -505,8 +587,10 @@ final class SyncStatusTest extends ApiTestCase
         bool $isCustom,
         ?string $seedKey,
         string $updatedAt,
-    ): array {
-        $row = [            'id' => $id,
+    ): array
+    {
+        $row = [
+            'id' => $id,
             'subjectId' => $subjectId,
             'name' => $name,
             'order' => 1,

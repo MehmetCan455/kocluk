@@ -237,14 +237,32 @@ export class LocalDataTransferBlockedError extends Error {
 
 /**
  * Counts everything the user created in the active account database. Seed
- * subjects/topics and the shipped catalog are allowed; any note, exam, shelf
- * book, plan, custom topic/book, photo or attachment means the account is in
- * use and must not be overwritten by a legacy transfer.
+ * subjects/topics and the shipped catalog are allowed; any live note, exam,
+ * shelf book, plan, custom topic/book, photo or attachment means the account is
+ * in use and must not be overwritten by a legacy transfer.
+ *
+ * Tombstones are ignored: a deleted note/exam/week must not block the transfer
+ * forever. An auto-created, empty plan week (the `/program` mount creates one)
+ * is not user content; a week counts only with a non-empty note or at least one
+ * active row/task.
  */
 export async function localUserDataSummary(
   database: KoclukDB,
 ): Promise<LocalUserDataSummary> {
   const counts: Record<string, number> = {};
+  const [weekRows, rowRows, taskRows] = await Promise.all([
+    database.scheduleWeeks.filter(isActiveRow).toArray(),
+    database.scheduleRows.filter(isActiveRow).toArray(),
+    database.scheduleTasks.filter(isActiveRow).toArray(),
+  ]);
+  const weeksWithRows = new Set([
+    ...rowRows.map((row) => row.weekId),
+    ...taskRows.map((task) => task.weekId),
+  ]);
+  const scheduleWeeks = weekRows.filter(
+    (week) => week.note.trim() !== '' || weeksWithRows.has(week.id),
+  ).length;
+
   const [
     notes,
     topicProgress,
@@ -252,9 +270,6 @@ export async function localUserDataSummary(
     examResults,
     userBooks,
     activityLogs,
-    scheduleWeeks,
-    scheduleRows,
-    scheduleTasks,
     photos,
     attachments,
     practiceSessions,
@@ -266,26 +281,25 @@ export async function localUserDataSummary(
     customTopics,
     customCatalog,
   ] = await Promise.all([
-    database.notes.count(),
-    database.topicProgress.count(),
-    database.exams.count(),
-    database.examResults.count(),
-    database.userBooks.count(),
-    database.activityLogs.count(),
-    database.scheduleWeeks.count(),
-    database.scheduleRows.count(),
-    database.scheduleTasks.count(),
-    database.photos.count(),
-    database.attachments.count(),
-    database.practiceSessions.count(),
-    database.scheduleEntries.count(),
-    database.scheduleFiles.count(),
-    database.scheduleTables.count(),
-    database.books.count(),
-    database.topicBooks.count(),
-    database.topics.filter((row) => row.isCustom === true).count(),
+    countActive(database.notes),
+    countActive(database.topicProgress),
+    countActive(database.exams),
+    countActive(database.examResults),
+    countActive(database.userBooks),
+    countActive(database.activityLogs),
+    countActive(database.photos),
+    countActive(database.attachments),
+    countActive(database.practiceSessions),
+    countActive(database.scheduleEntries),
+    countActive(database.scheduleFiles),
+    countActive(database.scheduleTables),
+    countActive(database.books),
+    countActive(database.topicBooks),
+    database.topics
+      .filter((row) => isActiveRow(row) && row.isCustom === true)
+      .count(),
     database.catalogBooks
-      .filter((row) => !isSharedCatalogBook(row.id))
+      .filter((row) => isActiveRow(row) && !isSharedCatalogBook(row.id))
       .count(),
   ]);
 
@@ -297,8 +311,8 @@ export async function localUserDataSummary(
     ['userBooks', userBooks],
     ['activityLogs', activityLogs],
     ['scheduleWeeks', scheduleWeeks],
-    ['scheduleRows', scheduleRows],
-    ['scheduleTasks', scheduleTasks],
+    ['scheduleRows', rowRows.length],
+    ['scheduleTasks', taskRows.length],
     ['photos', photos],
     ['attachments', attachments],
     ['practiceSessions', practiceSessions],

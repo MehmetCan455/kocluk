@@ -192,7 +192,8 @@ test('katalog tohumu senkron kuyruğuna girmez, özel kitap girer', async () => 
   });
 });
 
-test('openLegacyDb kocluk DB sini açar ama aktif yapmaz', async () => {  const legacy = track(await openLegacyDb());
+test('openLegacyDb kocluk DB sini açar ama aktif yapmaz', async () => {
+  const legacy = track(await openLegacyDb());
 
   expect(legacy.name).toBe('kocluk');
   expect(legacy.isOpen()).toBe(true);

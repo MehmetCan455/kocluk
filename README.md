@@ -46,8 +46,10 @@ npm run live:preview  # eski canlı sürümü yerelde aç (docs/ROLLBACK.md)
 ```
 
 CI (GitHub Actions) şunları çalıştırır: `typecheck`, `test:run`, `build`,
-`npm audit --audit-level=high`, auth/sync Playwright E2E, PHP lint ve PHPUnit
-(MariaDB 10.6 servisi). `.github/workflows/ci.yml` bu işlerin kaynağıdır.
+`npm audit --audit-level=high`, yalnızca auth/sync Playwright E2E
+(`npm run test:e2e`), PHP lint ve PHPUnit (MariaDB 10.6 servisi).
+`.github/workflows/ci.yml` bu işlerin kaynağıdır. CI legacy spec'leri
+çalıştırmaz; `test:e2e:legacy` bilerek kırmızıdır ve merge gate değildir.
 
 `auth-sync.spec.ts` hesap, senkron, profil/şifre, export ve hesap silme
 akışlarını kapsar. `backup`, `branch-exams`, `exams`, `onboarding`, `photos`,
@@ -206,11 +208,12 @@ Sunucuda günlük yedek `api/bin/backup.php` ile alınır:
   --default-character-set=utf8mb4`; yoksa PDO fallback (`SHOW CREATE TABLE` +
   satır satır `SELECT`).
 - Çıktı gzip: `/home/u2964068/kocluk-backups/kocluk-YYYYMMDD-HHMMSS.sql.gz`.
-- 14 gün günlük saklama; Pazar günleri `weekly/` altında 8 haftalık kopya.
+- 14 gün günlük saklama; Pazar günleri `weekly/` altında **en fazla 14 günlük**
+  kopya. Haftalık kopya da 14 günden eskiyse silinir; 56 günlük arşiv yoktur.
 - Yedek dizini `public_html` dışında, izin `700`; dosyalar `600`.
-- `backup.offsite_dir` tanımlıysa ayrıca oraya kopyalanır. Tanımlı değilse
-  haftalık olarak şifreli biçimde bilgisayara indir; yedeği repoya, buluta veya
-  `public_html` içine koyma.
+- `backup.offsite_dir` tanımlıysa ayrıca oraya kopyalanır ve orada da 14 gün
+  saklanır. Tanımlı değilse haftalık olarak şifreli biçimde bilgisayara indir;
+  yedeği repoya, buluta veya `public_html` içine koyma.
 
 Kurulum:
 
@@ -238,13 +241,23 @@ ls -lh /home/u2964068/kocluk-backups
 gzip -t /home/u2964068/kocluk-backups/kocluk-*.sql.gz
 ```
 
-### Geri yükleme (önce staging'de dene)
+### Geri yükleme tatbikatı (staging'in kendi yedeğiyle)
 
-Canlıya dokunmadan önce geri yüklemeyi **staging** veritabanında dene. Canlı
-geri yükleme yalnızca kullanıcı onayı ve güncel yedekle yapılır.
+Rutin geri yükleme tatbikatı **canlı yedeği staging'e kopyalamaz**. Staging'in
+kendi `backup.php` çıktısını kullan; böylece staging'e gerçek kullanıcı verisi
+girmez. Canlı yedek yalnızca aşağıdaki kontrollü istisna ile geri yüklenir.
 
-1. Staging'de boş bir hedef DB hazırla (`u2964068_staging`).
-2. Parolayı komut satırına yazmamak için geçici bir `600` izinli dosya
+1. Staging'de güncel bir yedek al:
+
+```bash
+KOCLUK_CONFIG=/home/u2964068/kocluk-staging-config.php \
+  /usr/local/bin/php /home/u2964068/staging/api/bin/backup.php \
+  --dir=/home/u2964068/kocluk-staging-backups
+```
+
+2. Tatbikat hedefi staging'in kendi DB'sidir (`u2964068_staging`). Önce
+   staging'in mevcut hâlini yedekle; böylece tatbikat geri alınabilir.
+3. Parolayı komut satırına yazmamak için geçici bir `600` izinli dosya
    kullan:
 
 ```ini
@@ -255,10 +268,10 @@ password="<staging-db-parolasi>"
 host=localhost
 ```
 
-3. Yedeği aç ve yükle:
+4. **Staging yedeğini** aç ve staging DB'sine yükle:
 
 ```bash
-gunzip -c /home/u2964068/kocluk-backups/kocluk-YYYYMMDD-HHMMSS.sql.gz \
+gunzip -c /home/u2964068/kocluk-staging-backups/kocluk-YYYYMMDD-HHMMSS.sql.gz \
   > /tmp/kocluk-restore.sql
 
 mysql --defaults-extra-file=/home/u2964068/kocluk-restore.cnf \
@@ -267,7 +280,7 @@ mysql --defaults-extra-file=/home/u2964068/kocluk-restore.cnf \
 rm -f /tmp/kocluk-restore.sql /home/u2964068/kocluk-restore.cnf
 ```
 
-4. Doğrula:
+5. Doğrula:
 
 ```sql
 USE u2964068_staging;
@@ -277,14 +290,28 @@ SELECT COUNT(*) FROM user_books;
 SELECT COUNT(*) FROM sync_changes;
 ```
 
-5. Uygulamada staging'e gir: giriş, kitap/plan/not görünümü, push/pull ve
-   hesap dışa aktarma çalışmalı. Hata varsa canlıya geçilmez.
-6. Geri yükleme sonrası staging test hesaplarını sil; yedeği ve geçici SQL
-   dosyasını güvenli biçimde yok et.
+6. Uygulamada **staging test hesabıyla** gir: giriş, kitap/plan/not görünümü,
+   push/pull ve hesap dışa aktarma çalışmalı. Hata varsa canlıya geçilmez.
+7. Tatbikat sonrası geçici SQL dosyasını sil; staging'i tatbikat öncesi
+   yedekten geri yükle veya test hesaplarını temizle.
 
-Yedekler kişisel veri içerir: indirirken şifrele (`7z a -p...` veya `gpg`),
-güvenli kanal kullan, test sonrası yerel kopyayı sil. Yedek dosyalarını repoya
-veya herkese açık bir alana koyma.
+#### Canlı yedeğini geri yükleme (kontrollü istisna)
+
+Canlı yedek **staging'e yüklenmez**. Gerçek bir canlı geri yükleme gerekiyorsa:
+
+- Kullanıcıdan açık yazılı onay ve olay/change kaydı alınır.
+- Yedek, staging DB'sine değil ayrı ve izole bir
+  `u2964068_restore_YYYYMMDD` DB'sine yüklenir.
+- Erişim yalnızca yetkili kişiyle sınırlıdır; dump ve DB iş bitince derhal yok
+  edilir.
+- Restore edilen hesaplarla uygulamaya girilmez; yalnızca yetkili doğrulama
+  sorguları çalıştırılır.
+- Yedek şifreli kanaldan taşınır; süre, sonuç ve imha kaydı tutulur.
+
+Canlı yedekler kişisel veri içerir: indirirken şifrele (`7z a -p...` veya
+`gpg`), güvenli kanal kullan, test sonrası yerel kopyayı sil. Yedek
+dosyalarını repoya veya herkese açık bir alana koyma. Staging yedeği yalnızca
+uydurma test verisi içermelidir.
 
 ## Yayınlama (cPanel / zirveacademy.com)
 
@@ -334,6 +361,14 @@ Gerçek config repoda **yoktur**: canlı config
 `api/config.example.php` yalnızca örnektir; gerçek değerler commit edilmez.
 `.cpanel.yml` deploy sonunda `public_html/api/config.php` varsa siler; böylece
 yanlışlıkla repoya giren bir config dış config'i gölgeleyemez.
+
+Staging'de `.cpanel.yml`, `DEPLOYPATH` staging kökü olduğunda
+`staging/.kocluk-staging` işaretini oluşturur. `ConfigFile` bu işareti görürse
+yalnızca `/home/u2964068/kocluk-staging-config.php` dosyasını seçer;
+production config veya `api/config.php` fallback'i devre dışıdır. `app.env`
+`staging` değilse ya da DB adı `_staging` içermiyorsa API 500 ile durur
+(fail-closed). `/api/health` staging'de `environment` ve `database` alanlarını
+döndürür; ikisi de doğrulanmadan staging smoke'u yapılmaz.
 
 Sunucuda Node.js gerekmez; `dist/` depoda commit edilir. `.gitattributes`
 sayesinde `dist/` dosyaları checkout sırasında satır sonu dönüşümüne uğramaz.
@@ -385,7 +420,11 @@ Netlify'a da taşınabilir; yalnızca taban yolunu ortama göre ayarlaman gereki
 - Şifreler bcrypt ile; oturum tokenı yalnızca sunucuda SHA-256 özetiyle.
 - Oturum çerezi `HttpOnly`, `Secure`, `SameSite=Lax`; üretimde `__Host-`.
 - Yazma isteklerinde CSRF token + Origin kontrolü.
-- Giriş/kayıt/şifre sıfırlama ve senkron uçlarında hız sınırı.
+- Giriş/kayıt/şifre sıfırlama ve senkron uçlarında hız sınırı; ayrıca genel
+  300/saat/IP sınırı (`/api/health` muaf).
+- Staging web istekleri `.kocluk-staging` işaretiyle yalnızca staging config'i
+  yükler; `app.env=staging` ve `_staging` DB adı zorunludur, aksi hâlde API
+  fail-closed 500 döner.
 - Her sorgu oturumdaki kullanıcıyla sınırlı; PDO prepared statement ve
   tablo/kolon beyaz listesi.
 - Not HTML'i DOMPurify ile temizlenir; API JSON döner.

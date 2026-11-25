@@ -128,6 +128,25 @@ Notlar:
 - İlk istekten sonra `/home/u2964068/kocluk-staging-api-error.log` dosyasının
   iznini `600` yap ve içinde şifre/token olmadığını kontrol et.
 
+### Staging config izolasyonu (kritik)
+
+Staging web istekleri production config'e **asla** düşmemelidir. Bu iki
+mekanizmayla garanti edilir:
+
+1. `.cpanel.yml`, `DEPLOYPATH=/home/u2964068/staging/` olduğunda staging belge
+   kökünde `.kocluk-staging` işaret dosyasını oluşturur. `ConfigFile` bu
+   işareti görürse yalnızca `/home/u2964068/kocluk-staging-config.php`
+   adayını kullanır; production config ve `api/config.php` fallback'i devre
+   dışıdır.
+2. `ConfigGuard`, `app.env` `staging` değilse veya DB adı `_staging`
+   içermiyorsa isteği 500 ile reddeder. Bu kontrol web, migration ve backup
+   CLI'lerinde çalışır.
+
+İşaret dosyası yoksa staging API bilinçli olarak çalışmaz (fail-closed). Bu
+durumda `.cpanel.yml` içindeki `DEPLOYPATH` satırının tam olarak
+`/home/u2964068/staging/` olduğunu kontrol et ve yeniden deploy et. Canlı
+`public_html` deploy'unda bu işaret oluşmaz.
+
 ## 5. `staging` dalı
 
 Staging, ayrı bir Git dalından yayınlanır. Tek fark `.cpanel.yml` içindeki
@@ -166,6 +185,7 @@ Kurallar:
 ```bash
 ls -la /home/u2964068/staging
 ls -la /home/u2964068/staging/api
+test -f /home/u2964068/staging/.kocluk-staging && echo "staging marker OK"
 ```
 
 Beklenen:
@@ -173,6 +193,8 @@ Beklenen:
 - `/home/u2964068/staging/index.html` ve `assets/` var.
 - `/home/u2964068/staging/api/index.php` var.
 - `/home/u2964068/staging/api/config.php` **yok** (config dışarıda).
+- `/home/u2964068/staging/.kocluk-staging` **var**; yoksa staging API
+  fail-closed çalışmaz, deploy durdurulur.
 - `dist/` klasörü belge kökünün içine iç içe kopyalanmamış.
 
 Deploy yolu yanlışsa `.cpanel.yml` düzeltilir, `staging` dalına commit edilir
@@ -211,10 +233,14 @@ Sağlık kontrolü:
 curl -i https://staging.zirveacademy.com/api/health
 ```
 
-Beklenen: `HTTP/2 200`, JSON `{"ok":true,"serverTime":"..."}`, yanıtlarda
-`Strict-Transport-Security`, `X-Content-Type-Options: nosniff`,
-`X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`
-başlıkları.
+Beklenen: `HTTP/2 200`, JSON içinde `"environment":"staging"` ve
+`"database":"u2964068_staging"`, ayrıca `Strict-Transport-Security`,
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: strict-origin-when-cross-origin` başlıkları.
+
+Bu iki alan görünmüyorsa **dur**: web isteği staging config'i yüklememiştir;
+production config/DB'ye bağlanma riski vardır. Marker ve config'i düzeltmeden
+smoke testine devam etme.
 
 ## 8. Staging yedeği (cron)
 
@@ -248,9 +274,13 @@ ls -lh /home/u2964068/kocluk-staging-backups
 gzip -t /home/u2964068/kocluk-staging-backups/kocluk-*.sql.gz
 ```
 
-Staging yedeği canlı yedeğinden ayrıdır. Geri yükleme denenmeden canlıya
-geçilmez; adımlar README'deki **Sunucu yedeği ve geri yükleme** bölümündedir.
-Staging işi bitince staging yedeği silinir; içinde kişisel veri tutulmaz.
+Staging yedeği canlı yedeğinden ayrıdır. Rutin geri yükleme tatbikatı
+**staging'in kendi yedeğiyle** `u2964068_staging` DB'sinde yapılır (önce
+mevcut staging yedeği alınır); canlı yedek staging'e yüklenmez. Canlı restore
+yalnızca açık yazılı onay + izole `u2964068_restore_YYYYMMDD` DB'si + derhal
+imha istisnasıdır. Adımlar README'deki **Geri yükleme tatbikatı**
+bölümündedir. Staging işi bitince staging yedeği silinir; içinde kişisel veri
+tutulmaz.
 
 ## 9. Smoke testi (uydurma veri)
 

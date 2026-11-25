@@ -15,37 +15,43 @@
 | Kullanıcı izolasyonu | ✅ Kod + test | Her sorgu oturumdaki `user_id`/`owner_id` ile sınırlı; iki hesaplı testler var |
 | CSRF / Origin | ✅ Kod + test | `X-CSRF-Token`, SameSite=Lax, oturumsuz yazmalarda Origin |
 | Oturum çerezi | ✅ Kod + test | `__Host-`, HttpOnly, Secure, SameSite=Lax, Path=/ |
-| Hız sınırları | ✅ Auth/sync | Giriş/kayıt/şifre/senkron; genel 300/saat/IP **uygulanmadı** |
+| Hız sınırları | ✅ Auth/sync + genel | Giriş/kayıt/şifre/senkron + 300/saat/IP genel sınır; health muaf |
 | SQL injection | ✅ Kod + test | PDO prepared, tablo/kolon beyaz listesi |
 | XSS | ✅ Kod + test | React kaçışı, DOMPurify, API JSON |
 | Secret'lar | ✅ Repo | Config public_html dışında; örnek dosyada gerçek değer yok |
 | Loglar | ✅ Kod | `display_errors=0`; log public_html dışında; gövde/şifre loglanmıyor |
 | Güvenlik başlıkları | ✅/⚠️ | API'de HSTS dahil; statik kök HSTS cPanel'de doğrulanacak |
-| Yedekleme | ✅/⚠️ | Günlük + PDO fallback + 14 gün + haftalık; offsite ve restore testi açık |
+| Yedekleme | ✅/⚠️ | Günlük + PDO fallback + **tüm kopyalarda 14 gün**; offsite ve restore tatbikatı açık |
 | KVKK | ⚠️ | Metin ve akış var; hukuki inceleme ve canlı süreçler açık |
-| Staging verisi | ⚠️ | Ayrı DB/config kuralı yazılı; ortam henüz kurulmadı |
+| Staging verisi | ✅/⚠️ | Config fail-closed + ayrı DB kuralı yazılı; ortam ve marker henüz kurulmadı |
 | Bağımlılık denetimi | ⚠️ | 4 moderate yalnızca build/dev zincirinde; yüksek/kritik yok |
 
 Açık güvenlik bulguları:
 
-1. **GENEL-API-LIMIT:** Tasarımdaki 300/saat/IP genel sınırı uygulanmadı.
-   Auth ve senkron uçlarında daha dar sınırlar var; genel sınır bir sonraki
-   sağlamlaştırma işine bırakıldı (Blocker değil, izleme).
+1. **STAGING-CONFIG (kod düzeltildi, ortam açık):** `ConfigFile` staging
+   `.kocluk-staging` işaretini görünce yalnızca staging config'i seçiyor;
+   `ConfigGuard` `app.env=staging` + `_staging` DB zorunluluğu getiriyor.
+   Staging ortamında marker'ın oluştuğu ve `/api/health` yanıtının
+   `database=u2964068_staging` döndüğü **canlı staging'de doğrulanmalı**
+   (Blocker).
 2. **STATIC-HSTS:** API yanıtlarına HSTS eklendi; statik `index.html`/asset
    yanıtları LiteSpeed tarafından üretiliyor. Kök alan adı için HSTS'in
    cPanel/LiteSpeed'de doğrulanması gerekir (Blocker).
-3. **OFFSITE-BACKUP:** `backup.php` offsite dizini tanımlıysa kopyalar; varsayılan
-   boştur. Haftalık şifreli indirme/offsite kopya operasyonu kurulmadan canlı
-   yedek şartı tamamlanmaz (Blocker).
-4. **NPM-AUDIT:** `glob`, `minimatch`, `workbox-build`, `vite-plugin-pwa`
+3. **OFFSITE-BACKUP:** `backup.php` offsite dizini tanımlıysa kopyalar ve orada
+   da 14 gün saklar; varsayılan boştur. Haftalık şifreli indirme/offsite kopya
+   operasyonu kurulmadan canlı yedek şartı tamamlanmaz (Blocker).
+4. **RESTORE-DRILL:** Rutin tatbikat staging'in kendi yedeğiyle yapılır; canlı
+   yedek staging'e yüklenmez. Canlı restore yalnızca açık onay + izole DB +
+   derhal imha istisnasıdır. Gerçek tatbikat staging'de yapılmadı (Blocker).
+5. **NPM-AUDIT:** `glob`, `minimatch`, `workbox-build`, `vite-plugin-pwa`
    zincirinde 4 moderate bulgu var. Hepsi geliştirme/build bağımlılığı; üretim
    paketine girmiyor. `npm audit fix --force` `vite-plugin-pwa`'yı kırdığı için
    zorla düzeltme yapılmadı; yeni sürüm çıkınca güncellenecek (izleme).
-5. **KVKK-LEGAL:** Aydınlatma metni ürün metnidir; nihai hukuki inceleme ve
+6. **KVKK-LEGAL:** Aydınlatma metni ürün metnidir; nihai hukuki inceleme ve
    veri sorumlusu/iletişim bilgilerinin teyidi gerekir (Blocker).
-6. **PHP-LOCAL:** Bu makinede başlangıçta PHP yoktu; taşınabilir PHP 8.4.28
+7. **PHP-LOCAL:** Bu makinede başlangıçta PHP yoktu; taşınabilir PHP 8.4.28
    ile `php -l` ve seçili birim testleri çalıştırıldı. MariaDB gerektiren tam
-   PHPUnit paketi (230 test) CI'da yeşil geçti.
+   PHPUnit paketi CI'da çalışır.
 
 ### Doğrulama kayıtları (2026-11-25)
 
@@ -120,7 +126,9 @@ Açık güvenlik bulguları:
 - [x] Şifre sıfırlama: 3 / saat / e-posta, 10 / saat / IP; reset 5 / saat / IP.
 - [x] Senkron: push/pull 120 / saat / kullanıcı; status 60; full 5.
 - [x] E-posta doğrulama: 10 / saat / IP.
-- [ ] **İzleme:** Genel API 300 / saat / IP tasarımdaki gibi uygulanmadı.
+- [x] Genel API: 300 / saat / IP; `/api/health` muaf. `GeneralRateLimitTest`
+      hem 301. isteğin 429 + `Retry-After` döndüğünü hem health muafiyetini
+      doğrular.
 - [ ] **Blocker:** Staging'de 11 hatalı girişte 429 ve `Retry-After` görüldü.
 
 ## 5. SQL injection ve veri bütünlüğü
@@ -133,6 +141,10 @@ Açık güvenlik bulguları:
 - [x] LWW future tolerance 5 dakika; sunucu saati otoritesi.
 - [x] Yedek PDO dökümü `information_schema` + `SHOW CREATE TABLE`; generated
       `active_*` kolonları INSERT'e alınmaz (BackupTest).
+- [x] PDO dökümü `PDO::MYSQL_ATTR_USE_BUFFERED_QUERY=false` ile unbuffered
+      akar; tüm tablo PHP belleğine alınmaz.
+- [x] Yedek geçici `.sql`/`.err` dosyaları `umask(0077)` + `chmod(0600)`;
+      yarım kalmış `.kocluk-*` dosyaları 24 saat sonra temizlenir.
 - [ ] **Blocker:** Canlı öncesi yedek staging'de geri yüklendi; tablo/satır
       sayıları ve giriş/senkron doğrulandı.
 
@@ -156,8 +168,9 @@ Açık güvenlik bulguları:
       dışında.
 - [x] `api/config.php` `.gitignore`'da; repoda yalnızca `config.example.php`.
 - [x] `config.example.php` gerçek parola/token içermez; örnek değerler boş.
-- [x] `.cpanel.yml` config kopyalamaz; deploy sonunda `api/config.php` varsa
-      siler; dış config'e dokunmaz.
+- [x] `.cpanel.yml` gerçek config kopyalamaz (yalnızca `config.example.php`
+      kopyalanır); deploy sonunda `api/config.php` varsa siler; dış config'e
+      dokunmaz.
 - [x] Repoda özel anahtar/API anahtarı/parola taraması yapıldı; bulgu yok.
 - [ ] **Blocker:** Config ve log dosyaları `600`, yedek dizini `700`.
 - [ ] **Blocker:** Canlı DB/SMTP parolaları parola yöneticisinde; staging'den
@@ -221,17 +234,26 @@ Açık güvenlik bulguları:
       --default-character-set=utf8mb4`; yoksa PDO fallback.
 - [x] Geçici `--defaults-extra-file` `0600`; parola process listesinde yok.
 - [x] gzip (`wb9`); dosya adı `kocluk-YYYYMMDD-HHMMSS.sql.gz`.
-- [x] 14 gün günlük saklama; Pazar günü `weekly/` kopyası; 8 hafta saklama.
+- [x] **Tüm kopyalarda 14 gün saklama:** günlük, Pazar `weekly/` ve offsite
+      kopyaları aynı 14 gün sınırıyla silinir. 56 günlük haftalık arşiv yoktur;
+      tasarım §11'deki 14 gün sözü ile uyumludur.
 - [x] `public_html` içindeki dizin reddedilir; dizin `0700`, dosya `0600`.
-- [x] Offsite dizini verilirse kopyalar; verilmezse uyarır.
-- [x] BackupTest: PDO dökümü, gzip, generated kolon dışlama, 14 gün temizlik,
-      public_html reddi, eksik config hatası.
+- [x] Offsite dizini verilirse kopyalar ve orada da 14 gün temizlik yapar;
+      verilmezse uyarır.
+- [x] BackupTest: PDO dökümü, gzip, generated kolon dışlama, günlük/haftalık
+      14 gün temizlik, config `keep_days`, `--weekly`, mysqldump yolu,
+      public_html reddi, eksik config ve yarım geçici dosya temizliği.
 - [ ] **Blocker:** Canlıda günlük cron 03:00 kuruldu; ilk yedek alındı,
       `gzip -t` geçti.
-- [ ] **Blocker:** Haftalık kopya ayrı klasörde; aylık şifreli indirme/offsite
-      kopya prosedürü çalışıyor.
-- [ ] **Blocker:** Yedek staging'de geri yüklendi; tablo sayısı, satır sayısı,
-      giriş ve senkron doğrulandı.
+- [ ] **Blocker:** Haftalık kopya `weekly/` altında; haftalık şifreli
+      indirme/offsite kopya prosedürü çalışıyor.
+- [ ] **Blocker:** Rutin geri yükleme tatbikatı **staging'in kendi yedeğiyle**
+      `u2964068_staging` DB'sinde yapıldı (önce mevcut staging yedeği alındı);
+      tablo/satır sayıları, staging test hesabı ve senkron doğrulandı. Canlı
+      veri staging'e yüklenmedi.
+- [ ] **Blocker:** Canlı restore yalnızca açık yazılı onay + izole
+      `u2964068_restore_YYYYMMDD` DB'si + derhal imha kaydı ile yapılıyor;
+      staging'e canlı yedek yüklenmiyor.
 - [ ] **Blocker:** Geri yükleme öncesi mevcut canlı yedek alınıyor; yedek
       olmadan migration/restore yok.
 - [ ] **Blocker:** Yedekler şifreli veya yalnızca güvenli kanaldan taşınıyor;
@@ -265,13 +287,22 @@ Açık güvenlik bulguları:
 - [x] Ayrı subdomain, ayrı belge kökü, ayrı DB, ayrı config kuralı
       `docs/STAGING.md` içinde.
 - [x] Staging'e yalnızca uydurma veri kuralı yazılı.
-- [x] Canlı DB'nin staging'e kopyalanmaması kuralı yazılı.
+- [x] Canlı DB'nin staging'e kopyalanmaması kuralı yazılı; canlı yedek staging'e
+      yüklenmez, canlı restore ayrı izole DB'de ve onayla yapılır.
+- [x] Staging web config'i fail-closed: `.kocluk-staging` marker'ı varsa
+      yalnızca `/home/u2964068/kocluk-staging-config.php`; `ConfigGuard`
+      `app.env=staging` + `_staging` DB zorunluluğu getirir.
 - [ ] **Blocker:** Staging ortamı kuruldu; DB adı `u2964068_staging`, config
-      `/home/u2964068/kocluk-staging-config.php`.
+      `/home/u2964068/kocluk-staging-config.php`, marker
+      `/home/u2964068/staging/.kocluk-staging` var.
+- [ ] **Blocker:** Staging `/api/health` yanıtı `environment=staging` ve
+      `database=u2964068_staging` döndürüyor; production config/DB'ye
+      bağlanmadığı doğrulandı.
 - [ ] **Blocker:** Staging'de gerçek kullanıcı verisi yok; smoke sonrası
       hesaplar silindi/DB sıfırlandı.
 - [ ] **Blocker:** Staging ve canlı `.cpanel.yml` `DEPLOYPATH` değerleri
-      birbirine karışmıyor; staging dalı `main`'e merge edilmedi.
+      birbirine karışmıyor; staging dalı `main`'e merge edilmedi; canlı deploy
+      marker oluşturmuyor.
 
 ## 15. Bağımlılık ve tedarik zinciri
 
@@ -289,7 +320,9 @@ Açık güvenlik bulguları:
 
 ## 16. Yayınlama ve değişiklik yönetimi
 
-- [x] `.cpanel.yml` `dist/` + `api/` kopyalar; config'e dokunmaz.
+- [x] `.cpanel.yml` `dist/` + `api/` kopyalar; dış config'e dokunmaz,
+      `api/config.php` varsa siler ve yalnızca staging `DEPLOYPATH` değerinde
+      `.kocluk-staging` marker'ı oluşturur.
 - [x] Canlı deploy bu görevde yapılmadı; `main`'e push/merge yok.
 - [x] Staging → smoke → kullanıcı onayı → canlı sırası belgelendi.
 - [x] Migration `schema_migrations` ile idempotent; tekrar çalıştırma güvenli.

@@ -11,6 +11,9 @@ veriler Türkiye'deki Natro MariaDB'sine senkronlanır ve kendi cihazların
 arasında görünür. Fotoğraflar ve ekler bu sürümde yalnızca cihazda kalır.
 Analitik, reklam ve üçüncü taraf izleme yoktur.
 
+> **Güncel proje durumu, kurallar ve oturum hafızası:** [`PROGRESS.md`](PROGRESS.md).
+> Yeni bir oturumda önce onu oku; çelişki varsa `PROGRESS.md` günceldir.
+
 ## Gereksinimler
 
 - **Node.js `>=22.22.2`** (22 LTS önerilir) ve npm.

@@ -129,6 +129,8 @@ final class App
     public function handle(Request $request): Response
     {
         try {
+            // Unknown paths and wrong verbs keep their stateless 404/405
+            // behaviour; the general budget protects the real API surface.
             if (
                 !in_array($request->path, self::GENERAL_RATE_EXEMPT_PATHS, true)
                 && isset($this->registered[$request->method . ' ' . $request->path])

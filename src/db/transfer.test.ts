@@ -1,5 +1,7 @@
 import Dexie from 'dexie';
 import { afterEach, expect, test, vi } from 'vitest';
+import { deterministicId } from '@/lib/deterministicId';
+import { LOCAL_SCOPE, TOPIC_PROGRESS_NAMESPACE } from '@/lib/namespaces';
 import type { KoclukDB } from './db';
 import { LEGACY_DB_NAME, closeActiveDb, openUserDb } from './dbManager';
 import { getMeta } from './sync/meta';
@@ -242,7 +244,7 @@ test('tamamlanan taşıma ikinci kez reddedilir; hedef veri değişmez', async (
   expect(await target.userBooks.count()).toBe(counts.userBooks);
 });
 
-test('aynı seedKey farklı kimlikle varsa tohum satırı çoğaltmadan değiştirir', async () => {
+test('aynı seedKey hedefte varsa içerik hedef tohum kimliğine taşınır', async () => {
   const target = await openUser('transfer-seed');
   await target.subjects.put({
     id: 'new-seed-subject',
@@ -268,14 +270,35 @@ test('aynı seedKey farklı kimlikle varsa tohum satırı çoğaltmadan değişt
   await seedLegacyData();
   await transferLegacyData('transfer-seed');
 
-  expect(await target.subjects.get('legacy-mat')).toBeDefined();
-  expect(await target.subjects.get('new-seed-subject')).toBeUndefined();
-  expect(await target.topics.get('legacy-topic')).toBeDefined();
-  expect(await target.topics.get('new-seed-topic')).toBeUndefined();
+  // The device seed identity is canonical; the legacy content is written
+  // under it so a seed-only second device can pull without a unique-index
+  // collision on the same seedKey.
+  expect(await target.subjects.get('new-seed-subject')).toMatchObject({
+    name: 'Matematik',
+    seedKey: 'tyt-matematik',
+  });
+  expect(await target.subjects.get('legacy-mat')).toBeUndefined();
+  expect(await target.topics.get('new-seed-topic')).toMatchObject({
+    subjectId: 'new-seed-subject',
+    name: 'Temel Kavramlar',
+  });
+  expect(await target.topics.get('legacy-topic')).toBeUndefined();
+  expect(await target.notes.get('new-seed-topic')).toMatchObject({
+    plainText: 'Kalıcı not',
+  });
   expect(await target.subjects.where('seedKey').equals('tyt-matematik').count()).toBe(1);
   expect(
     await target.topics.where('seedKey').equals('tyt-matematik-temel').count(),
   ).toBe(1);
+
+  await whenQueueIdle();
+  expect(await target.syncQueue.get('subjects:new-seed-subject')).toMatchObject({
+    status: 'pending',
+  });
+  expect(await target.syncQueue.get('subjects:legacy-mat')).toBeUndefined();
+  expect(await target.syncQueue.get('topics:new-seed-topic')).toMatchObject({
+    status: 'pending',
+  });
 });
 
 test('kullanıcı verisi olan yerel hesapta taşıma reddedilir ve hedef değişmez', async () => {
@@ -510,48 +533,147 @@ test('taze hesapta tüm bağımlı referanslar yeni tohum kimliklerine çevrilir
 
   await transferLegacyData('transfer-remap');
 
-  expect(await target.subjects.get('new-seed-subject')).toBeUndefined();
-  expect(await target.topics.get('new-seed-topic')).toBeUndefined();
-  expect(await target.topics.get('new-seed-topic-2')).toBeUndefined();
-  expect(await target.notes.get('legacy-topic-2')).toMatchObject({
-    topicId: 'legacy-topic-2',
+  // Target seed ids are canonical. Legacy content and every reference move
+  // onto them; no target row is deleted and no legacy duplicate survives.
+  expect(await target.subjects.get('new-seed-subject')).toMatchObject({
+    seedKey: 'tyt-matematik',
+    name: 'Matematik',
+  });
+  expect(await target.topics.get('new-seed-topic')).toMatchObject({
+    subjectId: 'new-seed-subject',
+    name: 'Temel Kavramlar',
+  });
+  expect(await target.topics.get('new-seed-topic-2')).toMatchObject({
+    subjectId: 'new-seed-subject',
+    name: 'İkinci Konu',
+  });
+  expect(await target.subjects.get('legacy-mat')).toBeUndefined();
+  expect(await target.topics.get('legacy-topic-2')).toBeUndefined();
+  expect(await target.notes.get('new-seed-topic-2')).toMatchObject({
+    topicId: 'new-seed-topic-2',
     plainText: 'Taşınan not',
   });
-  expect(await target.notes.get('new-seed-topic-2')).toBeUndefined();
+  expect(await target.notes.get('legacy-topic-2')).toBeUndefined();
   expect(await target.examResults.get('ref-result')).toMatchObject({
-    subjectId: 'legacy-mat',
+    subjectId: 'new-seed-subject',
   });
   expect(await target.activityLogs.get('ref-log')).toMatchObject({
-    topicId: 'legacy-topic-2',
+    topicId: 'new-seed-topic-2',
   });
   expect(await target.scheduleRows.get('legacy-row')).toMatchObject({
-    subjectId: 'legacy-mat',
+    subjectId: 'new-seed-subject',
   });
   expect(await target.scheduleTasks.get('legacy-task')).toMatchObject({
-    topicId: 'legacy-topic-2',
+    topicId: 'new-seed-topic-2',
   });
   expect(await target.photos.get('ref-photo')).toMatchObject({
-    subjectId: 'legacy-mat',
-    topicId: 'legacy-topic-2',
+    subjectId: 'new-seed-subject',
+    topicId: 'new-seed-topic-2',
   });
   expect(await target.photoSearch.get('ref-photo')).toMatchObject({
-    subjectId: 'legacy-mat',
-    topicId: 'legacy-topic-2',
+    subjectId: 'new-seed-subject',
+    topicId: 'new-seed-topic-2',
   });
   expect(await target.attachments.get('ref-attachment')).toMatchObject({
-    topicId: 'legacy-topic-2',
+    topicId: 'new-seed-topic-2',
   });
   expect(await target.practiceSessions.get('ref-session')).toMatchObject({
-    filters: { subjectIds: ['legacy-mat'], topicIds: ['legacy-topic-2'] },
+    filters: {
+      subjectIds: ['new-seed-subject'],
+      topicIds: ['new-seed-topic-2'],
+    },
   });
   expect(await target.scheduleEntries.get('ref-entry')).toMatchObject({
-    subjectId: 'legacy-mat',
+    subjectId: 'new-seed-subject',
   });
-  expect(await target.topicProgress.get('ref-progress')).toMatchObject({
-    topicId: 'legacy-topic-2',
+  expect(await target.topicProgress.get('ref-progress')).toBeUndefined();
+  expect(
+    await target.topicProgress.get(
+      deterministicId(TOPIC_PROGRESS_NAMESPACE, `${LOCAL_SCOPE}:new-seed-topic-2`),
+    ),
+  ).toMatchObject({
+    topicId: 'new-seed-topic-2',
     done: true,
   });
-  expect((await target.settings.get('hiddenSubjects'))?.value).toEqual(['legacy-mat']);
+  expect((await target.settings.get('hiddenSubjects'))?.value).toEqual(['new-seed-subject']);
+});
+
+test('aynı hafta başlangıcı varsa plan notu hedef haftaya birleşir', async () => {
+  const target = await openUser('transfer-week-merge');
+  const targetWeek = await getOrCreateWeek('2026-11-16');
+
+  await seedLegacyData();
+  const legacy = await openLegacy();
+  await legacy.scheduleWeeks.add({
+    id: 'legacy-week',
+    weekStart: '2026-11-16',
+    note: 'Eski plan notu',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await legacy.scheduleRows.add({
+    id: 'legacy-week-row',
+    weekId: 'legacy-week',
+    label: 'Matematik',
+    order: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await legacy.scheduleTasks.add({
+    id: 'legacy-week-task',
+    weekId: 'legacy-week',
+    rowId: 'legacy-week-row',
+    dayIndex: 1,
+    type: 'free',
+    title: 'Görev',
+    createdAt: now,
+    updatedAt: now,
+  });
+  legacy.close();
+
+  await transferLegacyData('transfer-week-merge');
+
+  const week = await target.scheduleWeeks.get(targetWeek.week.id);
+  expect(week).toMatchObject({
+    weekStart: '2026-11-16',
+    note: 'Eski plan notu',
+  });
+  expect(week?.deletedAt).toBeUndefined();
+  expect(await target.scheduleWeeks.get('legacy-week')).toBeUndefined();
+  expect(await target.scheduleWeeks.where('weekStart').equals('2026-11-16').count()).toBe(1);
+  expect(await target.scheduleRows.get('legacy-week-row')).toMatchObject({
+    weekId: targetWeek.week.id,
+  });
+  expect(await target.scheduleTasks.get('legacy-week-task')).toMatchObject({
+    weekId: targetWeek.week.id,
+  });
+});
+
+test('silinmiş hedef hafta taşımada canlanır ve eski notu taşır', async () => {
+  const target = await openUser('transfer-week-revive');
+  const targetWeek = await getOrCreateWeek('2026-11-23');
+  await target.scheduleWeeks.update(targetWeek.week.id, { deletedAt: now });
+
+  await seedLegacyData();
+  const legacy = await openLegacy();
+  await legacy.scheduleWeeks.add({
+    id: 'legacy-week',
+    weekStart: '2026-11-23',
+    note: 'Canlanan not',
+    createdAt: now,
+    updatedAt: now,
+  });
+  legacy.close();
+
+  await transferLegacyData('transfer-week-revive');
+
+  const week = await target.scheduleWeeks.get(targetWeek.week.id);
+  expect(week).toMatchObject({
+    weekStart: '2026-11-23',
+    note: 'Canlanan not',
+  });
+  expect(week?.deletedAt).toBeUndefined();
+  expect(await target.scheduleWeeks.get('legacy-week')).toBeUndefined();
 });
 
 test('eksik ebeveyne bağlı alt kayıtlar yetim bırakılmaz', async () => {

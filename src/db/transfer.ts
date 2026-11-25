@@ -26,7 +26,9 @@ import type {
   UserBook,
 } from '@/domain/types';
 import { api } from '@/lib/api';
+import { deterministicId } from '@/lib/deterministicId';
 import { notifySettingsUpdated } from '@/lib/events';
+import { LOCAL_SCOPE, TOPIC_PROGRESS_NAMESPACE } from '@/lib/namespaces';
 import { getActiveDb, type KoclukDB, type SettingsRow } from './db';
 import { LEGACY_DB_NAME, openLegacyDb, userDbName } from './dbManager';
 import { toPhotoSearch } from './photoSearch';
@@ -35,7 +37,7 @@ import { isActiveRow } from './softDelete';
 import { STATUS_PATH } from './sync/constants';
 import { INITIAL_PULL_DONE_KEY, setMeta } from './sync/meta';
 import {
-  enqueueChange,
+  enqueueChangeInTransaction,
   setSettingsSyncEnabled,
   whenQueueIdle,
 } from './sync/queue';
@@ -479,21 +481,26 @@ function buildCopyPlan(snapshot: LegacySnapshot): CopyPlan {
 }
 
 interface SeedRemap {
-  /** Target (device-seeded) subject id -> transferred legacy subject id. */
+  /** Legacy subject id -> canonical (device seed) subject id. */
   subject: Map<string, string>;
-  /** Target (device-seeded) topic id -> transferred legacy topic id. */
+  /** Legacy topic id -> canonical (device seed) topic id. */
   topic: Map<string, string>;
-  staleSubjects: Set<string>;
-  staleTopics: Set<string>;
-  /** Target topics that survive and only need a subject reference update. */
-  keptTopics: Topic[];
+  /** Legacy subject ids whose content now lives under an existing target id. */
+  rekeyedSubjects: Set<string>;
+  /** Legacy topic ids whose content now lives under an existing target id. */
+  rekeyedTopics: Set<string>;
 }
 
 /**
- * Reconciles the target's seeded rows with the transferred ones. The legacy
- * identity always wins for a `seedKey`; every target row that is deleted is
- * recorded in the remap so its dependent references can be rewritten in the
- * same transaction.
+ * Reconciles the target's seeded rows with the transferred ones.
+ *
+ * The target seed identity always wins: every device derives the same
+ * deterministic id for a `seedKey`, so replacing it with a legacy random id
+ * would make another seed-only device hit its unique local index on pull. The
+ * legacy content is written under the target id and every reference is
+ * rewritten through the returned maps. A row that already exists (active or
+ * tombstoned) gets a fresh `updatedAt` so the explicit transfer also revives
+ * the server row through the newer-active LWW contract.
  */
 function buildSeedRemap(
   targetSubjects: Subject[],
@@ -501,49 +508,119 @@ function buildSeedRemap(
   legacySubjects: Subject[],
   legacyTopics: Topic[],
 ): SeedRemap {
-  const legacySubjectIds = new Set(legacySubjects.map((row) => row.id));
-  const legacyBySeedKey = new Map(legacySubjects.map((row) => [row.seedKey, row]));
+  const targetSubjectBySeed = new Map(
+    targetSubjects.map((row) => [row.seedKey, row]),
+  );
   const subject = new Map<string, string>();
-  const staleSubjects = new Set<string>();
-  for (const existing of targetSubjects) {
-    const legacy = legacyBySeedKey.get(existing.seedKey);
-    if (legacy && legacy.id !== existing.id && !legacySubjectIds.has(existing.id)) {
-      subject.set(existing.id, legacy.id);
-      staleSubjects.add(existing.id);
+  const rekeyedSubjects = new Set<string>();
+
+  for (const legacy of legacySubjects) {
+    const target = targetSubjectBySeed.get(legacy.seedKey);
+    if (!target) {
+      continue;
+    }
+    rekeyedSubjects.add(legacy.id);
+    if (target.id !== legacy.id) {
+      subject.set(legacy.id, target.id);
     }
   }
 
-  const legacyTopicIds = new Set(legacyTopics.map((row) => row.id));
-  const legacyTopicBySeedKey = new Map(
-    legacyTopics
+  const targetTopicBySeed = new Map(
+    targetTopics
       .filter((row) => typeof row.seedKey === 'string' && row.seedKey !== '')
       .map((row) => [row.seedKey as string, row]),
   );
   const topic = new Map<string, string>();
-  const staleTopics = new Set<string>();
-  const keptTopics: Topic[] = [];
-  for (const existing of targetTopics) {
-    if (legacyTopicIds.has(existing.id)) {
-      // The transferred row has the same identity and will replace this one.
+  const rekeyedTopics = new Set<string>();
+
+  for (const legacy of legacyTopics) {
+    const target = legacy.seedKey
+      ? targetTopicBySeed.get(legacy.seedKey)
+      : undefined;
+    if (!target || target.isCustom) {
       continue;
     }
-    const legacy = existing.isCustom
-      ? undefined
-      : existing.seedKey
-        ? legacyTopicBySeedKey.get(existing.seedKey)
-        : undefined;
-    if (legacy && legacy.id !== existing.id) {
-      topic.set(existing.id, legacy.id);
-      staleTopics.add(existing.id);
-      continue;
-    }
-    const subjectId = subject.get(existing.subjectId) ?? existing.subjectId;
-    if (subjectId !== existing.subjectId) {
-      keptTopics.push({ ...existing, subjectId });
+    rekeyedTopics.add(legacy.id);
+    if (target.id !== legacy.id) {
+      topic.set(legacy.id, target.id);
     }
   }
 
-  return { subject, topic, staleSubjects, staleTopics, keptTopics };
+  return { subject, topic, rekeyedSubjects, rekeyedTopics };
+}
+
+/**
+ * Explicit user actions move past every stored timestamp, including a clock
+ * that was ahead when the row was written. A strict +1 ms keeps LWW valid
+ * without trusting the device clock alone.
+ */
+function bumpedTimestamp(previous: unknown): string {
+  const parsed = typeof previous === 'string' ? Date.parse(previous) : Number.NaN;
+  const base = Number.isNaN(parsed) ? Date.now() : Math.max(Date.now(), parsed + 1);
+  return new Date(base).toISOString();
+}
+
+function topicProgressId(topicId: string): string {
+  return deterministicId(TOPIC_PROGRESS_NAMESPACE, `${LOCAL_SCOPE}:${topicId}`);
+}
+
+function latestTimestamp(left: string, right: string): string {
+  const leftAt = Date.parse(left);
+  const rightAt = Date.parse(right);
+  if (Number.isNaN(leftAt)) {
+    return right;
+  }
+  if (Number.isNaN(rightAt) || leftAt >= rightAt) {
+    return left;
+  }
+  return right;
+}
+
+function mergeNote(target: string, legacy: string): string {
+  const left = target.trim();
+  const right = legacy.trim();
+  if (left === '') {
+    return right;
+  }
+  if (right === '' || left === right) {
+    return left;
+  }
+  return `${left}\n\n${right}`;
+}
+
+/**
+ * Merges a legacy week into the target's same-start week. The target id is
+ * canonical; a tombstoned target week is revived because the transfer is an
+ * explicit user choice and the legacy note would otherwise be attached to a
+ * hidden row (design §8.4, §9.3).
+ */
+function mergeWeek(target: ScheduleWeek, legacy: ScheduleWeek): ScheduleWeek {
+  const merged: ScheduleWeek = {
+    ...target,
+    note: mergeNote(target.note, legacy.note),
+    updatedAt: bumpedTimestamp(latestTimestamp(target.updatedAt, legacy.updatedAt)),
+  };
+  delete merged.deletedAt;
+  return merged;
+}
+
+function mergeUserBook(target: UserBook, legacy: UserBook): UserBook {
+  const merged: UserBook = {
+    ...target,
+    totalPagesOverride:
+      target.totalPagesOverride ?? legacy.totalPagesOverride,
+    note: target.note?.trim() ? target.note : legacy.note,
+    status:
+      target.status === 'archived'
+        ? 'archived'
+        : legacy.status === 'active'
+          ? target.status
+          : legacy.status,
+    startedAt: target.startedAt ?? legacy.startedAt,
+    updatedAt: bumpedTimestamp(latestTimestamp(target.updatedAt, legacy.updatedAt)),
+  };
+  delete merged.deletedAt;
+  return merged;
 }
 
 interface ParentRemap {
@@ -552,45 +629,84 @@ interface ParentRemap {
 }
 
 /**
- * Filters legacy user books and plan weeks whose natural key already exists in
- * the target under another identity. With the local-user-data refusal this is
- * normally empty; keeping the remap makes the copy safe if that guard is ever
- * relaxed.
+ * Reconciles legacy user books and plan weeks whose natural key already exists
+ * in the target under another identity. The transfer is refused when the
+ * target has user data, so these branches mostly handle an auto-created empty
+ * week or a tombstoned row. Nothing is dropped: a planned note is merged into
+ * the canonical target week.
  */
 function filterParentConflicts(
   plan: CopyPlan,
   targetUserBooks: UserBook[],
   targetWeeks: ScheduleWeek[],
-): { userBooks: UserBook[]; weeks: ScheduleWeek[]; remap: ParentRemap; skipped: number } {
-  const targetBookId = new Map(targetUserBooks.map((row) => [row.bookId, row.id]));
+): {
+  userBooks: UserBook[];
+  weeks: ScheduleWeek[];
+  remap: ParentRemap;
+  skipped: number;
+} {
+  const targetBookByBookId = new Map(targetUserBooks.map((row) => [row.bookId, row]));
   const legacyUserBookToTarget = new Map<string, string>();
-  const userBooks = plan.userBooks.filter((row) => {
-    const existing = targetBookId.get(row.bookId);
-    if (existing !== undefined && existing !== row.id) {
-      legacyUserBookToTarget.set(row.id, existing);
-      return false;
-    }
-    return true;
-  });
+  const userBooksById = new Map<string, UserBook>();
+  const skipped = 0;
 
-  const targetWeekStart = new Map(targetWeeks.map((row) => [row.weekStart, row.id]));
-  const legacyWeekToTarget = new Map<string, string>();
-  const weeks = plan.snapshot.scheduleWeeks.filter((row) => {
-    const existing = targetWeekStart.get(row.weekStart);
-    if (existing !== undefined && existing !== row.id) {
-      legacyWeekToTarget.set(row.id, existing);
-      return false;
+  for (const legacy of plan.userBooks) {
+    const target = targetBookByBookId.get(legacy.bookId);
+    if (!target) {
+      userBooksById.set(legacy.id, legacy);
+      continue;
     }
-    return true;
-  });
+
+    if (target.id !== legacy.id) {
+      legacyUserBookToTarget.set(legacy.id, target.id);
+    }
+
+    if (legacy.deletedAt) {
+      userBooksById.set(target.id, target);
+      continue;
+    }
+
+    userBooksById.set(
+      target.id,
+      target.id === legacy.id ? legacy : mergeUserBook(target, legacy),
+    );
+  }
+
+  const targetWeekByStart = new Map(targetWeeks.map((row) => [row.weekStart, row]));
+  const legacyWeekToTarget = new Map<string, string>();
+  const weeksById = new Map<string, ScheduleWeek>();
+
+  // Keep target weeks that no legacy row touches (including empty ones).
+  for (const week of targetWeeks) {
+    weeksById.set(week.id, week);
+  }
+
+  for (const legacy of plan.snapshot.scheduleWeeks) {
+    const target = targetWeekByStart.get(legacy.weekStart);
+    if (!target) {
+      weeksById.set(legacy.id, legacy);
+      continue;
+    }
+
+    if (target.id !== legacy.id) {
+      legacyWeekToTarget.set(legacy.id, target.id);
+    }
+
+    if (!legacy.deletedAt) {
+      weeksById.set(
+        target.id,
+        target.id === legacy.id ? legacy : mergeWeek(target, legacy),
+      );
+    } else if (!weeksById.has(target.id)) {
+      weeksById.set(target.id, target);
+    }
+  }
 
   return {
-    userBooks,
-    weeks,
+    userBooks: [...userBooksById.values()],
+    weeks: [...weeksById.values()],
     remap: { legacyUserBookToTarget, legacyWeekToTarget },
-    skipped:
-      plan.userBooks.length - userBooks.length +
-      plan.snapshot.scheduleWeeks.length - weeks.length,
+    skipped,
   };
 }
 
@@ -613,12 +729,12 @@ interface ResolvedRows {
   scheduleRows: ScheduleRow[];
   scheduleTasks: ScheduleTask[];
   topicProgress: TopicProgress[];
+  topicProgressDeletes: string[];
   photos: Photo[];
   attachments: Attachment[];
   practiceSessions: PracticeSession[];
   scheduleEntries: ScheduleEntry[];
   catalogBooks: CatalogBook[];
-  keptTargetTopics: Topic[];
   skipped: number;
 }
 
@@ -648,25 +764,37 @@ function resolveReferences(
     copiedWeekIds.add(targetId);
   }
 
-  const availableSubjectIds = new Set(snapshot.subjects.map((row) => row.id));
-  const keptSubjects = targetSubjects.filter((row) => !seed.staleSubjects.has(row.id));
-  for (const row of keptSubjects) {
+  const subjects: Subject[] = snapshot.subjects.map((row) => {
+    const id = remapped(seed.subject, row.id) ?? row.id;
+    return seed.rekeyedSubjects.has(row.id)
+      ? { ...row, id, updatedAt: bumpedTimestamp(row.updatedAt) }
+      : { ...row, id };
+  });
+  const topics: Topic[] = snapshot.topics.map((row) => {
+    const id = remapped(seed.topic, row.id) ?? row.id;
+    return {
+      ...row,
+      id,
+      subjectId: remapped(seed.subject, row.subjectId) as string,
+      ...(seed.rekeyedTopics.has(row.id)
+        ? { updatedAt: bumpedTimestamp(row.updatedAt) }
+        : {}),
+    };
+  });
+
+  const availableSubjectIds = new Set(subjects.map((row) => row.id));
+  for (const row of targetSubjects) {
     availableSubjectIds.add(row.id);
   }
-  const availableTopicIds = new Set(snapshot.topics.map((row) => row.id));
-  for (const row of seed.keptTopics) {
-    availableTopicIds.add(row.id);
+  const availableTopicIds = new Set(topics.map((row) => row.id));
+  for (const row of plan.snapshot.topics) {
+    availableTopicIds.add(remapped(seed.topic, row.id) ?? row.id);
   }
   const availableExamIds = new Set(snapshot.exams.map((row) => row.id));
   const branchExams = new Set(
     snapshot.exams.filter((row) => row.kind === 'branch').map((row) => row.id),
   );
 
-  const subjects = snapshot.subjects;
-  const topics = snapshot.topics.map((row) => ({
-    ...row,
-    subjectId: remapped(seed.subject, row.subjectId) as string,
-  }));
   const exams = snapshot.exams;
 
   const examResults: ExamResult[] = [];
@@ -750,20 +878,39 @@ function resolveReferences(
     });
   }
 
-  const targetByTopic = new Map(targetTopicProgress.map((row) => [row.topicId, row.id]));
+  const targetByTopic = new Map(targetTopicProgress.map((row) => [row.topicId, row]));
   const topicProgress: TopicProgress[] = [];
+  const topicProgressDeletes: string[] = [];
   for (const row of plan.topicProgress) {
     const topicId = remapped(seed.topic, row.topicId) as string;
     if (!availableTopicIds.has(topicId)) {
       skipped += 1;
       continue;
     }
+
     const existing = targetByTopic.get(topicId);
-    if (existing !== undefined && existing !== row.id) {
-      skipped += 1;
-      continue;
+    if (existing && existing.id !== topicProgressId(topicId)) {
+      if (existing.deletedAt) {
+        // A tombstoned non-deterministic progress row still occupies the
+        // unique `topicId`; remove it and write the canonical row below.
+        topicProgressDeletes.push(existing.id);
+      } else {
+        // Active progress is user data; the transfer gate should have refused
+        // this account. Keep the target row rather than overwriting it.
+        skipped += 1;
+        continue;
+      }
     }
-    topicProgress.push({ ...row, topicId });
+
+    // `setTopicDone`/`getTopicDone` address progress by this deterministic id;
+    // keeping a legacy random id would make the checkbox create a duplicate
+    // that violates the unique `topicId` index.
+    topicProgress.push({
+      ...row,
+      id: topicProgressId(topicId),
+      topicId,
+      updatedAt: bumpedTimestamp(row.updatedAt),
+    });
   }
 
   const photos: Photo[] = snapshot.photos.map((row) => {
@@ -809,13 +956,13 @@ function resolveReferences(
     scheduleRows,
     scheduleTasks,
     topicProgress,
+    topicProgressDeletes,
     photos,
     attachments,
     practiceSessions,
     scheduleEntries,
     // The shared catalog ships with the app; only private rows are synced.
     catalogBooks: plan.catalogBooks.filter((row) => !isSharedCatalogBook(row.id)),
-    keptTargetTopics: seed.keptTopics,
     skipped,
   };
 }
@@ -909,6 +1056,8 @@ export async function transferLegacyData(
         target.scheduleEntries,
         target.scheduleFiles,
         target.scheduleTables,
+        target.syncMeta,
+        target.syncQueue,
       ],
       async () => {
         const local = await localUserDataSummary(target);
@@ -951,17 +1100,12 @@ export async function transferLegacyData(
         };
         onProgress?.(0, total);
 
-        // The target seed rows are deleted first. Their queue entries are real:
-        // the server may already hold the same seedKeys, and a delete before
-        // the transferred upsert keeps the legacy ids canonical there too.
-        if (seed.staleTopics.size > 0) {
-          await target.topics.bulkDelete([...seed.staleTopics]);
-        }
-        if (seed.staleSubjects.size > 0) {
-          await target.subjects.bulkDelete([...seed.staleSubjects]);
-        }
-        if (seed.keptTopics.length > 0) {
-          await target.topics.bulkPut(seed.keptTopics);
+        // The target seed identity is kept: legacy content is written under the
+        // canonical target ids by buildSeedRemap, so nothing is deleted. A seed
+        // row deleted here would leave a tombstone on every other device that
+        // blocks the replacement row's natural key.
+        if (rows.topicProgressDeletes.length > 0) {
+          await target.topicProgress.bulkDelete(rows.topicProgressDeletes);
         }
 
         const writes: Array<[number, () => Promise<unknown>]> = [
@@ -1015,6 +1159,15 @@ export async function transferLegacyData(
           }
         }
 
+        // The transfer is committed now, so its completion marker and the
+        // explicit settings push belong to the same transaction. A crash can
+        // never leave a completed copy that the prompt offers to run again as
+        // `local-full`.
+        setSettingsSyncEnabled(target, true);
+        await setMeta(target, INITIAL_PULL_DONE_KEY, true);
+        await enqueueChangeInTransaction(target, 'settings', userId);
+        await setMeta(target, TRANSFER_DONE_KEY, true);
+
         summary = {
           total,
           skipped,
@@ -1058,12 +1211,8 @@ export async function transferLegacyData(
 
     // The cloud has no user-created rows, but it may have a settings row.
     // The transferred profile/exam values intentionally replace it; there is
-    // no user content to merge. Opening the settings gate and writing the
-    // explicit queue entry makes them part of the first push.
-    setSettingsSyncEnabled(target, true);
-    await setMeta(target, INITIAL_PULL_DONE_KEY, true);
-    await enqueueChange(target, 'settings', userId);
-    await setMeta(target, TRANSFER_DONE_KEY, true);
+    // no user content to merge. The gate/marker/queue entry were committed in
+    // the transfer transaction above.
     await whenQueueIdle();
 
     if (summary === null) {

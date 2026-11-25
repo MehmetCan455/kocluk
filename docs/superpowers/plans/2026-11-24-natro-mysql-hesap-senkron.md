@@ -886,7 +886,9 @@ git commit -m "feat(sync): add queue, push and rekey"
 - Create: `src/features/sync/SyncStatus.tsx`
 - Modify: `src/App.tsx` (SyncProvider)
 - Modify: `src/components/layout/TopBar.tsx` (gösterge)
+- Modify: `src/components/layout/Sidebar.tsx` (masaüstü göstergesi)
 - Modify: `src/features/settings/SettingsPage.tsx` (senkron bölümü)
+- Modify: `src/app/SettingsProvider.tsx` (pull sonrası ayar yenileme)
 - Test: `src/db/sync/pull.test.ts`
 - Test: `src/db/sync/engine.test.ts`
 - Test: `src/features/sync/SyncStatus.test.tsx`
@@ -906,8 +908,10 @@ git commit -m "feat(sync): add queue, push and rekey"
 - `deletedAt` dolu satır tombstone olarak yazılır.
 - 410 cursor_expired → `fullSync` çağrılır.
 - Push sonrası pull; iki cihaz simülasyonu.
+- İlk açılış: taze DB'de seed edilmiş varsayılan ayarlar, sunucuda dolu ayarları ezmez; ilk tur pull→push çalışır.
+- Pull settings satırını uygulayınca SettingsProvider yenilenir; onboarding/profil ekranı güncel değeri gösterir.
 - Tetikleyiciler: online, visibility, debounce, interval, manuel.
-- SyncStatus: pending/offline/error/synced metinleri; "Şimdi senkronize et".
+- SyncStatus: pending/offline/error/synced metinleri; "Şimdi senkronize et"; masaüstü Sidebar'da da gösterge.
 - Sunucu `serverTime` ile yerel saat farkı >5 dk ise "Cihaz saatinizi düzeltin" uyarısı.
 
 - [ ] **Step 2: Kırmızıyı gör**
@@ -917,11 +921,12 @@ Expected: FAIL.
 
 - [ ] **Step 3: Pull ve motoru yaz**
 
-- `pullOnce`: meta `lastChangeId`; GET; apply with `setApplyingRemote`; skip pending; update meta; `hasMore`.
+- `pullOnce`: meta `lastChangeId`; GET; apply in a transaction-scoped remote write; skip pending; update meta; `hasMore`.
 - `fullSync`: GET full; clear/merge yalnızca senkron tabloları (fotoğraflar korunur); cursor.
-- `syncNow`: push → pull → status; hata sınıflandırma.
+- `syncNow`: ilk turda (`initialPullDone` yok) **pull → push → status**; sonraki turlarda push → pull → status. İlk pull tamamlanana kadar `settings` kuyruğa girmez; sunucu ayarları yerel varsayılanları ezer. İlk pull sonrası `initialPullDone` yazılır.
+- SettingsProvider pull sonrası `kocluk:settings-updated` olayıyla yenilenir; onboarding/profil güncel değeri gösterir.
 - `SyncProvider`: `useEffect` triggers; `document.visibilitychange`, `window.online`, `setInterval(5 dk)`, debounce 2 sn; cleanup; `serverTime` sakla.
-- `TopBar`: küçük ikon/renk; `SettingsPage`: son senkron, pending, dead, hata, manuel.
+- `TopBar` + masaüstü `Sidebar`: küçük ikon/renk; `SettingsPage`: son senkron, pending, dead, hata, manuel.
 - `SyncStatus`: `serverTime` ile yerel saat farkı >5 dk ise uyarı; saat farkı LWW'yi etkileyebilir.
 
 - [ ] **Step 4: Testleri çalıştır**

@@ -6,6 +6,7 @@ namespace Kocluk\Api\Db;
 
 use InvalidArgumentException;
 use PDO;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -134,6 +135,45 @@ final class Database
         $statement->execute($params);
 
         return $statement->rowCount();
+    }
+
+    /**
+     * Yields rows one at a time so the backup CLI does not build a whole table
+     * in PHP memory.
+     *
+     * @return iterable<int, array<string, mixed>>
+     */
+    public function iterate(string $sql): iterable
+    {
+        $statement = $this->pdo->query($sql);
+
+        if ($statement === false) {
+            throw new RuntimeException('Sorgu çalıştırılamadı.');
+        }
+
+        try {
+            while (($row = $statement->fetch(PDO::FETCH_ASSOC)) !== false) {
+                yield $row;
+            }
+        } finally {
+            $statement->closeCursor();
+        }
+    }
+
+    /**
+     * Quotes a string literal for the PDO MySQL driver.
+     *
+     * Only the backup CLI uses this; application queries stay prepared.
+     */
+    public function quote(string $value): string
+    {
+        $quoted = $this->pdo->quote($value);
+
+        if ($quoted === false) {
+            throw new RuntimeException('Değer SQL için kaçırılamadı.');
+        }
+
+        return $quoted;
     }
 
     /**

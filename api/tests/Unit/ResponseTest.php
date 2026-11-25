@@ -23,6 +23,7 @@ final class ResponseTest extends TestCase
         self::assertSame('nosniff', $response->header('X-Content-Type-Options'));
         self::assertSame('strict-origin-when-cross-origin', $response->header('Referrer-Policy'));
         self::assertSame('DENY', $response->header('X-Frame-Options'));
+        self::assertSame('max-age=31536000', $response->header('Strict-Transport-Security'));
         self::assertSame('no-store', $response->header('Cache-Control'));
     }
 

@@ -56,6 +56,14 @@ $config = [
         'from_name' => getenv('MAIL_FROM_NAME') ?: 'Zirve Academy',
     ],
     'privacy_version' => getenv('PRIVACY_VERSION') ?: '2026-11-24',
+    // Server backups (api/bin/backup.php). Keep the directory outside
+    // public_html; the CLI refuses a path inside it. offsite_dir is optional:
+    // point it at a mounted/second location, or download the archive weekly.
+    'backup' => [
+        'dir' => getenv('KOCLUK_BACKUP_DIR') ?: '/home/u2964068/kocluk-backups',
+        'offsite_dir' => getenv('KOCLUK_BACKUP_OFFSITE_DIR') ?: '',
+        'keep_days' => 14,
+    ],
     // Optional sync tuning. The default matches the design spec (20 MB); lower
     // it to fail GET /api/sync/full with payload_too_large earlier. Tests set
     // this through the App config instead of building a 20 MB fixture.

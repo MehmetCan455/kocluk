@@ -1030,8 +1030,14 @@ export async function transferLegacyData(
     );
 
     // Fill gaps in the curriculum without touching transferred rows: the seed
-    // matches by `seedKey` and only adds what is missing.
-    await seedCurriculum(CURRICULUM);
+    // matches by `seedKey` and only adds what is missing. A seed failure must
+    // not turn a committed transfer into an apparent failure; SettingsProvider
+    // retries the same idempotent seed on its next mount.
+    try {
+      await seedCurriculum(CURRICULUM);
+    } catch {
+      // No row content is logged; the next mount retries.
+    }
     // The Settings screen may already be mounted (manual transfer); reload the
     // transferred profile/exam values without a page refresh.
     notifySettingsUpdated();

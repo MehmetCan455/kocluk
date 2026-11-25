@@ -45,7 +45,7 @@ Açık güvenlik bulguları:
    veri sorumlusu/iletişim bilgilerinin teyidi gerekir (Blocker).
 6. **PHP-LOCAL:** Bu makinede başlangıçta PHP yoktu; taşınabilir PHP 8.4.28
    ile `php -l` ve seçili birim testleri çalıştırıldı. MariaDB gerektiren tam
-   PHPUnit paketi CI'da çalışır.
+   PHPUnit paketi (230 test) CI'da yeşil geçti.
 
 ### Doğrulama kayıtları (2026-11-25)
 
@@ -59,6 +59,7 @@ Açık güvenlik bulguları:
 | `php -l` (tüm `api/**/*.php`) | ✅ Sözdizimi hatası yok (PHP 8.4.28) |
 | PHPUnit `Response/Config/TableMap` | ✅ 33 test, 471 assertion |
 | `git diff --check` | ✅ Boşluk hatası yok |
+| GitHub Actions `CI` (run 45539969445) | ✅ `web`, `e2e`, `api` (230 PHPUnit testi) yeşil |
 | Staging/canlı deploy | ⛔ Bu görevde yapılmadı |
 
 ---
@@ -279,8 +280,8 @@ Açık güvenlik bulguları:
       altında vendor edilmiş, LICENSE korunmuş.
 - [x] `composer.json` yalnızca PHP sürümü + PHPUnit (dev).
 - [x] `npm audit` sonucu: 0 critical, 0 high, 4 moderate (build/dev zinciri).
-- [ ] **Blocker:** `npm audit --audit-level=high` CI'da yeşil; moderate bulgular
-      release notunda kayıtlı.
+- [x] `npm audit --audit-level=high` CI'da yeşil; moderate bulgular release
+      notunda kayıtlı.
 - [ ] **İzleme:** PHPMailer ve Vite/Workbox sürümleri çeyreklik kontrol
       ediliyor; güvenlik yaması çıkınca güncelleniyor.
 - [ ] **İzleme:** `npm audit fix --force` çalıştırılmadı (vite-plugin-pwa

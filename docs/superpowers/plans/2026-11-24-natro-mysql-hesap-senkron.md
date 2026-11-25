@@ -950,9 +950,15 @@ git commit -m "feat(sync): add pull engine and status UI"
 - Create: `src/features/account/AccountPanel.tsx`
 - Create: `src/features/account/DeleteAccountModal.tsx`
 - Create: `src/features/account/PrivacyPage.tsx`
+- Create: `src/features/account/LegacyTransferPrompt.tsx`
 - Modify: `src/app/routes.tsx` (`/gizlilik`)
 - Modify: `src/features/settings/SettingsPage.tsx`
 - Modify: `src/features/onboarding/Onboarding.tsx` (hoş geldin/transfer)
+- Modify: `src/features/auth/AuthGate.tsx` (ilk giriş transfer prompt)
+- Modify: `src/features/auth/ForgotPasswordPage.tsx` (nötr copy)
+- Modify: `src/features/auth/RegisterPage.tsx` (gizlilik linki)
+- Modify: `src/features/auth/VerifyEmailPage.tsx` (retry + token URL temizliği)
+- Modify: `src/app/AuthProvider.tsx` (local sign-out after account deletion)
 - Test: `src/db/transfer.test.ts`
 - Test: `src/features/account/account.test.tsx`
 
@@ -975,8 +981,10 @@ git commit -m "feat(sync): add pull engine and status UI"
 - Görünen ad güncelle; e-posta input disabled.
 - Şifre değiştir; hata/başarı.
 - Veri indir: JSON blob indirilir.
-- Hesap sil: şifre ister; onay sonrası logout.
-- Gizlilik sayfası metni görünür.
+- Hesap sil: şifre ister; onay sonrası logout + yerel DB kapanır.
+- Gizlilik sayfası metni görünür; kayıt ekranındaki link `/gizlilik`.
+- Forgot copy hesap varlığını ima etmez.
+- VerifyEmail başarıda tokenı URL'den temizler; hata retry.
 
 - [ ] **Step 2: Kırmızıyı gör**
 
@@ -987,9 +995,12 @@ Expected: FAIL.
 
 - `hasLegacyData`: legacy `kocluk` DB'yi aç; `subjects`/`books`/`exams`/`notes`/`photos` sayıları; anlamlı eşik.
 - `transferLegacyData`: legacy tabloları oku; aktif user DB'ye `bulkPut`; kimlikleri koru; eksik müfredatı `seedKey` ile ekle; queue'ya düşen hook'lar; fotoğraflar/ekler de kopyalanır; özet.
-- `AccountPanel`: `useAuth`; `api`; `getActiveDb`; `SyncStatus`; `ConfirmModal`.
+- `AccountPanel`: `useAuth`; `api`; `getActiveDb`; `SyncStatus`; `ConfirmModal`; görünen ad, e-posta salt okunur, şifre değiştir, çıkış, veri indir, hesap sil, gizlilik linki.
 - `PrivacyPage`: veri kategorileri, amaç, saklama, Natro, haklar, iletişim, fotoğrafların cihazda kaldığı.
-- Onboarding: kayıt sonrası transfer seçeneği; "Boş başla" eski DB'yi silmez.
+- Onboarding/AuthGate: kayıt sonrası transfer seçeneği; "Boş başla" eski DB'yi silmez; cloud doluysa otomatik birleştirme yok.
+- Hesap silme sonrası API cookie'yi temizler; AuthProvider'a yerel `signOutLocally` eklenir, aktif kullanıcı DB'si kapatılır ve istenirse cihazdaki kopya silinir.
+- Forgot copy nötr: "Bu adres kayıtlıysa sıfırlama bağlantısı gönderildi." Kayıt ekranındaki gizlilik metni gerçek `/gizlilik` linki.
+- VerifyEmail başarıda tokenı URL'den `replace` ile temizler; geçici hatada tekrar dene.
 
 - [ ] **Step 4: Testleri çalıştır**
 

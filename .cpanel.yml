@@ -1,7 +1,21 @@
 ---
 # cPanel Git Version Control deployment for zirveacademy.com.
-# Adjust DEPLOYPATH if the domain's document root differs.
+#
+# This file deploys the built SPA (dist/) and the PHP API (api/) into the
+# document root. The real configuration is NOT in the repository: it lives at
+# /home/u2964068/kocluk-config.php (outside public_html) and api/config.php is
+# gitignored. The final rm removes a stray in-tree config from a developer
+# checkout so a deploy can never shadow the external one.
+#
+# Staging uses a separate branch and changes only DEPLOYPATH to
+# /home/u2964068/staging/ (see docs/STAGING.md). Never merge the staging branch
+# back into main: that would deploy staging paths to production.
 deployment:
   tasks:
     - export DEPLOYPATH=/home/u2964068/public_html/
+    - test -f dist/index.html
+    - test -f api/index.php
     - /bin/cp -R dist/. $DEPLOYPATH
+    - mkdir -p $DEPLOYPATH/api
+    - /bin/cp -R api/. $DEPLOYPATH/api/
+    - rm -f $DEPLOYPATH/api/config.php

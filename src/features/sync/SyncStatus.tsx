@@ -4,14 +4,23 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSyncOptional } from '@/app/SyncProvider';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { cn } from '@/components/ui/cn';
+import { getActiveDbOrNull } from '@/db/db';
 import type { SyncIndicatorStatus, SyncState } from '@/db/sync/engine';
+import {
+  deadLetters,
+  discardDeadLetter,
+  retryDead,
+} from '@/db/sync/queue';
+import type { SyncQueueRow } from '@/domain/types';
 
 /**
  * Sync indicator (design §9.5).
@@ -93,6 +102,37 @@ export interface SyncStatusProps {
 export function SyncStatus({ variant = 'panel', state, onSyncNow }: SyncStatusProps) {
   const context = useSyncOptional();
   const sync = state ?? context;
+  const [deadRows, setDeadRows] = useState<SyncQueueRow[]>([]);
+  const [deadBusy, setDeadBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sync || sync.dead === 0) {
+      setDeadRows([]);
+      return;
+    }
+
+    const database = getActiveDbOrNull();
+    if (!database) {
+      return;
+    }
+
+    let cancelled = false;
+    void deadLetters(database)
+      .then((rows) => {
+        if (!cancelled) {
+          setDeadRows(rows);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDeadRows([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sync?.dead, sync?.status]);
 
   if (!sync) {
     return null;
@@ -103,6 +143,36 @@ export function SyncStatus({ variant = 'panel', state, onSyncNow }: SyncStatusPr
   const syncing = sync.status === 'syncing';
   const skewExceeded = syncClockSkewExceeded(sync);
   const trigger = onSyncNow ?? context?.syncNow;
+
+  async function retryOne(row: SyncQueueRow): Promise<void> {
+    const database = getActiveDbOrNull();
+    if (!database || deadBusy !== null) {
+      return;
+    }
+    setDeadBusy(row.id);
+    try {
+      await retryDead(database, [row.id]);
+      setDeadRows((rows) => rows.filter((entry) => entry.id !== row.id));
+      await trigger?.();
+    } finally {
+      setDeadBusy(null);
+    }
+  }
+
+  async function discardOne(row: SyncQueueRow): Promise<void> {
+    const database = getActiveDbOrNull();
+    if (!database || deadBusy !== null) {
+      return;
+    }
+    setDeadBusy(row.id);
+    try {
+      await discardDeadLetter(database, row.id);
+      setDeadRows((rows) => rows.filter((entry) => entry.id !== row.id));
+      await trigger?.();
+    } finally {
+      setDeadBusy(null);
+    }
+  }
 
   if (variant === 'bar') {
     return (
@@ -164,6 +234,63 @@ export function SyncStatus({ variant = 'panel', state, onSyncNow }: SyncStatusPr
         <p>Bekleyen kayıt: {sync.pending}</p>
         <p>Gönderilemeyen kayıt: {sync.dead}</p>
       </div>
+
+      {sync.dead > 0 ? (
+        <section
+          aria-label="Gönderilemeyen kayıtlar"
+          className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 px-3 py-3"
+        >
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-danger">Gönderilemeyen kayıtlar</p>
+            <p className="text-sm text-muted">
+              Bu değişiklikler sunucuya ulaşmadı. Tekrar deneyebilir veya yalnızca bu
+              cihazdaki kaydı silebilirsin; silinen kayıt sunucudan yeniden gelebilir.
+            </p>
+          </div>
+
+          {deadRows.length === 0 ? (
+            <p role="status" className="text-sm text-muted">
+              Kayıt ayrıntıları yükleniyor…
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {deadRows.map((row) => (
+                <li
+                  key={row.id}
+                  className="space-y-2 rounded-lg border border-line bg-canvas px-3 py-2"
+                >
+                  <p className="text-sm font-medium">
+                    {row.table} · {row.rowId}
+                  </p>
+                  {row.lastError ? (
+                    <p className="break-words text-xs text-danger">{row.lastError}</p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void retryOne(row)}
+                      disabled={deadBusy !== null}
+                    >
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                      Tekrar dene
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => void discardOne(row)}
+                      disabled={deadBusy !== null}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      Yerel kaydı sil
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       {sync.status === 'offline' ? (
         <p className="text-sm text-muted">

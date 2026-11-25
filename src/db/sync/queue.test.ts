@@ -6,6 +6,7 @@ import { SYNCED_TABLES } from './constants';
 import {
   applyServerRow,
   deadLetters,
+  discardDeadLetter,
   installSyncHooks,
   isApplyingRemote,
   markApplied,
@@ -306,4 +307,39 @@ test('eşleşen setApplyingRemote çağrıları bayrağı kalıcı bırakmaz', a
   await whenQueueIdle();
 
   expect((await pendingChanges(database)).map((row) => row.id)).toEqual(['subjects:s-after']);
+});
+
+test('ölü kaydı silmek yerel satırı ve kuyruğu kaldırır, yeni kuyruk yazmaz', async () => {
+  await database.userBooks.add(userBook('ub-dead'));
+  await whenQueueIdle();
+  await markDead(database, 'userBooks:ub-dead', 'validation_failed');
+
+  expect(await discardDeadLetter(database, 'userBooks:ub-dead')).toBe(true);
+  await whenQueueIdle();
+
+  expect(await database.userBooks.get('ub-dead')).toBeUndefined();
+  expect(await database.syncQueue.get('userBooks:ub-dead')).toBeUndefined();
+  expect(await database.syncQueue.count()).toBe(0);
+});
+
+test('ölü settings kaydı yalnızca kuyruktan çıkar, hesap ayarlarını silmez', async () => {
+  await database.settings.put({ key: 'profileName', value: 'Ayşe' });
+  await whenQueueIdle();
+  await markDead(database, 'settings:user-1', 'validation_failed');
+
+  expect(await discardDeadLetter(database, 'settings:user-1')).toBe(true);
+
+  expect((await database.settings.get('profileName'))?.value).toBe('Ayşe');
+  expect(await database.syncQueue.get('settings:user-1')).toBeUndefined();
+});
+
+test('yalnızca ölü kayıt silinebilir', async () => {
+  await database.userBooks.add(userBook('ub-pending'));
+  await whenQueueIdle();
+
+  expect(await discardDeadLetter(database, 'userBooks:ub-pending')).toBe(false);
+  expect(await database.userBooks.get('ub-pending')).toBeDefined();
+  expect(await database.syncQueue.get('userBooks:ub-pending')).toMatchObject({
+    status: 'pending',
+  });
 });

@@ -9,8 +9,9 @@ import {
   apiRowId,
   type SyncedTable,
 } from './constants';
-import { getMeta, setMeta } from './meta';
+import { getMeta, setMeta, SERVER_SETTINGS_SEEN_KEY } from './meta';
 import { applyServerRow, whenQueueIdle } from './queue';
+import { reconcileTaskActivities } from './reconcile';
 
 /**
  * Read half of sync (design §8.3, §8.5).
@@ -116,6 +117,9 @@ export async function pullOnce(
     });
     if (written) {
       applied += 1;
+      if (table === 'settings') {
+        await setMeta(db, SERVER_SETTINGS_SEEN_KEY, true);
+      }
     }
   }
 
@@ -152,13 +156,18 @@ export async function pullAll(
     applied += result.applied;
 
     if (!result.hasMore) {
+      // A conflict can leave a completed task without its activity log (or
+      // the reverse); repair the pair once the page sequence is complete.
+      await reconcileTaskActivities(db);
       return applied;
     }
     if ((await readSyncCursor(db)) <= before) {
+      await reconcileTaskActivities(db);
       return applied;
     }
   }
 
+  await reconcileTaskActivities(db);
   return applied;
 }
 
@@ -205,9 +214,13 @@ export async function fullSync(
       if (apiRowId(table, row) === null) {
         continue;
       }
-      await applyServerRow(db, table, row, { skipIfPending: true });
+      const written = await applyServerRow(db, table, row, { skipIfPending: true });
+      if (written && table === 'settings') {
+        await setMeta(db, SERVER_SETTINGS_SEEN_KEY, true);
+      }
     }
   }
 
   await setMeta(db, CURSOR_KEY, cursor);
+  await reconcileTaskActivities(db);
 }

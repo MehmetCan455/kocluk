@@ -1,7 +1,11 @@
 import type { KoclukDB } from '../db';
 import type { Note } from '@/domain/types';
 import { deterministicId } from '@/lib/deterministicId';
-import { LOCAL_SCOPE, TOPIC_PROGRESS_NAMESPACE } from '@/lib/namespaces';
+import {
+  EXAM_RESULT_NAMESPACE,
+  LOCAL_SCOPE,
+  TOPIC_PROGRESS_NAMESPACE,
+} from '@/lib/namespaces';
 import { apiRowId, type SyncedTable } from './constants';
 import {
   applyServerRow,
@@ -61,6 +65,10 @@ function topicProgressId(topicId: string): string {
   return deterministicId(TOPIC_PROGRESS_NAMESPACE, `${LOCAL_SCOPE}:${topicId}`);
 }
 
+function examResultId(examId: string, subjectId: string): string {
+  return deterministicId(EXAM_RESULT_NAMESPACE, `${examId}:${subjectId}`);
+}
+
 function timestampValue(value: unknown): number | null {
   if (typeof value !== 'string' || value === '') {
     return null;
@@ -99,6 +107,19 @@ function bumpedTimestamp(previous: unknown): string {
   return new Date(previousAt + 1).toISOString();
 }
 
+/** Later of two optional timestamps; unparseable values lose. */
+function laterTimestamp(left: unknown, right: unknown): unknown {
+  const leftAt = timestampValue(left);
+  const rightAt = timestampValue(right);
+  if (leftAt === null) {
+    return right;
+  }
+  if (rightAt === null || leftAt >= rightAt) {
+    return left;
+  }
+  return right;
+}
+
 async function rekeySubjectReferences(
   db: KoclukDB,
   oldId: string,
@@ -115,12 +136,41 @@ async function rekeySubjectReferences(
   }
 
   for (const result of await db.examResults.where('subjectId').equals(oldId).toArray()) {
+    // `subjectId` is immutable on the server, so a subject rekey is a new
+    // result identity: tombstone the old row and insert the canonical/new row.
+    const targetId = examResultId(result.examId, newId);
+    const existing = await db.examResults.get(targetId);
+
+    if (targetId === result.id) {
+      await db.examResults.put({
+        ...result,
+        subjectId: newId,
+        updatedAt: bumpedTimestamp(result.updatedAt),
+      });
+      writes.push({ table: 'examResults', rowId: targetId, op: 'upsert' });
+      continue;
+    }
+
+    if (existing && !existing.deletedAt && !isNewer(result.updatedAt, existing.updatedAt)) {
+      // The target subject already has a newer result for this exam.
+      await db.examResults.put({
+        ...result,
+        deletedAt: nextTimestamp(),
+        updatedAt: bumpedTimestamp(result.updatedAt),
+      });
+      writes.push({ table: 'examResults', rowId: result.id, op: 'delete' });
+      continue;
+    }
+
+    await db.examResults.delete(result.id);
     await db.examResults.put({
       ...result,
+      id: targetId,
       subjectId: newId,
-      updatedAt: bumpedTimestamp(result.updatedAt),
+      updatedAt: bumpedTimestamp(laterTimestamp(existing?.updatedAt, result.updatedAt)),
     });
-    writes.push({ table: 'examResults', rowId: result.id, op: 'upsert' });
+    writes.push({ table: 'examResults', rowId: targetId, op: 'upsert' });
+    writes.push({ table: 'examResults', rowId: result.id, op: 'delete' });
   }
 
   const scheduleRows = await db.scheduleRows.toArray();

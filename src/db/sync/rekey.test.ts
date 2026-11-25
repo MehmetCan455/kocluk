@@ -13,7 +13,11 @@ import type {
   UserBook,
 } from '@/domain/types';
 import { deterministicId } from '@/lib/deterministicId';
-import { LOCAL_SCOPE, TOPIC_PROGRESS_NAMESPACE } from '@/lib/namespaces';
+import {
+  EXAM_RESULT_NAMESPACE,
+  LOCAL_SCOPE,
+  TOPIC_PROGRESS_NAMESPACE,
+} from '@/lib/namespaces';
 import { KoclukDB } from '../db';
 import { toPhotoSearch } from '../photoSearch';
 import { installSyncHooks, pendingChanges, setApplyingRemote, whenQueueIdle } from './queue';
@@ -150,24 +154,90 @@ test('subjects rekey tüm ders referanslarını ve gizli dersleri günceller', a
   await rekeyRow(database, 'subjects', 's-old', canonical as unknown as Record<string, unknown>);
   await whenQueueIdle();
 
+  const movedResultId = deterministicId(EXAM_RESULT_NAMESPACE, 'e1:s-new');
+
   expect(await database.subjects.get('s-old')).toBeUndefined();
   expect(await database.subjects.get('s-new')).toMatchObject({ name: 'Matematik (sunucu)' });
   expect(await database.topics.get('t1')).toMatchObject({ subjectId: 's-new' });
   expect(await database.topics.get('t2')).toMatchObject({ subjectId: 's-new' });
-  expect(await database.examResults.get('er1')).toMatchObject({ subjectId: 's-new' });
+  expect(await database.examResults.get('er1')).toBeUndefined();
+  expect(await database.examResults.get(movedResultId)).toMatchObject({
+    examId: 'e1',
+    subjectId: 's-new',
+    net: 9.5,
+  });
   expect(await database.scheduleRows.get('row-1')).toMatchObject({ subjectId: 's-new' });
   expect((await database.settings.get('hiddenSubjects'))?.value).toEqual(['s-new', 's-keep']);
   expect((await database.photos.get('photo-1'))?.subjectId).toBe('s-new');
   expect((await database.photoSearch.get('photo-1'))?.subjectId).toBe('s-new');
 
-  expect(await queuedIds()).toEqual([
-    'examResults:er1',
-    'scheduleRows:row-1',
-    'settings:user-1',
-    'topics:t1',
-    'topics:t2',
-  ]);
+  expect(await queuedIds()).toEqual(
+    [
+      `examResults:${movedResultId}`,
+      'examResults:er1',
+      'scheduleRows:row-1',
+      'settings:user-1',
+      'topics:t1',
+      'topics:t2',
+    ].sort(),
+  );
   expect(await database.syncQueue.get('subjects:s-new')).toBeUndefined();
+});
+
+test('subject rekey mevcut hedef sonucu varsa doğal anahtarı çoğaltmaz', async () => {
+  await database.subjects.add(subject('s-old', { seedKey: 'tyt-mat' }));
+  const targetResultId = deterministicId(EXAM_RESULT_NAMESPACE, 'e1:s-new');
+  await database.examResults.bulkAdd([
+    {
+      id: 'er-old',
+      examId: 'e1',
+      subjectId: 's-old',
+      correct: 10,
+      wrong: 2,
+      blank: 1,
+      net: 9.5,
+      updatedAt: NOW,
+    },
+    {
+      id: targetResultId,
+      examId: 'e1',
+      subjectId: 's-new',
+      correct: 15,
+      wrong: 1,
+      blank: 0,
+      net: 14.75,
+      updatedAt: '2026-11-25T12:00:00.000Z',
+    },
+  ]);
+  await clearQueue();
+
+  await rekeyRow(
+    database,
+    'subjects',
+    's-old',
+    subject('s-new', {
+      seedKey: 'tyt-mat',
+      updatedAt: '2026-11-25T11:00:00.000Z',
+    }) as unknown as Record<string, unknown>,
+  );
+  await whenQueueIdle();
+
+  // The target result was newer, so it stays and the old identity is only
+  // tombstoned: no second active row for exam e1 + subject s-new.
+  expect(await database.examResults.get('er-old')).toMatchObject({
+    deletedAt: expect.any(String),
+  });
+  expect(await database.examResults.get(targetResultId)).toMatchObject({
+    correct: 15,
+    subjectId: 's-new',
+  });
+  expect(
+    (await database.examResults.toArray()).filter(
+      (row) => !row.deletedAt && row.examId === 'e1' && row.subjectId === 's-new',
+    ),
+  ).toHaveLength(1);
+  expect(await queuedIds()).toContain('examResults:er-old');
+  expect(await queuedIds()).not.toContain(`examResults:${targetResultId}`);
 });
 
 test('topics rekey not, ilerleme, aktivite ve plan referanslarını taşır', async () => {

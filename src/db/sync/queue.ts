@@ -1,11 +1,14 @@
 import Dexie, { type Transaction } from 'dexie';
+import { isSharedCatalogBook } from '@/data/catalogBooks';
 import type { SyncQueueRow } from '@/domain/types';
 import { notifySettingsUpdated } from '@/lib/events';
+import { LOCAL_SCOPE } from '@/lib/namespaces';
 import type { KoclukDB } from '../db';
 import {
   ACCOUNT_SETTINGS,
   MAX_PUSH_ATTEMPTS,
   MAX_PUSH_CHANGES,
+  SYNC_NATURAL_KEYS,
   SYNCED_TABLES,
   SYNCED_TABLE_SET,
   SYNC_TABLES_WITH_UPDATED_AT,
@@ -503,6 +506,33 @@ export async function retryDead(db: KoclukDB, ids?: string[]): Promise<number> {
 }
 
 /**
+ * "Yerel kaydı sil": drops one dead letter and its local data row so the
+ * failed edit stops blocking the user. The server row is untouched; the next
+ * pull brings the canonical value back. Settings are account-level and cannot
+ * be deleted server-side, so only their queue entry is removed.
+ */
+export async function discardDeadLetter(
+  db: KoclukDB,
+  queueId: string,
+): Promise<boolean> {
+  return db.transaction('rw', db.tables, async (transaction) => {
+    const row = await db.syncQueue.get(queueId);
+
+    if (!row || row.status !== 'dead') {
+      return false;
+    }
+
+    if (row.table !== 'settings' && SYNCED_TABLE_SET.has(row.table)) {
+      markRemoteTransaction(transaction);
+      await db.table(row.table).delete(row.rowId);
+    }
+
+    await db.syncQueue.delete(queueId);
+    return true;
+  });
+}
+
+/**
  * Writes a canonical server row locally without re-enqueueing it (used by push
  * conflicts, pull and full sync). `null` optional values become absent fields
  * so tombstones and optional columns match the local row shape.
@@ -535,9 +565,31 @@ export async function applyServerRow(
     if (options.skipIfPending) {
       const identity = apiRowId(table, row);
       if (identity !== null) {
-        const queued = await db.syncQueue.get(queueRowId(table, identity));
-        if (queued?.status === 'pending') {
+        // A dead letter is unresolved local data too: pull must not overwrite
+        // the row the user still has to retry or discard (design §9.2).
+        if (await isProtectedQueueRow(db, table, identity)) {
           return false;
+        }
+      }
+
+      // A local row with the same natural key under another id (usually a
+      // tombstone) occupies Dexie's unique index. If the user has an
+      // unresolved change there, keep it; otherwise the server row wins and
+      // putServerRow removes the stale local row.
+      const natural = naturalKeyOf(table, row);
+      if (natural !== null) {
+        const conflicting = (await db.table(table)
+          .where(natural.field)
+          .equals(natural.value)
+          .toArray()) as Array<Record<string, unknown>>;
+        for (const local of conflicting) {
+          const localId = apiRowId(table, local);
+          if (localId === null || localId === apiRowId(table, row)) {
+            continue;
+          }
+          if (await isProtectedQueueRow(db, table, localId)) {
+            return false;
+          }
         }
       }
     }
@@ -553,6 +605,30 @@ export async function applyServerRow(
   }
 
   return applied;
+}
+
+async function isProtectedQueueRow(
+  db: KoclukDB,
+  table: SyncedTable,
+  rowId: string,
+): Promise<boolean> {
+  const queued = await db.syncQueue.get(queueRowId(table, rowId));
+  return queued?.status === 'pending' || queued?.status === 'dead';
+}
+
+function naturalKeyOf(
+  table: SyncedTable,
+  row: Record<string, unknown>,
+): { field: string; value: string } | null {
+  const field = SYNC_NATURAL_KEYS[table];
+  if (field === undefined) {
+    return null;
+  }
+  const value = row[field];
+  if (typeof value !== 'string' || value === '') {
+    return null;
+  }
+  return { field, value };
 }
 
 /**
@@ -577,17 +653,75 @@ export async function putServerRow(
   }
 
   if (table === 'catalogBooks' && typeof clean.id === 'string') {
-    const existing = (await db.catalogBooks.get(clean.id)) as
-      | Record<string, unknown>
-      | undefined;
-    // ownerId is a device-side "custom book" marker; the server never returns
-    // it, so a full replacement would turn the book read-only.
-    if (clean.ownerId === undefined && existing?.ownerId !== undefined) {
-      clean.ownerId = existing.ownerId;
+    // The bundled catalog is app-owned, never a server row. Applying one would
+    // let a client overwrite the shipped title on every device.
+    if (isSharedCatalogBook(clean.id)) {
+      return;
+    }
+    // A custom book is identified by the server row alone. `ownerId` is only a
+    // device-side "this book is mine" marker: a fresh device that pulls the
+    // row would otherwise store no marker and turn the book read-only.
+    clean.ownerId = LOCAL_SCOPE;
+  }
+
+  if (table === 'examResults' && typeof clean.net === 'string') {
+    const net = Number(clean.net);
+    if (Number.isFinite(net)) {
+      // Older servers serialized DECIMAL as a string; keep the local row a
+      // number so totals/averages cannot become NaN or concatenated.
+      clean.net = net;
     }
   }
 
+  if (!(await dropNaturalKeyConflicts(db, table, clean))) {
+    return;
+  }
   await db.table(table).put(clean);
+}
+
+/**
+ * Dexie unique indexes include tombstones, so the server's active row cannot
+ * be written while a local tombstone (or a stale duplicate) holds the same
+ * natural key. An active server row is canonical: remove the local duplicate.
+ * A server tombstone is ignored when any local row already owns the key; the
+ * key is either active under the local id or already tombstoned.
+ */
+async function dropNaturalKeyConflicts(
+  db: KoclukDB,
+  table: SyncedTable,
+  row: Record<string, unknown>,
+): Promise<boolean> {
+  const natural = naturalKeyOf(table, row);
+  if (natural === null) {
+    return true;
+  }
+
+  const incomingId = apiRowId(table, row);
+  const incomingActive = row.deletedAt === undefined || row.deletedAt === null;
+  const conflicting = (await db.table(table)
+    .where(natural.field)
+    .equals(natural.value)
+    .toArray()) as Array<Record<string, unknown>>;
+
+  for (const local of conflicting) {
+    const localId = apiRowId(table, local);
+    if (localId === null || localId === incomingId) {
+      continue;
+    }
+
+    if (await isProtectedQueueRow(db, table, localId)) {
+      throw new Error('Bekleyen yerel kayıt doğal anahtarla çakışıyor');
+    }
+
+    if (!incomingActive) {
+      // Keep the local row; writing this tombstone would hide the key.
+      return false;
+    }
+
+    await db.table(table).delete(localId);
+  }
+
+  return true;
 }
 
 async function putSettingsRow(db: KoclukDB, row: Record<string, unknown>): Promise<void> {

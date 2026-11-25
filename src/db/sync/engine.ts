@@ -1,15 +1,17 @@
 import { ApiError } from '@/lib/api';
 import type { KoclukDB } from '../db';
 import { STATUS_PATH } from './constants';
-import { INITIAL_PULL_DONE_KEY, getMeta, setMeta } from './meta';
+import { INITIAL_PULL_DONE_KEY, SERVER_SETTINGS_SEEN_KEY, getMeta, setMeta } from './meta';
 import { pullAll, type PullApiClient } from './pull';
 import { pushOnce, type PushApiClient, type PushSummary } from './push';
 import {
   deadCount,
   discardSettingsChange,
+  enqueueChange,
   onQueueWrite,
   pendingCount,
   setSettingsSyncEnabled,
+  syncUserId,
 } from './queue';
 
 /**
@@ -42,6 +44,8 @@ export interface SyncState {
   /** `serverTime - local time` measured when the status response arrived. */
   clockSkewMs: number | null;
   error: string | null;
+  /** Delay before an automatic retry after 429/5xx/network (null: none). */
+  nextRetryMs?: number | null;
 }
 
 export type SyncResult = Omit<SyncState, 'status'> & {
@@ -58,9 +62,17 @@ export interface SyncApiClient extends PushApiClient, PullApiClient {
 const LAST_SYNC_KEY = 'lastSyncAt';
 const SERVER_TIME_KEY = 'serverTime';
 const CLOCK_SKEW_KEY = 'clockSkewMs';
+const LAST_STATUS_AT_KEY = 'lastStatusAt';
+const FAILURE_COUNT_KEY = 'syncFailureCount';
 
 const DEFAULT_DEBOUNCE_MS = 2_000;
 const DEFAULT_INTERVAL_MS = 5 * 60_000;
+
+/** `/api/sync/status` is limited to 60/hour; refresh at the 5-minute cadence. */
+export const STATUS_REFRESH_MS = 5 * 60_000;
+
+const RETRY_BASE_MS = 30_000;
+const RETRY_MAX_MS = 5 * 60_000;
 
 const EMPTY_PUSH: PushSummary = { applied: 0, conflicts: 0, errors: 0 };
 
@@ -136,10 +148,21 @@ export function deriveSyncStatus(
 // not push the same queue row twice or interleave their cursor updates.
 const syncChains = new WeakMap<KoclukDB, Promise<unknown>>();
 
+export interface SyncRunOptions {
+  /**
+   * Fetch `/api/sync/status` even when the five-minute status cache is warm.
+   * App-open, interval and manual runs force it; debounced write triggers and
+   * visibility/online runs reuse the cached server time (30-60 status calls an
+   * hour would otherwise exhaust the 60/hour limit).
+   */
+  forceStatus?: boolean;
+}
+
 async function runSync(
   db: KoclukDB,
   apiClient: SyncApiClient,
   csrfToken: string | null,
+  options: SyncRunOptions = {},
 ): Promise<SyncResult> {
   let pushed: PushSummary = { ...EMPTY_PUSH };
   let pulled = 0;
@@ -148,8 +171,14 @@ async function runSync(
   let clockSkewMs = await readNumberMeta(db, CLOCK_SKEW_KEY);
   let error: string | null = null;
   let status: SyncRunStatus = 'synced';
+  let nextRetryMs: number | null = null;
 
   const initialPullDone = (await getMeta(db, INITIAL_PULL_DONE_KEY)) === true;
+  const lastStatusAt = await readNumberMeta(db, LAST_STATUS_AT_KEY);
+  const statusDue =
+    options.forceStatus === true ||
+    lastStatusAt === null ||
+    Date.now() - lastStatusAt >= STATUS_REFRESH_MS;
   // Keep the queue gate aligned with the persisted first-pull state even for
   // databases opened outside `dbManager` (tests, future restore flows).
   setSettingsSyncEnabled(db, initialPullDone);
@@ -163,6 +192,7 @@ async function runSync(
       serverTime,
       clockSkewMs,
       error: null,
+      nextRetryMs: null,
       pushed,
       pulled,
     };
@@ -189,27 +219,43 @@ async function runSync(
       await setMeta(db, INITIAL_PULL_DONE_KEY, true);
       setSettingsSyncEnabled(db, true);
 
+      // A first pull that found no server settings must publish this device's
+      // onboarding/profile settings; otherwise a fresh account stays empty on
+      // the server until the user edits something.
+      if ((await getMeta(db, SERVER_SETTINGS_SEEN_KEY)) !== true) {
+        const userId = syncUserId(db);
+        if (userId !== null) {
+          await enqueueChange(db, 'settings', userId);
+        }
+      }
+
       const afterPull = await readCounts(db);
       if (csrfToken !== null && csrfToken !== '' && afterPull.pending > 0) {
         pushed = await pushOnce(db, apiClient, csrfToken);
       }
     }
 
-    const payload = await apiClient.get<unknown>(STATUS_PATH);
     const receivedAt = new Date();
-    const nextServerTime = readServerTime(payload);
-    if (nextServerTime !== null) {
-      serverTime = nextServerTime;
-      clockSkewMs = Date.parse(nextServerTime) - receivedAt.getTime();
-      await setMeta(db, SERVER_TIME_KEY, serverTime);
-      await setMeta(db, CLOCK_SKEW_KEY, clockSkewMs);
+
+    if (statusDue) {
+      const payload = await apiClient.get<unknown>(STATUS_PATH);
+      const nextServerTime = readServerTime(payload);
+      if (nextServerTime !== null) {
+        serverTime = nextServerTime;
+        clockSkewMs = Date.parse(nextServerTime) - receivedAt.getTime();
+        await setMeta(db, SERVER_TIME_KEY, serverTime);
+        await setMeta(db, CLOCK_SKEW_KEY, clockSkewMs);
+      }
+      await setMeta(db, LAST_STATUS_AT_KEY, receivedAt.getTime());
     }
 
     lastSyncAt = receivedAt.toISOString();
     await setMeta(db, LAST_SYNC_KEY, lastSyncAt);
+    await setMeta(db, FAILURE_COUNT_KEY, 0);
   } catch (runError: unknown) {
     error = describeError(runError);
     status = isOfflineError(runError) ? 'offline' : 'error';
+    nextRetryMs = await retryDelay(db, runError);
   }
 
   const counts = await readCounts(db);
@@ -228,9 +274,37 @@ async function runSync(
     serverTime,
     clockSkewMs,
     error,
+    nextRetryMs,
     pushed,
     pulled,
   };
+}
+
+/**
+ * Backoff for a failed run. A 429 honours the server's Retry-After; network
+ * and 5xx failures double from 30 s up to the five-minute interval so a dead
+ * connection cannot spin, and the UI is never stuck in a permanent error
+ * without a scheduled retry.
+ */
+async function retryDelay(db: KoclukDB, error: unknown): Promise<number | null> {
+  if (!browserOnline()) {
+    return null;
+  }
+
+  if (error instanceof ApiError) {
+    if (error.status === 429) {
+      return Math.max(1, error.retryAfterSeconds ?? 60) * 1000;
+    }
+    if (error.status !== 0 && error.status < 500) {
+      // 4xx is a validation/session answer; a blind automatic retry would
+      // simply fail again. The next trigger or the user's action retries.
+      return null;
+    }
+  }
+
+  const failures = ((await readNumberMeta(db, FAILURE_COUNT_KEY)) ?? 0) + 1;
+  await setMeta(db, FAILURE_COUNT_KEY, failures);
+  return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** (failures - 1));
 }
 
 /**
@@ -241,11 +315,12 @@ export function syncNow(
   db: KoclukDB,
   apiClient: SyncApiClient,
   csrfToken: string | null,
+  options: SyncRunOptions = {},
 ): Promise<SyncResult> {
   const previous = syncChains.get(db) ?? Promise.resolve();
   const run = previous.then(
-    () => runSync(db, apiClient, csrfToken),
-    () => runSync(db, apiClient, csrfToken),
+    () => runSync(db, apiClient, csrfToken, options),
+    () => runSync(db, apiClient, csrfToken, options),
   );
   syncChains.set(
     db,
@@ -257,8 +332,10 @@ export function syncNow(
   return run;
 }
 
+export type SyncTrigger = 'online' | 'visibility' | 'debounce' | 'interval';
+
 export interface SyncTriggerOptions {
-  run: () => void;
+  run: (trigger: SyncTrigger) => void;
   /** Wait after the last local write before syncing (default 2 s). */
   debounceMs?: number;
   /** Periodic safety pull (default 5 min). */
@@ -287,21 +364,21 @@ export function startSyncTriggers(options: SyncTriggerOptions): () => void {
     }
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      run();
+      run('debounce');
     }, debounceMs);
   };
 
   const handleOnline = () => {
-    run();
+    run('online');
   };
   const handleVisibility = () => {
     if (document.visibilityState === 'visible') {
-      run();
+      run('visibility');
     }
   };
 
   const unsubscribe = onQueueWrite(scheduleDebounced);
-  const interval = setInterval(run, intervalMs);
+  const interval = setInterval(() => run('interval'), intervalMs);
   window.addEventListener('online', handleOnline);
   document.addEventListener('visibilitychange', handleVisibility);
 

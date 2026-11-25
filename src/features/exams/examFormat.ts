@@ -27,5 +27,10 @@ export function formatAlan(alan: AytAlan | undefined): string | null {
 }
 
 export function sumNet(results: ReadonlyArray<{ net: number }>): number {
-  return results.reduce((sum, result) => sum + result.net, 0);
+  return results.reduce((sum, result) => {
+    // A pre-v8 sync could store `net` as a decimal string. Coercing here keeps
+    // a stale local row from turning every total into concatenation/NaN.
+    const net = Number(result.net);
+    return Number.isFinite(net) ? sum + net : sum;
+  }, 0);
 }

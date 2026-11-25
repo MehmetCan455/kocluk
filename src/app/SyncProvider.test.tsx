@@ -62,6 +62,9 @@ test('ilk senkron bitmeden uygulama kabuğu gösterilmez', async () => {
   mock = installMockApi({
     'GET /api/sync/pull': () => pull,
     'GET /api/sync/status': { body: statusBody() },
+    'POST /api/sync/push': {
+      body: { results: [], serverTime: new Date().toISOString() },
+    },
   });
 
   renderSyncProvider();
@@ -94,6 +97,9 @@ test('ilk senkron yanıt vermezse sınırlı süre sonra kabuk açılır', async
   mock = installMockApi({
     'GET /api/sync/pull': () => pull,
     'GET /api/sync/status': { body: statusBody() },
+    'POST /api/sync/push': {
+      body: { results: [], serverTime: new Date().toISOString() },
+    },
   });
 
   renderSyncProvider();

@@ -199,6 +199,20 @@ export const SYNC_TABLES_WITH_UPDATED_AT: ReadonlySet<SyncedTable> = new Set(
   SYNCED_TABLES.filter((table) => table !== 'activityLogs' && table !== 'settings'),
 );
 
+/**
+ * Fields that back a local unique Dexie index (v6). Unlike the server, Dexie's
+ * unique indexes include tombstones, so at most one row per natural key can
+ * exist locally. Pull must reconcile a server active row against a local
+ * tombstone instead of letting the index abort the page.
+ */
+export const SYNC_NATURAL_KEYS: Partial<Record<SyncedTable, string>> = {
+  subjects: 'seedKey',
+  topics: 'seedKey',
+  userBooks: 'bookId',
+  scheduleWeeks: 'weekStart',
+  topicProgress: 'topicId',
+};
+
 /** Queue identity: one coalesced queue row per table + row. */
 export function queueRowId(table: string, rowId: string): string {
   return `${table}:${rowId}`;

@@ -83,12 +83,22 @@ export class ApiError extends Error {
   /** The server's `error` object when one was returned, otherwise null. */
   readonly details: unknown;
 
-  constructor(status: number, code: string, message: string, details: unknown = null) {
+  /** `Retry-After` in seconds for a 429/503 response, when the server sent it. */
+  readonly retryAfterSeconds: number | null;
+
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details: unknown = null,
+    retryAfterSeconds: number | null = null,
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.details = details;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -102,6 +112,21 @@ function parseJson(text: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  if (value === null || value.trim() === '') {
+    return null;
+  }
+  const seconds = Number(value.trim());
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.ceil(seconds);
+  }
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) {
+    return null;
+  }
+  return Math.max(1, Math.ceil((date - Date.now()) / 1000));
 }
 
 async function request<T>(
@@ -171,6 +196,7 @@ async function request<T>(
       code ?? 'http_error',
       message ?? `İstek başarısız oldu (${response.status}).`,
       error,
+      parseRetryAfter(response.headers.get('Retry-After')),
     );
   }
 

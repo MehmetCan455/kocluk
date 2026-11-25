@@ -2,7 +2,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
+import { db } from '@/db/db';
 import type { SyncState } from '@/db/sync/engine';
+import { markDead } from '@/db/sync/queue';
 import { seedOnboarded } from '@/test/fixtures';
 import { installMockApi, type MockApi } from '@/test/mockApi';
 import { renderApp } from '@/test/renderApp';
@@ -102,6 +104,79 @@ test('saat farkı 5 dakikadan fazlaysa cihaz saati uyarısı gösterir', () => {
     />,
   );
   expect(screen.getByText('Cihaz saatinizi düzeltin')).toBeInTheDocument();
+});
+
+test('ölü kayıtlar listelenir ve tekrar denenebilir', async () => {
+  await db.userBooks.put({
+    id: 'ub-dead',
+    bookId: 'book-dead',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  await db.syncQueue.put({
+    id: 'userBooks:ub-dead',
+    table: 'userBooks',
+    rowId: 'ub-dead',
+    op: 'upsert',
+    createdAt: '2026-11-25T10:00:00.000Z',
+    updatedAt: '2026-11-25T10:00:00.000Z',
+    attempts: 1,
+    status: 'pending',
+    lastError: null,
+  });
+  await markDead(db, 'userBooks:ub-dead', 'validation_failed: bozuk alan');
+
+  const onSyncNow = vi.fn();
+  render(<SyncStatus state={state({ status: 'error', dead: 1 })} onSyncNow={onSyncNow} />);
+
+  expect(
+    await screen.findByText('userBooks · ub-dead'),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/validation_failed/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Tekrar dene' }));
+
+  await waitFor(async () => {
+    expect((await db.syncQueue.get('userBooks:ub-dead'))?.status).toBe('pending');
+  });
+  expect(onSyncNow).toHaveBeenCalled();
+});
+
+test('ölü kayıt yerel olarak silinebilir', async () => {
+  await db.userBooks.put({
+    id: 'ub-discard',
+    bookId: 'book-discard',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  await db.syncQueue.put({
+    id: 'userBooks:ub-discard',
+    table: 'userBooks',
+    rowId: 'ub-discard',
+    op: 'upsert',
+    createdAt: '2026-11-25T10:00:00.000Z',
+    updatedAt: '2026-11-25T10:00:00.000Z',
+    attempts: 1,
+    status: 'pending',
+    lastError: null,
+  });
+  await markDead(db, 'userBooks:ub-discard', 'validation_failed');
+
+  const onSyncNow = vi.fn();
+  render(
+    <SyncStatus state={state({ status: 'error', dead: 1 })} onSyncNow={onSyncNow} />,
+  );
+
+  await screen.findByText('userBooks · ub-discard');
+  await userEvent.click(screen.getByRole('button', { name: 'Yerel kaydı sil' }));
+
+  await waitFor(async () => {
+    expect(await db.userBooks.get('ub-discard')).toBeUndefined();
+  });
+  expect(await db.syncQueue.get('userBooks:ub-discard')).toBeUndefined();
+  expect(onSyncNow).toHaveBeenCalled();
 });
 
 test('üst çubuk göstergesi durum bağlantısı ve bekleyen sayısını verir', () => {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Attachment, Book, CatalogBook, Photo, Subject, UserBook } from '@/domain/types';
 import { ApiError } from '@/lib/api';
 import { SETTINGS_UPDATED_EVENT } from '@/lib/events';
+import { LOCAL_SCOPE } from '@/lib/namespaces';
 import { KoclukDB } from '../db';
 import { FULL_PATH, PULL_PATH, SYNCED_TABLES } from './constants';
 import { getMeta, setMeta } from './meta';
@@ -10,6 +11,7 @@ import { fullSync, pullAll, pullOnce, type PullApiClient } from './pull';
 import {
   installSyncHooks,
   isApplyingRemote,
+  markDead,
   setApplyingRemote,
   whenQueueIdle,
 } from './queue';
@@ -409,6 +411,156 @@ test('bilinmeyen tablo ve kimliksiz satır atlanır, imleç ilerler', async () =
   expect(result.applied).toBe(1);
   expect(await getMeta(database, 'lastChangeId')).toBe(12);
   expect(await database.subjects.count()).toBe(1);
+});
+
+test('yerel tombstone ile aynı doğal anahtarlı aktif sunucu satırı çakışmadan uygulanır', async () => {
+  // The local row is a tombstone under a different id but the same seedKey.
+  // Dexie's unique `&seedKey` index would otherwise abort the whole pull page.
+  await database.subjects.add(
+    localSubject('s-old', { deletedAt: now(), name: 'Silinmiş' }),
+  );
+  await whenQueueIdle();
+  await database.syncQueue.clear();
+
+  const { client } = recordingClient(() => ({
+    changes: [
+      {
+        table: 'subjects',
+        row: serverSubject('s-new', {
+          seedKey: 'seed-s-old',
+          name: 'Sunucudaki aktif ders',
+        }),
+      },
+    ],
+    nextCursor: 30,
+    hasMore: false,
+  }));
+
+  const result = await pullOnce(database, client);
+
+  expect(result.applied).toBe(1);
+  expect(await database.subjects.get('s-old')).toBeUndefined();
+  expect(await database.subjects.get('s-new')).toMatchObject({
+    name: 'Sunucudaki aktif ders',
+    seedKey: 'seed-s-old',
+  });
+  expect(await database.subjects.count()).toBe(1);
+});
+
+test('aktif yerel satırı aynı doğal anahtarlı sunucu tombstone u gizlemez', async () => {
+  await database.subjects.add(localSubject('s-local', { seedKey: 'seed-shared' }));
+  await whenQueueIdle();
+  await database.syncQueue.clear();
+
+  const { client } = recordingClient(() => ({
+    changes: [
+      {
+        table: 'subjects',
+        row: serverSubject('s-deleted', {
+          seedKey: 'seed-shared',
+          deletedAt: now(),
+        }),
+      },
+    ],
+    nextCursor: 31,
+    hasMore: false,
+  }));
+
+  await pullOnce(database, client);
+
+  expect(await database.subjects.get('s-local')).toMatchObject({
+    name: 'Matematik',
+  });
+  expect((await database.subjects.get('s-local'))?.deletedAt).toBeUndefined();
+});
+
+test('ölü kayıt pull tarafından ezilmez', async () => {
+  await database.userBooks.add(localUserBook('ub-dead', { note: 'gönderilemeyen' }));
+  await whenQueueIdle();
+  await markDead(database, 'userBooks:ub-dead', 'validation_failed');
+
+  const { client } = recordingClient(() => ({
+    changes: [
+      {
+        table: 'userBooks',
+        row: {
+          id: 'ub-dead',
+          bookId: 'book-ub-dead',
+          status: 'active',
+          note: 'sunucu değeri',
+          createdAt: now(),
+          updatedAt: now(60_000),
+          deletedAt: null,
+        },
+      },
+    ],
+    nextCursor: 32,
+    hasMore: false,
+  }));
+
+  const result = await pullOnce(database, client);
+
+  expect(result.applied).toBe(0);
+  expect((await database.userBooks.get('ub-dead'))?.note).toBe('gönderilemeyen');
+  expect(await database.syncQueue.get('userBooks:ub-dead')).toMatchObject({
+    status: 'dead',
+  });
+});
+
+test('çekilen özel kitap ownerId olmadan da yerel özel kitap sayılır', async () => {
+  const { client } = recordingClient(() => ({
+    changes: [
+      {
+        table: 'catalogBooks',
+        row: {
+          id: 'cb-custom',
+          title: 'Özel Kitap',
+          totalPages: 120,
+          createdAt: now(),
+          updatedAt: now(),
+          deletedAt: null,
+        },
+      },
+    ],
+    nextCursor: 33,
+    hasMore: false,
+  }));
+
+  await pullOnce(database, client);
+
+  expect(await database.catalogBooks.get('cb-custom')).toMatchObject({
+    ownerId: LOCAL_SCOPE,
+    title: 'Özel Kitap',
+  });
+});
+
+test('çekilen examResults net string olsa da sayı olarak saklanır', async () => {
+  const { client } = recordingClient(() => ({
+    changes: [
+      {
+        table: 'examResults',
+        row: {
+          id: 'er-string',
+          examId: 'exam-1',
+          subjectId: 'subject-1',
+          correct: 20,
+          wrong: 5,
+          blank: 0,
+          net: '18.75',
+          updatedAt: now(),
+          deletedAt: null,
+        },
+      },
+    ],
+    nextCursor: 34,
+    hasMore: false,
+  }));
+
+  await pullOnce(database, client);
+
+  const row = await database.examResults.get('er-string');
+  expect(row?.net).toBe(18.75);
+  expect(typeof row?.net).toBe('number');
 });
 
 test('410 cursor_expired tam çekmeye (fullSync) düşer', async () => {

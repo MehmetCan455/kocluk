@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { Subject, UserBook } from '@/domain/types';
+import type { ScheduleTask, Subject, UserBook } from '@/domain/types';
 import { ApiError } from '@/lib/api';
 import { KoclukDB } from '../db';
 import {
@@ -118,6 +118,8 @@ class FakeSyncServer implements SyncApiClient {
 
   networkDown = false;
 
+  rateLimited = false;
+
   private nextId = 1;
 
   constructor() {
@@ -135,6 +137,9 @@ class FakeSyncServer implements SyncApiClient {
     if (this.networkDown) {
       throw new ApiError(0, 'network_error', 'Sunucuya ulaşılamadı.');
     }
+    if (this.rateLimited) {
+      throw new ApiError(429, 'rate_limited', 'Çok fazla istek.', null, 120);
+    }
 
     const request = body as PushRequestBody;
     this.pushBodies.push(request);
@@ -146,6 +151,9 @@ class FakeSyncServer implements SyncApiClient {
     this.calls.push(`GET ${path}`);
     if (this.networkDown) {
       throw new ApiError(0, 'network_error', 'Sunucuya ulaşılamadı.');
+    }
+    if (this.rateLimited) {
+      throw new ApiError(429, 'rate_limited', 'Çok fazla istek.', null, 120);
     }
 
     if (path.startsWith(PULL_PATH)) {
@@ -358,7 +366,7 @@ test('ilk senkron sunucu ayarlarını yerel varsayılanlarla ezmez', async () =>
   expect(result.status).toBe('synced');
 });
 
-test('ilk pull öncesi settings kuyruğa girmez, pull sonrası girer', async () => {
+test('ilk pull öncesi settings kuyruğa girmez, sunucuda yoksa pull sonrası gönderilir', async () => {
   const database = await createDatabase('fresh-settings', { initialPullDone: false });
   await database.settings.put({ key: 'accent', value: '#ff0000' });
   await database.settings.put({ key: 'scheduleMode', value: 'manual' });
@@ -376,9 +384,19 @@ test('ilk pull öncesi settings kuyruğa girmez, pull sonrası girer', async () 
   expect(result.status).toBe('synced');
   expect(server.calls.map((call) => call.split('?')[0])).toEqual([
     `GET ${PULL_PATH}`,
+    `POST /api/sync/push`,
     `GET ${STATUS_PATH}`,
   ]);
-  expect(server.pushBodies).toHaveLength(0);
+  // The server had no settings row, so the device's account settings are
+  // published instead of being lost until the next edit.
+  expect(server.pushBodies).toHaveLength(1);
+  expect(server.pushBodies[0].changes).toEqual([
+    expect.objectContaining({
+      table: 'settings',
+      op: 'upsert',
+      row: expect.objectContaining({ userId: 'user-1', profileName: 'Yerel Profil' }),
+    }),
+  ]);
   expect((await database.settings.get('accent'))?.value).toBe('#ff0000');
   expect(await getMeta(database, INITIAL_PULL_DONE_KEY)).toBe(true);
 
@@ -412,6 +430,55 @@ test('iki cihaz aynı sunucu üzerinden senkronlanır', async () => {
   await syncNow(deviceA, server, 'csrf');
   expect((await deviceA.subjects.get('s1'))?.name).toBe('B cihazı');
   expect((await deviceA.subjects.get('s1'))?.updatedAt).toBe(newTimestamp);
+});
+
+test('iki cihaz görev/aktivite çelişkisini uzlaştırır', async () => {
+  const deviceA = await createDatabase('task-a');
+  const deviceB = await createDatabase('task-b');
+  const server = new FakeSyncServer();
+
+  await deviceA.scheduleTasks.add({
+    id: 'task-1',
+    weekId: 'week-1',
+    rowId: 'row-1',
+    dayIndex: 1,
+    type: 'topic',
+    topicId: 'topic-1',
+    completedAt: now(),
+    createdAt: now(),
+    updatedAt: now(),
+  });
+  await whenQueueIdle();
+
+  // A completes the task; the first run pushes it, the post-pull reconcile
+  // creates the missing activity and the next run pushes that too.
+  await syncNow(deviceA, server, 'csrf', { forceStatus: true });
+  await syncNow(deviceA, server, 'csrf', { forceStatus: true });
+  expect(await deviceA.activityLogs.count()).toBe(1);
+
+  await syncNow(deviceB, server, 'csrf', { forceStatus: true });
+  expect(await deviceB.activityLogs.count()).toBe(1);
+  expect((await deviceB.scheduleTasks.get('task-1'))?.completedAt).toBeDefined();
+
+  // B unticks it; the pull that follows must tombstone the active activity.
+  const task = await deviceB.scheduleTasks.get('task-1');
+  expect(task).toBeDefined();
+  const pending: ScheduleTask = { ...(task as ScheduleTask) };
+  delete pending.completedAt;
+  pending.updatedAt = now(60_000);
+  await deviceB.scheduleTasks.put(pending);
+  await whenQueueIdle();
+  await syncNow(deviceB, server, 'csrf', { forceStatus: true });
+  await syncNow(deviceB, server, 'csrf', { forceStatus: true });
+
+  await syncNow(deviceA, server, 'csrf', { forceStatus: true });
+
+  expect((await deviceA.scheduleTasks.get('task-1'))?.completedAt).toBeUndefined();
+  expect(
+    (await deviceA.activityLogs.where('taskId').equals('task-1').toArray()).filter(
+      (log) => !log.deletedAt,
+    ),
+  ).toHaveLength(0);
 });
 
 test('410 cursor_expired tam çekmeye düşer ve imleci yeniler', async () => {
@@ -472,6 +539,7 @@ test('ağ hatası kuyruğu silmez, durumu offline yapar', async () => {
   expect(result.status).toBe('offline');
   expect(result.error).toContain('network_error');
   expect(result.pending).toBe(1);
+  expect(result.nextRetryMs).toBe(30_000);
   expect(await database.syncQueue.get('userBooks:ub-1')).toMatchObject({
     status: 'pending',
   });
@@ -503,6 +571,42 @@ test('ölü kayıt varsa durum error olur ve sayı raporlanır', async () => {
   expect(result.status).toBe('error');
   expect(result.dead).toBe(1);
   expect(result.pending).toBe(0);
+});
+
+test('status yalnızca beş dakikalık aralıkta veya zorlanınca çağrılır', async () => {
+  const database = await createDatabase('status-cadence');
+  const server = new FakeSyncServer();
+
+  await syncNow(database, server, 'csrf', { forceStatus: true });
+  expect(server.calls.filter((call) => call === `GET ${STATUS_PATH}`)).toHaveLength(1);
+
+  // A burst of debounced note writes must not spend the 60/hour status budget.
+  for (let index = 0; index < 5; index += 1) {
+    await database.subjects.add(subject(`s-burst-${index}`));
+    await whenQueueIdle();
+    await syncNow(database, server, 'csrf');
+  }
+  expect(server.calls.filter((call) => call === `GET ${STATUS_PATH}`)).toHaveLength(1);
+
+  await syncNow(database, server, 'csrf', { forceStatus: true });
+  expect(server.calls.filter((call) => call === `GET ${STATUS_PATH}`)).toHaveLength(2);
+});
+
+test('429 yanıtı Retry-After ile geri çekilme planlar', async () => {
+  const database = await createDatabase('backoff-429');
+  const server = new FakeSyncServer();
+  server.rateLimited = true;
+
+  const failed = await syncNow(database, server, 'csrf', { forceStatus: true });
+
+  expect(failed.status).toBe('error');
+  expect(failed.nextRetryMs).toBe(120_000);
+
+  server.rateLimited = false;
+  const recovered = await syncNow(database, server, 'csrf', { forceStatus: true });
+
+  expect(recovered.status).toBe('synced');
+  expect(recovered.nextRetryMs).toBeNull();
 });
 
 test('sunucu saati farkı hesaplanır ve saklanır', async () => {

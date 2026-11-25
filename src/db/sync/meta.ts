@@ -7,6 +7,13 @@ import type { KoclukDB } from '../db';
  */
 export const INITIAL_PULL_DONE_KEY = 'initialPullDone';
 
+/**
+ * Set when a pull/full actually applied a server settings row. When it stays
+ * absent after the first pull, the account has no server settings yet and the
+ * device's current account settings must be queued (minor review finding).
+ */
+export const SERVER_SETTINGS_SEEN_KEY = 'serverSettingsSeen';
+
 /** Reads a sync metadata value; missing keys read as undefined. */
 export async function getMeta(database: KoclukDB, key: string): Promise<unknown> {
   const row = await database.syncMeta.get(key);

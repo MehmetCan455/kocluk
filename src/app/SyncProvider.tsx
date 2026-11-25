@@ -91,6 +91,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(false);
   const initialSyncSettledRef = useRef(false);
   const initialSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryNotBeforeRef = useRef<number | null>(null);
   // Every run gets an id; only the newest result may update the UI.
   const runSequence = useRef(0);
 
@@ -110,9 +112,24 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     csrfRef.current = csrfToken;
   }, [csrfToken]);
 
-  const run = useCallback(async (): Promise<void> => {
+  const run = useCallback(async (forceStatus = false): Promise<void> => {
+    // A debounced write must not bypass an active 429/5xx backoff. Manual and
+    // app-open runs (forceStatus) still go through immediately.
+    if (
+      !forceStatus &&
+      retryNotBeforeRef.current !== null &&
+      Date.now() < retryNotBeforeRef.current
+    ) {
+      return;
+    }
+
     const sequence = runSequence.current + 1;
     runSequence.current = sequence;
+
+    if (retryTimerRef.current !== null) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
 
     if (mountedRef.current) {
       setState((current) => ({ ...current, status: 'syncing' }));
@@ -120,7 +137,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     let result;
     try {
-      result = await runSyncNow(getActiveDb(), api, csrfRef.current);
+      result = await runSyncNow(getActiveDb(), api, csrfRef.current, { forceStatus });
     } catch {
       // The engine classifies its own failures; this only covers a database
       // that closed between the trigger and the run.
@@ -150,7 +167,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       serverTime: result.serverTime,
       clockSkewMs: result.clockSkewMs,
       error: result.error,
+      nextRetryMs: result.nextRetryMs ?? null,
     });
+
+    // A 429/5xx run schedules its own retry instead of waiting for the next
+    // debounce or the five-minute interval; the UI leaves the error state as
+    // soon as the retry succeeds.
+    if (
+      mountedRef.current &&
+      sequence === runSequence.current &&
+      typeof result.nextRetryMs === 'number' &&
+      result.nextRetryMs > 0
+    ) {
+      retryNotBeforeRef.current = Date.now() + result.nextRetryMs;
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        void run(false);
+      }, result.nextRetryMs);
+    } else {
+      retryNotBeforeRef.current = null;
+    }
   }, [settleInitialSync]);
 
   useEffect(() => {
@@ -161,7 +197,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     // ran without a CSRF token. Retry as soon as the token arrives so queued
     // rows are not left waiting for the five-minute interval.
     if ((previous === null || previous === '') && csrfToken) {
-      void run();
+      void run(false);
     }
   }, [csrfToken, run]);
 
@@ -209,8 +245,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     };
 
     void hydrate();
-    // App-open trigger.
-    void run();
+    // App-open trigger: the first run refreshes the server time/skew.
+    void run(true);
     // Offline, a failed pull or a hung request must not block the shell forever.
     if (!initialSyncSettledRef.current) {
       initialSyncTimerRef.current = setTimeout(
@@ -220,8 +256,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
 
     const stopTriggers = startSyncTriggers({
-      run: () => {
-        void run();
+      run: (trigger) => {
+        // Only the five-minute interval refreshes /status; a note-write burst
+        // or tab switch reuses the cached clock and leaves the hourly budget
+        // for real work.
+        void run(trigger === 'interval');
       },
     });
     const handleOffline = () => {
@@ -239,13 +278,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         clearTimeout(initialSyncTimerRef.current);
         initialSyncTimerRef.current = null;
       }
+      if (retryTimerRef.current !== null) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      retryNotBeforeRef.current = null;
       stopTriggers();
       window.removeEventListener('offline', handleOffline);
     };
   }, [run, settleInitialSync]);
 
   const syncNow = useCallback(async (): Promise<void> => {
-    await run();
+    // The manual button is an explicit user request: refresh the server time
+    // and clock-skew warning even when the five-minute cache is warm.
+    await run(true);
   }, [run]);
 
   const value = useMemo<SyncContextValue>(

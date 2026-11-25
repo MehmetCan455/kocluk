@@ -248,7 +248,7 @@ test('v7 geçişi eski tabloları korur ve senkron tablolarını ekler', async (
   const upgraded = track(new KoclukDB(name));
   await upgraded.open();
 
-  expect(upgraded.verno).toBe(7);
+  expect(upgraded.verno).toBe(8);
   expect(await upgraded.settings.get('profileName')).toEqual({ key: 'profileName', value: 'Deniz' });
   expect(await upgraded.subjects.get('s1')).toMatchObject({ name: 'Matematik' });
   expect(await upgraded.syncQueue.count()).toBe(0);

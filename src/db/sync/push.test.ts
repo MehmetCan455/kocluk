@@ -159,6 +159,120 @@ test('3 değişiklik gönderilir, applied kuyruğu temizler', async () => {
   expect(await database.syncQueue.count()).toBe(0);
 });
 
+test('silinen ve yeniden eklenen raf kitabı tek aktif upsert olarak kuyruğa girer', async () => {
+  await database.userBooks.add(userBook('ub-1'));
+  await whenQueueIdle();
+  await database.userBooks.delete('ub-1');
+  await whenQueueIdle();
+  expect(await database.syncQueue.get('userBooks:ub-1')).toMatchObject({ op: 'delete' });
+
+  await database.userBooks.add(userBook('ub-1'));
+  await whenQueueIdle();
+
+  expect(await database.syncQueue.get('userBooks:ub-1')).toMatchObject({
+    op: 'upsert',
+    status: 'pending',
+  });
+  expect((await database.userBooks.get('ub-1'))?.deletedAt).toBeUndefined();
+
+  const { client, calls } = recordingClient((body) => appliedResults(body));
+  await pushOnce(database, client, 'csrf');
+
+  expect(calls[0].body.changes).toHaveLength(1);
+  expect(calls[0].body.changes[0].op).toBe('upsert');
+  expect(calls[0].body.changes[0].row?.deletedAt).toBeUndefined();
+});
+
+test('examResults net sunucudan string gelse bile sayı olarak saklanır', async () => {
+  await database.examResults.add({
+    id: 'er-1',
+    examId: 'exam-1',
+    subjectId: 'subject-1',
+    correct: 20,
+    wrong: 5,
+    blank: 0,
+    net: 18.75,
+    updatedAt: now(),
+  });
+  await whenQueueIdle();
+
+  const { client } = recordingClient((body) =>
+    body.changes.map((change) => ({
+      table: change.table,
+      rowId: rowIdOf(change),
+      status: 'applied',
+      // A pre-fix API serialized DECIMAL as a JSON string.
+      row: { ...change.row, net: '18.75' },
+    })),
+  );
+
+  await pushOnce(database, client, 'csrf');
+
+  const stored = await database.examResults.get('er-1');
+  expect(stored?.net).toBe(18.75);
+  expect(typeof stored?.net).toBe('number');
+});
+
+test('çekilen özel kitap ownerId taşımasa da düzenlenebilir kalır', async () => {
+  const customBook: CatalogBook = {
+    id: 'custom-book-1',
+    ownerId: LOCAL_SCOPE,
+    title: 'Özel Kitap',
+    totalPages: 100,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  await database.catalogBooks.add(customBook);
+  await whenQueueIdle();
+
+  const { client } = recordingClient((body) =>
+    body.changes.map((change) => {
+      const row = { ...(change.row ?? {}) };
+      // The server never returns ownerId; a fresh device must reconstruct the
+      // local "custom book" marker from the row itself.
+      delete row.ownerId;
+      return {
+        table: change.table,
+        rowId: rowIdOf(change),
+        status: 'applied',
+        row,
+      };
+    }),
+  );
+
+  await pushOnce(database, client, 'csrf');
+
+  expect(await database.catalogBooks.get('custom-book-1')).toMatchObject({
+    ownerId: LOCAL_SCOPE,
+    title: 'Özel Kitap',
+  });
+});
+
+test('paylaşılan katalog satırı sunucudan uygulanmaz', async () => {
+  const shared = CATALOG_SEED[0];
+  const id = catalogBookId(shared.title, shared.publisher, shared.edition);
+  await database.catalogBooks.add({
+    id,
+    title: shared.title,
+    totalPages: 100,
+    createdAt: now(),
+    updatedAt: now(),
+  });
+  await whenQueueIdle();
+
+  const { applyServerRow } = await import('./queue');
+  await applyServerRow(database, 'catalogBooks', {
+    id,
+    title: 'Sunucudan Gelen Bozuk Başlık',
+    totalPages: 100,
+    createdAt: now(),
+    updatedAt: now(60_000),
+    deletedAt: null,
+  });
+
+  expect((await database.catalogBooks.get(id))?.title).toBe(shared.title);
+});
+
 test('en fazla 100 değişiklik gönderilir', async () => {
   for (let index = 0; index < 105; index += 1) {
     await database.userBooks.add(userBook(`ub-${index}`));

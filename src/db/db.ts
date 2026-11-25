@@ -137,6 +137,26 @@ export class KoclukDB extends Dexie {
       syncQueue: 'id, table, rowId, op, createdAt, updatedAt, attempts, status, lastError',
       syncMeta: 'key',
     });
+
+    // v8 repairs `examResults.net` values that a pre-fix sync stored as JSON
+    // strings. String nets made totals concatenate and averages NaN. The
+    // repair is additive and idempotent; non-numeric values are left alone.
+    this.version(8)
+      .stores({
+        examResults: 'id, examId, subjectId',
+      })
+      .upgrade(async (transaction) => {
+        const table = transaction.table<ExamResult, string>('examResults');
+        await table.toCollection().modify((row) => {
+          const net: unknown = row.net;
+          if (typeof net === 'string' && net.trim() !== '') {
+            const parsed = Number(net);
+            if (Number.isFinite(parsed)) {
+              row.net = parsed;
+            }
+          }
+        });
+      });
   }
 }
 

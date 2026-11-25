@@ -576,8 +576,10 @@ test('e-posta doğrulama başarıda tokenı URL den replace ile temizler', async
   expect(
     await screen.findByRole('heading', { name: 'E-posta adresin doğrulandı' }),
   ).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByTestId('location')).not.toHaveTextContent('token');
+  });
   expect(screen.getByTestId('location')).toHaveTextContent('/eposta-dogrula');
-  expect(screen.getByTestId('location')).not.toHaveTextContent('token');
   expect(api.callsTo('POST', '/api/auth/verify-email')).toHaveLength(1);
 });
 

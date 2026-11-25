@@ -245,6 +245,22 @@ test('kayıt doğrulaması, çift e-posta, profil güncelleme ve yetki', async (
   });
   expect(noPrivacy.status).toBe(422);
 
+  const invalidForgot = await call('/api/auth/forgot-password', {
+    method: 'POST',
+    origin: APP_ORIGIN,
+    body: { email: 'gecersiz-adres' },
+  });
+  expect(invalidForgot.status).toBe(422);
+  expect(invalidForgot.json.error.code).toBe('validation_failed');
+
+  const unknownForgot = await call('/api/auth/forgot-password', {
+    method: 'POST',
+    origin: APP_ORIGIN,
+    body: { email: 'yok@example.com' },
+  });
+  expect(unknownForgot.status).toBe(202);
+  expect(unknownForgot.json).toEqual({ ok: true });
+
   const account = await register('profil@example.com');
 
   const duplicate = await call('/api/auth/register', {
@@ -591,6 +607,183 @@ test('son yazan kazanır, tombstone, ayar silme ve activity log kuralları', asy
   expect(unknownField.results[0].error.code).toBe('forbidden');
 });
 
+test('değiştirilemez alanlar güncellemede korunur', async () => {
+  const account = await register('degismez@example.com');
+  const now = iso();
+  const later = iso(1_000);
+
+  const subject = await push(account.cookie, account.csrf, [
+    {
+      table: 'subjects',
+      op: 'upsert',
+      row: {
+        id: 'subject-degismez',
+        seedKey: 'sabit-seed',
+        exam: 'TYT',
+        name: 'Eski Ad',
+        slug: 'sabit',
+        icon: 'book',
+        order: 1,
+        updatedAt: now,
+      },
+    },
+  ]);
+  expect(subject.results[0].status).toBe('applied');
+
+  const changedSubject = await push(account.cookie, account.csrf, [
+    {
+      table: 'subjects',
+      op: 'upsert',
+      row: {
+        id: 'subject-degismez',
+        seedKey: 'yeni-seed',
+        exam: 'TYT',
+        name: 'Yeni Ad',
+        slug: 'sabit',
+        icon: 'book',
+        order: 1,
+        updatedAt: later,
+      },
+    },
+  ]);
+  expect(changedSubject.results[0].status).toBe('applied');
+  expect(changedSubject.results[0].row.seedKey).toBe('sabit-seed');
+  expect(changedSubject.results[0].row.name).toBe('Yeni Ad');
+
+  const book = await push(account.cookie, account.csrf, [
+    {
+      table: 'userBooks',
+      op: 'upsert',
+      row: {
+        id: 'book-degismez',
+        bookId: 'catalog-sabit',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      },
+    },
+  ]);
+  expect(book.results[0].status).toBe('applied');
+
+  const changedBook = await push(account.cookie, account.csrf, [
+    {
+      table: 'userBooks',
+      op: 'upsert',
+      row: {
+        id: 'book-degismez',
+        bookId: 'catalog-yeni',
+        status: 'completed',
+        createdAt: now,
+        updatedAt: later,
+      },
+    },
+  ]);
+  expect(changedBook.results[0].status).toBe('applied');
+  expect(changedBook.results[0].row.bookId).toBe('catalog-sabit');
+  expect(changedBook.results[0].row.status).toBe('completed');
+
+  const result = await push(account.cookie, account.csrf, [
+    {
+      table: 'examResults',
+      op: 'upsert',
+      row: {
+        id: 'result-degismez',
+        examId: 'exam-sabit',
+        subjectId: 'subject-sabit',
+        correct: 1,
+        wrong: 0,
+        blank: 0,
+        net: 1,
+        updatedAt: now,
+      },
+    },
+  ]);
+  expect(result.results[0].status).toBe('applied');
+
+  const changedResult = await push(account.cookie, account.csrf, [
+    {
+      table: 'examResults',
+      op: 'upsert',
+      row: {
+        id: 'result-degismez',
+        examId: 'exam-yeni',
+        subjectId: 'subject-yeni',
+        correct: 2,
+        wrong: 0,
+        blank: 0,
+        net: 2,
+        updatedAt: later,
+      },
+    },
+  ]);
+  expect(changedResult.results[0].status).toBe('applied');
+  expect(changedResult.results[0].row.examId).toBe('exam-sabit');
+  expect(changedResult.results[0].row.subjectId).toBe('subject-sabit');
+  expect(changedResult.results[0].row.correct).toBe(2);
+
+  const week = await push(account.cookie, account.csrf, [
+    {
+      table: 'scheduleWeeks',
+      op: 'upsert',
+      row: {
+        id: 'week-degismez',
+        weekStart: '2026-11-23',
+        note: 'Eski not',
+        createdAt: now,
+        updatedAt: now,
+      },
+    },
+  ]);
+  expect(week.results[0].status).toBe('applied');
+
+  const changedWeek = await push(account.cookie, account.csrf, [
+    {
+      table: 'scheduleWeeks',
+      op: 'upsert',
+      row: {
+        id: 'week-degismez',
+        weekStart: '2026-11-30',
+        note: 'Yeni not',
+        createdAt: now,
+        updatedAt: later,
+      },
+    },
+  ]);
+  expect(changedWeek.results[0].status).toBe('applied');
+  expect(changedWeek.results[0].row.weekStart).toBe('2026-11-23');
+  expect(changedWeek.results[0].row.note).toBe('Yeni not');
+
+  const progress = await push(account.cookie, account.csrf, [
+    {
+      table: 'topicProgress',
+      op: 'upsert',
+      row: {
+        id: 'progress-degismez',
+        topicId: 'topic-sabit',
+        done: false,
+        updatedAt: now,
+      },
+    },
+  ]);
+  expect(progress.results[0].status).toBe('applied');
+
+  const changedProgress = await push(account.cookie, account.csrf, [
+    {
+      table: 'topicProgress',
+      op: 'upsert',
+      row: {
+        id: 'progress-degismez',
+        topicId: 'topic-yeni',
+        done: true,
+        updatedAt: later,
+      },
+    },
+  ]);
+  expect(changedProgress.results[0].status).toBe('applied');
+  expect(changedProgress.results[0].row.topicId).toBe('topic-sabit');
+  expect(changedProgress.results[0].row.done).toBe(true);
+});
+
 test('şifre değişimi oturumları/CSRFyi döndürür; sıfırlama ve doğrulama çalışır', async () => {
   const account = await register('sifre@example.com');
 
@@ -650,6 +843,22 @@ test('şifre değişimi oturumları/CSRFyi döndürür; sıfırlama ve doğrulam
   const tokens = await call('/api/__test__/tokens?email=sifre%40example.com');
   expect(tokens.status).toBe(200);
   expect(typeof tokens.json.resetToken).toBe('string');
+
+  const emptyReset = await call('/api/auth/reset-password', {
+    method: 'POST',
+    origin: APP_ORIGIN,
+    body: { token: '', password: 'ucuncu-sifre-789' },
+  });
+  expect(emptyReset.status).toBe(422);
+  expect(emptyReset.json.error.code).toBe('validation_failed');
+
+  const unknownReset = await call('/api/auth/reset-password', {
+    method: 'POST',
+    origin: APP_ORIGIN,
+    body: { token: 'olmayan-token', password: 'ucuncu-sifre-789' },
+  });
+  expect(unknownReset.status).toBe(410);
+  expect(unknownReset.json.error.code).toBe('invalid_token');
 
   const reset = await call('/api/auth/reset-password', {
     method: 'POST',

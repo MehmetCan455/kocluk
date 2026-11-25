@@ -27,7 +27,9 @@ export default defineConfig({
     {
       command: 'npm run mock:api',
       url: `${API_URL}/api/health`,
-      reuseExistingServer: !process.env.CI,
+      // Never reuse a manually started server: the suite resets data and must
+      // not wipe the local preview's JSON file.
+      reuseExistingServer: false,
       timeout: 30_000,
       env: {
         MOCK_API_HOST: '127.0.0.1',

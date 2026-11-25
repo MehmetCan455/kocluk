@@ -33,6 +33,14 @@ export interface SyncContextValue extends SyncState {
   syncNow: () => Promise<void>;
 }
 
+/**
+ * A fresh device must not route to onboarding before the first pull has
+ * applied the account settings. The initial sync is normally fast; offline or
+ * a hung request still releases the gate after this bound so the app can open
+ * with the local settings.
+ */
+export const INITIAL_SYNC_GATE_TIMEOUT_MS = 5_000;
+
 const INITIAL_STATE: SyncState = {
   status: 'synced',
   pending: 0,
@@ -42,6 +50,21 @@ const INITIAL_STATE: SyncState = {
   clockSkewMs: null,
   error: null,
 };
+
+function InitialSyncGate() {
+  return (
+    <div
+      role="status"
+      className="flex min-h-dvh items-center justify-center gap-3 bg-canvas px-4 text-sm text-muted"
+    >
+      <span
+        className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-[var(--accent)]"
+        aria-hidden="true"
+      />
+      <span>Hesabın hazırlanıyor…</span>
+    </div>
+  );
+}
 
 const SyncContext = createContext<SyncContextValue | null>(null);
 
@@ -62,11 +85,26 @@ async function readNumberMeta(key: string): Promise<number | null> {
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { csrfToken } = useAuth();
   const [state, setState] = useState<SyncState>(INITIAL_STATE);
+  const [initialSyncReady, setInitialSyncReady] = useState(false);
   const csrfRef = useRef<string | null>(csrfToken);
   const previousCsrfRef = useRef<string | null>(csrfToken);
   const mountedRef = useRef(false);
+  const initialSyncSettledRef = useRef(false);
+  const initialSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Every run gets an id; only the newest result may update the UI.
   const runSequence = useRef(0);
+
+  const settleInitialSync = useCallback((): void => {
+    if (initialSyncSettledRef.current) {
+      return;
+    }
+    initialSyncSettledRef.current = true;
+    if (initialSyncTimerRef.current !== null) {
+      clearTimeout(initialSyncTimerRef.current);
+      initialSyncTimerRef.current = null;
+    }
+    setInitialSyncReady(true);
+  }, []);
 
   useEffect(() => {
     csrfRef.current = csrfToken;
@@ -86,6 +124,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } catch {
       // The engine classifies its own failures; this only covers a database
       // that closed between the trigger and the run.
+      settleInitialSync();
       if (!mountedRef.current || sequence !== runSequence.current) {
         return;
       }
@@ -96,6 +135,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }));
       return;
     }
+
+    settleInitialSync();
 
     if (!mountedRef.current || sequence !== runSequence.current) {
       return;
@@ -110,7 +151,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       clockSkewMs: result.clockSkewMs,
       error: result.error,
     });
-  }, []);
+  }, [settleInitialSync]);
 
   useEffect(() => {
     const previous = previousCsrfRef.current;
@@ -126,6 +167,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
+    if (initialSyncSettledRef.current) {
+      setInitialSyncReady(true);
+    }
     let cancelled = false;
 
     const hydrate = async () => {
@@ -167,6 +211,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     void hydrate();
     // App-open trigger.
     void run();
+    // Offline, a failed pull or a hung request must not block the shell forever.
+    if (!initialSyncSettledRef.current) {
+      initialSyncTimerRef.current = setTimeout(
+        settleInitialSync,
+        INITIAL_SYNC_GATE_TIMEOUT_MS,
+      );
+    }
 
     const stopTriggers = startSyncTriggers({
       run: () => {
@@ -184,10 +235,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       mountedRef.current = false;
       runSequence.current += 1;
+      if (initialSyncTimerRef.current !== null) {
+        clearTimeout(initialSyncTimerRef.current);
+        initialSyncTimerRef.current = null;
+      }
       stopTriggers();
       window.removeEventListener('offline', handleOffline);
     };
-  }, [run]);
+  }, [run, settleInitialSync]);
 
   const syncNow = useCallback(async (): Promise<void> => {
     await run();
@@ -197,6 +252,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     () => ({ ...state, syncNow }),
     [state, syncNow],
   );
+
+  // The first pull must apply the server settings before SettingsProvider and
+  // AppRoutes decide whether onboarding is still needed (design §9.5). Offline
+  // or failed first runs release the gate above; later pulls still notify via
+  // `kocluk:settings-updated`.
+  if (!initialSyncReady) {
+    return <InitialSyncGate />;
+  }
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 }

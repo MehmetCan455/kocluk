@@ -58,13 +58,29 @@ async function readSyncStatus(page: Page): Promise<SyncStatusPayload | null> {
   });
 }
 
-async function readLocalState(
+async function readServerTable(
   page: Page,
-): Promise<{
-  onboardingDone: boolean;
-  userBooks: number;
-  pending: number;
-} | null> {
+  table: string,
+): Promise<Array<Record<string, unknown>>> {
+  return page.evaluate(async (tableName) => {
+    try {
+      const response = await fetch('/api/sync/full', {
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        return [];
+      }
+      const payload = (await response.json()) as {
+        tables?: Record<string, Array<Record<string, unknown>>>;
+      };
+      return payload.tables?.[tableName] ?? [];
+    } catch {
+      return [];
+    }
+  }, table);
+}
+
+async function readLocalPending(page: Page): Promise<number | null> {
   return page.evaluate(async () => {
     try {
       const sessionResponse = await fetch('/api/auth/session', {
@@ -91,19 +107,7 @@ async function readLocalState(
       }
 
       try {
-        const onboardingDone = await new Promise<boolean>((resolve) => {
-          const transaction = database.transaction('settings', 'readonly');
-          const request = transaction.objectStore('settings').get('onboardingDone');
-          request.onsuccess = () => resolve(request.result?.value === true);
-          request.onerror = () => resolve(false);
-        });
-        const userBooks = await new Promise<number>((resolve) => {
-          const transaction = database.transaction('userBooks', 'readonly');
-          const request = transaction.objectStore('userBooks').count();
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => resolve(0);
-        });
-        const pending = await new Promise<number>((resolve) => {
+        return await new Promise<number>((resolve) => {
           const transaction = database.transaction('syncQueue', 'readonly');
           const request = transaction
             .objectStore('syncQueue')
@@ -112,7 +116,6 @@ async function readLocalState(
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => resolve(-1);
         });
-        return { onboardingDone, userBooks, pending };
       } finally {
         database.close();
       }
@@ -184,21 +187,25 @@ async function drainSync(page: Page): Promise<void> {
   await expect(syncButton).toBeVisible();
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
-    const state = await readLocalState(page);
-    if (state !== null && state.pending === 0) {
+    const pending = (await readLocalPending(page)) ?? -1;
+    if (pending === 0) {
       await expectSynced(page);
       return;
     }
 
     await syncButton.click();
     await expect(syncButton).toBeEnabled({ timeout: 30_000 });
-    await page.waitForTimeout(300);
+    if (pending > 0) {
+      await expect
+        .poll(async () => (await readLocalPending(page)) ?? -1, {
+          timeout: 30_000,
+        })
+        .toBeLessThan(pending);
+    }
   }
 
   await expect
-    .poll(async () => (await readLocalState(page))?.pending ?? -1, {
-      timeout: 30_000,
-    })
+    .poll(() => readLocalPending(page), { timeout: 30_000 })
     .toBe(0);
   await expectSynced(page);
 }
@@ -227,13 +234,13 @@ test('kayıt, onboarding, kitap ekleme ve ikinci cihazda senkron', async ({
 
   try {
     await login(second, EMAIL, PASSWORD);
-    await expect
-      .poll(() => readLocalState(second), { timeout: 30_000 })
-      .toMatchObject({ onboardingDone: true, userBooks: 1 });
+    // The first pull's settings must be applied before AppRoutes decides
+    // onboarding; a real second-device login lands on the dashboard directly.
+    await expect(
+      second.getByRole('heading', { level: 1, name: 'Genel Bakış' }),
+    ).toBeVisible({ timeout: 30_000 });
 
-    // A query string forces a full document load so SettingsProvider reads the
-    // pulled `onboardingDone` value instead of the pre-pull in-memory state.
-    await second.goto(`./?e2e=${Date.now()}#/kitaplar`);
+    await second.goto('./#/kitaplar');
     await expect(
       second.getByRole('link', { name: BOOK_CARD_LABEL }),
     ).toBeVisible({ timeout: 30_000 });
@@ -277,6 +284,15 @@ test('çevrimdışı işaretlenen konu çevrimiçi olunca senkronlanır', async 
   await page.context().setOffline(false);
   await expectSynced(page);
   await expectServerCount(page, 'topicProgress', 1);
+  await expect
+    .poll(
+      async () =>
+        (await readServerTable(page, 'topicProgress')).some(
+          (row) => row.done === true,
+        ),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
 });
 
 test('profil ve şifre değişir, çıkış/giriş verisi kalır, export indirilir', async ({

@@ -32,7 +32,9 @@ npm test           # Vitest izleme modu
 npm run test:run   # Vitest tek seferlik
 npm run build      # tip kontrolü + üretim derlemesi (dist/)
 npm run preview    # üretim derlemesini kök adreste önizle
-npm run test:e2e   # Playwright uçtan uca testleri (mock API + Vite başlatır)
+npm run test:e2e   # hesap/senkron E2E (mock API + Vite başlatır)
+npm run test:e2e:auth   # aynı auth/sync E2E spec'i
+npm run test:e2e:legacy # hesap öncesi eski spec'ler (geçici olarak kırmızı)
 ```
 
 ## Yerel önizleme (mock API)
@@ -47,10 +49,10 @@ Vite `/api` isteklerini mock API'ye yönlendirir. Hazır demo hesap:
 `deneme@kocluk.local` / `deneme1234`. Kayıt ekranından yeni hesap da
 açabilirsin. Veriler `scripts/mock-api-data.json` dosyasında tutulur
 (gitignore'da); temiz başlangıç için mock'u durdurup dosyayı sil, sonra yeniden
-başlat. Çalışırken sıfırlamak için:
+başlat. Çalışırken sıfırlamak için (PowerShell):
 
-```bash
-curl -X DELETE http://127.0.0.1:8787/api/__test__/reset
+```powershell
+Invoke-RestMethod -Method Delete http://127.0.0.1:8787/api/__test__/reset
 ```
 
 Bu mock yalnızca yerel önizleme ve E2E içindir, üretim paketine girmez; gerçek
@@ -58,8 +60,15 @@ sözleşme `api/` altındaki PHP API'dir. Playwright aynı mock'u 8788/4173
 portlarında, ayrı bir veri dosyasıyla başlatır:
 
 ```bash
-npm run test:e2e -- tests/e2e/auth-sync.spec.ts
+npm run test:e2e:auth
 ```
+
+`auth-sync.spec.ts` hesap, senkron, profil/şifre, export ve hesap silme
+akışlarını kapsar. `backup`, `branch-exams`, `exams`, `onboarding`, `photos`,
+`program`, `pwa`, `responsive` ve `tracking` spec'leri hesap öncesi dönemden
+kaldı; ortak auth fixture'ı eklenene kadar `npm run test:e2e:legacy` kırmızıdır
+ve merge gate değildir. Günlük/CI doğrulaması `npm run test:e2e` (auth/sync
+spec'i) ile yapılır.
 
 ## Kitaplar, konu durumu ve haftalık plan
 

@@ -104,6 +104,7 @@ const TABLE_DEFS = {
     ],
     required: ['id', 'seedKey', 'exam', 'name', 'slug', 'icon', 'order', 'updatedAt'],
     natural: ['seedKey'],
+    immutable: ['seedKey'],
   },
   topics: {
     pk: 'id',
@@ -121,6 +122,7 @@ const TABLE_DEFS = {
     ],
     required: ['id', 'subjectId', 'name', 'order', 'isCustom', 'createdAt', 'updatedAt'],
     natural: ['seedKey'],
+    immutable: ['seedKey'],
   },
   exams: {
     pk: 'id',
@@ -157,6 +159,7 @@ const TABLE_DEFS = {
     ],
     required: ['id', 'examId', 'subjectId', 'correct', 'wrong', 'blank', 'net', 'updatedAt'],
     natural: ['examId', 'subjectId'],
+    immutable: ['examId', 'subjectId'],
   },
   notes: {
     pk: 'topicId',
@@ -164,6 +167,7 @@ const TABLE_DEFS = {
     columns: ['topicId', 'contentHtml', 'plainText', 'updatedAt', 'deletedAt'],
     required: ['topicId', 'contentHtml', 'plainText', 'updatedAt'],
     natural: [],
+    immutable: ['topicId'],
   },
   catalogBooks: {
     pk: 'id',
@@ -199,6 +203,7 @@ const TABLE_DEFS = {
     ],
     required: ['id', 'bookId', 'status', 'createdAt', 'updatedAt'],
     natural: ['bookId'],
+    immutable: ['bookId'],
   },
   activityLogs: {
     pk: 'id',
@@ -225,6 +230,7 @@ const TABLE_DEFS = {
     columns: ['id', 'weekStart', 'note', 'createdAt', 'updatedAt', 'deletedAt'],
     required: ['id', 'weekStart', 'note', 'createdAt', 'updatedAt'],
     natural: ['weekStart'],
+    immutable: ['weekStart'],
   },
   scheduleRows: {
     pk: 'id',
@@ -271,6 +277,7 @@ const TABLE_DEFS = {
     columns: ['id', 'topicId', 'done', 'doneAt', 'updatedAt', 'deletedAt'],
     required: ['id', 'topicId', 'done', 'updatedAt'],
     natural: ['topicId'],
+    immutable: ['topicId'],
   },
   settings: {
     pk: 'userId',
@@ -774,6 +781,15 @@ function buildStoredRow(table, row, userId, updatedAtOverride) {
   return stored;
 }
 
+function preserveImmutable(table, stored, existing) {
+  for (const field of TABLE_DEFS[table].immutable ?? []) {
+    if (Object.prototype.hasOwnProperty.call(existing, field)) {
+      stored[field] = existing[field];
+    }
+  }
+  return stored;
+}
+
 function clampTimestamp(value) {
   const date = new Date(value);
   const limit = new Date(Date.now() + FUTURE_TOLERANCE_MS);
@@ -866,6 +882,7 @@ function applyUpsert(data, userId, table, rowId, row) {
     return conflictRow(table, rowId, existing);
   }
 
+  preserveImmutable(table, stored, existing);
   rows[rowId] = stored;
   appendChange(data, userId, table, rowId, 'upsert');
   return appliedRow(table, rowId, stored, adjusted);
@@ -936,6 +953,7 @@ function applyDelete(data, userId, table, rowId, row, change) {  if (table === '
 
   let canonical;
   if (dbRow !== null && table !== 'activityLogs') {
+    preserveImmutable(table, dbRow, existing);
     canonical = dbRow;
     rows[rowId] = dbRow;
   } else {
@@ -1388,6 +1406,14 @@ function createApp(dataFile, quiet) {
     'POST /api/auth/forgot-password': (context) => {
       const input = readJson(context);
       const email = normalizeEmail(input.email);
+      if (!isValidEmail(email)) {
+        throw new ApiError(
+          422,
+          'validation_failed',
+          'Geçerli bir e-posta adresi girin.',
+        );
+      }
+
       const user = findUserByEmail(data, email);
       if (user !== null) {
         const token = createResetToken(data, user);
@@ -1407,7 +1433,11 @@ function createApp(dataFile, quiet) {
       const password = typeof input.password === 'string' ? input.password : '';
 
       if (token === '') {
-        throw new ApiError(410, 'invalid_token', 'Bağlantı geçersiz veya süresi dolmuş.');
+        throw new ApiError(
+          422,
+          'validation_failed',
+          'Sıfırlama bağlantısı geçersiz.',
+        );
       }
 
       const record = findUsableToken(data.passwordResets, token);

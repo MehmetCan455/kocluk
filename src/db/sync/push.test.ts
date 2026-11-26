@@ -1,6 +1,13 @@
 import Dexie from 'dexie';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import type { ActivityLog, CatalogBook, Subject, Topic, UserBook } from '@/domain/types';
+import type {
+  ActivityLog,
+  CatalogBook,
+  SchedulePageChain,
+  Subject,
+  Topic,
+  UserBook,
+} from '@/domain/types';
 import { CATALOG_SEED, catalogBookId } from '@/data/catalogBooks';
 import { ApiError } from '@/lib/api';
 import { LOCAL_SCOPE } from '@/lib/namespaces';
@@ -177,6 +184,43 @@ test('updatedAt eksik eski satır kuyruk zamanıyla gönderilir', async () => {
     updatedAt: expect.any(String),
   });
   expect(await pendingCount(database)).toBe(0);
+});
+
+test('skippedChunks eksik eski zincir boş diziyle gönderilir', async () => {
+  const chain: SchedulePageChain = {
+    id: 'legacy-chain',
+    weekId: 'week-1',
+    rowId: 'row-1',
+    userBookId: 'book-1',
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 10,
+    chunkCount: 2,
+    slots:
+      '[{"taskId":"t1","slotIndex":0,"chunkIndex":0,"dayIndex":1},' +
+      '{"taskId":"t2","slotIndex":1,"chunkIndex":1,"dayIndex":2}]',
+    skippedChunks: '[]',
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  delete (chain as { skippedChunks?: string }).skippedChunks;
+
+  setApplyingRemote(true);
+  await database.schedulePageChains.add(chain);
+  setApplyingRemote(false);
+  await enqueueChange(database, 'schedulePageChains', chain.id);
+
+  const { client, calls } = recordingClient((body) => appliedResults(body));
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary.applied).toBe(1);
+  expect(calls[0].body.changes[0]).toMatchObject({
+    table: 'schedulePageChains',
+    op: 'upsert',
+    row: { id: 'legacy-chain', skippedChunks: '[]' },
+  });
+  expect(await pendingCount(database)).toBe(0);
+  expect(await database.syncQueue.count()).toBe(0);
 });
 
 test('silinen ve yeniden eklenen raf kitabı tek aktif upsert olarak kuyruğa girer', async () => {

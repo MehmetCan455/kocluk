@@ -378,6 +378,15 @@ async function buildChange(
   ) {
     row.updatedAt = localUpdatedAt;
   }
+  // Chains created before the skip list existed have no field locally. The API
+  // requires it, so a dead-lettered legacy row would stay stuck without this
+  // default; new rows already carry their real list.
+  if (
+    table === 'schedulePageChains' &&
+    (typeof row.skippedChunks !== 'string' || row.skippedChunks === '')
+  ) {
+    row.skippedChunks = '[]';
+  }
   return { table, op: 'upsert', row };
 }
 

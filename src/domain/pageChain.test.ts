@@ -7,6 +7,7 @@ import {
   splitPageRange,
   type PageChainSlot,
 } from './pageChain';
+import type { ScheduleTaskStatus } from './schedule';
 
 function slot(taskId: string, slotIndex: number, chunkIndex: number, dayIndex: number): PageChainSlot {
   return { taskId, slotIndex, chunkIndex, dayIndex };
@@ -79,6 +80,112 @@ describe('assignChainChunks', () => {
     expect(result.assignments.get('t2')).toEqual({ chunkIndex: 1, fromPage: 110, toPage: 119 });
     expect(result.assignments.get('t4')).toEqual({ chunkIndex: 3, fromPage: 130, toPage: 139 });
     expect(result.unscheduled).toEqual([{ chunkIndex: 4, fromPage: 140, toPage: 150 }]);
+  });
+
+  test.each([
+    {
+      name: 'Sal yapıldı (geri): kaçırılan gün yapılınca sıra eski haline döner',
+      slots: [
+        slot('t0', 0, 0, 1),
+        slot('t1', 1, 1, 2),
+        slot('t2', 2, 1, 3),
+        slot('t3', 3, 2, 4),
+        slot('t4', 4, 3, 5),
+      ],
+      statuses: [
+        ['t0', 'done'],
+        ['t1', 'done'],
+        ['t2', 'pending'],
+        ['t3', 'pending'],
+        ['t4', 'pending'],
+      ],
+      expected: [
+        [100, 109],
+        [110, 119],
+        [120, 129],
+        [130, 139],
+        [140, 150],
+      ],
+      unscheduled: [],
+    },
+    {
+      name: 'Çar da yapılmadı: iki kaçırma aynı aralığı tutar, kalanlar kayar',
+      slots: [
+        slot('t0', 0, 0, 1),
+        slot('t1', 1, 1, 2),
+        slot('t2', 2, 1, 3),
+        slot('t3', 3, 2, 4),
+        slot('t4', 4, 3, 5),
+      ],
+      statuses: [
+        ['t0', 'done'],
+        ['t1', 'missed'],
+        ['t2', 'missed'],
+        ['t3', 'pending'],
+        ['t4', 'pending'],
+      ],
+      expected: [
+        [100, 109],
+        [110, 119],
+        [110, 119],
+        [110, 119],
+        [120, 129],
+      ],
+      unscheduled: [
+        [130, 139],
+        [140, 150],
+      ],
+    },
+    {
+      name: 'Per yapıldı (Çar kaçtı): yapılan gün aralığını korur, kalan kayar',
+      slots: [
+        slot('t0', 0, 0, 1),
+        slot('t1', 1, 1, 2),
+        slot('t2', 2, 1, 3),
+        slot('t3', 3, 1, 4),
+        slot('t4', 4, 2, 5),
+      ],
+      statuses: [
+        ['t0', 'done'],
+        ['t1', 'missed'],
+        ['t2', 'missed'],
+        ['t3', 'done'],
+        ['t4', 'pending'],
+      ],
+      expected: [
+        [100, 109],
+        [110, 119],
+        [110, 119],
+        [110, 119],
+        [120, 129],
+      ],
+      unscheduled: [
+        [130, 139],
+        [140, 150],
+      ],
+    },
+  ] satisfies ReadonlyArray<{
+    name: string;
+    slots: PageChainSlot[];
+    statuses: ReadonlyArray<readonly [string, ScheduleTaskStatus]>;
+    expected: ReadonlyArray<readonly [number, number]>;
+    unscheduled: ReadonlyArray<readonly [number, number]>;
+  }>)('$name', ({ slots, statuses, expected, unscheduled }) => {
+    const result = assignChainChunks({
+      ...base,
+      slots,
+      statuses: new Map(statuses),
+    });
+
+    expect(
+      slots.map((item) => {
+        const assignment = result.assignments.get(item.taskId)!;
+        return [assignment.fromPage, assignment.toPage];
+      }),
+    ).toEqual(expected);
+    expect(
+      result.unscheduled.map((chunk) => [chunk.fromPage, chunk.toPage]),
+    ).toEqual(unscheduled);
   });
 
   test('aynı chunkIndex iki görevde geçerlidir', () => {

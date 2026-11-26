@@ -27,6 +27,17 @@ export interface WeekData {
   tasks: ScheduleTask[];
 }
 
+/** A committed status change whose follow-up chain recompute failed. */
+export const PAGE_CHAIN_RECOMPUTE_ERROR =
+  'Zincir güncellenemedi; plan yeniden yüklenecek.';
+
+export class PageChainRecomputeError extends Error {
+  constructor() {
+    super(PAGE_CHAIN_RECOMPUTE_ERROR);
+    this.name = 'PageChainRecomputeError';
+  }
+}
+
 export interface CreateScheduleTaskInput {
   weekId: string;
   rowId: string;
@@ -405,7 +416,7 @@ export async function updateTask(
       }
 
       validateDayIndex(input.dayIndex);
-      const fields = await validateTaskFields(input);
+      const fields = await validateTaskFields(input, { allowArchivedBook: true });
       const now = new Date().toISOString();
       const next: ScheduleTask = {
         id: task.id,
@@ -553,7 +564,7 @@ export async function setTaskStatus(
 
       // Ticking re-validates against the book's current total pages, not the
       // total that was present when the task was created.
-      const fields = await validateTaskFields(task);
+      const fields = await validateTaskFields(task, { allowArchivedBook: true });
       if (existing.length === 0) {
         await replaceTaskActivity(taskId, fields, nowIso);
       }
@@ -573,9 +584,16 @@ export async function setTaskStatus(
   // A chain task's tick/miss releases or keeps its page chunk, so the rest of
   // the chain shifts after the status write commits.
   if (initial) {
-    const chainId = await findChainForTask(initial.weekId, taskId);
-    if (chainId) {
-      await recomputePageChain(chainId, now);
+    try {
+      const chainId = await findChainForTask(initial.weekId, taskId);
+      if (chainId) {
+        await recomputePageChain(chainId, now);
+      }
+    } catch {
+      // The status write already committed. Report a chain-specific failure so
+      // the caller keeps the tick and refreshes the plan instead of showing
+      // "Görev güncellenemedi" for a status that did change.
+      throw new PageChainRecomputeError();
     }
   }
 }

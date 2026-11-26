@@ -22,12 +22,21 @@ function invalidPageNumber(value: number | undefined): boolean {
   return value !== undefined && !Number.isInteger(value);
 }
 
+export interface ValidateTaskFieldsOptions {
+  /**
+   * Existing task flows (edit/tick) must keep working after the shelf book was
+   * archived; only new chain/task additions are rejected.
+   */
+  allowArchivedBook?: boolean;
+}
+
 /**
  * Validates and normalizes the type-specific fields. Blank page inputs must
  * arrive as `undefined`, never `NaN`.
  */
 export async function validateTaskFields(
   input: CreateScheduleTaskInput | UpdateScheduleTaskInput,
+  options: ValidateTaskFieldsOptions = {},
 ): Promise<TaskFields> {
   switch (input.type) {
     case 'book': {
@@ -37,6 +46,9 @@ export async function validateTaskFields(
       const userBook = await db.userBooks.get(input.userBookId);
       if (!userBook || userBook.deletedAt) {
         throw new Error('Raf kitabı bulunamadı');
+      }
+      if (!options.allowArchivedBook && userBook.status === 'archived') {
+        throw new Error('Arşivlenmiş kitap yeni göreve eklenemez.');
       }
       const catalogBook = await db.catalogBooks.get(userBook.bookId);
       if (!catalogBook || catalogBook.deletedAt) {

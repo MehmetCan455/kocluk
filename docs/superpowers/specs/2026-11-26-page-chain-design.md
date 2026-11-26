@@ -426,7 +426,7 @@ Zincir kaydırması aynı sayfa aralığını iki görevde gösterebildiği içi
 3. `npm run build`; `dist/` commit edilir; cPanel deploy.
 4. Canlıda `/api/health` ve test hesabıyla zincir smoke testi.
 5. Beta kullanıcılarına “sayfayı yenileyin / yeni sürümü yükleyin” duyurusu; eski istemciler zincir tablosunu görmez, görevleri normal kullanmaya devam eder.
-6. Sorun olursa önceki commit + önceki migration durumu; yeni tablo additive olduğu için geri dönüşte veri kaybı olmaz (tablo kullanılmadan kalır).
+6. Sorun olursa önceki commit + önceki migration durumu; yeni tablo additive olduğu için sunucu/API/migration geri dönüşünde veri kaybı olmaz (tablo kullanılmadan kalır). Ancak istemci Dexie v9’u açtıktan sonra daha eski (v8) bir istemci `VersionError` ile açılamaz: yeni istemci yayında kalmalıdır, eski istemci dağıtılmamalıdır. Zorunlu geri dönüşte önce kurtarma/yenileme yolu eklenmelidir.
 
 ## 15. Uygulayıcıya kalanlar
 

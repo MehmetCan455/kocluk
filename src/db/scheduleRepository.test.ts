@@ -388,17 +388,28 @@ test('tik geri alınınca kitap yeniden etkin olur ve startedAt korunur', async 
   expect(book?.startedAt).toBe(startedAt);
 });
 
-test('arşivlenmiş kitap görev tiklemesiyle arşivde kalır', async () => {
+test('arşivlenmiş kitabın mevcut görevi tiklenebilir ve arşivde kalır', async () => {
   const userBookId = await seedShelfBook(100);
-  await updateUserBook(userBookId, { status: 'archived' });
   const { weekId, rowId } = await seedWeekAndRow();
   const task = await addTask(bookInput(weekId, rowId, userBookId, 1, 100));
+  await updateUserBook(userBookId, { status: 'archived' });
 
   await toggleTask(task.id, true);
 
   const book = await db.userBooks.get(userBookId);
   expect(book?.status).toBe('archived');
   expect(book?.startedAt).toBeDefined();
+});
+
+test('arşivlenmiş kitap yeni göreve eklenemez', async () => {
+  const userBookId = await seedShelfBook(100);
+  await updateUserBook(userBookId, { status: 'archived' });
+  const { weekId, rowId } = await seedWeekAndRow();
+
+  await expect(
+    addTask(bookInput(weekId, rowId, userBookId, 1, 100)),
+  ).rejects.toThrow('Arşivlenmiş kitap yeni göreve eklenemez.');
+  expect(await db.scheduleTasks.count()).toBe(0);
 });
 
 test('tamamlanan görev başka kitaba taşınınca iki kitabın durumu yenilenir', async () => {

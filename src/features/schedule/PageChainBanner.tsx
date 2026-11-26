@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { PageChainView } from '@/db/pageChainRepository';
@@ -31,6 +31,7 @@ export function PageChainBanner({
   onAddNext,
 }: PageChainBannerProps) {
   const [adding, setAdding] = useState<string | null>(null);
+  const idPrefix = useId();
 
   const visible = chains.filter(
     (view) => !view.incomplete && view.unscheduled.length > 0,
@@ -66,16 +67,25 @@ export function PageChainBanner({
             {visible.map((view) => {
               const label = rowLabelFor(view.chain.rowId, rows);
               const disabled = view.nextEmptyDay === null || adding !== null;
+              const rowDescriptionId = `${idPrefix}-row-${view.chain.id}`;
+              const pagesDescriptionId = `${idPrefix}-pages-${view.chain.id}`;
               return (
                 <li
                   key={view.chain.id}
                   className="flex flex-wrap items-center justify-between gap-3 px-3 py-2"
                 >
                   <div className="min-w-0 space-y-1">
-                    <p className="truncate text-sm font-medium" title={label}>
+                    <p
+                      id={rowDescriptionId}
+                      className="truncate text-sm font-medium"
+                      title={label}
+                    >
                       {label}
                     </p>
-                    <p className="flex flex-wrap gap-x-2 text-sm text-warning">
+                    <p
+                      id={pagesDescriptionId}
+                      className="flex flex-wrap gap-x-2 text-sm text-warning"
+                    >
                       {view.unscheduled.map((chunk) => (
                         <span key={chunk.chunkIndex} className="tabular-nums">
                           {chunk.fromPage}–{chunk.toPage}
@@ -88,6 +98,7 @@ export function PageChainBanner({
                       size="sm"
                       onClick={() => void addNext(view.chain.id)}
                       disabled={disabled}
+                      aria-describedby={`${rowDescriptionId} ${pagesDescriptionId}`}
                     >
                       Sonraki boş güne ekle
                     </Button>

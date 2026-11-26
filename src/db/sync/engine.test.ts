@@ -16,7 +16,12 @@ import {
   syncNow,
   type SyncApiClient,
 } from './engine';
-import { getMeta, setMeta, INITIAL_PULL_DONE_KEY } from './meta';
+import {
+  getMeta,
+  setMeta,
+  INITIAL_PULL_DONE_KEY,
+  SYNC_TABLE_VERSION_KEY,
+} from './meta';
 import {
   enqueueChange,
   installSyncHooks,
@@ -52,6 +57,9 @@ async function createDatabase(
   installSyncHooks(database, 'user-1', { settingsSyncEnabled: initialPullDone });
   if (initialPullDone) {
     await setMeta(database, INITIAL_PULL_DONE_KEY, true);
+    // Existing devices are on the current table set; the backfill test
+    // removes this key to model a client updating from an older build.
+    await setMeta(database, SYNC_TABLE_VERSION_KEY, SYNCED_TABLES.length);
   }
   opened.push(database);
   return database;
@@ -412,6 +420,47 @@ test('ilk pull öncesi settings kuyruğa girmez, sunucuda yoksa pull sonrası g�
   expect(await database.syncQueue.get('settings:user-1')).toMatchObject({
     status: 'pending',
   });
+});
+
+test('eski tablo sürümü bir kez tam çekmeyle yeni tabloları doldurur', async () => {
+  const database = await createDatabase('table-version');
+  // A client that synced before the table was added: first pull done, but no
+  // table version and a cursor already past the new table's changes.
+  await database.syncMeta.delete(SYNC_TABLE_VERSION_KEY);
+  const server = new FakeSyncServer();
+  server.seed('schedulePageChains', {
+    id: 'chain-server',
+    weekId: 'week-server',
+    rowId: 'row-server',
+    userBookId: 'ub-server',
+    startPage: 100,
+    endPage: 150,
+    chunkSize: 10,
+    chunkCount: 5,
+    slots: '[]',
+    createdAt: now(),
+    updatedAt: now(),
+    deletedAt: null,
+  });
+  await setMeta(database, 'lastChangeId', server.cursor);
+
+  const first = await syncNow(database, server, 'csrf');
+
+  expect(first.status).toBe('synced');
+  expect(server.calls).toContain(`GET ${FULL_PATH}`);
+  expect(await database.schedulePageChains.get('chain-server')).toMatchObject({
+    startPage: 100,
+    endPage: 150,
+  });
+  expect(await getMeta(database, SYNC_TABLE_VERSION_KEY)).toBe(
+    SYNCED_TABLES.length,
+  );
+
+  server.calls.length = 0;
+  const second = await syncNow(database, server, 'csrf');
+
+  expect(second.status).toBe('synced');
+  expect(server.calls).not.toContain(`GET ${FULL_PATH}`);
 });
 
 test('iki cihaz aynı sunucu üzerinden senkronlanır', async () => {

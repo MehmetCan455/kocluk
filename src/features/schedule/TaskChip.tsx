@@ -97,7 +97,11 @@ export function TaskChip({
   disabled = false,
 }: TaskChipProps) {
   const label = [title, detail].filter(Boolean).join(' ');
-  const accessibleLabel = `${label}: ${STATUS_TEXT[status]}`;
+  // The chip's aria-label replaces the sr-only badge text, so chain membership
+  // must be part of the accessible name itself.
+  const accessibleLabel = chain
+    ? `${label}: ${STATUS_TEXT[status]}, Sayfa zinciri`
+    : `${label}: ${STATUS_TEXT[status]}`;
   const actionClass =
     'grid h-11 w-11 shrink-0 place-items-center rounded-md text-muted transition-colors disabled:pointer-events-none disabled:opacity-50';
 

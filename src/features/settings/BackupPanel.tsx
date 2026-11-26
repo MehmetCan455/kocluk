@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Toast } from '@/components/ui/Toast';
 import {
-  BACKUP_SCHEMA_VERSION,
   clearAllData,
   exportBackup,
   importBackup,
@@ -35,6 +34,7 @@ const pluralCounts = [
   { key: 'scheduleWeeks', singular: 'plan haftası' },
   { key: 'scheduleRows', singular: 'plan satırı' },
   { key: 'scheduleTasks', singular: 'plan görevi' },
+  { key: 'schedulePageChains', singular: 'sayfa zinciri' },
   { key: 'topicProgress', singular: 'konu durumu' },
   { key: 'scheduleEntries', singular: 'eski çizelge kaydı' },
   { key: 'scheduleFiles', singular: 'eski çizelge dosyası' },
@@ -255,7 +255,7 @@ export function BackupPanel({ onDataChanged }: BackupPanelProps = {}) {
                 </li>
               ))}
             </ul>
-            {preview.summary.schemaVersion < BACKUP_SCHEMA_VERSION ? (
+            {preview.summary.schemaVersion < 6 ? (
               <p className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
                 Bu yedek eski sürüm (v{preview.summary.schemaVersion}). İçe
                 aktarınca eski kitaplar rafa taşınır ve tamamlanmış konular

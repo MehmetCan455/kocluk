@@ -1,8 +1,14 @@
 import { ApiError } from '@/lib/api';
 import type { KoclukDB } from '../db';
-import { STATUS_PATH } from './constants';
-import { INITIAL_PULL_DONE_KEY, SERVER_SETTINGS_SEEN_KEY, getMeta, setMeta } from './meta';
-import { pullAll, type PullApiClient } from './pull';
+import { STATUS_PATH, SYNCED_TABLES } from './constants';
+import {
+  INITIAL_PULL_DONE_KEY,
+  SERVER_SETTINGS_SEEN_KEY,
+  SYNC_TABLE_VERSION_KEY,
+  getMeta,
+  setMeta,
+} from './meta';
+import { fullSync, pullAll, type PullApiClient } from './pull';
 import { pushOnce, type PushApiClient, type PushSummary } from './push';
 import {
   deadCount,
@@ -204,6 +210,16 @@ async function runSync(
 
   try {
     if (initialPullDone) {
+      // A build with fewer synced tables already advanced the cursor past rows
+      // it did not know (for example the page-chain table). One full snapshot
+      // backfills them; the version is stored only on success so a failed
+      // attempt is retried by the normal failure path.
+      const tableVersion = await readNumberMeta(db, SYNC_TABLE_VERSION_KEY);
+      if (tableVersion !== SYNCED_TABLES.length) {
+        await fullSync(db, apiClient);
+        await setMeta(db, SYNC_TABLE_VERSION_KEY, SYNCED_TABLES.length);
+      }
+
       const before = await readCounts(db);
       if (csrfToken !== null && csrfToken !== '' && before.pending > 0) {
         pushed = await pushOnce(db, apiClient, csrfToken);
@@ -221,6 +237,9 @@ async function runSync(
       // entry that still slipped in is stale before the first push.
       await discardSettingsChange(db);
       await setMeta(db, INITIAL_PULL_DONE_KEY, true);
+      // The first pull already read every synced table with the current
+      // version, so no backfill is needed on the next run.
+      await setMeta(db, SYNC_TABLE_VERSION_KEY, SYNCED_TABLES.length);
       setSettingsSyncEnabled(db, true);
 
       // A first pull that found no server settings must publish this device's

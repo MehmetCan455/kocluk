@@ -128,8 +128,9 @@ function taskChip(title: string): HTMLElement {
   return chip;
 }
 
-async function seedPlanRow(): Promise<{ weekStart: string; weekId: string; rowId: string }> {
-  const weekStart = currentWeekStart();
+async function seedPlanRow(
+  weekStart = currentWeekStart(),
+): Promise<{ weekStart: string; weekId: string; rowId: string }> {
   const { week } = await getOrCreateWeek(weekStart);
   const row = await addRow(week.id, 'Matematik');
   return { weekStart, weekId: week.id, rowId: row.id };
@@ -1444,9 +1445,11 @@ test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur'
 });
 
 test('sayfa zinciri paneli beş günü önizler ve oluşturur', async () => {
-  await seedPlanRow();
+  const { weekStart } = await seedPlanRow(
+    shiftWeek(currentWeekStart(), 1),
+  );
   await seedBilgiSarmalBook();
-  await openSchedule();
+  await openSchedule(`/program?week=${weekStart}`);
 
   await screen.findByLabelText('1. satır');
   await userEvent.click(screen.getByRole('button', { name: 'Sayfa zinciri' }));
@@ -1470,10 +1473,16 @@ test('sayfa zinciri paneli beş günü önizler ve oluşturur', async () => {
   await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '150');
 
   expect(within(dialog).getByText('Pzt 100–109')).toBeInTheDocument();
+  expect(within(dialog).getAllByText('10 sayfa')).toHaveLength(4);
+  expect(within(dialog).getByText('11 sayfa')).toBeInTheDocument();
+  expect(
+    within(dialog).getByText('Toplam 51 sayfa · 5 gün'),
+  ).toBeInTheDocument();
   await userEvent.click(
     within(dialog).getByRole('button', { name: 'Zinciri oluştur' }),
   );
 
+  expect(await screen.findByText('Zincir oluşturuldu.')).toBeInTheDocument();
   await waitFor(async () => expect(await db.scheduleTasks.count()).toBe(5));
   expect(await db.schedulePageChains.count()).toBe(1);
   const chunks = (await db.scheduleTasks.toArray())
@@ -1491,6 +1500,23 @@ test('sayfa zinciri paneli beş günü önizler ve oluşturur', async () => {
       screen.queryByRole('dialog', { name: 'Sayfa zinciri oluştur' }),
     ).not.toBeInTheDocument();
   });
+});
+
+test('sayfa zinciri paneli boş rafta kitaplar sayfasına yönlendirir', async () => {
+  await seedPlanRow();
+  await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa zinciri' }));
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Sayfa zinciri oluştur',
+  });
+
+  const booksLink = within(dialog).getByRole('link', { name: 'Kitaplar' });
+  expect(booksLink).toHaveAttribute('href', '/kitaplar');
+  expect(booksLink.closest('p')).toHaveTextContent(
+    'Önce Kitaplar sayfasından rafına kitap ekle.',
+  );
 });
 
 test('sayfa zinciri dolu günü kapatır ve geçersiz aralıkla oluşturmaz', async () => {
@@ -1516,9 +1542,14 @@ test('sayfa zinciri dolu günü kapatır ve geçersiz aralıkla oluşturmaz', as
   );
 
   // Pazartesi already holds a task; every other day stays selectable.
-  expect(
-    within(dialog).getByRole('checkbox', { name: 'Pazartesi' }),
-  ).toBeDisabled();
+  const occupiedDay = within(dialog).getByRole('checkbox', {
+    name: 'Pazartesi',
+  });
+  expect(occupiedDay).toBeDisabled();
+  expect(occupiedDay).toHaveAccessibleDescription(
+    'Dolu günler seçilemez: bu güne zaten bir görev eklenmiş.',
+  );
+  expect(within(dialog).getByText('dolu')).toBeInTheDocument();
   expect(
     within(dialog).getByRole('checkbox', { name: 'Salı' }),
   ).toBeEnabled();
@@ -1550,7 +1581,9 @@ test('sayfa zinciri dolu günü kapatır ve geçersiz aralıkla oluşturmaz', as
 });
 
 test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini söyler', async () => {
-  const { weekId, rowId } = await seedPlanRow();
+  const { weekStart, weekId, rowId } = await seedPlanRow(
+    shiftWeek(currentWeekStart(), 1),
+  );
   const shelfBook = await seedBilgiSarmalBook();
   await createPageChain({
     weekId,
@@ -1567,7 +1600,7 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
     type: 'free',
     title: 'Zincirsiz görev',
   });
-  await openSchedule();
+  await openSchedule(`/program?week=${weekStart}`);
 
   const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
   const titleLines = await screen.findAllByText(chipTitle, {
@@ -1578,14 +1611,16 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
   if (!(mondayChip instanceof HTMLElement)) {
     throw new Error('Pazartesi zincir çipi bulunamadı');
   }
-  // The badge is extra information; the existing accessible name stays.
+  // The parent aria-label overrides the sr-only badge, so chain membership is
+  // part of the accessible name itself.
   expect(within(mondayChip).getByText('Sayfa zinciri')).toBeInTheDocument();
   const accessibleName = mondayChip.getAttribute('aria-label') ?? '';
   expect(accessibleName).toContain(`${chipTitle} Syf. 100–109`);
-  expect(accessibleName).not.toContain('Sayfa zinciri');
+  expect(accessibleName).toContain('Sayfa zinciri');
 
   const normalChip = taskChip('Zincirsiz görev');
   expect(within(normalChip).queryByText('Sayfa zinciri')).not.toBeInTheDocument();
+  expect(normalChip).toHaveAttribute('aria-label', 'Zincirsiz görev: Planlandı');
 
   await userEvent.click(
     within(mondayChip).getByRole('button', {
@@ -1634,9 +1669,11 @@ test('kaçırılan gün planlanmamış aralığı gösterir ve sonraki boş gün
 
   expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
   expect(screen.getByText('140–150')).toBeInTheDocument();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Sonraki boş güne ekle' }),
-  );
+  const addButton = screen.getByRole('button', {
+    name: 'Sonraki boş güne ekle',
+  });
+  expect(addButton).toHaveAccessibleDescription(/Matematik.*140–150/);
+  await userEvent.click(addButton);
 
   await waitFor(async () => {
     const tasks = await db.scheduleTasks.toArray();

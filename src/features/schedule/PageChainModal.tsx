@@ -1,5 +1,6 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
@@ -59,6 +60,7 @@ export function PageChainModal({
   const formId = useId();
   const rowFieldId = useId();
   const daysLabelId = useId();
+  const occupiedHintId = useId();
   const bookId = useId();
   const fromPageId = useId();
   const toPageId = useId();
@@ -73,6 +75,7 @@ export function PageChainModal({
   const [fromPage, setFromPage] = useState('');
   const [toPage, setToPage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const savedRows = rows.filter(
@@ -126,6 +129,7 @@ export function PageChainModal({
   const validationError = pagesTouched ? (pageError ?? rangeError) : null;
   const canCreate =
     !saving &&
+    !created &&
     !loading &&
     selectedRowId !== '' &&
     days.length >= 2 &&
@@ -182,12 +186,28 @@ export function PageChainModal({
         endPage: to,
         days,
       });
-      onClose();
-      await onCreated();
     } catch (caught: unknown) {
       console.error('Sayfa zinciri oluşturulamadı', caught);
       setError(
         messageFor(caught, 'Sayfa zinciri oluşturulamadı. Lütfen tekrar dene.'),
+      );
+      setSaving(false);
+      return;
+    }
+
+    // The chain is committed. Wait for the plan refresh before closing so a
+    // failed refresh is surfaced instead of leaving a silent stale plan; the
+    // created state keeps the form from submitting the same chain twice.
+    setCreated(true);
+    try {
+      await onCreated();
+      onClose();
+    } catch (caught: unknown) {
+      setError(
+        messageFor(
+          caught,
+          'Zincir oluşturuldu ancak plan yenilenemedi. Sayfayı yenile.',
+        ),
       );
       setSaving(false);
     }
@@ -203,14 +223,20 @@ export function PageChainModal({
         }
       }}
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Vazgeç
+        created ? (
+          <Button variant="secondary" onClick={onClose}>
+            Kapat
           </Button>
-          <Button type="submit" form={formId} disabled={!canCreate}>
-            {saving ? 'Oluşturuluyor…' : 'Zinciri oluştur'}
-          </Button>
-        </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>
+              Vazgeç
+            </Button>
+            <Button type="submit" form={formId} disabled={!canCreate}>
+              {saving ? 'Oluşturuluyor…' : 'Zinciri oluştur'}
+            </Button>
+          </>
+        )
       }
     >
       <form
@@ -276,16 +302,25 @@ export function PageChainModal({
                   <input
                     type="checkbox"
                     aria-label={day.label}
+                    aria-describedby={occupied ? occupiedHintId : undefined}
                     checked={checked}
                     onChange={() => toggleDay(day.day)}
                     disabled={saving || selectedRowId === '' || occupied}
                     className="sr-only"
                   />
                   {day.short}
+                  {occupied ? (
+                    <span className="text-[10px] font-normal">dolu</span>
+                  ) : null}
                 </label>
               );
             })}
           </div>
+          {occupiedDays.size > 0 ? (
+            <p id={occupiedHintId} className="text-xs text-muted">
+              Dolu günler seçilemez: bu güne zaten bir görev eklenmiş.
+            </p>
+          ) : null}
           <p className="text-xs text-muted">
             {days.length < 2
               ? 'En az iki gün seç.'
@@ -308,6 +343,18 @@ export function PageChainModal({
             value={selectedBookId}
             onChange={setSelectedBookId}
             disabled={loading || saving}
+            emptyMessage={
+              <>
+                Önce{' '}
+                <Link
+                  to="/kitaplar"
+                  className="font-semibold text-[var(--accent)] underline"
+                >
+                  Kitaplar
+                </Link>{' '}
+                sayfasından rafına kitap ekle.
+              </>
+            }
           />
         </Field>
 
@@ -341,7 +388,7 @@ export function PageChainModal({
         </div>
 
         {chunks ? (
-          <div className="space-y-2">
+          <div className="space-y-2" aria-live="polite">
             <p className="text-sm font-medium text-fg">Günlük dağılım</p>
             <p className="sr-only">
               {`${weekStart} haftasında ${days.length} güne dağıtılıyor.`}
@@ -351,22 +398,32 @@ export function PageChainModal({
                 const day = SCHEDULE_DAYS.find(
                   (item) => item.day === days[index],
                 );
+                const pageCount = chunk.toPage - chunk.fromPage + 1;
                 return (
                   <li
                     key={chunk.chunkIndex}
                     title={
                       day ? dayLabel(weekStart, day.day) : undefined
                     }
-                    className="flex items-center justify-between px-3 py-2 text-sm"
+                    className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
                   >
                     <span className="text-muted">{day?.label}</span>
-                    <span className="font-medium tabular-nums">
-                      {`${day?.short} ${chunk.fromPage}–${chunk.toPage}`}
+                    <span className="flex items-baseline gap-2 tabular-nums">
+                      <span className="font-medium">
+                        {`${day?.short} ${chunk.fromPage}–${chunk.toPage}`}
+                      </span>
+                      <span className="text-xs text-muted">{`${pageCount} sayfa`}</span>
                     </span>
                   </li>
                 );
               })}
             </ul>
+            <p className="text-xs text-muted tabular-nums">
+              {`Toplam ${chunks.reduce(
+                (sum, chunk) => sum + (chunk.toPage - chunk.fromPage + 1),
+                0,
+              )} sayfa · ${days.length} gün`}
+            </p>
           </div>
         ) : null}
 

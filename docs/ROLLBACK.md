@@ -73,6 +73,22 @@ git push origin live-2026-11-22 backup/live-2026-11-22
 Bu komut, kullanıcı onayı olmadan çalıştırılmamalıdır. Yeni kitap/plan kodu
 local preview onayı alınmadan `main`'e push edilmez.
 
+## Dexie v9 istemci geri dönüşü (sayfa zinciri)
+
+Sayfa zinciri sürümü istemci veritabanını Dexie **v9**'a yükseltir. Bir kullanıcı
+v9 istemcisini açtıktan sonra tarayıcıdaki veritabanı v9 şemasındadır; daha eski
+(v8) bir istemci `VersionError` ile açılamaz.
+
+- **Sunucu/API/migration geri dönüşü tek başına güvenlidir.** `004_page_chain.sql`
+  additive olduğu için sunucu tarafını geri almak yerel veriyi bozmaz; yeni
+  istemciyi yayında bırakın.
+- **v9 kullanıldıktan sonra eski istemci dağıtmayın.** `dist/` içeriğini eski bir
+  commit'ten yeniden yayınlamak, açmış kullanıcılarda `VersionError` üretir.
+- Geri dönüş kaçınılmazsa önce bir kurtarma yolu ekleyin: kullanıcıya sayfayı
+  yenilemesini/yeni sürümü yüklemesini söyleyen bir yükleme ekranı veya v9
+  verisini dışa aktarıp temizleyen kontrollü bir göç akışı olmadan eski istemci
+  deploy edilmemelidir.
+
 ## Not
 
 - GitHub Pages yayını `main` dalına push ile tetiklenir; bu kayıt sırasında

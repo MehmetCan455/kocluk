@@ -14,6 +14,13 @@ export const INITIAL_PULL_DONE_KEY = 'initialPullDone';
  */
 export const SERVER_SETTINGS_SEEN_KEY = 'serverSettingsSeen';
 
+/**
+ * Number of synced tables the last pull/full ran with. An older client that
+ * advances its cursor with a smaller table set never pulls the tables added by
+ * a newer build; comparing this version forces one full snapshot after update.
+ */
+export const SYNC_TABLE_VERSION_KEY = 'syncTableVersion';
+
 /** Reads a sync metadata value; missing keys read as undefined. */
 export async function getMeta(database: KoclukDB, key: string): Promise<unknown> {
   const row = await database.syncMeta.get(key);

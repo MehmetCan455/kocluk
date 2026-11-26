@@ -179,10 +179,11 @@ async function buildView(
 
 export async function createPageChain(
   input: CreatePageChainInput,
+  now: Date = new Date(),
 ): Promise<PageChainView> {
   const days = normalizeDays(input.days);
 
-  return db.transaction(
+  const created = await db.transaction(
     'rw',
     [
       db.scheduleTasks,
@@ -225,7 +226,7 @@ export async function createPageChain(
         days.length,
       );
 
-      const now = new Date().toISOString();
+      const timestamp = new Date().toISOString();
       const tasks: ScheduleTask[] = [];
       for (let index = 0; index < days.length; index += 1) {
         const day = days[index];
@@ -245,8 +246,8 @@ export async function createPageChain(
           rowId: row.id,
           dayIndex: day,
           ...fields,
-          createdAt: now,
-          updatedAt: now,
+          createdAt: timestamp,
+          updatedAt: timestamp,
         });
       }
 
@@ -266,8 +267,8 @@ export async function createPageChain(
         chunkSize,
         chunkCount: days.length,
         slots: serializeChainSlots(slots),
-        createdAt: now,
-        updatedAt: now,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
 
       await db.scheduleTasks.bulkAdd(tasks);
@@ -282,6 +283,11 @@ export async function createPageChain(
       );
     },
   );
+
+  // Days that already passed in the selected week are auto-missed, not stored
+  // as missed. Recompute before returning so the fresh chain already shows the
+  // shifted ranges instead of waiting for the next plan load.
+  return (await recomputePageChain(created.chain.id, now)) ?? created;
 }
 
 export async function listWeekPageChains(
@@ -573,6 +579,18 @@ export async function addUnscheduledChunk(
       const slots = parseChainSlots(chain.slots);
       if (!slots) {
         return false;
+      }
+
+      // The chain row can outlive its week/row through a stale tab or a sync
+      // race; appending a task to a tombstoned plan would hide it. Mirror the
+      // create path and refuse instead.
+      const week = await db.scheduleWeeks.get(chain.weekId);
+      if (!week || week.deletedAt) {
+        throw new Error('Hafta bulunamadı');
+      }
+      const row = await db.scheduleRows.get(chain.rowId);
+      if (!row || row.deletedAt || row.weekId !== week.id) {
+        throw new Error('Satır bulunamadı');
       }
 
       // Appending to an incomplete chain would write a task the chain's page

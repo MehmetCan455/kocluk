@@ -175,7 +175,7 @@ export async function pullAll(
  * Full snapshot after a cursor expiry (design §8.3, §8.5).
  *
  * This is a merge, not a wipe: the snapshot includes tombstones, so a row the
- * user deleted on another device arrives with `deletedAt` filled. Only the 13
+ * user deleted on another device arrives with `deletedAt` filled. Only the 14
  * synced stores are written through `applyServerRow`; photos, attachments,
  * practice sessions, schedule files and the legacy tables are never touched.
  * A locally pending row keeps its local version, exactly like pull.

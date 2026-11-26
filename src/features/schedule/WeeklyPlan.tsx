@@ -21,6 +21,7 @@ import {
   deleteRow as deleteScheduleRow,
   deleteTask as deleteScheduleTask,
   getOrCreateWeek,
+  PageChainRecomputeError,
   renameRow,
   saveWeekNote,
   setTaskStatus as setScheduleTaskStatus,
@@ -123,6 +124,7 @@ export function WeeklyPlan() {
   );
   const [taskEditor, setTaskEditor] = useState<TaskEditorTarget | null>(null);
   const [pageChainOpen, setPageChainOpen] = useState(false);
+  const [chainNotice, setChainNotice] = useState<string | null>(null);
   const [taskError, setTaskError] = useState<string | null>(null);
   const [tickMode, setTickMode] = useState(false);
   const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
@@ -627,6 +629,7 @@ export function WeeklyPlan() {
       weekStartRef.current = next;
       setTaskEditor(null);
       setPageChainOpen(false);
+      setChainNotice(null);
       setCopyConfirmOpen(false);
       setDeleteTarget(null);
       setWeekStart(next);
@@ -781,6 +784,16 @@ export function WeeklyPlan() {
       await setScheduleTaskStatus(task.id, status);
       await refreshTasks();
     } catch (caught: unknown) {
+      if (caught instanceof PageChainRecomputeError) {
+        // The tick/miss committed; only the follow-up chain shift failed.
+        setTaskError(caught.message);
+        try {
+          await refreshTasks();
+        } catch {
+          // Keep the chain message; the next plan load retries the reconcile.
+        }
+        return;
+      }
       setTaskError(
         messageFor(caught, 'Görev güncellenemedi. Lütfen tekrar dene.'),
       );
@@ -975,6 +988,17 @@ export function WeeklyPlan() {
             onAddNext={addNextChainChunk}
           />
 
+          <p
+            role="status"
+            aria-live="polite"
+            className={cn(
+              'text-sm',
+              chainNotice ? 'text-success' : 'sr-only',
+            )}
+          >
+            {chainNotice ?? ''}
+          </p>
+
           {taskError ? (
             <p role="alert" className="text-sm text-danger">
               {taskError}
@@ -1053,7 +1077,10 @@ export function WeeklyPlan() {
           rows={rows}
           tasks={tasks}
           onClose={() => setPageChainOpen(false)}
-          onCreated={refreshTasks}
+          onCreated={async () => {
+            await refreshTasks();
+            setChainNotice('Zincir oluşturuldu.');
+          }}
         />
       ) : null}
 

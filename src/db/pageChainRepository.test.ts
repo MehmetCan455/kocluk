@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'vitest';
 import { parseChainSlots } from '@/domain/pageChain';
 import type { CatalogBook, ScheduleRow, ScheduleWeek } from '@/domain/types';
-import { addCatalogBookToShelf } from './bookRepositories';
+import { addCatalogBookToShelf, updateUserBook } from './bookRepositories';
 import { db } from './db';
 import {
   addUnscheduledChunk,
@@ -12,7 +12,12 @@ import {
   reconcileWeekPageChains,
   recomputePageChain,
 } from './pageChainRepository';
-import { addTask, setTaskStatus } from './scheduleRepository';
+import {
+  addTask,
+  deleteRow,
+  deleteTask,
+  setTaskStatus,
+} from './scheduleRepository';
 
 const CREATED_AT = '2026-11-01T09:00:00.000Z';
 const WEEK_START = '2026-12-07';
@@ -55,6 +60,30 @@ beforeEach(async () => {
   rowId = row.id;
 });
 
+async function addWeekRow(
+  weekStart: string,
+  suffix: string,
+): Promise<{ weekId: string; rowId: string }> {
+  const week: ScheduleWeek = {
+    id: `week-${suffix}`,
+    weekStart,
+    note: '',
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+  await db.scheduleWeeks.add(week);
+  const row: ScheduleRow = {
+    id: `row-${suffix}`,
+    weekId: week.id,
+    label: 'Matematik',
+    order: 0,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+  await db.scheduleRows.add(row);
+  return { weekId: week.id, rowId: row.id };
+}
+
 test('beş günlük zincir beş görev ve bir zincir satırı oluşturur', async () => {
   const view = await createPageChain({
     weekId,
@@ -76,6 +105,38 @@ test('beş günlük zincir beş görev ve bir zincir satırı oluşturur', async
   expect(view.slots).toHaveLength(5);
   expect(view.unscheduled).toEqual([]);
   expect(await db.schedulePageChains.count()).toBe(1);
+});
+
+test('geçmiş günleri olan haftada oluşturulan zincir dönmeden kaydırılır', async () => {
+  const past = await addWeekRow('2026-11-16', 'midweek');
+  const now = new Date(2026, 10, 18, 12); // Çarşamba; Pzt/Sal geçmiş
+
+  const view = await createPageChain(
+    {
+      weekId: past.weekId,
+      rowId: past.rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+
+  const byDay = (day: number) =>
+    view.tasks.find((task) => task.dayIndex === day)!;
+  expect(byDay(1)).toMatchObject({ fromPage: 100, toPage: 109 });
+  expect(byDay(2)).toMatchObject({ fromPage: 110, toPage: 119 });
+  expect(byDay(3)).toMatchObject({ fromPage: 100, toPage: 109 });
+  expect(byDay(4)).toMatchObject({ fromPage: 110, toPage: 119 });
+  expect(byDay(5)).toMatchObject({ fromPage: 120, toPage: 129 });
+  expect(view.unscheduled).toEqual([
+    { chunkIndex: 3, fromPage: 130, toPage: 139 },
+    { chunkIndex: 4, fromPage: 140, toPage: 150 },
+  ]);
+  // Auto-missed days stay "unmarked"; the derived status is not persisted.
+  expect(byDay(1).missedAt).toBeUndefined();
+  expect(byDay(2).missedAt).toBeUndefined();
 });
 
 test('dolu günü zincire eklemez', async () => {
@@ -244,6 +305,287 @@ test('durum değişikliği zinciri kaydırır', async () => {
   const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
   expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({ fromPage: 110, toPage: 119 });
   expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 130, toPage: 139 });
+});
+
+test('yapıldı işaretlenen kaçırılmış gün zinciri eski sırasına döndürür, nötr tekrar kaydırır', async () => {
+  const now = new Date(2026, 11, 7, 12); // Haftanın Pazartesi günü, gün içi
+  const view = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+  const first = view.tasks.find((task) => task.dayIndex === 1)!;
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+
+  // Monday is done in the spec table; a pending Monday would take the free
+  // chunk back on the final undo.
+  await setTaskStatus(first.id, 'done', now);
+  await setTaskStatus(second.id, 'missed', now);
+  const shifted = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
+  expect(shifted.find((task) => task.dayIndex === 3)).toMatchObject({
+    fromPage: 110,
+    toPage: 119,
+  });
+
+  await setTaskStatus(second.id, 'done', now);
+  const restored = (
+    await db.scheduleTasks.where('weekId').equals(weekId).toArray()
+  ).sort((left, right) => left.dayIndex - right.dayIndex);
+  expect(restored.map((task) => [task.fromPage, task.toPage])).toEqual([
+    [100, 109],
+    [110, 119],
+    [120, 129],
+    [130, 139],
+    [140, 150],
+  ]);
+
+  await setTaskStatus(second.id, 'pending', now);
+  const cleared = (
+    await db.scheduleTasks.where('weekId').equals(weekId).toArray()
+  ).sort((left, right) => left.dayIndex - right.dayIndex);
+  // The pending Tuesday holds 110–119 again; later days stay in their
+  // original slots and nothing is unscheduled.
+  expect(cleared.map((task) => [task.fromPage, task.toPage])).toEqual([
+    [100, 109],
+    [110, 119],
+    [120, 129],
+    [130, 139],
+    [140, 150],
+  ]);
+  expect(cleared.find((task) => task.dayIndex === 2)?.completedAt).toBeUndefined();
+  expect(cleared.find((task) => task.dayIndex === 2)?.missedAt).toBeUndefined();
+});
+
+test('arka arkaya iki kaçırma bekleyen günleri aynı aralığa toplar', async () => {
+  const now = new Date(2026, 11, 7, 12);
+  const view = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  const third = view.tasks.find((task) => task.dayIndex === 3)!;
+
+  await setTaskStatus(second.id, 'missed', now);
+  // The third day now holds the range shifted from the second day.
+  await setTaskStatus(third.id, 'missed', now);
+
+  const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
+  expect(tasks.find((task) => task.dayIndex === 2)).toMatchObject({
+    fromPage: 110,
+    toPage: 119,
+    missedAt: expect.any(String),
+  });
+  expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({
+    fromPage: 110,
+    toPage: 119,
+    missedAt: expect.any(String),
+  });
+  expect(tasks.find((task) => task.dayIndex === 4)).toMatchObject({
+    fromPage: 110,
+    toPage: 119,
+  });
+  expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({
+    fromPage: 120,
+    toPage: 129,
+  });
+
+  const [listed] = await listWeekPageChains(weekId);
+  expect(listed.unscheduled).toEqual([
+    { chunkIndex: 3, fromPage: 130, toPage: 139 },
+    { chunkIndex: 4, fromPage: 140, toPage: 150 },
+  ]);
+});
+
+test('aynı haftadaki iki zincir birbirinin aralıklarını değiştirmez', async () => {
+  const now = new Date(2026, 11, 7, 12);
+  const row: ScheduleRow = {
+    id: 'row-second-chain',
+    weekId,
+    label: 'Fizik',
+    order: 1,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+  await db.scheduleRows.add(row);
+
+  const first = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+  const second = await createPageChain(
+    {
+      weekId,
+      rowId: row.id,
+      userBookId,
+      startPage: 200,
+      endPage: 219,
+      days: [1, 2],
+    },
+    now,
+  );
+  const firstSecond = first.tasks.find((task) => task.dayIndex === 2)!;
+
+  await setTaskStatus(firstSecond.id, 'missed', now);
+
+  const secondTasks = (
+    await db.scheduleTasks.where('rowId').equals(row.id).toArray()
+  ).sort((left, right) => left.dayIndex - right.dayIndex);
+  expect(secondTasks.map((task) => [task.fromPage, task.toPage])).toEqual([
+    [200, 209],
+    [210, 219],
+  ]);
+  expect(
+    (await listWeekPageChains(weekId))
+      .map((item) => item.chain.id)
+      .sort(),
+  ).toEqual([first.chain.id, second.chain.id].sort());
+});
+
+test('geçmiş gündeki normal görev kaymaz ve otomatik kaçırma saklanmaz', async () => {
+  const past = await addWeekRow('2026-11-16', 'normal-past');
+  const normal = await addTask({
+    weekId: past.weekId,
+    rowId: past.rowId,
+    dayIndex: 1,
+    type: 'book',
+    userBookId,
+    fromPage: 10,
+    toPage: 20,
+  });
+
+  await reconcileWeekPageChains(past.weekId, new Date(2026, 10, 18, 12));
+
+  const stored = await db.scheduleTasks.get(normal.id);
+  expect(stored).toMatchObject({
+    dayIndex: 1,
+    fromPage: 10,
+    toPage: 20,
+  });
+  expect(stored?.missedAt).toBeUndefined();
+});
+
+test('boş gün kalmayınca planlanmamış aralık eklenemez', async () => {
+  const now = new Date(2026, 11, 7, 12);
+  const view = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+  await addTask({ weekId, rowId, dayIndex: 6, type: 'free', title: 'Cumartesi' });
+  await addTask({ weekId, rowId, dayIndex: 7, type: 'free', title: 'Pazar' });
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  await setTaskStatus(second.id, 'missed', now);
+
+  await expect(addUnscheduledChunk(view.chain.id, now)).rejects.toThrow(
+    'Bu haftada boş gün kalmadı.',
+  );
+});
+
+test('zincir görevi ve zincir satırı silinince zincir çözülür', async () => {
+  const first = await createPageChain({
+    weekId,
+    rowId,
+    userBookId,
+    startPage: 100,
+    endPage: 120,
+    days: [1, 2],
+  });
+  await deleteTask(first.tasks[0].id);
+  expect(
+    (await db.schedulePageChains.get(first.chain.id))?.deletedAt,
+  ).toBeTruthy();
+
+  const row: ScheduleRow = {
+    id: 'row-delete-chain',
+    weekId,
+    label: 'Fizik',
+    order: 1,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+  await db.scheduleRows.add(row);
+  const second = await createPageChain({
+    weekId,
+    rowId: row.id,
+    userBookId,
+    startPage: 200,
+    endPage: 220,
+    days: [1, 2],
+  });
+
+  await deleteRow(row.id);
+
+  expect(
+    (await db.schedulePageChains.get(second.chain.id))?.deletedAt,
+  ).toBeTruthy();
+});
+
+test('silinmiş satıra planlanmamış aralık eklenemez', async () => {
+  const now = new Date(2026, 11, 7, 12);
+  const view = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  await setTaskStatus(second.id, 'missed', now);
+  await db.scheduleRows.update(rowId, {
+    deletedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  await expect(addUnscheduledChunk(view.chain.id, now)).rejects.toThrow(
+    'Satır bulunamadı',
+  );
+});
+
+test('arşivlenmiş kitap yeni zincire eklenemez', async () => {
+  await updateUserBook(userBookId, { status: 'archived' });
+
+  await expect(
+    createPageChain({
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 120,
+      days: [1, 2],
+    }),
+  ).rejects.toThrow('Arşivlenmiş kitap yeni göreve eklenemez.');
+  expect(await db.schedulePageChains.count()).toBe(0);
+  expect(await db.scheduleTasks.count()).toBe(0);
 });
 
 test('sonraki boş güne ekle zincire yeni slot ekler', async () => {

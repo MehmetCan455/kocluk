@@ -139,6 +139,23 @@ async function asV5Archive(blob: Blob): Promise<Blob> {
   return zip.generateAsync({ type: 'blob' });
 }
 
+/** A v6 archive predates only the page-chain table, not the book model. */
+async function asV6Archive(blob: Blob): Promise<Blob> {
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(blob));
+  const data = JSON.parse(
+    (await zip.file('veri.json')!.async('string')) as string,
+  ) as Record<string, unknown>;
+  const manifest = JSON.parse(
+    (await zip.file('manifest.json')!.async('string')) as string,
+  ) as { schemaVersion: number; counts: Record<string, number> };
+  delete data.schedulePageChains;
+  manifest.counts.schedulePageChains = 0;
+  manifest.schemaVersion = 6;
+  zip.file('veri.json', JSON.stringify(data));
+  zip.file('manifest.json', JSON.stringify(manifest));
+  return zip.generateAsync({ type: 'blob' });
+}
+
 beforeEach(async () => {
   vi.clearAllMocks();
   await resetDb();
@@ -179,6 +196,19 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
     type: 'free',
     title: 'Panel görevi',
   });
+  await db.schedulePageChains.put({
+    id: 'panel-chain',
+    weekId: week.id,
+    rowId: row.id,
+    userBookId: shelfBook.id,
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 10,
+    chunkCount: 2,
+    slots: '[]',
+    createdAt: '2026-11-16T10:00:00.000Z',
+    updatedAt: '2026-11-16T10:00:00.000Z',
+  });
   await setTopicDone(topic.id, true);
   const backup = await exportBackup();
   await patchSettings({ profileName: 'Mevcut Profil' });
@@ -200,6 +230,7 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
   expect(screen.getByText(/1 plan haftası/)).toBeInTheDocument();
   expect(screen.getByText(/1 plan satırı/)).toBeInTheDocument();
   expect(screen.getByText(/1 plan görevi/)).toBeInTheDocument();
+  expect(screen.getByText(/1 sayfa zinciri/)).toBeInTheDocument();
   expect(screen.getByText(/1 konu durumu/)).toBeInTheDocument();
   expect(screen.queryByText(/eski sürüm/)).not.toBeInTheDocument();
 
@@ -225,6 +256,21 @@ test('eski sürüm yedeğinin özeti rafa taşıma uyarısını gösterir', asyn
   expect(screen.getByText(/eski sürüm \(v5\)/)).toBeInTheDocument();
   expect(screen.getByText(/eski kitaplar rafa taşınır/)).toBeInTheDocument();
   expect(screen.getByText(/1 raf kitabı/)).toBeInTheDocument();
+});
+
+test('v6 yedeği eski kitap taşıma uyarısını göstermez', async () => {
+  await seedPanelData('V6 Yedek');
+  const legacy = await asV6Archive(await exportBackup());
+
+  renderApp('/ayarlar');
+  const input = await screen.findByLabelText('Yedek dosyası seç');
+  await userEvent.upload(input, new File([legacy], 'v6.zip', { type: 'application/zip' }));
+
+  expect(await screen.findByText('Yedek özeti')).toBeInTheDocument();
+  expect(screen.queryByText(/eski sürüm/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByText(/eski kitaplar rafa taşınır/),
+  ).not.toBeInTheDocument();
 });
 
 test('bozuk yedek dosyasını özetlemez ve hata bildirir', async () => {

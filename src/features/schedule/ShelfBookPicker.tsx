@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/components/ui/cn';
 import type { ShelfBook } from '@/db/bookRepositories';
@@ -12,6 +12,8 @@ export interface ShelfBookPickerProps {
   value: string;
   onChange: (userBookId: string) => void;
   disabled?: boolean;
+  /** Optional empty-shelf message, e.g. with a link to the books page. */
+  emptyMessage?: ReactNode;
 }
 
 function bookMeta(book: ShelfBook): string {
@@ -42,6 +44,7 @@ export function ShelfBookPicker({
   value,
   onChange,
   disabled = false,
+  emptyMessage,
 }: ShelfBookPickerProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -95,7 +98,7 @@ export function ShelfBookPicker({
   if (books.length === 0) {
     return (
       <p className="text-sm text-muted">
-        Rafında kitap yok. Kitaplar sayfasından ekleyebilirsin.
+        {emptyMessage ?? 'Rafında kitap yok. Kitaplar sayfasından ekleyebilirsin.'}
       </p>
     );
   }

@@ -239,7 +239,7 @@ test('durum değişikliği zinciri kaydırır', async () => {
   const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3, 4, 5] });
   const second = view.tasks.find((task) => task.dayIndex === 2)!;
 
-  await setTaskStatus(second.id, 'missed');
+  await setTaskStatus(second.id, 'missed', new Date(2026, 11, 1, 12));
 
   const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
   expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({ fromPage: 110, toPage: 119 });
@@ -249,7 +249,7 @@ test('durum değişikliği zinciri kaydırır', async () => {
 test('sonraki boş güne ekle zincire yeni slot ekler', async () => {
   const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3, 4, 5] });
   const second = view.tasks.find((task) => task.dayIndex === 2)!;
-  await setTaskStatus(second.id, 'missed');
+  await setTaskStatus(second.id, 'missed', new Date(2026, 11, 1, 12));
 
   await addUnscheduledChunk(view.chain.id);
 

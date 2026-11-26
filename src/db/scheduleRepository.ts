@@ -15,7 +15,7 @@ import { COPY_NAMESPACE, LOCAL_SCOPE, WEEK_NAMESPACE } from '@/lib/namespaces';
 import { db } from './db';
 import {
   dissolveChainsForRow,
-  dissolvePageChain,
+  dissolveChainsForTask,
   findChainForTask,
   recomputePageChain,
 } from './pageChainRepository';
@@ -390,9 +390,6 @@ export async function updateTask(
   // Editing a planned chain task can change its day/type/book, which the chain
   // can no longer describe; the chain is dissolved only after the edit commits.
   const existing = await db.scheduleTasks.get(taskId);
-  const chainId = existing
-    ? await findChainForTask(existing.weekId, taskId)
-    : null;
 
   await db.transaction(
     'rw',
@@ -469,8 +466,8 @@ export async function updateTask(
     },
   );
 
-  if (chainId) {
-    await dissolvePageChain(chainId);
+  if (existing) {
+    await dissolveChainsForTask(existing.weekId, taskId);
   }
 }
 
@@ -486,6 +483,7 @@ export async function toggleTask(taskId: string, done: boolean): Promise<void> {
 export async function setTaskStatus(
   taskId: string,
   status: ScheduleTaskStatus,
+  now: Date = new Date(),
 ): Promise<void> {
   // The chain lookup needs the task's week; read it before the status write.
   const initial = await db.scheduleTasks.get(taskId);
@@ -577,7 +575,7 @@ export async function setTaskStatus(
   if (initial) {
     const chainId = await findChainForTask(initial.weekId, taskId);
     if (chainId) {
-      await recomputePageChain(chainId);
+      await recomputePageChain(chainId, now);
     }
   }
 }
@@ -588,9 +586,6 @@ export async function setTaskStatus(
  */
 export async function deleteTask(taskId: string): Promise<void> {
   const existing = await db.scheduleTasks.get(taskId);
-  const chainId = existing
-    ? await findChainForTask(existing.weekId, taskId)
-    : null;
 
   await db.transaction('rw', db.scheduleTasks, async () => {
     const task = await db.scheduleTasks.get(taskId);
@@ -601,8 +596,8 @@ export async function deleteTask(taskId: string): Promise<void> {
     await db.scheduleTasks.put({ ...task, deletedAt: now, updatedAt: now });
   });
 
-  if (chainId) {
-    await dissolvePageChain(chainId);
+  if (existing && !existing.deletedAt) {
+    await dissolveChainsForTask(existing.weekId, taskId);
   }
 }
 

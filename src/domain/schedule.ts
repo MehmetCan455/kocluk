@@ -1,4 +1,4 @@
-import { addDays, addWeeks, format, parseISO, startOfWeek } from 'date-fns';
+import { addDays, addWeeks, format, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import type { ActivityLog, ScheduleTask } from './types';
 
@@ -75,11 +75,49 @@ function pageSpan(fromPage: number | undefined, toPage: number | undefined): num
   return toPage - fromPage + 1;
 }
 
+/**
+ * The union length of the active book ranges. A shifted page chain can leave
+ * the same pages on two tasks, and those pages are still planned once.
+ */
+function uniquePlannedPages(tasks: ScheduleTask[]): number {
+  const ranges = tasks
+    .filter(
+      (task) =>
+        task.type === 'book' &&
+        task.fromPage !== undefined &&
+        task.toPage !== undefined &&
+        task.toPage >= task.fromPage,
+    )
+    .map((task) => ({ from: task.fromPage as number, to: task.toPage as number }))
+    .sort((left, right) => left.from - right.from);
+
+  let total = 0;
+  let rangeStart: number | undefined;
+  let rangeEnd = 0;
+  for (const range of ranges) {
+    if (rangeStart === undefined) {
+      rangeStart = range.from;
+      rangeEnd = range.to;
+    } else if (range.from <= rangeEnd + 1) {
+      rangeEnd = Math.max(rangeEnd, range.to);
+    } else {
+      total += rangeEnd - rangeStart + 1;
+      rangeStart = range.from;
+      rangeEnd = range.to;
+    }
+  }
+  if (rangeStart !== undefined) {
+    total += rangeEnd - rangeStart + 1;
+  }
+  return total;
+}
+
 export type ScheduleTaskStatus = 'done' | 'missed' | 'pending';
 
 /**
- * An explicit tick wins. An unmarked task in a past week is derived as missed
- * so old plans show what did not happen; the stored task stays pending.
+ * An explicit tick wins. An unmarked task is derived as missed once its own
+ * calendar day is over, so yesterday's plan never looks still open; the
+ * stored task stays pending.
  */
 export function scheduleTaskStatus(
   task: ScheduleTask,
@@ -92,7 +130,8 @@ export function scheduleTaskStatus(
   if (task.missedAt) {
     return 'missed';
   }
-  return weekStart < weekStartOf(now) ? 'missed' : 'pending';
+  const taskDay = addDays(parseISO(weekStart), task.dayIndex - 1);
+  return startOfDay(taskDay) < startOfDay(now) ? 'missed' : 'pending';
 }
 
 export interface ScheduleTaskContent {
@@ -155,8 +194,10 @@ export function scheduleTaskContent(
 }
 
 /**
- * Counts the active tasks of a week and the pages they plan and read. Deleted
- * tasks and logs never count, and only logs attached to active tasks do.
+ * Counts the active tasks of a week and the pages they plan and read. Planned
+ * pages are the unique union of the book ranges, so overlapping tasks count
+ * once. Deleted tasks and logs never count, and only logs attached to active
+ * tasks do.
  */
 export function summarizeWeek(tasks: ScheduleTask[], logs: ActivityLog[]): WeekSummary {
   const activeTasks = tasks.filter((task) => !task.deletedAt);
@@ -165,11 +206,7 @@ export function summarizeWeek(tasks: ScheduleTask[], logs: ActivityLog[]): WeekS
   return {
     taskCount: activeTasks.length,
     doneCount: activeTasks.filter((task) => Boolean(task.completedAt)).length,
-    plannedPages: activeTasks.reduce(
-      (sum, task) =>
-        task.type === 'book' ? sum + pageSpan(task.fromPage, task.toPage) : sum,
-      0,
-    ),
+    plannedPages: uniquePlannedPages(activeTasks),
     readPages: logs.reduce(
       (sum, entry) =>
         !entry.deletedAt &&

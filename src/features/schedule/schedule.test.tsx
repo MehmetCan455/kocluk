@@ -653,11 +653,13 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   const { weekStart } = await seedPlanRow();
   const shelfBook = await seedBilgiSarmalBook();
   const userBookId = shelfBook.userBook.id;
+  // Bugünün günü seçilir; geçmiş bir gün otomatik "Yapılmadı" olurdu.
+  const today = SCHEDULE_DAYS[todayScheduleDayIndex()];
   const view = await openSchedule();
 
   await screen.findByLabelText('1. satır');
   await userEvent.click(
-    screen.getByRole('button', { name: 'Matematik Çarşamba görev ekle' }),
+    screen.getByRole('button', { name: `Matematik ${today.label} görev ekle` }),
   );
   const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
   await chooseShelfBook(dialog, 'bilgi sarmal', /Bilgi Sarmal/);
@@ -740,7 +742,7 @@ test('kitap görevi eklenir, tiklenir ve ilerleme iki kez sayılmaz', async () =
   // Week/day context and completion state stay in the accessible name.
   expect(planLink).toHaveAccessibleName(new RegExp(weekLabel(weekStart)));
   expect(planLink).toHaveAccessibleName(/Tamamlandı/);
-  expect(planLink).toHaveTextContent(dayLabel(weekStart, 3));
+  expect(planLink).toHaveTextContent(dayLabel(weekStart, today.day));
 });
 
 test('iki yayınevinden kitap varken arama eşleşeni bırakır ve doğru kitap kaydedilir', async () => {
@@ -1100,10 +1102,11 @@ test('görev silme onayı vazgeçilince görev korunur', async () => {
 
 test('tik modu sol tıkla yapıldı, sağ tıkla yapılmadı, tekrar tıkla nötr olur', async () => {
   const { weekId, rowId } = await seedPlanRow();
+  // Bugünün görevi: işaretsizken nötr kalır, geçmiş gün otomatik kaçırılmış olurdu.
   const task = await addTask({
     weekId,
     rowId,
-    dayIndex: 1,
+    dayIndex: todayScheduleDayIndex() + 1,
     type: 'free',
     title: 'Türev tekrarı',
   });
@@ -1179,7 +1182,7 @@ test('normal modda görev çipi tıklanınca durum değiştirmez', async () => {
   const task = await addTask({
     weekId,
     rowId,
-    dayIndex: 1,
+    dayIndex: todayScheduleDayIndex() + 1,
     type: 'free',
     title: 'Türev tekrarı',
   });
@@ -1205,7 +1208,7 @@ test('tik modunda çip klavyeyle yapıldı ve yapılmadı işaretlenir', async (
   const task = await addTask({
     weekId,
     rowId,
-    dayIndex: 1,
+    dayIndex: todayScheduleDayIndex() + 1,
     type: 'free',
     title: 'Türev tekrarı',
   });

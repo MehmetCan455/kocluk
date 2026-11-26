@@ -158,19 +158,30 @@ test('boş hafta özeti sıfır döndürür', () => {
   });
 });
 
-test('görev durumu tamamlanma, kaçırılma ve geçmiş haftadan türetilir', () => {
-  // 22 Kasım 2026 Pazar; geçerli hafta 16 Kasım'da başlar.
+test('planlanan sayfa örtüşen aralıkları benzersiz sayar', () => {
+  const tasks = [
+    task({ id: 'a', dayIndex: 7, fromPage: 10, toPage: 20 }),
+    task({ id: 'b', dayIndex: 7, fromPage: 15, toPage: 25 }),
+    task({ id: 'c', dayIndex: 7, fromPage: 1, toPage: 5 }),
+  ];
+
+  expect(summarizeWeek(tasks, [])).toMatchObject({ plannedPages: 21 });
+});
+
+test('görev durumu gün bazında tamamlanma, kaçırılma ve otomatik kaçırmadan türetilir', () => {
+  // 22 Kasım 2026 Pazar; geçerli hafta 16 Kasım Pazartesi.
   const now = new Date(2026, 10, 22, 12);
-  const done = task({ completedAt: '2026-11-17T10:00:00.000Z' });
+  const done = task({ dayIndex: 5, completedAt: '2026-11-20T10:00:00.000Z' });
 
   expect(scheduleTaskStatus(done, '2026-11-16', now)).toBe('done');
   expect(
-    scheduleTaskStatus(task({ missedAt: '2026-11-17T10:00:00.000Z' }), '2026-11-16', now),
+    scheduleTaskStatus(task({ dayIndex: 5, missedAt: '2026-11-20T10:00:00.000Z' }), '2026-11-16', now),
   ).toBe('missed');
-  expect(scheduleTaskStatus(task(), '2026-11-16', now)).toBe('pending');
-  expect(scheduleTaskStatus(task(), '2026-11-09', now)).toBe('missed');
-  // Gelecek hafta nötr kalır; geçmişte tamamlanan görev yeşil kalır.
-  expect(scheduleTaskStatus(task(), '2026-11-23', now)).toBe('pending');
+  expect(scheduleTaskStatus(task({ dayIndex: 1 }), '2026-11-16', now)).toBe('missed');
+  expect(scheduleTaskStatus(task({ dayIndex: 6 }), '2026-11-16', now)).toBe('missed');
+  expect(scheduleTaskStatus(task({ dayIndex: 7 }), '2026-11-16', now)).toBe('pending');
+  expect(scheduleTaskStatus(task({ dayIndex: 1 }), '2026-11-09', now)).toBe('missed');
+  expect(scheduleTaskStatus(task({ dayIndex: 1 }), '2026-11-23', now)).toBe('pending');
   expect(scheduleTaskStatus(done, '2026-11-09', now)).toBe('done');
 });
 

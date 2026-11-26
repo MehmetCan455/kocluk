@@ -1022,11 +1022,11 @@ test('sayfa zinciri paneli beş günü önizler ve oluşturur', async () => {
   // Use the same ShelfBookPicker interaction as the existing task-modal test:
   // type into “Kitap ara” and click the matching result button.
   await userEvent.type(within(dialog).getByLabelText('Kitap ara'), 'Bilgi Sarmal');
-  await userEvent.click(within(dialog).getByRole('button', { name: /Bilgi Sarmal/ }));
+  await userEvent.click(within(dialog).getByRole('option', { name: /Bilgi Sarmal/ }));
   await userEvent.type(within(dialog).getByLabelText('Başlangıç sayfası'), '100');
   await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '150');
 
-  expect(within(dialog).getByText('Pzt 100-109')).toBeInTheDocument();
+  expect(within(dialog).getByText('Pzt 100–109')).toBeInTheDocument();
   await userEvent.click(within(dialog).getByRole('button', { name: 'Zinciri oluştur' }));
 
   await waitFor(async () => expect(await db.scheduleTasks.count()).toBe(5));
@@ -1149,6 +1149,7 @@ git commit -m "feat(schedule): show unplanned chain ranges"
 
 **Files:**
 - Create: `tests/e2e/page-chain.spec.ts`
+- Modify: `tests/e2e/program.spec.ts` (retarget its single task to today's weekday, because a past day is now auto-missed)
 
 **Interfaces:**
 - Uses `completeOnboarding` from `./helpers`; adds the catalog book via the existing book picker; opens `./#/program`.
@@ -1184,10 +1185,10 @@ test('haftalık planda sayfa zinciri oluşturur, kaçırır ve sonraki güne ekl
     await dialog.getByRole('checkbox', { name: day }).check();
   }
   await dialog.getByLabel('Kitap ara').fill('Hiç Problem Değil');
-  await dialog.getByRole('button', { name: /Hiç Problem Değil/ }).click();
+  await dialog.getByRole('option', { name: /Hiç Problem Değil/ }).click();
   await dialog.getByLabel('Başlangıç sayfası').fill('100');
   await dialog.getByLabel('Bitiş sayfası').fill('150');
-  await expect(dialog.getByText('Pzt 100-109')).toBeVisible();
+  await expect(dialog.getByText('Pzt 100–109')).toBeVisible();
   await dialog.getByRole('button', { name: 'Zinciri oluştur' }).click();
 
   await page.getByRole('button', { name: 'Tik modu' }).click();
@@ -1198,6 +1199,8 @@ test('haftalık planda sayfa zinciri oluşturur, kaçırır ve sonraki güne ekl
   await expect(page.getByText('Planlanmamış sayfalar')).not.toBeVisible();
 
   await page.reload();
+  // Reload resets the plan to the current week; return to the chain week.
+  await page.getByRole('button', { name: 'Sonraki hafta' }).click();
   await page
     .getByRole('group', { name: 'Çizelge günü' })
     .getByRole('button', { name: 'Cmt Cumartesi' })
@@ -1213,7 +1216,7 @@ Expected: FAIL because the UI/flow is missing.
 
 - [ ] **Step 3: Adjust selectors and fix any flow gaps**
 
-Use the actual accessible names from `PageChainModal` and `TaskChip`. Do not change the spec’s behavior; only align selectors. If the mobile day view hides Saturday, switch the day tab to `Cmt` before asserting.
+Use the actual accessible names from `PageChainModal` and `TaskChip`. Do not change the spec’s behavior; only align selectors. If the mobile day view hides Saturday, switch the day tab to `Cmt` before asserting. `tests/e2e/program.spec.ts` must target today’s weekday (not hardcoded Monday) so its pre-tick chip is `Planlandı` under the new derived status; after reload, switch back to that same day.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
@@ -1223,7 +1226,7 @@ Expected: PASS. Then run `npm run test:e2e:auth` and `npm run test:e2e:legacy` t
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/e2e/page-chain.spec.ts
+git add tests/e2e/page-chain.spec.ts tests/e2e/program.spec.ts
 git commit -m "test(e2e): cover page chain flow"
 ```
 

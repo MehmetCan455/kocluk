@@ -76,25 +76,17 @@ function pageSpan(fromPage: number | undefined, toPage: number | undefined): num
 }
 
 /**
- * The union length of the active book ranges. A shifted page chain can leave
- * the same pages on two tasks, and those pages are still planned once.
+ * The union length of one book's inclusive ranges. A shifted page chain can
+ * leave the same pages on two tasks of the same book, and those pages are
+ * still planned once.
  */
-function uniquePlannedPages(tasks: ScheduleTask[]): number {
-  const ranges = tasks
-    .filter(
-      (task) =>
-        task.type === 'book' &&
-        task.fromPage !== undefined &&
-        task.toPage !== undefined &&
-        task.toPage >= task.fromPage,
-    )
-    .map((task) => ({ from: task.fromPage as number, to: task.toPage as number }))
-    .sort((left, right) => left.from - right.from);
+function unionPageSpan(ranges: PageRange[]): number {
+  const sorted = [...ranges].sort((left, right) => left.from - right.from);
 
   let total = 0;
   let rangeStart: number | undefined;
   let rangeEnd = 0;
-  for (const range of ranges) {
+  for (const range of sorted) {
     if (rangeStart === undefined) {
       rangeStart = range.from;
       rangeEnd = range.to;
@@ -108,6 +100,52 @@ function uniquePlannedPages(tasks: ScheduleTask[]): number {
   }
   if (rangeStart !== undefined) {
     total += rangeEnd - rangeStart + 1;
+  }
+  return total;
+}
+
+interface PageRange {
+  from: number;
+  to: number;
+}
+
+/**
+ * Planned pages of the active book tasks. Ranges of the same book union
+ * together, while a task without a `userBookId` stays its own range, so two
+ * different books never absorb each other's page numbers.
+ */
+function uniquePlannedPages(tasks: ScheduleTask[]): number {
+  const rangesByBook = new Map<string, PageRange[]>();
+  const ungrouped: PageRange[] = [];
+
+  for (const task of tasks) {
+    if (
+      task.type !== 'book' ||
+      task.fromPage === undefined ||
+      task.toPage === undefined ||
+      task.toPage < task.fromPage
+    ) {
+      continue;
+    }
+    const range = { from: task.fromPage, to: task.toPage };
+    if (task.userBookId) {
+      const ranges = rangesByBook.get(task.userBookId);
+      if (ranges) {
+        ranges.push(range);
+      } else {
+        rangesByBook.set(task.userBookId, [range]);
+      }
+    } else {
+      ungrouped.push(range);
+    }
+  }
+
+  let total = ungrouped.reduce(
+    (sum, range) => sum + pageSpan(range.from, range.to),
+    0,
+  );
+  for (const ranges of rangesByBook.values()) {
+    total += unionPageSpan(ranges);
   }
   return total;
 }
@@ -195,9 +233,9 @@ export function scheduleTaskContent(
 
 /**
  * Counts the active tasks of a week and the pages they plan and read. Planned
- * pages are the unique union of the book ranges, so overlapping tasks count
- * once. Deleted tasks and logs never count, and only logs attached to active
- * tasks do.
+ * pages union a book's overlapping ranges, so the same book counts once while
+ * different books keep their own pages. Deleted tasks and logs never count,
+ * and only logs attached to active tasks do.
  */
 export function summarizeWeek(tasks: ScheduleTask[], logs: ActivityLog[]): WeekSummary {
   const activeTasks = tasks.filter((task) => !task.deletedAt);

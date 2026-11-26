@@ -160,12 +160,21 @@ test('boş hafta özeti sıfır döndürür', () => {
 
 test('planlanan sayfa örtüşen aralıkları benzersiz sayar', () => {
   const tasks = [
-    task({ id: 'a', dayIndex: 7, fromPage: 10, toPage: 20 }),
-    task({ id: 'b', dayIndex: 7, fromPage: 15, toPage: 25 }),
-    task({ id: 'c', dayIndex: 7, fromPage: 1, toPage: 5 }),
+    task({ id: 'a', dayIndex: 7, userBookId: 'book-1', fromPage: 10, toPage: 20 }),
+    task({ id: 'b', dayIndex: 7, userBookId: 'book-1', fromPage: 15, toPage: 25 }),
+    task({ id: 'c', dayIndex: 7, userBookId: 'book-1', fromPage: 1, toPage: 5 }),
   ];
 
   expect(summarizeWeek(tasks, [])).toMatchObject({ plannedPages: 21 });
+});
+
+test('farklı kitapların sayfaları ayrı sayılır', () => {
+  const tasks = [
+    task({ id: 'a', dayIndex: 7, userBookId: 'book-1', fromPage: 1, toPage: 20 }),
+    task({ id: 'b', dayIndex: 7, userBookId: 'book-2', fromPage: 1, toPage: 20 }),
+  ];
+
+  expect(summarizeWeek(tasks, [])).toMatchObject({ plannedPages: 40 });
 });
 
 test('görev durumu gün bazında tamamlanma, kaçırılma ve otomatik kaçırmadan türetilir', () => {

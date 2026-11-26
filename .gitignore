@@ -8,3 +8,4 @@ test-results/
 *.tsbuildinfo
 scripts/mock-api-data.json
 scripts/mock-api-e2e-data.json
+scripts/mock-api-preview.json

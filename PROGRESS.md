@@ -268,6 +268,7 @@ Migration yalnızca gerektiğinde bir kez:
 - Aynı satırda 2–7 gün seç, tek kitap + başlangıç/bitiş sayfası; aralık `chunkCount` ile bitişik parçalara bölünür.
 - Kırmızı çarpı veya geçmiş gün otomatik “Yapılmadı” bekleyen aralıkları sağa kaydırır; yapılan/kaçırılan aralıklar sabit kalır.
 - Taşan aralık “Planlanmamış sayfalar” uyarısı + “Sonraki boş güne ekle”; hafta dolarsa uyarı.
+- Planlanmamış aralık **Sil** ile yok sayılır (`skippedChunks`); görevler/plan silinmez, cihazlar arasında senkron olur.
 - Ayrı `schedulePageChains` senkron tablosu; `schedule_tasks` şeması değişmedi; eski istemciler görevleri normal kullanır.
 - Plan açılışında reconcile; gece/gün değişiminde visibility ile tekrar.
 - Panel, zincir rozeti, düzenle/sil uyarısı, erişilebilir etiketler.
@@ -360,7 +361,7 @@ Migration yalnızca gerektiğinde bir kez:
 
 ### 2026-11-26 — Sayfa zinciri (feat/page-chain)
 
-- Haftalık plana sayfa zinciri eklendi: seçilen günlere tek kitaptan ardışık sayfa aralıkları, kırmızı çarpı/geçmiş gün kaydırması, planlanmamış aralık uyarısı + sonraki boş güne ekleme.
+- Haftalık plana sayfa zinciri eklendi: seçilen günlere tek kitaptan ardışık sayfa aralıkları, kırmızı çarpı/geçmiş gün kaydırması, planlanmamış aralık uyarısı + sonraki boş güne ekleme, **Sil ile aralığı yok sayma**.
 - Yeni `schedulePageChains` senkron tablosu; `schedule_tasks` değişmedi. Migration `004_page_chain.sql`, TableMap, mock API, yedek v7.
 - Plan açılışında reconcile; yarıda kalan haftada oluşturmada anında recompute; eski istemci için `syncTableVersion` full backfill.
 - Erişilebilir zincir rozeti, panel doğrulamaları, düzenle/sil uyarıları.

@@ -251,7 +251,7 @@ test('sonraki boş güne ekle zincire yeni slot ekler', async () => {
   const second = view.tasks.find((task) => task.dayIndex === 2)!;
   await setTaskStatus(second.id, 'missed', new Date(2026, 11, 1, 12));
 
-  await addUnscheduledChunk(view.chain.id);
+  await addUnscheduledChunk(view.chain.id, new Date(2026, 11, 1, 12));
 
   const chains = await listWeekPageChains(weekId);
   expect(chains[0].slots).toHaveLength(6);
@@ -260,6 +260,23 @@ test('sonraki boş güne ekle zincire yeni slot ekler', async () => {
     toPage: 150,
   });
   expect(chains[0].unscheduled).toEqual([]);
+});
+
+test('eksik zincire yeni gün eklenmez', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3] });
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  await db.scheduleTasks.update(second.id, {
+    deletedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  await expect(
+    addUnscheduledChunk(view.chain.id, new Date(2026, 11, 1, 12)),
+  ).rejects.toThrow('Zincirde eksik görev var; yeni gün eklenemez.');
+
+  const chains = await listWeekPageChains(weekId);
+  expect(chains[0].slots).toHaveLength(3);
+  expect(await db.scheduleTasks.where('weekId').equals(weekId).count()).toBe(3);
 });
 
 test('eksik görev zinciri çözmez, tombstone çözer', async () => {

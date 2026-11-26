@@ -550,7 +550,10 @@ export async function reconcileWeekPageChains(
  * slot in the same row. The task and the new slot land together so an
  * interrupted write cannot leave a task no chain knows about.
  */
-export async function addUnscheduledChunk(chainId: string): Promise<void> {
+export async function addUnscheduledChunk(
+  chainId: string,
+  now: Date = new Date(),
+): Promise<void> {
   const created = await db.transaction(
     'rw',
     [
@@ -570,6 +573,18 @@ export async function addUnscheduledChunk(chainId: string): Promise<void> {
       const slots = parseChainSlots(chain.slots);
       if (!slots) {
         return false;
+      }
+
+      // Appending to an incomplete chain would write a task the chain's page
+      // math cannot account for; ask the user to repair the chain first.
+      const slotTasks = await taskMapFor(slotTaskIds(slots));
+      if (
+        slots.some((slot) => {
+          const task = slotTasks.get(slot.taskId);
+          return !task || Boolean(task.deletedAt);
+        })
+      ) {
+        throw new Error('Zincirde eksik görev var; yeni gün eklenemez.');
       }
 
       const chunk = unscheduledChunks(chunksFor(chain), slots)[0];
@@ -623,6 +638,6 @@ export async function addUnscheduledChunk(chainId: string): Promise<void> {
   );
 
   if (created) {
-    await recomputePageChain(chainId);
+    await recomputePageChain(chainId, now);
   }
 }

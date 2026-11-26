@@ -503,7 +503,7 @@ export async function setTaskStatus(
       const existing = activeLogs(
         await db.activityLogs.where('taskId').equals(taskId).toArray(),
       );
-      const now = new Date().toISOString();
+      const nowIso = new Date().toISOString();
 
       if (status === 'pending') {
         if (!task.completedAt && !task.missedAt && existing.length === 0) {
@@ -511,10 +511,10 @@ export async function setTaskStatus(
         }
         if (existing.length > 0) {
           await db.activityLogs.bulkPut(
-            existing.map((log) => ({ ...log, deletedAt: now })),
+            existing.map((log) => ({ ...log, deletedAt: nowIso })),
           );
         }
-        const next: ScheduleTask = { ...task, updatedAt: now };
+        const next: ScheduleTask = { ...task, updatedAt: nowIso };
         delete next.completedAt;
         delete next.missedAt;
         await db.scheduleTasks.put(next);
@@ -530,13 +530,13 @@ export async function setTaskStatus(
         }
         if (existing.length > 0) {
           await db.activityLogs.bulkPut(
-            existing.map((log) => ({ ...log, deletedAt: now })),
+            existing.map((log) => ({ ...log, deletedAt: nowIso })),
           );
         }
         const next: ScheduleTask = {
           ...task,
-          missedAt: now,
-          updatedAt: now,
+          missedAt: nowIso,
+          updatedAt: nowIso,
         };
         delete next.completedAt;
         await db.scheduleTasks.put(next);
@@ -555,12 +555,12 @@ export async function setTaskStatus(
       // total that was present when the task was created.
       const fields = await validateTaskFields(task);
       if (existing.length === 0) {
-        await replaceTaskActivity(taskId, fields, now);
+        await replaceTaskActivity(taskId, fields, nowIso);
       }
       const next: ScheduleTask = {
         ...task,
-        completedAt: now,
-        updatedAt: now,
+        completedAt: nowIso,
+        updatedAt: nowIso,
       };
       delete next.missedAt;
       await db.scheduleTasks.put(next);

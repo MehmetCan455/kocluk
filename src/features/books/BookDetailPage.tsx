@@ -26,7 +26,7 @@ import {
 } from '@/db/bookRepositories';
 import { listSubjects } from '@/db/repositories';
 import { listBookTasks } from '@/db/scheduleRepository';
-import { dayLabel, weekLabel } from '@/domain/schedule';
+import { dayLabel, scheduleTaskStatus, weekLabel } from '@/domain/schedule';
 import type {
   ActivityLog,
   CatalogBook,
@@ -109,6 +109,12 @@ interface BookPlanTasksProps {
   tasks: Array<ScheduleTask & { weekStart: string }>;
 }
 
+const planTaskStatusLabels = {
+  done: 'Tamamlandı',
+  missed: 'Yapılmadı',
+  pending: 'Planlandı',
+} as const;
+
 function BookPlanTasks({ tasks }: BookPlanTasksProps) {
   return (
     <section className="space-y-3">
@@ -123,7 +129,9 @@ function BookPlanTasks({ tasks }: BookPlanTasksProps) {
         <ul aria-label="Plan görevleri" className="space-y-2">
           {tasks.map((task) => {
             const label = bookTaskLabel(task);
-            const status = task.completedAt ? 'Tamamlandı' : 'Planlandı';
+            // The plan list follows the planner's per-day derived status.
+            const status =
+              planTaskStatusLabels[scheduleTaskStatus(task, task.weekStart)];
             const week = weekLabel(task.weekStart);
             const day = dayLabel(task.weekStart, task.dayIndex);
             return (

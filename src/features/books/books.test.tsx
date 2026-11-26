@@ -14,6 +14,8 @@ import {
   listShelfBooks,
 } from '@/db/bookRepositories';
 import { LEGACY_SHELF_MIGRATED_KEY } from '@/db/legacyMigration';
+import { addRow, addTask, getOrCreateWeek } from '@/db/scheduleRepository';
+import { shiftWeek, weekStartOf } from '@/domain/schedule';
 import {
   createBook,
   deleteBookCascade,
@@ -680,6 +682,31 @@ test('plan görevi ve manuel aralık okunan sayfada birleşir', async () => {
   expect(within(items[1]).getByText('Plan görevi')).toBeInTheDocument();
   expect(screen.getByText('161/400 sayfa okundu')).toBeInTheDocument();
   expect(screen.getByText('Son sayfa: 260')).toBeInTheDocument();
+});
+
+test('geçmiş haftadaki işaretsiz plan görevi Yapılmadı görünür', async () => {
+  const userBook = await addCatalogShelfBook();
+  const pastWeek = shiftWeek(weekStartOf(new Date()), -1);
+  const { week } = await getOrCreateWeek(pastWeek);
+  const row = await addRow(week.id, 'Matematik');
+  await addTask({
+    weekId: week.id,
+    rowId: row.id,
+    dayIndex: 1,
+    type: 'book',
+    userBookId: userBook.id,
+    fromPage: 10,
+    toPage: 20,
+  });
+
+  renderApp(`/kitaplar/${userBook.id}`);
+
+  // The plan list must agree with the planner: an unmarked past day is missed.
+  const planLink = await screen.findByRole('link', {
+    name: /Syf\. 10–20 görevini plana aç/,
+  });
+  expect(planLink).toHaveAccessibleName(/Yapılmadı/);
+  expect(planLink).not.toHaveAccessibleName(/Planlandı/);
 });
 
 test('toplam sayfası olmayan kitapta sayfa aralığı ekleme kapalıdır', async () => {

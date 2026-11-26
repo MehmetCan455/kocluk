@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
 import { db } from '@/db/db';
 import {
@@ -89,6 +89,11 @@ function currentWeekStart(): string {
   return weekStartOf(new Date());
 }
 
+// The day-change test fakes Date only; restore it so no test inherits a clock.
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(async () => {
   await seedOnboarded(FIXTURE, { seedVersion: CURRICULUM.version });
   vi.mocked(compressImage).mockClear();
@@ -154,6 +159,31 @@ async function seedShelfBook(
 
 function seedBilgiSarmalBook(): Promise<ShelfBook> {
   return seedShelfBook('Bilgi Sarmal', 'TYT Matematik Soru Bankası');
+}
+
+/**
+ * Seeds a five-day chain in next week by default, so no day is auto-missed by
+ * the calendar; a test's missed day is always the explicit one it marks.
+ */
+async function seedChainWithFiveDays(
+  weekStart = shiftWeek(currentWeekStart(), 1),
+): Promise<{
+  weekStart: string;
+  weekId: string;
+  rowId: string;
+}> {
+  const { week } = await getOrCreateWeek(weekStart);
+  const row = await addRow(week.id, 'Matematik');
+  const shelfBook = await seedBilgiSarmalBook();
+  await createPageChain({
+    weekId: week.id,
+    rowId: row.id,
+    userBookId: shelfBook.userBook.id,
+    startPage: 100,
+    endPage: 150,
+    days: [1, 2, 3, 4, 5],
+  });
+  return { weekStart, weekId: week.id, rowId: row.id };
 }
 
 /** Types into the picker search box and picks the matching shelf book. */
@@ -1586,5 +1616,118 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
     expect(
       screen.queryByRole('dialog', { name: 'Görevi sil' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+test('kaçırılan gün planlanmamış aralığı gösterir ve sonraki boş güne ekler', async () => {
+  const { weekStart } = await seedChainWithFiveDays();
+  await openSchedule(`/program?week=${weekStart}`);
+
+  const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  await screen.findAllByText(chipTitle, { selector: '[data-line="title"]' });
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+  // user-event has no context-menu helper; the existing tick test uses
+  // fireEvent for the right click as well.
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+  );
+
+  expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
+  expect(screen.getByText('140–150')).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Sonraki boş güne ekle' }),
+  );
+
+  await waitFor(async () => {
+    const tasks = await db.scheduleTasks.toArray();
+    expect(tasks.find((task) => task.dayIndex === 6)).toMatchObject({
+      fromPage: 140,
+      toPage: 150,
+    });
+  });
+  await waitFor(() =>
+    expect(screen.queryByText('Planlanmamış sayfalar')).not.toBeInTheDocument(),
+  );
+});
+
+test('boş gün kalmayınca planlanmamış aralık eklenemez', async () => {
+  const { weekStart, weekId, rowId } = await seedChainWithFiveDays();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: 6,
+    type: 'free',
+    title: 'Cumartesi görevi',
+  });
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: 7,
+    type: 'free',
+    title: 'Pazar görevi',
+  });
+  await openSchedule(`/program?week=${weekStart}`);
+
+  await screen.findByText('Cumartesi görevi', { selector: '[data-line="title"]' });
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+  );
+
+  expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Sonraki boş güne ekle' }),
+  ).toBeDisabled();
+  expect(screen.getByText('Bu haftada boş gün kalmadı.')).toBeInTheDocument();
+});
+
+test('plan açılışında zincirleri reconcile eder', async () => {
+  const { weekStart, weekId } = await seedChainWithFiveDays();
+  const second = (
+    await db.scheduleTasks.where('weekId').equals(weekId).toArray()
+  ).find((task) => task.dayIndex === 2)!;
+  await db.scheduleTasks.update(second.id, {
+    missedAt: new Date().toISOString(),
+  });
+  await openSchedule(`/program?week=${weekStart}`);
+
+  await waitFor(async () => {
+    const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
+    expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({
+      fromPage: 110,
+      toPage: 119,
+    });
+  });
+});
+
+test('gün değişimi görünürlükte zinciri yeniden hesaplar', async () => {
+  // Pazartesi akşamı açılan plan; gün dönünce Salı sabahı geri gelir.
+  vi.setSystemTime(new Date(2026, 10, 23, 20));
+  const { weekId } = await seedChainWithFiveDays(currentWeekStart());
+  await openSchedule();
+
+  const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  await screen.findAllByText(chipTitle, { selector: '[data-line="title"]' });
+  // Pazartesi gecesi zincir henüz kaymadı.
+  const mondayTasks = await db.scheduleTasks
+    .where('weekId')
+    .equals(weekId)
+    .toArray();
+  expect(mondayTasks.find((task) => task.dayIndex === 3)).toMatchObject({
+    fromPage: 120,
+    toPage: 129,
+  });
+
+  vi.setSystemTime(new Date(2026, 10, 24, 9));
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+
+  await waitFor(async () => {
+    const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
+    expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({
+      fromPage: 110,
+      toPage: 119,
+    });
   });
 });

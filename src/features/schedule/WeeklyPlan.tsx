@@ -8,7 +8,12 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/components/ui/cn';
 import { listShelfBooks } from '@/db/bookRepositories';
-import { listWeekPageChains } from '@/db/pageChainRepository';
+import {
+  addUnscheduledChunk,
+  listWeekPageChains,
+  reconcileWeekPageChains,
+  type PageChainView,
+} from '@/db/pageChainRepository';
 import { listAllTopics, listSubjects } from '@/db/repositories';
 import {
   addRow,
@@ -29,8 +34,9 @@ import {
   type ScheduleTaskStatus,
 } from '@/domain/schedule';
 import type { ScheduleTask } from '@/domain/types';
-import { isValidDateString } from '@/lib/date';
+import { isValidDateString, todayLocalDate } from '@/lib/date';
 import { newId } from '@/lib/id';
+import { PageChainBanner } from './PageChainBanner';
 import { PageChainModal } from './PageChainModal';
 import { ScheduleTaskModal } from './ScheduleTaskModal';
 import { todayScheduleDayIndex } from './scheduleDays';
@@ -111,6 +117,7 @@ export function WeeklyPlan() {
   const [rowsSaving, setRowsSaving] = useState(false);
 
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
+  const [chains, setChains] = useState<PageChainView[]>([]);
   const [chainTaskIds, setChainTaskIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -149,6 +156,8 @@ export function WeeklyPlan() {
   const failedRowsSignatureRef = useRef<string | null>(null);
   const failedNoteRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
+  /** Local day of the last chain reconcile; a new day means past days shift. */
+  const lastChainDayRef = useRef(todayLocalDate());
 
   useEffect(() => {
     mountedRef.current = true;
@@ -221,7 +230,7 @@ export function WeeklyPlan() {
   );
 
   /**
-   * Chain membership only drives the badge and the edit/delete warnings, so a
+   * Chains drive the badges, the warnings and the unscheduled banner, so a
    * failed read must never hide the plan itself.
    */
   const refreshChains = useCallback(
@@ -239,9 +248,10 @@ export function WeeklyPlan() {
             }
           }
         }
+        setChains(views);
         setChainTaskIds(ids);
       } catch {
-        // Keep the previous ids; the next refresh retries the read.
+        // Keep the previous views; the next refresh retries the read.
       }
     },
     [],
@@ -527,12 +537,28 @@ export function WeeklyPlan() {
     weekDataRef.current = null;
     setSaveError(null);
     setTaskError(null);
+    setChains([]);
     setChainTaskIds(new Set());
     failedRowsSignatureRef.current = null;
     failedNoteRef.current = null;
 
     getOrCreateWeek(weekStart)
-      .then(async (data) => {
+      .then(async (initial) => {
+        if (!active) {
+          return;
+        }
+        // Days pass while the app is closed; repair the chains before showing
+        // the plan so the visible ranges match the current calendar.
+        try {
+          await reconcileWeekPageChains(initial.week.id);
+          lastChainDayRef.current = todayLocalDate();
+        } catch {
+          // A failed repair must not hide the plan; reads still render.
+        }
+        if (!active) {
+          return;
+        }
+        const data = await getOrCreateWeek(weekStart);
         if (!active) {
           return;
         }
@@ -637,6 +663,40 @@ export function WeeklyPlan() {
     };
   }, [flushNote, flushRows]);
 
+  // A tab left open across midnight must re-derive chain pages when it comes
+  // back. No interval: the local day key decides whether a reconcile is due.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      const dayKey = todayLocalDate();
+      if (dayKey === lastChainDayRef.current) {
+        return;
+      }
+      lastChainDayRef.current = dayKey;
+
+      const forWeekId = weekIdRef.current;
+      if (!forWeekId) {
+        return;
+      }
+      void (async () => {
+        try {
+          await reconcileWeekPageChains(forWeekId);
+        } catch {
+          return;
+        }
+        if (weekIdRef.current === forWeekId) {
+          await refreshTasks();
+        }
+      })();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [refreshTasks]);
+
   const rowsSignatureValue = rowsSignature(rows);
   const rowsDirty = rowsSignatureValue !== rowsSignature(savedRows);
   const noteDirty = note.trim() !== savedNote;
@@ -723,6 +783,18 @@ export function WeeklyPlan() {
     } catch (caught: unknown) {
       setTaskError(
         messageFor(caught, 'Görev güncellenemedi. Lütfen tekrar dene.'),
+      );
+    }
+  }
+
+  async function addNextChainChunk(chainId: string): Promise<void> {
+    setTaskError(null);
+    try {
+      await addUnscheduledChunk(chainId);
+      await refreshTasks();
+    } catch (caught: unknown) {
+      setTaskError(
+        messageFor(caught, 'Sonraki gün eklenemedi. Lütfen tekrar dene.'),
       );
     }
   }
@@ -895,6 +967,12 @@ export function WeeklyPlan() {
             onToggleTickMode={() => setTickMode((current) => !current)}
             chainTaskIds={chainTaskIds}
             onOpenPageChain={() => setPageChainOpen(true)}
+          />
+
+          <PageChainBanner
+            chains={chains}
+            rows={rows}
+            onAddNext={addNextChainChunk}
           />
 
           {taskError ? (

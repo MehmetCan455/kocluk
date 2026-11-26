@@ -824,7 +824,7 @@ public function test_page_chain_fields_map_and_validate(): void
 }
 ```
 
-Also add a rejection for `chunkCount: 8` and a valid 2–7 range.
+Also add a rejection for `chunkCount: 8`, a valid 2–7 range, a `chunkSize: 0` rejection and a `chunkSize: 65536` rejection.
 
 - `MigrationTest`: add `'schedule_page_chains'` to `TABLES` (after `schedule_tasks`) and to `SYNC_TABLES`.
 
@@ -835,11 +835,11 @@ Expected: FAIL because the table/key does not exist.
 
 - [ ] **Step 3: Implement**
 
-- `TableMap.php`: add `RULE_CHUNK_COUNT = ['type' => 'int', 'min' => 2, 'max' => 7]` and the `schedulePageChains` definition:
+- `TableMap.php`: add `RULE_CHUNK_COUNT = ['type' => 'int', 'min' => 2, 'max' => 7]`, `RULE_CHUNK_SIZE = ['type' => 'int', 'min' => 1, 'max' => 65535]` and the `schedulePageChains` definition:
   - columns exactly as above;
   - required all except `deletedAt`;
   - immutable `['id']`; natural `[]`;
-  - rules: IDs for `id/weekId/rowId/userBookId`, `RULE_UNSIGNED` for pages, `RULE_SMALL_UNSIGNED` for `chunkSize`, `RULE_CHUNK_COUNT` for `chunkCount`, `['type'=>'string','maxBytes'=>65535]` for `slots`, timestamps for `createdAt/updatedAt/deletedAt`.
+  - rules: IDs for `id/weekId/rowId/userBookId`, `RULE_UNSIGNED` for pages, `RULE_CHUNK_SIZE` for `chunkSize`, `RULE_CHUNK_COUNT` for `chunkCount`, `self::RULE_TEXT` for `slots`, timestamps for `createdAt/updatedAt/deletedAt`.
 - `004_page_chain.sql`: create the table with the columns above, `PRIMARY KEY (user_id, id)`, `KEY idx_schedule_page_chains_user_week (user_id, week_id)`, `KEY idx_schedule_page_chains_user_server_updated (user_id, server_updated_at)`, InnoDB/utf8mb4.
 
 - [ ] **Step 4: Run tests**
@@ -1275,11 +1275,13 @@ git add dist
 git commit -m "build: refresh dist for page chains"
 ```
 
-Merge `feat/page-chain` into `main`, push, then cPanel → **Update from Remote** → **Deploy HEAD Commit**. Run the migration:
+Merge `feat/page-chain` into `main` and push. **Before** deploying the new API code, run the additive migration against the live database (the currently deployed API ignores the new table):
 
 ```bash
 /usr/local/bin/php /home/u2964068/public_html/api/bin/migrate.php
 ```
+
+Then cPanel → **Update from Remote** → **Deploy HEAD Commit**. The new API code returns 500 on every sync call if `schedule_page_chains` is missing, so the migration must come first.
 
 Verify `https://zirveacademy.com/api/health` returns 200 and run a test-account chain smoke test. Then update `PROGRESS.md` with the session log and deploy notes.
 

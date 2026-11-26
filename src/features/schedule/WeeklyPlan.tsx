@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/components/ui/cn';
 import { listShelfBooks } from '@/db/bookRepositories';
+import { listWeekPageChains } from '@/db/pageChainRepository';
 import { listAllTopics, listSubjects } from '@/db/repositories';
 import {
   addRow,
@@ -30,6 +31,7 @@ import {
 import type { ScheduleTask } from '@/domain/types';
 import { isValidDateString } from '@/lib/date';
 import { newId } from '@/lib/id';
+import { PageChainModal } from './PageChainModal';
 import { ScheduleTaskModal } from './ScheduleTaskModal';
 import { todayScheduleDayIndex } from './scheduleDays';
 import { WeeklyPlanTable, type WeeklyPlanRow } from './WeeklyPlanTable';
@@ -109,7 +111,11 @@ export function WeeklyPlan() {
   const [rowsSaving, setRowsSaving] = useState(false);
 
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
+  const [chainTaskIds, setChainTaskIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [taskEditor, setTaskEditor] = useState<TaskEditorTarget | null>(null);
+  const [pageChainOpen, setPageChainOpen] = useState(false);
   const [taskError, setTaskError] = useState<string | null>(null);
   const [tickMode, setTickMode] = useState(false);
   const [copyConfirmOpen, setCopyConfirmOpen] = useState(false);
@@ -214,6 +220,33 @@ export function WeeklyPlan() {
     [contentFor],
   );
 
+  /**
+   * Chain membership only drives the badge and the edit/delete warnings, so a
+   * failed read must never hide the plan itself.
+   */
+  const refreshChains = useCallback(
+    async (forWeekId: string): Promise<void> => {
+      try {
+        const views = await listWeekPageChains(forWeekId);
+        if (!mountedRef.current || weekIdRef.current !== forWeekId) {
+          return;
+        }
+        const ids = new Set<string>();
+        for (const view of views) {
+          for (const task of view.tasks) {
+            if (!task.deletedAt) {
+              ids.add(task.id);
+            }
+          }
+        }
+        setChainTaskIds(ids);
+      } catch {
+        // Keep the previous ids; the next refresh retries the read.
+      }
+    },
+    [],
+  );
+
   const refreshTasks = useCallback(async (): Promise<void> => {
     const forWeekId = weekIdRef.current;
     if (!forWeekId) {
@@ -223,7 +256,8 @@ export function WeeklyPlan() {
     if (weekIdRef.current === forWeekId) {
       updateTasks(data.tasks);
     }
-  }, [updateTasks]);
+    await refreshChains(forWeekId);
+  }, [updateTasks, refreshChains]);
 
   const refreshAfterCopy = useCallback(async (): Promise<void> => {
     const forWeekId = weekIdRef.current;
@@ -493,11 +527,12 @@ export function WeeklyPlan() {
     weekDataRef.current = null;
     setSaveError(null);
     setTaskError(null);
+    setChainTaskIds(new Set());
     failedRowsSignatureRef.current = null;
     failedNoteRef.current = null;
 
     getOrCreateWeek(weekStart)
-      .then((data) => {
+      .then(async (data) => {
         if (!active) {
           return;
         }
@@ -523,6 +558,12 @@ export function WeeklyPlan() {
         updateNote(data.week.note);
         updateSavedNote(data.week.note.trim());
         updateTasks(data.tasks);
+        // Load the badges before the table becomes visible so a chain task
+        // never flashes without its badge.
+        await refreshChains(data.week.id);
+        if (!active) {
+          return;
+        }
         setHasSaved(data.week.note.trim().length > 0 || nextRows.length > 0);
         setWeekData(data);
         setLoading(false);
@@ -547,6 +588,7 @@ export function WeeklyPlan() {
     updateTasks,
     updateNote,
     updateSavedNote,
+    refreshChains,
   ]);
 
   const changeWeek = useCallback(
@@ -558,6 +600,7 @@ export function WeeklyPlan() {
       flushRows();
       weekStartRef.current = next;
       setTaskEditor(null);
+      setPageChainOpen(false);
       setCopyConfirmOpen(false);
       setDeleteTarget(null);
       setWeekStart(next);
@@ -850,6 +893,8 @@ export function WeeklyPlan() {
             onDeleteTask={requestDeleteTask}
             tickMode={tickMode}
             onToggleTickMode={() => setTickMode((current) => !current)}
+            chainTaskIds={chainTaskIds}
+            onOpenPageChain={() => setPageChainOpen(true)}
           />
 
           {taskError ? (
@@ -911,11 +956,26 @@ export function WeeklyPlan() {
           rowId={taskEditor.rowId}
           dayIndex={taskEditor.dayIndex}
           task={taskEditor.task}
+          chain={
+            taskEditor.task !== undefined &&
+            chainTaskIds.has(taskEditor.task.id)
+          }
           onClose={() => setTaskEditor(null)}
           onSaved={async () => {
             setTaskEditor(null);
             await refreshTasks();
           }}
+        />
+      ) : null}
+
+      {pageChainOpen && weekData ? (
+        <PageChainModal
+          weekId={weekData.week.id}
+          weekStart={weekStart}
+          rows={rows}
+          tasks={tasks}
+          onClose={() => setPageChainOpen(false)}
+          onCreated={refreshTasks}
         />
       ) : null}
 
@@ -989,6 +1049,11 @@ export function WeeklyPlan() {
                 </span>{' '}
                 plan görevinden kaldırılacak.
               </p>
+              {chainTaskIds.has(deleteTarget.task.id) ? (
+                <p className="text-sm text-warning">
+                  Bu görev bir sayfa zincirinin parçası; silmek zinciri çözer.
+                </p>
+              ) : null}
               <p className="text-sm text-muted">
                 Kitap veya konu ilerlemesi silinmez. İlerlemeyi geri almak için
                 görevi silmeden önce tiki kaldır.

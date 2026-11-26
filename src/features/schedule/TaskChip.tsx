@@ -1,5 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Link2, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 import type { ScheduleTaskStatus } from '@/domain/schedule';
 
@@ -12,6 +12,8 @@ export interface TaskChipProps {
   detail: string;
   status: ScheduleTaskStatus;
   tickMode: boolean;
+  /** Marks a task that belongs to a page chain; purely an extra badge. */
+  chain?: boolean;
   onStatusChange: (status: ScheduleTaskStatus) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -88,6 +90,7 @@ export function TaskChip({
   detail,
   status,
   tickMode,
+  chain = false,
   onStatusChange,
   onEdit,
   onDelete,
@@ -148,7 +151,17 @@ export function TaskChip({
       )}
     >
       <span className="sr-only">{STATUS_TEXT[status]}</span>
-      <div className="flex min-h-11 min-w-0 flex-1 items-start py-1">
+      <div className="flex min-h-11 min-w-0 flex-1 items-start gap-1 py-1">
+        {chain ? (
+          <span
+            data-chain="true"
+            title="Sayfa zinciri"
+            className="mt-0.5 shrink-0 text-muted"
+          >
+            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">Sayfa zinciri</span>
+          </span>
+        ) : null}
         <ChipLines
           title={title}
           subtitle={subtitle}

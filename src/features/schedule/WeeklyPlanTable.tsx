@@ -1,4 +1,4 @@
-import { CheckSquare, Plus, Trash2 } from 'lucide-react';
+import { CheckSquare, Link2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -39,6 +39,9 @@ export interface WeeklyPlanTableProps {
   onDeleteTask: (task: ScheduleTask) => void;
   tickMode: boolean;
   onToggleTickMode: () => void;
+  /** Task ids that belong to an active page chain in this week. */
+  chainTaskIds: ReadonlySet<string>;
+  onOpenPageChain: () => void;
   disabled?: boolean;
 }
 
@@ -73,6 +76,8 @@ export function WeeklyPlanTable({
   onDeleteTask,
   tickMode,
   onToggleTickMode,
+  chainTaskIds,
+  onOpenPageChain,
   disabled = false,
 }: WeeklyPlanTableProps) {
   return (
@@ -93,6 +98,14 @@ export function WeeklyPlanTable({
           >
             <CheckSquare className="h-4 w-4" aria-hidden="true" />
             Tik modu
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={onOpenPageChain}
+            disabled={disabled}
+          >
+            <Link2 className="h-4 w-4" aria-hidden="true" />
+            Sayfa zinciri
           </Button>
           <Button
             variant="secondary"
@@ -242,6 +255,7 @@ export function WeeklyPlanTable({
                                 detail={content.detail}
                                 status={scheduleTaskStatus(task, weekStart)}
                                 tickMode={tickMode}
+                                chain={chainTaskIds.has(task.id)}
                                 onStatusChange={(status) =>
                                   onSetTaskStatus(task, status)
                                 }

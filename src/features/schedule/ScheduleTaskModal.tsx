@@ -42,6 +42,8 @@ export interface ScheduleTaskModalProps {
   rowId: string;
   dayIndex: number;
   task?: ScheduleTask;
+  /** The edited task belongs to a page chain, so saving dissolves it. */
+  chain?: boolean;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }
@@ -51,6 +53,7 @@ export function ScheduleTaskModal({
   rowId,
   dayIndex,
   task,
+  chain = false,
   onClose,
   onSaved,
 }: ScheduleTaskModalProps) {
@@ -161,6 +164,11 @@ export function ScheduleTaskModal({
         </>
       }
     >
+      {chain ? (
+        <p className="text-sm text-warning">
+          Bu görev bir sayfa zincirinin parçası. Düzenlersen zincir çözülür.
+        </p>
+      ) : null}
       <form
         id={formId}
         onSubmit={(event) => void handleSubmit(event)}

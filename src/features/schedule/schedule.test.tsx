@@ -18,6 +18,7 @@ import {
   updateUserBook,
   type ShelfBook,
 } from '@/db/bookRepositories';
+import { createPageChain } from '@/db/pageChainRepository';
 import {
   addRow,
   addTask,
@@ -1410,4 +1411,180 @@ test('kitap görevine isteğe bağlı Konu eklenir ve çipte ikinci satır olur'
   });
   expect(subtitles).toHaveLength(1);
   expect(subtitles[0]).toHaveAttribute('title', 'Matematik');
+});
+
+test('sayfa zinciri paneli beş günü önizler ve oluşturur', async () => {
+  await seedPlanRow();
+  await seedBilgiSarmalBook();
+  await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa zinciri' }));
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Sayfa zinciri oluştur',
+  });
+
+  await userEvent.selectOptions(
+    within(dialog).getByLabelText('Satır'),
+    within(dialog).getByRole('option', { name: 'Matematik' }),
+  );
+  for (const day of ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']) {
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: day }));
+  }
+
+  await chooseShelfBook(dialog, 'bilgi sarmal', /Bilgi Sarmal/);
+  await userEvent.type(
+    within(dialog).getByLabelText('Başlangıç sayfası'),
+    '100',
+  );
+  await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '150');
+
+  expect(within(dialog).getByText('Pzt 100–109')).toBeInTheDocument();
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Zinciri oluştur' }),
+  );
+
+  await waitFor(async () => expect(await db.scheduleTasks.count()).toBe(5));
+  expect(await db.schedulePageChains.count()).toBe(1);
+  const chunks = (await db.scheduleTasks.toArray())
+    .sort((left, right) => left.dayIndex - right.dayIndex)
+    .map((task) => [task.fromPage, task.toPage]);
+  expect(chunks).toEqual([
+    [100, 109],
+    [110, 119],
+    [120, 129],
+    [130, 139],
+    [140, 150],
+  ]);
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('dialog', { name: 'Sayfa zinciri oluştur' }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+test('sayfa zinciri dolu günü kapatır ve geçersiz aralıkla oluşturmaz', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  await seedBilgiSarmalBook();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: 1,
+    type: 'free',
+    title: 'Mevcut görev',
+  });
+  await openSchedule();
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa zinciri' }));
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Sayfa zinciri oluştur',
+  });
+  await userEvent.selectOptions(
+    within(dialog).getByLabelText('Satır'),
+    within(dialog).getByRole('option', { name: 'Matematik' }),
+  );
+
+  // Pazartesi already holds a task; every other day stays selectable.
+  expect(
+    within(dialog).getByRole('checkbox', { name: 'Pazartesi' }),
+  ).toBeDisabled();
+  expect(
+    within(dialog).getByRole('checkbox', { name: 'Salı' }),
+  ).toBeEnabled();
+  await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Salı' }));
+  await userEvent.click(
+    within(dialog).getByRole('checkbox', { name: 'Çarşamba' }),
+  );
+
+  await chooseShelfBook(dialog, 'bilgi sarmal', /Bilgi Sarmal/);
+  await userEvent.type(
+    within(dialog).getByLabelText('Başlangıç sayfası'),
+    '50',
+  );
+  await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '100');
+  const createButton = within(dialog).getByRole('button', {
+    name: 'Zinciri oluştur',
+  });
+  expect(createButton).toBeEnabled();
+
+  const toPage = within(dialog).getByLabelText('Bitiş sayfası');
+  await userEvent.clear(toPage);
+  await userEvent.type(toPage, '40');
+  expect(within(dialog).getByRole('alert')).toHaveTextContent(
+    'Başlangıç sayfası bitiş sayfasından büyük olamaz.',
+  );
+  expect(createButton).toBeDisabled();
+  expect(within(dialog).queryByText(/^Pzt /)).not.toBeInTheDocument();
+  expect(await db.schedulePageChains.count()).toBe(0);
+});
+
+test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini söyler', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  const shelfBook = await seedBilgiSarmalBook();
+  await createPageChain({
+    weekId,
+    rowId,
+    userBookId: shelfBook.userBook.id,
+    startPage: 100,
+    endPage: 150,
+    days: [1, 2, 3, 4, 5],
+  });
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: 6,
+    type: 'free',
+    title: 'Zincirsiz görev',
+  });
+  await openSchedule();
+
+  const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  const titleLines = await screen.findAllByText(chipTitle, {
+    selector: '[data-line="title"]',
+  });
+  expect(titleLines).toHaveLength(5);
+  const mondayChip = titleLines[0].closest('[data-status]');
+  if (!(mondayChip instanceof HTMLElement)) {
+    throw new Error('Pazartesi zincir çipi bulunamadı');
+  }
+  // The badge is extra information; the existing accessible name stays.
+  expect(within(mondayChip).getByText('Sayfa zinciri')).toBeInTheDocument();
+  const accessibleName = mondayChip.getAttribute('aria-label') ?? '';
+  expect(accessibleName).toContain(`${chipTitle} Syf. 100–109`);
+  expect(accessibleName).not.toContain('Sayfa zinciri');
+
+  const normalChip = taskChip('Zincirsiz görev');
+  expect(within(normalChip).queryByText('Sayfa zinciri')).not.toBeInTheDocument();
+
+  await userEvent.click(
+    within(mondayChip).getByRole('button', {
+      name: `${chipTitle} Syf. 100–109 görevini düzenle`,
+    }),
+  );
+  const editDialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
+  expect(editDialog).toHaveTextContent(
+    'Bu görev bir sayfa zincirinin parçası. Düzenlersen zincir çözülür.',
+  );
+  await userEvent.click(
+    within(editDialog).getByRole('button', { name: 'Vazgeç' }),
+  );
+
+  await userEvent.click(
+    within(mondayChip).getByRole('button', {
+      name: `${chipTitle} Syf. 100–109 görevini sil`,
+    }),
+  );
+  const deleteDialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
+  expect(deleteDialog).toHaveTextContent(
+    'Bu görev bir sayfa zincirinin parçası; silmek zinciri çözer.',
+  );
+  await userEvent.click(
+    within(deleteDialog).getByRole('button', { name: 'Vazgeç' }),
+  );
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('dialog', { name: 'Görevi sil' }),
+    ).not.toBeInTheDocument();
+  });
 });

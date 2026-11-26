@@ -41,6 +41,7 @@ describe('splitPageRange', () => {
 
   test('parça boyu formülü', () => {
     expect(pageChunkSize(100, 150, 5)).toBe(10);
+    expect(pageChunkSize(100, 119, 2)).toBe(10);
     expect(pageChunkSize(100, 104, 5)).toBe(1);
   });
 });

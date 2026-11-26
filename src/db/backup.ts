@@ -27,6 +27,7 @@ import type {
   PracticeSession,
   ScheduleEntry,
   ScheduleFile,
+  SchedulePageChain,
   ScheduleRow,
   ScheduleTask,
   ScheduleTable,
@@ -54,14 +55,15 @@ import { isStorageQuotaError, STORAGE_QUOTA_MESSAGE } from '@/lib/storageError';
 import { readBlobAsArrayBuffer } from '@/lib/zip';
 
 /**
- * Backup format version. Version 6 adds page-based book tracking and the dated
- * weekly plan; version 5 added the branch exam `kind`/`branch` fields (a
- * missing `kind` is a full exam); version 4 added the manual schedule table,
+ * Backup format version. Version 7 adds the page-chain table that spreads a
+ * book range over the weekly plan; version 6 added page-based book tracking and
+ * the dated weekly plan; version 5 added the branch exam `kind`/`branch` fields
+ * (a missing `kind` is a full exam); version 4 added the manual schedule table,
  * version 3 the weekly program tables, version 2 the blob-free `photoSearch`
  * projection, and version 1 predates it. Missing tables in older archives are
  * read as empty lists.
  */
-export const BACKUP_SCHEMA_VERSION = 6;
+export const BACKUP_SCHEMA_VERSION = 7;
 const MIN_BACKUP_SCHEMA_VERSION = 1;
 export const INVALID_BACKUP_MESSAGE = 'Geçersiz yedek dosyası';
 const NEWER_BACKUP_MESSAGE =
@@ -592,6 +594,23 @@ const scheduleTaskSchema = z.object({
   deletedAt: z.string().optional(),
 });
 
+// Version 7 adds the page chain that spreads one book range over the week.
+const schedulePageChainSchema = z.object({
+  id: idSchema,
+  weekId: idSchema,
+  rowId: idSchema,
+  userBookId: idSchema,
+  startPage: z.number().int().positive(),
+  endPage: z.number().int().positive(),
+  chunkSize: z.number().int().positive(),
+  chunkCount: z.number().int().min(2).max(7),
+  // Serialized slots JSON; malformed contents are tolerated by the readers.
+  slots: z.string().max(65535),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  deletedAt: z.string().optional(),
+});
+
 const topicProgressSchema = z.object({
   id: idSchema,
   topicId: idSchema,
@@ -628,6 +647,8 @@ const backupDataSchema = z.object({
   scheduleWeeks: z.array(scheduleWeekSchema).default([]),
   scheduleRows: z.array(scheduleRowSchema).default([]),
   scheduleTasks: z.array(scheduleTaskSchema).default([]),
+  // v7 adds the page-chain table; a v6 archive reads it as an empty list.
+  schedulePageChains: z.array(schedulePageChainSchema).default([]),
   topicProgress: z.array(topicProgressSchema).default([]),
 });
 
@@ -670,6 +691,7 @@ interface RestoredData {
   scheduleWeeks: ScheduleWeek[];
   scheduleRows: ScheduleRow[];
   scheduleTasks: ScheduleTask[];
+  schedulePageChains: SchedulePageChain[];
   topicProgress: TopicProgress[];
 }
 
@@ -740,6 +762,7 @@ function countTables(data: BackupData): Record<string, number> {
     scheduleWeeks: activeCount(data.scheduleWeeks),
     scheduleRows: activeCount(data.scheduleRows),
     scheduleTasks: activeCount(data.scheduleTasks),
+    schedulePageChains: activeCount(data.schedulePageChains),
     topicProgress: activeCount(data.topicProgress),
   };
 }
@@ -752,9 +775,10 @@ function migrateBackupData(data: BackupData, fromVersion: number): BackupData {
     return { ...data, photoSearch: data.photoSearch ?? [] };
   }
   // The schedule tables added in v3/v4, the exam `kind`/`branch` fields added
-  // in v5 and the page-based book/weekly plan tables added in v6 default
-  // themselves in the schema. The v5→v6 book conversion needs the built
-  // RestoredData, so importBackup owns it via buildNewModelFromLegacy.
+  // in v5, the page-based book/weekly plan tables added in v6 and the page
+  // chains added in v7 default themselves in the schema. The v5→v6 book
+  // conversion needs the built RestoredData, so importBackup owns it via
+  // buildNewModelFromLegacy.
   return data;
 }
 
@@ -811,6 +835,7 @@ function assertUniqueBackupKeys(data: BackupData): void {
   assertUnique('scheduleWeeks.weekStart', data.scheduleWeeks.map((row) => row.weekStart));
   assertUnique('scheduleRows.id', data.scheduleRows.map((row) => row.id));
   assertUnique('scheduleTasks.id', data.scheduleTasks.map((row) => row.id));
+  assertUnique('schedulePageChains.id', data.schedulePageChains.map((row) => row.id));
   assertUnique('topicProgress.id', data.topicProgress.map((row) => row.id));
   assertUnique('topicProgress.topicId', data.topicProgress.map((row) => row.topicId));
 }
@@ -1128,6 +1153,7 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
     scheduleWeeks: data.scheduleWeeks as ScheduleWeek[],
     scheduleRows: data.scheduleRows as ScheduleRow[],
     scheduleTasks: data.scheduleTasks as ScheduleTask[],
+    schedulePageChains: data.schedulePageChains as SchedulePageChain[],
     topicProgress: data.topicProgress as TopicProgress[],
   };
 
@@ -1183,6 +1209,7 @@ export async function importBackup(file: File): Promise<ImportBackupResult> {
       await db.scheduleWeeks.bulkPut(restored.scheduleWeeks);
       await db.scheduleRows.bulkPut(restored.scheduleRows);
       await db.scheduleTasks.bulkPut(restored.scheduleTasks);
+      await db.schedulePageChains.bulkPut(restored.schedulePageChains);
       await db.topicProgress.bulkPut(restored.topicProgress);
       // patchSettings intentionally skips undefined values. Delete the row so
       // a restored device never shows a backup date it did not create.
@@ -1341,6 +1368,7 @@ export async function exportDatabaseBackup(
     scheduleWeeks: await db.scheduleWeeks.toArray(),
     scheduleRows: await db.scheduleRows.toArray(),
     scheduleTasks: await db.scheduleTasks.toArray(),
+    schedulePageChains: await db.schedulePageChains.toArray(),
     topicProgress: await db.topicProgress.toArray(),
   }));
 
@@ -1366,6 +1394,7 @@ export async function exportDatabaseBackup(
     scheduleWeeks,
     scheduleRows,
     scheduleTasks,
+    schedulePageChains,
     topicProgress,
   } = snapshot;
 
@@ -1403,6 +1432,7 @@ export async function exportDatabaseBackup(
     scheduleWeeks,
     scheduleRows,
     scheduleTasks,
+    schedulePageChains,
     topicProgress,
   };
   const counts: Record<string, number> = {
@@ -1427,6 +1457,7 @@ export async function exportDatabaseBackup(
     scheduleWeeks: activeCount(scheduleWeeks),
     scheduleRows: activeCount(scheduleRows),
     scheduleTasks: activeCount(scheduleTasks),
+    schedulePageChains: activeCount(schedulePageChains),
     topicProgress: activeCount(topicProgress),
   };
   const exportedAt = new Date().toISOString();

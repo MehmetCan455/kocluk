@@ -12,6 +12,7 @@ import {
 } from '@/db/backup';
 import { db } from '@/db/db';
 import { addBookPageRange, addCatalogBookToShelf, getShelfBook } from '@/db/bookRepositories';
+import { createPageChain } from '@/db/pageChainRepository';
 import { toPhotoSearch } from '@/db/photoSearch';
 import {
   createBook,
@@ -171,6 +172,15 @@ async function asV5Archive(blob: Blob): Promise<Blob> {
   });
 }
 
+/** Turns a current archive into a v6 archive: no v7 page-chain table. */
+async function asV6Archive(blob: Blob): Promise<Blob> {
+  return mutateZip(blob, async (_zip, data, manifest) => {
+    delete data.schedulePageChains;
+    manifest.counts.schedulePageChains = 0;
+    manifest.schemaVersion = 6;
+  });
+}
+
 async function fullSeed() {
   await seedOnboarded(seed, {
     profileName: 'Ada',
@@ -251,7 +261,7 @@ test('yedek tüm tabloları ve blob dosyalarını kayıpsız geri yükler', asyn
 
   expect(manifest).toMatchObject({ app: 'kocluk', schemaVersion: BACKUP_SCHEMA_VERSION });
   // The manifest version is part of the archive contract; pin the literal too.
-  expect(manifest.schemaVersion).toBe(6);
+  expect(manifest.schemaVersion).toBe(7);
   expect(manifest.counts.photos).toBe(1);
   expect(manifest.counts.photoSearch).toBe(1);
   expect(data.photoSearch).toHaveLength(1);
@@ -1164,7 +1174,7 @@ test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yükl
     Array<Record<string, unknown>>
   >;
 
-  expect(manifest.schemaVersion).toBe(6);
+  expect(manifest.schemaVersion).toBe(7);
   expect(manifest.counts).toMatchObject({
     catalogBooks: 1,
     userBooks: 1,
@@ -1229,6 +1239,89 @@ test('kitap, sayfa kaydı ve haftalık plan v6 yedeğinden kayıpsız geri yükl
   expect(await db.topicProgress.get(storedProgress.id)).toEqual(storedProgress);
   expect((await getShelfBook(userBook.id))?.progress.readPages).toBe(40);
   expect(await getTopicDone(seeded.topic.id)).toBe(true);
+});
+
+test('sayfa zinciri v7 yedeğinden slotları ve parça sayısıyla geri yüklenir', async () => {
+  const seeded = await fullSeed();
+  const createdAt = '2026-11-01T09:00:00.000Z';
+  await db.catalogBooks.add({
+    id: 'katalog-zincir-1',
+    title: 'TYT Geometri Soru Bankası',
+    publisher: 'Bilgi Sarmal',
+    exam: 'TYT',
+    subjectSlug: 'matematik',
+    totalPages: 300,
+    edition: '2026',
+    createdAt,
+    updatedAt: createdAt,
+  });
+  const userBook = await addCatalogBookToShelf('katalog-zincir-1');
+  const { week } = await getOrCreateWeek('2026-11-16');
+  const row = await addRow(week.id, 'Geometri', seeded.subject.id);
+  const view = await createPageChain({
+    weekId: week.id,
+    rowId: row.id,
+    userBookId: userBook.id,
+    startPage: 1,
+    endPage: 40,
+    days: [1, 3, 5],
+  });
+  const storedChain = (await db.schedulePageChains.get(view.chain.id))!;
+  expect(storedChain.chunkCount).toBe(3);
+  expect(storedChain.slots).not.toBe('');
+
+  const exported = await exportBackup();
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(exported));
+  const manifest = JSON.parse(
+    (await zip.file('manifest.json')!.async('string')) as string,
+  ) as BackupManifest;
+  const data = JSON.parse((await zip.file('veri.json')!.async('string')) as string) as Record<
+    string,
+    Array<Record<string, unknown>>
+  >;
+
+  expect(manifest.schemaVersion).toBe(7);
+  expect(manifest.counts).toMatchObject({ schedulePageChains: 1 });
+  expect(data.schedulePageChains).toHaveLength(1);
+  expect(data.schedulePageChains[0]).toMatchObject({
+    id: storedChain.id,
+    weekId: week.id,
+    rowId: row.id,
+    userBookId: userBook.id,
+    startPage: 1,
+    endPage: 40,
+    chunkCount: 3,
+    slots: storedChain.slots,
+  });
+
+  await resetDb();
+  const imported = await importBackup(new File([exported], 'zincir.zip'));
+
+  expect(imported.counts).toMatchObject({ schedulePageChains: 1 });
+  const restoredChain = await db.schedulePageChains.get(storedChain.id);
+  expect(restoredChain).toEqual(storedChain);
+  expect(restoredChain?.chunkCount).toBe(3);
+  expect(restoredChain?.slots).toBe(storedChain.slots);
+});
+
+test('v6 yedeği sayfa zinciri tablosunu boş yükler', async () => {
+  await fullSeed();
+  const exported = await exportBackup();
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(exported));
+  const data = JSON.parse((await zip.file('veri.json')!.async('string')) as string) as Record<
+    string,
+    unknown[]
+  >;
+  // A v7 archive always declares the table, even when it holds no rows.
+  expect(data.schedulePageChains).toEqual([]);
+
+  const legacy = await asV6Archive(exported);
+  await resetDb();
+  const imported = await importBackup(new File([legacy], 'v6-zincir.zip'));
+
+  expect(imported.schemaVersion).toBe(6);
+  expect(imported.counts).toMatchObject({ schedulePageChains: 0 });
+  expect(await db.schedulePageChains.count()).toBe(0);
 });
 
 test('v6 yedeği yapılmadı işaretini ve konu başlığını korur', async () => {

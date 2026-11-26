@@ -143,7 +143,7 @@ Matematik · 140-150   [Sonraki boş güne ekle]
 - `sayfaSayısı = bitiş - başlangıç + 1`.
 - `günSayısı = seçilen gün sayısı`; bu sayı zincirde **`chunkCount`** olarak saklanır. Slot sayısı sonradan artsa bile parça listesi bu sayıdan üretilir.
 - Geçerlilik: `sayfaSayısı >= günSayısı` (her güne en az 1 sayfa).
-- `parçaBoyu = max(1, floor((bitiş - başlangıç) / günSayısı))`.
+- `parçaBoyu = max(1, floor(((bitiş - başlangıç) + 1) / günSayısı))`. Sayfa aralığı **bitiş dahil** olduğu için pay `+1`’dir; son parça kalanı üstlenir.
 - `i` numaralı gün (0'dan başlar):
   - `baş = başlangıç + i × parçaBoyu`
   - `bit = i === günSayısı - 1 ? bitiş : min(başlangıç + (i + 1) × parçaBoyu - 1, bitiş)`

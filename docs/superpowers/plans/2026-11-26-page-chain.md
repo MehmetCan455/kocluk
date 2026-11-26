@@ -158,6 +158,7 @@ describe('splitPageRange', () => {
 
   test('parça boyu formülü', () => {
     expect(pageChunkSize(100, 150, 5)).toBe(10);
+    expect(pageChunkSize(100, 119, 2)).toBe(10);
     expect(pageChunkSize(100, 104, 5)).toBe(1);
   });
 });
@@ -266,7 +267,7 @@ Expected: FAIL with "Cannot find module './pageChain'".
 
 - [ ] **Step 3: Implement `src/domain/pageChain.ts`**
 
-Implement the exported signatures. `pageChunkSize` uses `Math.max(1, Math.floor((endPage - startPage) / chunkCount))`. `splitPageRange` validates positive integers, `2 <= chunkCount <= 7`, `endPage > startPage`, and `endPage - startPage + 1 >= chunkCount`; the last chunk ends at `endPage`. `assignChainChunks` verifies `chunkSize === pageChunkSize(...)`, then:
+Implement the exported signatures. `pageChunkSize` uses `Math.max(1, Math.floor((endPage - startPage + 1) / chunkCount))` (inclusive page span; the last chunk absorbs the remainder). `splitPageRange` validates positive integers, `2 <= chunkCount <= 7`, `endPage > startPage`, and `endPage - startPage + 1 >= chunkCount`; the last chunk ends at `endPage`. `assignChainChunks` verifies `chunkSize === pageChunkSize(...)`, then:
 - `done` slots consume their valid `chunkIndex`;
 - `missed` slots keep their valid `chunkIndex` but do not consume/reserve it;
 - `pending` slots get the lowest chunk not consumed/reserved and reserve it; a missing status defaults to `pending`;

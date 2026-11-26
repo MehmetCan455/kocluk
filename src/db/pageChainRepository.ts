@@ -2,6 +2,7 @@ import {
   assignChainChunks,
   pageChunkSize,
   parseChainSlots,
+  parseSkippedChunks,
   serializeChainSlots,
   splitPageRange,
   type PageChainChunk,
@@ -28,6 +29,8 @@ export interface PageChainView {
   tasks: ScheduleTask[];
   chunks: PageChainChunk[];
   unscheduled: PageChainChunk[];
+  /** Chunk indexes the user marked as ignored; never planned again. */
+  skippedChunks: ReadonlySet<number>;
   incomplete: boolean;
   nextEmptyDay: number | null;
 }
@@ -114,13 +117,16 @@ function chunksFor(chain: SchedulePageChain): PageChainChunk[] {
   return splitPageRange(chain.startPage, chain.endPage, chain.chunkCount);
 }
 
-/** A chunk with no slot holding it is unscheduled; a missed slot keeps its chunk. */
+/** A chunk with no slot holding it is unscheduled; skipped chunks are ignored. */
 function unscheduledChunks(
   chunks: PageChainChunk[],
   slots: PageChainSlot[],
+  skipped: ReadonlySet<number> = new Set(),
 ): PageChainChunk[] {
   const assigned = new Set(slots.map((slot) => slot.chunkIndex));
-  return chunks.filter((chunk) => !assigned.has(chunk.chunkIndex));
+  return chunks.filter(
+    (chunk) => !assigned.has(chunk.chunkIndex) && !skipped.has(chunk.chunkIndex),
+  );
 }
 
 /** The first free day after the last slot, within the chain's own plan row. */
@@ -156,6 +162,7 @@ async function buildView(
   tasks: Map<string, ScheduleTask>,
   chunks: PageChainChunk[],
   unscheduled: PageChainChunk[],
+  skippedChunks: ReadonlySet<number>,
 ): Promise<PageChainView> {
   const activeTasks = slots.flatMap((slot) => {
     const task = tasks.get(slot.taskId);
@@ -172,6 +179,7 @@ async function buildView(
     tasks: sortTasks(activeTasks),
     chunks,
     unscheduled,
+    skippedChunks,
     incomplete,
     nextEmptyDay: await nextEmptyDay(chain, slots),
   };
@@ -267,6 +275,7 @@ export async function createPageChain(
         chunkSize,
         chunkCount: days.length,
         slots: serializeChainSlots(slots),
+        skippedChunks: '[]',
         createdAt: timestamp,
         updatedAt: timestamp,
       };
@@ -280,6 +289,7 @@ export async function createPageChain(
         await taskMapFor(slotTaskIds(slots)),
         chunks,
         [],
+        new Set(),
       );
     },
   );
@@ -318,13 +328,15 @@ export async function listWeekPageChains(
       continue;
     }
     const chunks = chunksFor(chain);
+    const skippedChunks = parseSkippedChunks(chain.skippedChunks, chain.chunkCount);
     views.push(
       await buildView(
         chain,
         slots,
         await taskMapFor(slotTaskIds(slots)),
         chunks,
-        unscheduledChunks(chunks, slots),
+        unscheduledChunks(chunks, slots, skippedChunks),
+        skippedChunks,
       ),
     );
   }
@@ -367,6 +379,7 @@ export async function recomputePageChain(
     statuses.set(task.id, scheduleTaskStatus(task, week.weekStart, now));
   }
 
+  const skippedChunks = parseSkippedChunks(chain.skippedChunks, chain.chunkCount);
   const result = assignChainChunks({
     slots,
     statuses,
@@ -374,6 +387,7 @@ export async function recomputePageChain(
     endPage: chain.endPage,
     chunkSize: chain.chunkSize,
     chunkCount: chain.chunkCount,
+    skipped: skippedChunks,
   });
 
   const timestamp = new Date().toISOString();
@@ -414,6 +428,9 @@ export async function recomputePageChain(
     ? {
         ...chain,
         slots: serializeChainSlots(nextSlots),
+        // Rows created before the skip list existed still need the NOT NULL
+        // column when a recompute queues them for sync.
+        skippedChunks: chain.skippedChunks ?? '[]',
         updatedAt: timestamp,
       }
     : chain;
@@ -445,6 +462,7 @@ export async function recomputePageChain(
     nextTasks,
     result.chunks,
     result.unscheduled,
+    skippedChunks,
   );
 }
 
@@ -613,7 +631,8 @@ export async function addUnscheduledChunk(
         throw new Error('Zincirde eksik görev var; yeni gün eklenemez.');
       }
 
-      const chunk = unscheduledChunks(chunksFor(chain), slots)[0];
+      const skippedChunks = parseSkippedChunks(chain.skippedChunks, chain.chunkCount);
+      const chunk = unscheduledChunks(chunksFor(chain), slots, skippedChunks)[0];
       if (!chunk) {
         return false;
       }
@@ -657,6 +676,7 @@ export async function addUnscheduledChunk(
       await db.schedulePageChains.put({
         ...chain,
         slots: serializeChainSlots(nextSlots),
+        skippedChunks: chain.skippedChunks ?? '[]',
         updatedAt: timestamp,
       });
       return true;
@@ -666,4 +686,48 @@ export async function addUnscheduledChunk(
   if (created) {
     await recomputePageChain(chainId, now);
   }
+}
+
+/**
+ * Ignores the first unscheduled range without touching the plan: the chunk is
+ * recorded in `skippedChunks`, the chain row and its tasks stay, and only the
+ * pending assignment is recomputed so later days can move up.
+ */
+export async function skipUnscheduledChunk(
+  chainId: string,
+  now: Date = new Date(),
+): Promise<void> {
+  const chain = await db.schedulePageChains.get(chainId);
+  if (!chain || chain.deletedAt) {
+    return;
+  }
+
+  const view = (await listWeekPageChains(chain.weekId)).find(
+    (item) => item.chain.id === chainId,
+  );
+  // A chain with a missing task has unknown page math; skipping a range would
+  // hide the repair warning. Leave it for the user to resolve first.
+  if (!view || view.incomplete) {
+    return;
+  }
+
+  const chunk = view.unscheduled[0];
+  if (!chunk) {
+    return;
+  }
+
+  const skippedChunks = parseSkippedChunks(
+    view.chain.skippedChunks,
+    view.chain.chunkCount,
+  );
+  const nextSkipped = [...skippedChunks, chunk.chunkIndex].sort(
+    (left, right) => left - right,
+  );
+  await db.schedulePageChains.put({
+    ...view.chain,
+    skippedChunks: JSON.stringify(nextSkipped),
+    updatedAt: new Date().toISOString(),
+  });
+
+  await recomputePageChain(chainId, now);
 }

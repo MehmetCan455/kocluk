@@ -11,6 +11,7 @@ import {
   listWeekPageChains,
   reconcileWeekPageChains,
   recomputePageChain,
+  skipUnscheduledChunk,
 } from './pageChainRepository';
 import {
   addTask,
@@ -118,6 +119,8 @@ test('beş günlük zincir beş görev ve bir zincir satırı oluşturur', async
   ]);
   expect(view.slots).toHaveLength(5);
   expect(view.unscheduled).toEqual([]);
+  expect(view.skippedChunks).toEqual(new Set());
+  expect(view.chain.skippedChunks).toBe('[]');
   expect(await db.schedulePageChains.count()).toBe(1);
 });
 
@@ -703,4 +706,108 @@ test('tombstone slot recompute etmez', async () => {
   await db.scheduleTasks.update(first.id, { deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
 
   await expect(recomputePageChain(view.chain.id)).resolves.toBeNull();
+});
+
+test('planlanmamış aralık silinince yok sayılır, görevler ve zincir kalır', async () => {
+  const now = new Date(2026, 11, 7, 12);
+  const view = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  const third = view.tasks.find((task) => task.dayIndex === 3)!;
+  await setTaskStatus(second.id, 'missed', now);
+  await setTaskStatus(third.id, 'missed', now);
+
+  let [listed] = await listWeekPageChains(weekId);
+  expect(listed.unscheduled.map((chunk) => chunk.chunkIndex)).toEqual([3, 4]);
+
+  await skipUnscheduledChunk(view.chain.id, now);
+
+  [listed] = await listWeekPageChains(weekId);
+  expect(listed.unscheduled.map((chunk) => chunk.chunkIndex)).toEqual([4]);
+  expect(listed.skippedChunks).toEqual(new Set([3]));
+  expect(listed.tasks).toHaveLength(5);
+  expect(
+    listed.tasks.some((task) => task.fromPage === 130 && task.toPage === 139),
+  ).toBe(false);
+  expect((await db.schedulePageChains.get(view.chain.id))?.deletedAt).toBeUndefined();
+  let stored = await db.schedulePageChains.get(view.chain.id);
+  expect(JSON.parse(stored!.skippedChunks)).toEqual([3]);
+
+  await skipUnscheduledChunk(view.chain.id, now);
+
+  [listed] = await listWeekPageChains(weekId);
+  expect(listed.unscheduled).toEqual([]);
+  expect(listed.skippedChunks).toEqual(new Set([3, 4]));
+  stored = await db.schedulePageChains.get(view.chain.id);
+  expect(JSON.parse(stored!.skippedChunks)).toEqual([3, 4]);
+  expect(await db.scheduleTasks.where('weekId').equals(weekId).count()).toBe(5);
+});
+
+test('yok sayılan aralık sonraki boş güne eklenmez', async () => {
+  const now = new Date(2026, 11, 7, 12);
+  const view = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3, 4, 5],
+    },
+    now,
+  );
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  const third = view.tasks.find((task) => task.dayIndex === 3)!;
+  await setTaskStatus(second.id, 'missed', now);
+  await setTaskStatus(third.id, 'missed', now);
+  await skipUnscheduledChunk(view.chain.id, now);
+
+  await addUnscheduledChunk(view.chain.id, now);
+
+  const [listed] = await listWeekPageChains(weekId);
+  expect(listed.slots).toHaveLength(6);
+  expect(listed.tasks.find((task) => task.dayIndex === 6)).toMatchObject({
+    fromPage: 140,
+    toPage: 150,
+  });
+  expect(
+    listed.tasks.some((task) => task.fromPage === 130 && task.toPage === 139),
+  ).toBe(false);
+  expect(listed.unscheduled).toEqual([]);
+});
+
+test('eksik zincirde planlanmamış aralık silinmez', async () => {
+  const now = new Date(2026, 11, 7, 12);
+  const view = await createPageChain(
+    {
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 100,
+      endPage: 150,
+      days: [1, 2, 3],
+    },
+    now,
+  );
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  await setTaskStatus(second.id, 'missed', now);
+  const third = view.tasks.find((task) => task.dayIndex === 3)!;
+  await db.scheduleTasks.update(third.id, {
+    deletedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  await skipUnscheduledChunk(view.chain.id, now);
+
+  const stored = await db.schedulePageChains.get(view.chain.id);
+  expect(stored?.skippedChunks).toBe('[]');
 });

@@ -345,6 +345,21 @@ final class MigrationTest extends TestCase
         ));
     }
 
+    public function test_schedule_page_chains_skipped_chunks_is_required_text(): void
+    {
+        $column = self::$db->fetchOne(
+            'SELECT `column_type` AS column_type, `is_nullable` AS is_nullable, `column_default` AS column_default
+             FROM `information_schema`.`columns`
+             WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `column_name` = ?',
+            ['schedule_page_chains', 'skipped_chunks'],
+        );
+
+        self::assertNotNull($column);
+        self::assertSame('text', strtolower((string) $column['column_type']));
+        self::assertSame('NO', $column['is_nullable']);
+        self::assertSame('[]', trim((string) $column['column_default'], "'"));
+    }
+
     public function test_rate_limits_user_id_is_nullable(): void
     {
         $column = self::$db->fetchOne(

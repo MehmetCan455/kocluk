@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import {
   DEMO_ACCOUNT,
   SYNCED_TABLES,
+  normalizeData,
   startMockApi,
 } from './mock-api.mjs';
 
@@ -946,6 +947,7 @@ test('schedulePageChains push/pull round-trip yapar', async () => {
     chunkSize: 10,
     chunkCount: 5,
     slots: '[{"taskId":"task-1","slotIndex":0,"chunkIndex":0,"dayIndex":1}]',
+    skippedChunks: '[4]',
     createdAt: now,
     updatedAt: now,
   };
@@ -965,10 +967,36 @@ test('schedulePageChains push/pull round-trip yapar', async () => {
     id: 'chain-1',
     chunkCount: 5,
     slots: row.slots,
+    skippedChunks: '[4]',
   });
 
   const full = await call('/api/sync/full', { cookie: account.cookie });
   expect(full.json.tables.schedulePageChains).toHaveLength(1);
+  expect(full.json.tables.schedulePageChains[0].skippedChunks).toBe('[4]');
+
+  const { skippedChunks: _skipped, ...withoutSkipped } = row;
+  const rejected = await push(account.cookie, account.csrf, [
+    { table: 'schedulePageChains', op: 'upsert', row: { ...withoutSkipped, id: 'chain-2' } },
+  ]);
+  expect(rejected.results[0].status).toBe('error');
+  expect(rejected.results[0].error.code).toBe('validation_failed');
+});
+
+test('eski zincir satırı skippedChunks varsayılanıyla yüklenir', () => {
+  const normalized = normalizeData({
+    tables: {
+      schedulePageChains: {
+        'chain-old': {
+          id: 'chain-old',
+          slots: '[]',
+          createdAt: iso(),
+          updatedAt: iso(),
+        },
+      },
+    },
+  });
+
+  expect(normalized.tables.schedulePageChains['chain-old'].skippedChunks).toBe('[]');
 });
 
 test('hesap silme veriyi ve oturumları kaldırır; test reset temiz başlatır', async () => {

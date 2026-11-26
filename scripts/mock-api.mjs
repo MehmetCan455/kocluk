@@ -285,6 +285,7 @@ const TABLE_DEFS = {
       'chunkSize',
       'chunkCount',
       'slots',
+      'skippedChunks',
       'createdAt',
       'updatedAt',
       'deletedAt',
@@ -299,6 +300,7 @@ const TABLE_DEFS = {
       'chunkSize',
       'chunkCount',
       'slots',
+      'skippedChunks',
       'createdAt',
       'updatedAt',
     ],
@@ -465,7 +467,7 @@ function emptyData() {
   };
 }
 
-function normalizeData(data) {
+export function normalizeData(data) {
   const base = emptyData();
   if (!isRecord(data)) {
     return base;
@@ -485,7 +487,20 @@ function normalizeData(data) {
 
   for (const table of SYNCED_TABLES) {
     const stored = isRecord(data.tables) ? data.tables[table] : null;
-    normalized.tables[table] = isRecord(stored) ? stored : {};
+    const rows = isRecord(stored) ? { ...stored } : {};
+    if (table === 'schedulePageChains') {
+      // Rows written before the skip list existed still have to satisfy the
+      // required field; normalize the file once instead of rejecting pushes.
+      for (const [rowId, row] of Object.entries(rows)) {
+        if (
+          isRecord(row) &&
+          !Object.prototype.hasOwnProperty.call(row, 'skippedChunks')
+        ) {
+          rows[rowId] = { ...row, skippedChunks: '[]' };
+        }
+      }
+    }
+    normalized.tables[table] = rows;
   }
 
   return normalized;

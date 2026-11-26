@@ -12,6 +12,7 @@ import {
   addUnscheduledChunk,
   listWeekPageChains,
   reconcileWeekPageChains,
+  skipUnscheduledChunk,
   type PageChainView,
 } from '@/db/pageChainRepository';
 import { listAllTopics, listSubjects } from '@/db/repositories';
@@ -812,6 +813,18 @@ export function WeeklyPlan() {
     }
   }
 
+  async function skipChainChunk(chainId: string): Promise<void> {
+    setTaskError(null);
+    try {
+      await skipUnscheduledChunk(chainId);
+      await refreshTasks();
+    } catch (caught: unknown) {
+      setTaskError(
+        messageFor(caught, 'Aralık silinemedi. Lütfen tekrar dene.'),
+      );
+    }
+  }
+
   function requestDeleteTask(task: ScheduleTask): void {
     setTaskError(null);
     setDeleteError(null);
@@ -986,6 +999,7 @@ export function WeeklyPlan() {
             chains={chains}
             rows={rows}
             onAddNext={addNextChainChunk}
+            onSkip={skipChainChunk}
           />
 
           <p

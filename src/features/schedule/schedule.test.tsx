@@ -68,6 +68,24 @@ vi.mock('@/db/scheduleRepository', async (importOriginal) => {
   };
 });
 
+// Same passthrough pattern for the skip action, so the error test can make it
+// fail without breaking the repository for the rest of the suite.
+const chainRepoMocks = vi.hoisted(() => ({
+  skipUnscheduledChunk: vi.fn(),
+  actualSkipUnscheduledChunk: undefined as unknown as typeof import('@/db/pageChainRepository').skipUnscheduledChunk,
+}));
+
+vi.mock('@/db/pageChainRepository', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/db/pageChainRepository')>();
+  chainRepoMocks.actualSkipUnscheduledChunk = actual.skipUnscheduledChunk;
+  return {
+    ...actual,
+    skipUnscheduledChunk: (...args: Parameters<typeof actual.skipUnscheduledChunk>) =>
+      chainRepoMocks.skipUnscheduledChunk(...args),
+  };
+});
+
 const FIXTURE: CurriculumSeed = {
   version: 1,
   subjects: [
@@ -101,6 +119,11 @@ beforeEach(async () => {
   repoMocks.addRow.mockImplementation(
     (weekId: string, label: string, subjectId?: string) =>
       repoMocks.actualAddRow(weekId, label, subjectId),
+  );
+  chainRepoMocks.skipUnscheduledChunk.mockReset();
+  chainRepoMocks.skipUnscheduledChunk.mockImplementation(
+    (...args: Parameters<typeof chainRepoMocks.actualSkipUnscheduledChunk>) =>
+      chainRepoMocks.actualSkipUnscheduledChunk(...args),
   );
 });
 
@@ -1685,6 +1708,73 @@ test('kaçırılan gün planlanmamış aralığı gösterir ve sonraki boş gün
   await waitFor(() =>
     expect(screen.queryByText('Planlanmamış sayfalar')).not.toBeInTheDocument(),
   );
+});
+
+test('planlanmamış aralık Sil ile yok sayılır, görevler ve zincir kalır', async () => {
+  const { weekStart, weekId } = await seedChainWithFiveDays();
+  await openSchedule(`/program?week=${weekStart}`);
+
+  const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  await screen.findAllByText(chipTitle, { selector: '[data-line="title"]' });
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+  );
+
+  expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Sil, yalnızca bu aralığı yok sayar; plandaki görevler silinmez.',
+    ),
+  ).toBeInTheDocument();
+  const skipButton = screen.getByRole('button', {
+    name: 'Matematik planlanmamış 140–150 aralığını sil',
+  });
+  expect(skipButton).toHaveAccessibleDescription(/Matematik.*140–150/);
+  await userEvent.click(skipButton);
+
+  await waitFor(() =>
+    expect(screen.queryByText('Planlanmamış sayfalar')).not.toBeInTheDocument(),
+  );
+  await waitFor(async () => {
+    const chains = await db.schedulePageChains
+      .where('weekId')
+      .equals(weekId)
+      .toArray();
+    expect(JSON.parse(chains[0].skippedChunks)).toEqual([4]);
+    const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
+    expect(tasks).toHaveLength(5);
+    expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({
+      fromPage: 130,
+      toPage: 139,
+    });
+  });
+  expect(await db.schedulePageChains.where('weekId').equals(weekId).count()).toBe(1);
+});
+
+test('Sil başarısız olursa hata gösterir ve aralık kalır', async () => {
+  const { weekStart } = await seedChainWithFiveDays();
+  await openSchedule(`/program?week=${weekStart}`);
+
+  const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  await screen.findAllByText(chipTitle, { selector: '[data-line="title"]' });
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+  );
+
+  expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
+  chainRepoMocks.skipUnscheduledChunk.mockRejectedValueOnce(
+    new Error('Aralık silinemedi.'),
+  );
+  const skipButton = screen.getByRole('button', {
+    name: 'Matematik planlanmamış 140–150 aralığını sil',
+  });
+  await userEvent.click(skipButton);
+
+  expect(await screen.findByText('Aralık silinemedi.')).toBeInTheDocument();
+  expect(screen.getByText('Planlanmamış sayfalar')).toBeInTheDocument();
+  expect(skipButton).toBeEnabled();
 });
 
 test('boş gün kalmayınca planlanmamış aralık eklenemez', async () => {

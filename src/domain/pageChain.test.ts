@@ -3,6 +3,7 @@ import {
   assignChainChunks,
   pageChunkSize,
   parseChainSlots,
+  parseSkippedChunks,
   serializeChainSlots,
   splitPageRange,
   type PageChainSlot,
@@ -206,6 +207,45 @@ describe('assignChainChunks', () => {
 
     expect(result.assignments.get('t1')?.chunkIndex).toBe(1);
     expect(result.assignments.get('t2')?.chunkIndex).toBe(1);
+  });
+
+  test('yok sayılan parça bekleyen güne atanmaz ve planlanmamış sayılmaz', () => {
+    const slots = [1, 2, 3, 4, 5].map((day, index) => slot(`t${index}`, index, index, day));
+    const statuses = new Map(slots.map((item) => [item.taskId, 'pending' as const]));
+    const result = assignChainChunks({
+      ...base,
+      slots,
+      statuses,
+      skipped: new Set([2]),
+    });
+
+    expect(result.assignments.get('t2')).toEqual({
+      chunkIndex: 3,
+      fromPage: 130,
+      toPage: 139,
+    });
+    expect(result.assignments.get('t3')).toEqual({
+      chunkIndex: 4,
+      fromPage: 140,
+      toPage: 150,
+    });
+    expect(result.assignments.has('t4')).toBe(false);
+    expect(result.unscheduled).toEqual([]);
+  });
+});
+
+describe('parseSkippedChunks', () => {
+  test('geçerli tam sayıları okur, aralık dışı ve bozuk girdileri atar', () => {
+    expect(parseSkippedChunks('[1,3]', 5)).toEqual(new Set([1, 3]));
+    expect(parseSkippedChunks('[3,1,3]', 5)).toEqual(new Set([1, 3]));
+    expect(parseSkippedChunks('[0,4]', 5)).toEqual(new Set([0, 4]));
+    expect(parseSkippedChunks('[5,-1,1.5,"2",2]', 5)).toEqual(new Set([2]));
+  });
+
+  test('boş ya da bozuk değer boş küme döndürür', () => {
+    for (const value of [undefined, null, '', '[]', '{}', '{', '"1"', 4]) {
+      expect(parseSkippedChunks(value, 5)).toEqual(new Set());
+    }
   });
 });
 

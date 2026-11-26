@@ -206,6 +206,7 @@ test('dosya seçince özet gösterir ve onaydan sonra tüm veriyi değiştirir',
     chunkSize: 10,
     chunkCount: 2,
     slots: '[]',
+    skippedChunks: '[]',
     createdAt: '2026-11-16T10:00:00.000Z',
     updatedAt: '2026-11-16T10:00:00.000Z',
   });

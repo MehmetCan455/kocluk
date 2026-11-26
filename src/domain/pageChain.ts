@@ -20,6 +20,8 @@ export interface AssignChainChunksInput {
   endPage: number;
   chunkSize: number;
   chunkCount: number;
+  /** Chunks the user chose to ignore; they never take a pending day. */
+  skipped?: ReadonlySet<number>;
 }
 
 export interface AssignChainChunksResult {
@@ -86,6 +88,7 @@ export function splitPageRange(
  */
 export function assignChainChunks(input: AssignChainChunksInput): AssignChainChunksResult {
   const { slots, statuses, startPage, endPage, chunkSize, chunkCount } = input;
+  const skipped = input.skipped ?? new Set<number>();
   const chunks = splitPageRange(startPage, endPage, chunkCount);
 
   if (chunkSize !== pageChunkSize(startPage, endPage, chunkCount)) {
@@ -124,7 +127,7 @@ export function assignChainChunks(input: AssignChainChunksInput): AssignChainChu
 
     let nextChunk = -1;
     for (let index = 0; index < chunkCount; index += 1) {
-      if (!consumed.has(index) && !reserved.has(index)) {
+      if (!consumed.has(index) && !reserved.has(index) && !skipped.has(index)) {
         nextChunk = index;
         break;
       }
@@ -139,7 +142,10 @@ export function assignChainChunks(input: AssignChainChunksInput): AssignChainChu
   const assignedChunkIndexes = new Set(
     [...assignments.values()].map((chunk) => chunk.chunkIndex),
   );
-  const unscheduled = chunks.filter((chunk) => !assignedChunkIndexes.has(chunk.chunkIndex));
+  const unscheduled = chunks.filter(
+    (chunk) =>
+      !assignedChunkIndexes.has(chunk.chunkIndex) && !skipped.has(chunk.chunkIndex),
+  );
 
   return { chunks, assignments, unscheduled };
 }
@@ -208,4 +214,33 @@ export function parseChainSlots(value: string): PageChainSlot[] | null {
 /** Stable storage format: slots are ordered by `slotIndex` before encoding. */
 export function serializeChainSlots(slots: PageChainSlot[]): string {
   return JSON.stringify([...slots].sort((left, right) => left.slotIndex - right.slotIndex));
+}
+
+/**
+ * Reads the stored skip list. It is a convenience record, not chain identity:
+ * malformed JSON, non-array values and out-of-range entries are dropped so a
+ * damaged row still opens and recomputes instead of disappearing.
+ */
+export function parseSkippedChunks(value: unknown, chunkCount: number): Set<number> {
+  const skipped = new Set<number>();
+  if (typeof value !== 'string') {
+    return skipped;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return skipped;
+  }
+  if (!Array.isArray(parsed)) {
+    return skipped;
+  }
+
+  for (const entry of parsed) {
+    if (isInteger(entry) && isValidChunkIndex(entry, chunkCount)) {
+      skipped.add(entry);
+    }
+  }
+  return skipped;
 }

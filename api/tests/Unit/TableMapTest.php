@@ -322,6 +322,7 @@ final class TableMapTest extends TestCase
             'chunkSize' => 10,
             'chunkCount' => 5,
             'slots' => '[{"taskId":"a","slotIndex":0,"chunkIndex":0,"dayIndex":1}]',
+            'skippedChunks' => '[4]',
             'createdAt' => self::CREATED_AT,
             'updatedAt' => self::UPDATED_AT,
         ]);
@@ -337,6 +338,7 @@ final class TableMapTest extends TestCase
             'chunkSize',
             'chunkCount',
             'slots',
+            'skippedChunks',
             'createdAt',
             'updatedAt',
             'deletedAt',
@@ -349,6 +351,7 @@ final class TableMapTest extends TestCase
         self::assertSame(100, $db['start_page']);
         self::assertSame(150, $db['end_page']);
         self::assertSame(self::OTHER_ID, $db['user_book_id']);
+        self::assertSame('[4]', $db['skipped_chunks']);
         self::assertNull($db['deleted_at']);
 
         $api = TableMap::toApi('schedulePageChains', $db + [
@@ -359,8 +362,25 @@ final class TableMapTest extends TestCase
         self::assertSame(5, $api['chunkCount']);
         self::assertSame(10, $api['chunkSize']);
         self::assertSame('[{"taskId":"a","slotIndex":0,"chunkIndex":0,"dayIndex":1}]', $api['slots']);
+        self::assertSame('[4]', $api['skippedChunks']);
         self::assertSame(self::UPDATED_AT, $api['updatedAt']);
         self::assertArrayNotHasKey('user_id', $api);
+
+        // The client always sends the parsed skip list; a row without it must
+        // never reach MariaDB with a missing NOT NULL column.
+        self::assertRejected(fn () => TableMap::toDb('schedulePageChains', [
+            'id' => self::ID,
+            'weekId' => self::OTHER_ID,
+            'rowId' => self::OTHER_ID,
+            'userBookId' => self::OTHER_ID,
+            'startPage' => 100,
+            'endPage' => 150,
+            'chunkSize' => 10,
+            'chunkCount' => 5,
+            'slots' => '[]',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
     }
 
     public function test_page_chain_chunk_count_and_size_stay_within_range(): void
@@ -375,6 +395,7 @@ final class TableMapTest extends TestCase
             'chunkSize' => 20,
             'chunkCount' => 2,
             'slots' => '[]',
+            'skippedChunks' => '[]',
             'createdAt' => self::CREATED_AT,
             'updatedAt' => self::UPDATED_AT,
         ];
@@ -552,6 +573,7 @@ final class TableMapTest extends TestCase
             'chunkSize' => 1,
             'chunkCount' => 2,
             'slots' => str_repeat('a', 65536),
+            'skippedChunks' => '[]',
             'createdAt' => self::CREATED_AT,
             'updatedAt' => self::UPDATED_AT,
         ]));

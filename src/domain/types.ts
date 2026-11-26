@@ -376,6 +376,8 @@ export interface SchedulePageChain {
   chunkSize: number;
   chunkCount: number;
   slots: string;
+  /** JSON array of chunk indexes the user chose to ignore, e.g. "[4]". */
+  skippedChunks: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;

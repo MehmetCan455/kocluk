@@ -606,6 +606,8 @@ const schedulePageChainSchema = z.object({
   chunkCount: z.number().int().min(2).max(7),
   // Serialized slots JSON; malformed contents are tolerated by the readers.
   slots: z.string().max(65535),
+  // Added after the first v7 build; an older archive defaults to no skips.
+  skippedChunks: z.string().max(65535).default('[]'),
   createdAt: z.string(),
   updatedAt: z.string(),
   deletedAt: z.string().optional(),

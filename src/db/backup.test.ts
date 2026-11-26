@@ -1266,9 +1266,11 @@ test('sayfa zinciri v7 yedeğinden slotları ve parça sayısıyla geri yükleni
     endPage: 40,
     days: [1, 3, 5],
   });
+  await db.schedulePageChains.update(view.chain.id, { skippedChunks: '[2]' });
   const storedChain = (await db.schedulePageChains.get(view.chain.id))!;
   expect(storedChain.chunkCount).toBe(3);
   expect(storedChain.slots).not.toBe('');
+  expect(storedChain.skippedChunks).toBe('[2]');
 
   const exported = await exportBackup();
   const zip = await JSZip.loadAsync(await blobToArrayBuffer(exported));
@@ -1292,6 +1294,7 @@ test('sayfa zinciri v7 yedeğinden slotları ve parça sayısıyla geri yükleni
     endPage: 40,
     chunkCount: 3,
     slots: storedChain.slots,
+    skippedChunks: '[2]',
   });
 
   await resetDb();
@@ -1302,6 +1305,43 @@ test('sayfa zinciri v7 yedeğinden slotları ve parça sayısıyla geri yükleni
   expect(restoredChain).toEqual(storedChain);
   expect(restoredChain?.chunkCount).toBe(3);
   expect(restoredChain?.slots).toBe(storedChain.slots);
+  expect(restoredChain?.skippedChunks).toBe('[2]');
+});
+
+test('skippedChunks alanı olmayan v7 yedeği boş diziyle okunur', async () => {
+  await fullSeed();
+  const createdAt = '2026-11-01T09:00:00.000Z';
+  await db.schedulePageChains.add({
+    id: 'zincir-eski',
+    weekId: 'hafta-eski',
+    rowId: 'satir-eski',
+    userBookId: 'kitap-eski',
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 10,
+    chunkCount: 2,
+    slots:
+      '[{"taskId":"a","slotIndex":0,"chunkIndex":0,"dayIndex":1},' +
+      '{"taskId":"b","slotIndex":1,"chunkIndex":1,"dayIndex":2}]',
+    skippedChunks: '[]',
+    createdAt,
+    updatedAt: createdAt,
+  });
+
+  const exported = await exportBackup();
+  const legacy = await mutateZip(exported, async (_zip, data, manifest) => {
+    for (const row of data.schedulePageChains as Array<Record<string, unknown>>) {
+      delete row.skippedChunks;
+    }
+    manifest.schemaVersion = 7;
+  });
+
+  await resetDb();
+  const imported = await importBackup(new File([legacy], 'zincir-eski.zip'));
+
+  expect(imported.counts).toMatchObject({ schedulePageChains: 1 });
+  const restored = await db.schedulePageChains.get('zincir-eski');
+  expect(restored?.skippedChunks).toBe('[]');
 });
 
 test('v6 yedeği sayfa zinciri tablosunu boş yükler', async () => {

@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { PageChainView } from '@/db/pageChainRepository';
@@ -8,6 +9,7 @@ export interface PageChainBannerProps {
   chains: PageChainView[];
   rows: WeeklyPlanRow[];
   onAddNext: (chainId: string) => Promise<void>;
+  onSkip: (chainId: string) => Promise<void>;
 }
 
 function rowLabelFor(rowId: string, rows: WeeklyPlanRow[]): string {
@@ -29,8 +31,10 @@ export function PageChainBanner({
   chains,
   rows,
   onAddNext,
+  onSkip,
 }: PageChainBannerProps) {
   const [adding, setAdding] = useState<string | null>(null);
+  const [skipping, setSkipping] = useState<string | null>(null);
   const idPrefix = useId();
 
   const visible = chains.filter(
@@ -38,7 +42,7 @@ export function PageChainBanner({
   );
 
   async function addNext(chainId: string): Promise<void> {
-    if (adding !== null) {
+    if (adding !== null || skipping !== null) {
       return;
     }
     setAdding(chainId);
@@ -48,6 +52,20 @@ export function PageChainBanner({
       // The plan owns the error message; the button must stay usable.
     } finally {
       setAdding(null);
+    }
+  }
+
+  async function skip(chainId: string): Promise<void> {
+    if (adding !== null || skipping !== null) {
+      return;
+    }
+    setSkipping(chainId);
+    try {
+      await onSkip(chainId);
+    } catch {
+      // The plan owns the error message; the button must stay usable.
+    } finally {
+      setSkipping(null);
     }
   }
 
@@ -61,12 +79,17 @@ export function PageChainBanner({
               Kaçırılan günlerin sayfaları zincirden düştü. Sonraki boş güne
               ekleyerek zinciri tamamla.
             </p>
+            <p className="text-xs text-muted">
+              Sil, yalnızca bu aralığı yok sayar; plandaki görevler silinmez.
+            </p>
           </div>
 
           <ul className="divide-y divide-line rounded-xl border border-line bg-canvas">
             {visible.map((view) => {
               const label = rowLabelFor(view.chain.rowId, rows);
-              const disabled = view.nextEmptyDay === null || adding !== null;
+              const busy = adding !== null || skipping !== null;
+              const addDisabled = view.nextEmptyDay === null || busy;
+              const firstChunk = view.unscheduled[0];
               const rowDescriptionId = `${idPrefix}-row-${view.chain.id}`;
               const pagesDescriptionId = `${idPrefix}-pages-${view.chain.id}`;
               return (
@@ -94,14 +117,27 @@ export function PageChainBanner({
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <Button
-                      size="sm"
-                      onClick={() => void addNext(view.chain.id)}
-                      disabled={disabled}
-                      aria-describedby={`${rowDescriptionId} ${pagesDescriptionId}`}
-                    >
-                      Sonraki boş güne ekle
-                    </Button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => void addNext(view.chain.id)}
+                        disabled={addDisabled}
+                        aria-describedby={`${rowDescriptionId} ${pagesDescriptionId}`}
+                      >
+                        Sonraki boş güne ekle
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => void skip(view.chain.id)}
+                        disabled={busy}
+                        aria-label={`${label} planlanmamış ${firstChunk.fromPage}–${firstChunk.toPage} aralığını sil`}
+                        aria-describedby={`${rowDescriptionId} ${pagesDescriptionId}`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Sil
+                      </Button>
+                    </div>
                     {view.nextEmptyDay === null ? (
                       <p className="text-xs text-muted">
                         Bu haftada boş gün kalmadı.

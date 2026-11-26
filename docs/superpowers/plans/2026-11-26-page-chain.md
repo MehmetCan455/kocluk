@@ -292,7 +292,10 @@ git commit -m "feat(schedule): add page chain range math"
 
 **Files:**
 - Modify: `src/domain/schedule.ts`
+- Modify: `src/features/books/BookDetailPage.tsx`
 - Test: `src/domain/schedule.test.ts`
+- Test: `src/features/books/books.test.tsx`
+- Test: `src/features/schedule/schedule.test.tsx` (only if an existing past-day expectation changes)
 
 **Interfaces:**
 - Produces: `scheduleTaskStatus` unchanged signature, per-day auto-miss; `summarizeWeek` unchanged signature, unique `plannedPages`.
@@ -334,7 +337,7 @@ test('planlanan sayfa örtüşen aralıkları benzersiz sayar', () => {
 });
 ```
 
-The existing summary tests keep their expected values; if they use `dayIndex: 1` and now is Sunday, only `summarizeWeek` changes (it ignores status), so they still pass.
+Add a `books.test.tsx` test: seed a `scheduleWeeks` row for a past week and a book task in that week with no `completedAt`/`missedAt`, render `/kitaplar/<userBookId>`, and expect the plan link's accessible name to contain `Yapılmadı` (not `Planlandı`). The existing summary tests keep their expected values; if they use `dayIndex: 1` and now is Sunday, only `summarizeWeek` changes (it ignores status), so they still pass.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -347,16 +350,17 @@ In `src/domain/schedule.ts`:
 - Import `startOfDay` from `date-fns`.
 - In `scheduleTaskStatus`, after explicit `completedAt`/`missedAt`, compute `taskDay = addDays(parseISO(weekStart), task.dayIndex - 1)` and return `'missed'` when `startOfDay(taskDay) < startOfDay(now)`, otherwise `'pending'`.
 - Replace the `plannedPages` reduce with a helper that merges all active `type === 'book'` ranges (`fromPage`/`toPage` valid, `toPage >= fromPage`) and sums their union length. Ignore status and deleted rows. Existing `readPages` logic stays.
+- `BookDetailPage.tsx`: replace the local `task.completedAt ? 'Tamamlandı' : 'Planlandı'` with `scheduleTaskStatus(task, task.weekStart)` and map `done → 'Tamamlandı'`, `missed → 'Yapılmadı'`, `pending → 'Planlandı'`. This makes the book detail plan list agree with the planner's auto-missed display.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `npm run test:run -- src/domain/schedule.test.ts src/features/schedule/schedule.test.tsx`
+Run: `npm run test:run -- src/domain/schedule.test.ts src/features/books/books.test.tsx src/features/schedule/schedule.test.tsx`
 Expected: PASS. If a schedule component test uses a past day and expects "Planlandı", update it to expect "Yapılmadı" per the new rule.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/domain/schedule.ts src/domain/schedule.test.ts src/features/schedule/schedule.test.tsx
+git add src/domain/schedule.ts src/domain/schedule.test.ts src/features/books/BookDetailPage.tsx src/features/books/books.test.tsx src/features/schedule/schedule.test.tsx
 git commit -m "feat(schedule): derive missed days and unique planned pages"
 ```
 
@@ -710,8 +714,8 @@ Add to `src/db/scheduleRepository.test.ts` (or the existing schedule repository 
 
 ```ts
 test('zincir görevini düzenlemek/silmek zinciri çözer', async () => {
-  const { view, taskId } = await seedChain();
-  await updateTask(taskId, { dayIndex: 1, type: 'free', title: 'Değişti' });
+  const { view, taskId, rowId } = await seedChain();
+  await updateTask(taskId, { rowId, dayIndex: 1, type: 'free', title: 'Değişti' });
   expect((await db.schedulePageChains.get(view.chain.id))?.deletedAt).toBeTruthy();
 });
 
@@ -1154,6 +1158,7 @@ test('haftalık planda sayfa zinciri oluşturur, kaçırır ve sonraki güne ekl
   for (const day of ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']) {
     await dialog.getByRole('checkbox', { name: day }).check();
   }
+  await dialog.getByLabel('Kitap ara').fill('Hiç Problem Değil');
   await dialog.getByRole('button', { name: /Hiç Problem Değil/ }).click();
   await dialog.getByLabel('Başlangıç sayfası').fill('100');
   await dialog.getByLabel('Bitiş sayfası').fill('150');

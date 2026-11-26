@@ -5,7 +5,7 @@ import { addCatalogBookToShelf, updateUserBook } from './bookRepositories';
 import { db } from './db';
 import {
   addUnscheduledChunk,
-  createPageChain,
+  createPageChain as createPageChainRaw,
   dissolvePageChain,
   findChainForTask,
   listWeekPageChains,
@@ -21,6 +21,20 @@ import {
 
 const CREATED_AT = '2026-11-01T09:00:00.000Z';
 const WEEK_START = '2026-12-07';
+/** Before WEEK_START, so the default test chains never auto-miss. */
+const PRE_WEEK_NOW = new Date(2026, 11, 1, 12);
+
+/**
+ * Keeps every test deterministic: `createPageChain` defaults to the wall clock
+ * and would auto-miss the fixed WEEK_START once that Monday is in the past.
+ * Tests that need another clock still pass it explicitly.
+ */
+function createPageChain(
+  input: Parameters<typeof createPageChainRaw>[0],
+  now: Parameters<typeof createPageChainRaw>[1] = PRE_WEEK_NOW,
+): ReturnType<typeof createPageChainRaw> {
+  return createPageChainRaw(input, now);
+}
 
 let weekId: string;
 let rowId: string;

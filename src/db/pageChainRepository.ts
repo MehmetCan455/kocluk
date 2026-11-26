@@ -287,7 +287,15 @@ export async function createPageChain(
   // Days that already passed in the selected week are auto-missed, not stored
   // as missed. Recompute before returning so the fresh chain already shows the
   // shifted ranges instead of waiting for the next plan load.
-  return (await recomputePageChain(created.chain.id, now)) ?? created;
+  try {
+    return (await recomputePageChain(created.chain.id, now)) ?? created;
+  } catch (caught: unknown) {
+    // The create transaction already committed; surfacing this as a create
+    // failure would invite a retry that now hits "Bu güne zaten bir görev
+    // eklenmiş." Return the created view and let a plan load reconcile it.
+    console.error('Sayfa zinciri oluşturuldu ama yeniden hesaplanamadı', caught);
+    return created;
+  }
 }
 
 export async function listWeekPageChains(

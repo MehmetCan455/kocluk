@@ -224,7 +224,7 @@ export function PageChainModal({
       }}
       footer={
         created ? (
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
             Kapat
           </Button>
         ) : (

@@ -41,6 +41,27 @@ function currentWeekLabel(now = new Date()): string {
   return `${start.getDate()}–${full.format(end)}`;
 }
 
+/**
+ * Mirrors `SCHEDULE_DAYS` and `todayScheduleDayIndex` in
+ * `src/features/schedule/scheduleDays.ts`; importing the app module would put a
+ * source file outside the e2e TypeScript project.
+ */
+const SCHEDULE_DAYS = [
+  { day: 1, short: 'Pzt', label: 'Pazartesi' },
+  { day: 2, short: 'Sal', label: 'Salı' },
+  { day: 3, short: 'Çar', label: 'Çarşamba' },
+  { day: 4, short: 'Per', label: 'Perşembe' },
+  { day: 5, short: 'Cum', label: 'Cuma' },
+  { day: 6, short: 'Cmt', label: 'Cumartesi' },
+  { day: 7, short: 'Paz', label: 'Pazar' },
+] as const;
+
+function todayScheduleDay(
+  now = new Date(),
+): (typeof SCHEDULE_DAYS)[number] {
+  return SCHEDULE_DAYS[(now.getDay() + 6) % 7];
+}
+
 async function openProgram(page: import('@playwright/test').Page): Promise<void> {
   await page
     .locator('header')
@@ -72,14 +93,15 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
     timeout: 5_000,
   });
 
-  // The mobile planner opens on today; switch to Monday explicitly before
-  // adding the task so the flow does not depend on the run's weekday.
+  // The derived status marks a past day as missed, so the task is planned on
+  // today's weekday. The mobile planner opens on today; select it explicitly.
+  const today = todayScheduleDay();
   await page
     .getByRole('group', { name: 'Çizelge günü' })
-    .getByRole('button', { name: 'Pzt Pazartesi' })
+    .getByRole('button', { name: `${today.short} ${today.label}` })
     .click();
   await page
-    .getByRole('button', { name: 'Matematik Pazartesi görev ekle' })
+    .getByRole('button', { name: `Matematik ${today.label} görev ekle` })
     .click();
   const taskDialog = page.getByRole('dialog', { name: 'Görev ekle' });
   await expect(taskDialog).toBeVisible();
@@ -103,10 +125,10 @@ test('haftalık plan satırı ve görev tiklenir, yeniden yüklemede korunur', a
   ).toBeVisible();
   await expect(page.getByText(expectedWeekLabel, { exact: true })).toBeVisible();
   await expect(page.getByLabel('1. satır', { exact: true })).toHaveValue('Matematik');
-  // The planner reopens on today; switch back to Monday for the saved chip.
+  // The planner reopens on today; select the same day for the saved chip.
   await page
     .getByRole('group', { name: 'Çizelge günü' })
-    .getByRole('button', { name: 'Pzt Pazartesi' })
+    .getByRole('button', { name: `${today.short} ${today.label}` })
     .click();
   // Tick mode is a per-session toggle, so re-enable it to read the state.
   await page.getByRole('button', { name: 'Tik modu' }).click();

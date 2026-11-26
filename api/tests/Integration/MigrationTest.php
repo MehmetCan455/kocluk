@@ -36,6 +36,7 @@ final class MigrationTest extends TestCase
         'schedule_weeks',
         'schedule_rows',
         'schedule_tasks',
+        'schedule_page_chains',
         'topic_progress',
         'user_settings',
         'sync_changes',
@@ -53,6 +54,7 @@ final class MigrationTest extends TestCase
         'schedule_weeks',
         'schedule_rows',
         'schedule_tasks',
+        'schedule_page_chains',
         'topic_progress',
         'user_settings',
     ];
@@ -325,6 +327,22 @@ final class MigrationTest extends TestCase
 
             self::assertTrue($hasIndex, $table . ' için (user_id, server_updated_at) index yok.');
         }
+    }
+
+    public function test_schedule_page_chains_has_the_user_week_index(): void
+    {
+        $rows = self::$db->fetchAll(
+            'SELECT `column_name` AS column_name
+             FROM `information_schema`.`statistics`
+             WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `index_name` = ?
+             ORDER BY `seq_in_index`',
+            ['schedule_page_chains', 'idx_schedule_page_chains_user_week'],
+        );
+
+        self::assertSame(['user_id', 'week_id'], array_map(
+            static fn (array $row): string => (string) $row['column_name'],
+            $rows,
+        ));
     }
 
     public function test_rate_limits_user_id_is_nullable(): void

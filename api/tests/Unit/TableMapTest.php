@@ -9,7 +9,7 @@ use Kocluk\Api\Sync\TableMap;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Wire <-> MariaDB mapping for the 13 synced tables (spec §8.1).
+ * Wire <-> MariaDB mapping for the 14 synced tables (spec §8.1).
  *
  * The map is the single source for push, pull and account export, so these
  * tests pin the public field names, the row identity of the keyed tables, the
@@ -29,7 +29,7 @@ final class TableMapTest extends TestCase
 
     private const UPDATED_AT_SQL = '2026-11-24 11:00:00.000000';
 
-    public function test_the_thirteen_api_keys_are_the_only_sync_tables(): void
+    public function test_the_fourteen_api_keys_are_the_only_sync_tables(): void
     {
         $keys = TableMap::keys();
         sort($keys);
@@ -40,6 +40,7 @@ final class TableMapTest extends TestCase
             'examResults',
             'exams',
             'notes',
+            'schedulePageChains',
             'scheduleRows',
             'scheduleTasks',
             'scheduleWeeks',
@@ -309,6 +310,89 @@ final class TableMapTest extends TestCase
         self::assertSame(self::OTHER_ID, $db['task_id']);
     }
 
+    public function test_page_chain_fields_map_and_validate(): void
+    {
+        $db = TableMap::toDb('schedulePageChains', [
+            'id' => self::ID,
+            'weekId' => self::OTHER_ID,
+            'rowId' => self::OTHER_ID,
+            'userBookId' => self::OTHER_ID,
+            'startPage' => 100,
+            'endPage' => 150,
+            'chunkSize' => 10,
+            'chunkCount' => 5,
+            'slots' => '[{"taskId":"a","slotIndex":0,"chunkIndex":0,"dayIndex":1}]',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]);
+
+        self::assertSame('schedule_page_chains', TableMap::definition('schedulePageChains')['table']);
+        self::assertSame([
+            'id',
+            'weekId',
+            'rowId',
+            'userBookId',
+            'startPage',
+            'endPage',
+            'chunkSize',
+            'chunkCount',
+            'slots',
+            'createdAt',
+            'updatedAt',
+            'deletedAt',
+        ], array_keys(TableMap::definition('schedulePageChains')['columns']));
+        self::assertSame(['id'], TableMap::definition('schedulePageChains')['immutable']);
+        self::assertSame([], TableMap::definition('schedulePageChains')['natural']);
+
+        self::assertSame(5, $db['chunk_count']);
+        self::assertSame(10, $db['chunk_size']);
+        self::assertSame(100, $db['start_page']);
+        self::assertSame(150, $db['end_page']);
+        self::assertSame(self::OTHER_ID, $db['user_book_id']);
+        self::assertNull($db['deleted_at']);
+
+        $api = TableMap::toApi('schedulePageChains', $db + [
+            'user_id' => self::USER_ID,
+            'server_updated_at' => self::UPDATED_AT_SQL,
+        ]);
+
+        self::assertSame(5, $api['chunkCount']);
+        self::assertSame(10, $api['chunkSize']);
+        self::assertSame('[{"taskId":"a","slotIndex":0,"chunkIndex":0,"dayIndex":1}]', $api['slots']);
+        self::assertSame(self::UPDATED_AT, $api['updatedAt']);
+        self::assertArrayNotHasKey('user_id', $api);
+    }
+
+    public function test_page_chain_chunk_count_stays_between_two_and_seven(): void
+    {
+        $row = [
+            'id' => self::ID,
+            'weekId' => self::OTHER_ID,
+            'rowId' => self::OTHER_ID,
+            'userBookId' => self::OTHER_ID,
+            'startPage' => 1,
+            'endPage' => 120,
+            'chunkSize' => 20,
+            'chunkCount' => 2,
+            'slots' => '[]',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ];
+
+        foreach ([2, 5, 7] as $count) {
+            $db = TableMap::toDb('schedulePageChains', array_replace($row, ['chunkCount' => $count]));
+
+            self::assertSame($count, $db['chunk_count']);
+        }
+
+        foreach ([1, 8] as $count) {
+            self::assertRejected(fn () => TableMap::toDb(
+                'schedulePageChains',
+                array_replace($row, ['chunkCount' => $count]),
+            ));
+        }
+    }
+
     public function test_settings_are_stored_as_one_json_document_per_user(): void
     {
         $db = TableMap::toDb('settings', [
@@ -439,6 +523,20 @@ final class TableMapTest extends TestCase
             'createdAt' => self::CREATED_AT,
             'updatedAt' => self::UPDATED_AT,
         ]));
+
+        self::assertRejected(fn () => TableMap::toDb('schedulePageChains', [
+            'id' => self::ID,
+            'weekId' => self::OTHER_ID,
+            'rowId' => self::OTHER_ID,
+            'userBookId' => self::OTHER_ID,
+            'startPage' => 1,
+            'endPage' => 2,
+            'chunkSize' => 1,
+            'chunkCount' => 2,
+            'slots' => str_repeat('a', 65536),
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ]));
     }
 
     public function test_numbers_outside_the_column_range_are_rejected(): void
@@ -541,6 +639,7 @@ final class TableMapTest extends TestCase
         self::assertSame(['week_start'], TableMap::definition('scheduleWeeks')['natural']);
         self::assertSame(['topic_id'], TableMap::definition('topicProgress')['natural']);
         self::assertSame(['task_id'], TableMap::definition('activityLogs')['natural']);
+        self::assertSame([], TableMap::definition('schedulePageChains')['natural']);
         self::assertSame([], TableMap::definition('notes')['natural']);
     }
 

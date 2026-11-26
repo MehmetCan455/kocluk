@@ -94,6 +94,9 @@ final class TableMap
     /** Monday = 1 … Sunday = 7, matching the client schedule domain. */
     private const RULE_DAY_INDEX = ['type' => 'int', 'min' => 1, 'max' => 7];
 
+    /** Day count selected when a page chain is created (client range). */
+    private const RULE_CHUNK_COUNT = ['type' => 'int', 'min' => 2, 'max' => 7];
+
     /** @var array<string, array<string, mixed>> */
     private const TABLES = [
         'subjects' => [
@@ -437,6 +440,55 @@ final class TableMap
                 'title' => ['type' => 'string', 'max' => 255],
                 'completedAt' => self::RULE_TIMESTAMP,
                 'missedAt' => self::RULE_TIMESTAMP,
+                'createdAt' => self::RULE_TIMESTAMP,
+                'updatedAt' => self::RULE_TIMESTAMP,
+                'deletedAt' => self::RULE_TIMESTAMP,
+            ],
+        ],
+        'schedulePageChains' => [
+            'table' => 'schedule_page_chains',
+            'owner' => 'user_id',
+            'ownerKey' => 'userId',
+            'pk' => 'id',
+            'columns' => [
+                'id' => 'id',
+                'weekId' => 'week_id',
+                'rowId' => 'row_id',
+                'userBookId' => 'user_book_id',
+                'startPage' => 'start_page',
+                'endPage' => 'end_page',
+                'chunkSize' => 'chunk_size',
+                'chunkCount' => 'chunk_count',
+                'slots' => 'slots',
+                'createdAt' => 'created_at',
+                'updatedAt' => 'updated_at',
+                'deletedAt' => 'deleted_at',
+            ],
+            'required' => [
+                'id',
+                'weekId',
+                'rowId',
+                'userBookId',
+                'startPage',
+                'endPage',
+                'chunkSize',
+                'chunkCount',
+                'slots',
+                'createdAt',
+                'updatedAt',
+            ],
+            'immutable' => ['id'],
+            'natural' => [],
+            'rules' => [
+                'id' => self::RULE_ID,
+                'weekId' => self::RULE_ID,
+                'rowId' => self::RULE_ID,
+                'userBookId' => self::RULE_ID,
+                'startPage' => self::RULE_UNSIGNED,
+                'endPage' => self::RULE_UNSIGNED,
+                'chunkSize' => self::RULE_SMALL_UNSIGNED,
+                'chunkCount' => self::RULE_CHUNK_COUNT,
+                'slots' => ['type' => 'string', 'maxBytes' => 65535],
                 'createdAt' => self::RULE_TIMESTAMP,
                 'updatedAt' => self::RULE_TIMESTAMP,
                 'deletedAt' => self::RULE_TIMESTAMP,

@@ -933,6 +933,44 @@ test('şifre değişimi oturumları/CSRFyi döndürür; sıfırlama ve doğrulam
   expect(reused.json.error.code).toBe('invalid_token');
 });
 
+test('schedulePageChains push/pull round-trip yapar', async () => {
+  const account = await register('zincir@example.com');
+  const now = iso();
+  const row = {
+    id: 'chain-1',
+    weekId: 'week-1',
+    rowId: 'row-1',
+    userBookId: 'book-1',
+    startPage: 100,
+    endPage: 150,
+    chunkSize: 10,
+    chunkCount: 5,
+    slots: '[{"taskId":"task-1","slotIndex":0,"chunkIndex":0,"dayIndex":1}]',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const pushed = await push(account.cookie, account.csrf, [
+    { table: 'schedulePageChains', op: 'upsert', row },
+  ]);
+  expect(pushed.results[0].status).toBe('applied');
+
+  const pulled = await call('/api/sync/pull?since=0&limit=500', {
+    cookie: account.cookie,
+  });
+  const change = pulled.json.changes.find(
+    (item) => item.table === 'schedulePageChains',
+  );
+  expect(change.row).toMatchObject({
+    id: 'chain-1',
+    chunkCount: 5,
+    slots: row.slots,
+  });
+
+  const full = await call('/api/sync/full', { cookie: account.cookie });
+  expect(full.json.tables.schedulePageChains).toHaveLength(1);
+});
+
 test('hesap silme veriyi ve oturumları kaldırır; test reset temiz başlatır', async () => {
   const account = await register('silinecek@example.com');
 

@@ -284,7 +284,7 @@ Reconcile kuralları:
 
 ### 10.7 Hafta özeti
 
-Zincir kaydırması aynı sayfa aralığını iki görevde gösterebildiği için `summarizeWeek.plannedPages` artık **silinmemiş kitap görevlerinin benzersiz sayfa birleşimi** olur; görev durumu (yapıldı/yapılmadı) bu toplamı değiştirmez. Böylece:
+Zincir kaydırması aynı sayfa aralığını iki görevde gösterebildiği için `summarizeWeek.plannedPages` artık **kitap başına benzersiz sayfa birleşimi** olur: aynı `userBookId`’li görevlerin aralıkları birleştirilir, farklı kitapların sayfaları ayrı ayrı toplanır. `userBookId` yoksa her görev kendi grubunda kalır; görev durumu (yapıldı/yapılmadı) bu toplamı değiştirmez. Böylece:
 
 - 100-150 zincirinde bir gün kaçırıldığında aynı 10 sayfa iki kez sayılmaz.
 - Planlanmamış aralık görev olmadığı için “Planlanan sayfa”ya eklenmez; kullanıcı “Planlanmamış” uyarısında görür.

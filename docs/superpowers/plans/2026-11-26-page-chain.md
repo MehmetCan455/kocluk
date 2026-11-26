@@ -328,12 +328,21 @@ Add an overlapping-range summary test:
 ```ts
 test('planlanan sayfa örtüşen aralıkları benzersiz sayar', () => {
   const tasks = [
-    task({ id: 'a', dayIndex: 7, fromPage: 10, toPage: 20 }),
-    task({ id: 'b', dayIndex: 7, fromPage: 15, toPage: 25 }),
-    task({ id: 'c', dayIndex: 7, fromPage: 1, toPage: 5 }),
+    task({ id: 'a', dayIndex: 7, userBookId: 'book-1', fromPage: 10, toPage: 20 }),
+    task({ id: 'b', dayIndex: 7, userBookId: 'book-1', fromPage: 15, toPage: 25 }),
+    task({ id: 'c', dayIndex: 7, userBookId: 'book-1', fromPage: 1, toPage: 5 }),
   ];
 
   expect(summarizeWeek(tasks, [])).toMatchObject({ plannedPages: 21 });
+});
+
+test('farklı kitapların sayfaları ayrı sayılır', () => {
+  const tasks = [
+    task({ id: 'a', dayIndex: 7, userBookId: 'book-1', fromPage: 1, toPage: 20 }),
+    task({ id: 'b', dayIndex: 7, userBookId: 'book-2', fromPage: 1, toPage: 20 }),
+  ];
+
+  expect(summarizeWeek(tasks, [])).toMatchObject({ plannedPages: 40 });
 });
 ```
 
@@ -349,7 +358,7 @@ Expected: FAIL on the new per-day status expectations and the overlap total.
 In `src/domain/schedule.ts`:
 - Import `startOfDay` from `date-fns`.
 - In `scheduleTaskStatus`, after explicit `completedAt`/`missedAt`, compute `taskDay = addDays(parseISO(weekStart), task.dayIndex - 1)` and return `'missed'` when `startOfDay(taskDay) < startOfDay(now)`, otherwise `'pending'`.
-- Replace the `plannedPages` reduce with a helper that merges all active `type === 'book'` ranges (`fromPage`/`toPage` valid, `toPage >= fromPage`) and sums their union length. Ignore status and deleted rows. Existing `readPages` logic stays.
+- Replace the `plannedPages` reduce with a helper that groups active `type === 'book'` ranges by `userBookId` (tasks without a `userBookId` each stay in their own group), merges ranges within each group (`fromPage`/`toPage` valid, `toPage >= fromPage`), and sums the group unions. Ignore status and deleted rows. Existing `readPages` logic stays.
 - `BookDetailPage.tsx`: replace the local `task.completedAt ? 'Tamamlandı' : 'Planlandı'` with `scheduleTaskStatus(task, task.weekStart)` and map `done → 'Tamamlandı'`, `missed → 'Yapılmadı'`, `pending → 'Planlandı'`. This makes the book detail plan list agree with the planner's auto-missed display.
 
 - [ ] **Step 4: Run tests to verify they pass**

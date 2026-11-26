@@ -4,6 +4,7 @@ import { deterministicId } from '@/lib/deterministicId';
 import { COPY_NAMESPACE, LOCAL_SCOPE, WEEK_NAMESPACE } from '@/lib/namespaces';
 import { addCatalogBookToShelf, getShelfBook, updateUserBook } from './bookRepositories';
 import { db } from './db';
+import { createPageChain, listWeekPageChains } from './pageChainRepository';
 import type { CreateScheduleTaskInput } from './scheduleRepository';
 import {
   addRow,
@@ -91,6 +92,34 @@ async function insertTopic(id = 'topic-1'): Promise<Topic> {
   };
   await db.topics.add(topic);
   return topic;
+}
+
+async function seedChainInWeek(weekStart: string) {
+  const userBookId = await seedShelfBook(400, `catalog-${weekStart}`);
+  const { week } = await getOrCreateWeek(weekStart);
+  const row = await addRow(week.id, 'Matematik');
+  const view = await createPageChain({
+    weekId: week.id,
+    rowId: row.id,
+    userBookId,
+    startPage: 10,
+    endPage: 30,
+    days: [1, 2, 3],
+  });
+  return { view, taskId: view.tasks[0].id, rowId: row.id };
+}
+
+async function seedChain() {
+  return seedChainInWeek(WEEK_START);
+}
+
+async function seedTwoWeeks(): Promise<{
+  sourceWeekStart: string;
+  targetWeekStart: string;
+}> {
+  await getOrCreateWeek(WEEK_START);
+  await getOrCreateWeek(NEXT_WEEK_START);
+  return { sourceWeekStart: WEEK_START, targetWeekStart: NEXT_WEEK_START };
 }
 
 beforeEach(async () => {
@@ -864,4 +893,19 @@ test('hafta kopyası yapıldı/yapılmadı işaretlerini taşımaz', async () =>
     expect(task.completedAt).toBeUndefined();
     expect(task.missedAt).toBeUndefined();
   }
+});
+
+test('zincir görevini düzenlemek/silmek zinciri çözer', async () => {
+  const { view, taskId, rowId } = await seedChain();
+  await updateTask(taskId, { rowId, dayIndex: 1, type: 'free', title: 'Değişti' });
+  expect((await db.schedulePageChains.get(view.chain.id))?.deletedAt).toBeTruthy();
+});
+
+test('geçen haftadan kopyalama zincir satırını kopyalamaz', async () => {
+  const { sourceWeekStart, targetWeekStart } = await seedTwoWeeks();
+  await seedChainInWeek(sourceWeekStart);
+  await copyWeek(sourceWeekStart, targetWeekStart);
+  const target = await getOrCreateWeek(targetWeekStart);
+  expect(await listWeekPageChains(target.week.id)).toEqual([]);
+  expect(target.tasks.length).toBeGreaterThan(0);
 });

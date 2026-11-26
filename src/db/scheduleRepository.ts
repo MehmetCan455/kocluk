@@ -13,6 +13,12 @@ import { deterministicId } from '@/lib/deterministicId';
 import { newId } from '@/lib/id';
 import { COPY_NAMESPACE, LOCAL_SCOPE, WEEK_NAMESPACE } from '@/lib/namespaces';
 import { db } from './db';
+import {
+  dissolveChainsForRow,
+  dissolvePageChain,
+  findChainForTask,
+  recomputePageChain,
+} from './pageChainRepository';
 import { validateTaskFields, type TaskFields } from './scheduleTaskFields';
 
 export interface WeekData {
@@ -204,24 +210,35 @@ export async function renameRow(rowId: string, label: string): Promise<void> {
  * topic history is not rewritten by a plan edit.
  */
 export async function deleteRow(rowId: string): Promise<void> {
-  await db.transaction('rw', db.scheduleRows, db.scheduleTasks, async () => {
-    const row = await db.scheduleRows.get(rowId);
-    if (!row || row.deletedAt) {
-      return;
-    }
+  const deletedWeekId = await db.transaction(
+    'rw',
+    db.scheduleRows,
+    db.scheduleTasks,
+    async () => {
+      const row = await db.scheduleRows.get(rowId);
+      if (!row || row.deletedAt) {
+        return null;
+      }
 
-    const now = new Date().toISOString();
-    await db.scheduleRows.put({ ...row, deletedAt: now, updatedAt: now });
+      const now = new Date().toISOString();
+      await db.scheduleRows.put({ ...row, deletedAt: now, updatedAt: now });
 
-    const tasks = (
-      await db.scheduleTasks.where('rowId').equals(rowId).toArray()
-    ).filter((task) => !task.deletedAt);
-    if (tasks.length > 0) {
-      await db.scheduleTasks.bulkPut(
-        tasks.map((task) => ({ ...task, deletedAt: now, updatedAt: now })),
-      );
-    }
-  });
+      const tasks = (
+        await db.scheduleTasks.where('rowId').equals(rowId).toArray()
+      ).filter((task) => !task.deletedAt);
+      if (tasks.length > 0) {
+        await db.scheduleTasks.bulkPut(
+          tasks.map((task) => ({ ...task, deletedAt: now, updatedAt: now })),
+        );
+      }
+      return row.weekId;
+    },
+  );
+
+  // Chains planned in a deleted row have no tasks left to hold their pages.
+  if (deletedWeekId) {
+    await dissolveChainsForRow(deletedWeekId, rowId);
+  }
 }
 
 /** The stored plan uses ISO weekdays (Monday = 1 … Sunday = 7). */
@@ -370,6 +387,13 @@ export async function updateTask(
   taskId: string,
   input: UpdateScheduleTaskInput,
 ): Promise<void> {
+  // Editing a planned chain task can change its day/type/book, which the chain
+  // can no longer describe; the chain is dissolved only after the edit commits.
+  const existing = await db.scheduleTasks.get(taskId);
+  const chainId = existing
+    ? await findChainForTask(existing.weekId, taskId)
+    : null;
+
   await db.transaction(
     'rw',
     db.scheduleTasks,
@@ -444,6 +468,10 @@ export async function updateTask(
       }
     },
   );
+
+  if (chainId) {
+    await dissolvePageChain(chainId);
+  }
 }
 
 export async function toggleTask(taskId: string, done: boolean): Promise<void> {
@@ -459,6 +487,8 @@ export async function setTaskStatus(
   taskId: string,
   status: ScheduleTaskStatus,
 ): Promise<void> {
+  // The chain lookup needs the task's week; read it before the status write.
+  const initial = await db.scheduleTasks.get(taskId);
   await db.transaction(
     'rw',
     db.scheduleTasks,
@@ -541,6 +571,15 @@ export async function setTaskStatus(
       }
     },
   );
+
+  // A chain task's tick/miss releases or keeps its page chunk, so the rest of
+  // the chain shifts after the status write commits.
+  if (initial) {
+    const chainId = await findChainForTask(initial.weekId, taskId);
+    if (chainId) {
+      await recomputePageChain(chainId);
+    }
+  }
 }
 
 /**
@@ -548,6 +587,11 @@ export async function setTaskStatus(
  * history remain after a plan edit. Only unticking removes the activity.
  */
 export async function deleteTask(taskId: string): Promise<void> {
+  const existing = await db.scheduleTasks.get(taskId);
+  const chainId = existing
+    ? await findChainForTask(existing.weekId, taskId)
+    : null;
+
   await db.transaction('rw', db.scheduleTasks, async () => {
     const task = await db.scheduleTasks.get(taskId);
     if (!task || task.deletedAt) {
@@ -556,6 +600,10 @@ export async function deleteTask(taskId: string): Promise<void> {
     const now = new Date().toISOString();
     await db.scheduleTasks.put({ ...task, deletedAt: now, updatedAt: now });
   });
+
+  if (chainId) {
+    await dissolvePageChain(chainId);
+  }
 }
 
 export async function copyWeek(

@@ -4,13 +4,15 @@ import type { CatalogBook, ScheduleRow, ScheduleWeek } from '@/domain/types';
 import { addCatalogBookToShelf } from './bookRepositories';
 import { db } from './db';
 import {
+  addUnscheduledChunk,
   createPageChain,
   dissolvePageChain,
   findChainForTask,
   listWeekPageChains,
+  reconcileWeekPageChains,
   recomputePageChain,
 } from './pageChainRepository';
-import { addTask } from './scheduleRepository';
+import { addTask, setTaskStatus } from './scheduleRepository';
 
 const CREATED_AT = '2026-11-01T09:00:00.000Z';
 const WEEK_START = '2026-12-07';
@@ -231,4 +233,101 @@ test('görevden zincir bulunur ve zincir çözülünce kaybolur', async () => {
 
 test('olmayan zincir yeniden hesaplanmaz', async () => {
   expect(await recomputePageChain('olmayan-zincir')).toBeNull();
+});
+
+test('durum değişikliği zinciri kaydırır', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3, 4, 5] });
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+
+  await setTaskStatus(second.id, 'missed');
+
+  const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
+  expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({ fromPage: 110, toPage: 119 });
+  expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 130, toPage: 139 });
+});
+
+test('sonraki boş güne ekle zincire yeni slot ekler', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3, 4, 5] });
+  const second = view.tasks.find((task) => task.dayIndex === 2)!;
+  await setTaskStatus(second.id, 'missed');
+
+  await addUnscheduledChunk(view.chain.id);
+
+  const chains = await listWeekPageChains(weekId);
+  expect(chains[0].slots).toHaveLength(6);
+  expect(chains[0].tasks.find((task) => task.dayIndex === 6)).toMatchObject({
+    fromPage: 140,
+    toPage: 150,
+  });
+  expect(chains[0].unscheduled).toEqual([]);
+});
+
+test('eksik görev zinciri çözmez, tombstone çözer', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3] });
+  const first = view.tasks[0];
+  await db.scheduleTasks.delete(first.id);
+
+  await reconcileWeekPageChains(weekId);
+  expect((await db.schedulePageChains.get(view.chain.id))?.deletedAt).toBeUndefined();
+
+  const restored = { ...first, id: first.id };
+  await db.scheduleTasks.put(restored);
+  await db.scheduleTasks.update(first.id, { deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  await reconcileWeekPageChains(weekId);
+  expect((await db.schedulePageChains.get(view.chain.id))?.deletedAt).toBeTruthy();
+});
+
+test('kimlik uyuşmazlığı zinciri çözer', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3] });
+  const first = view.tasks[0];
+  await db.scheduleTasks.update(first.id, { dayIndex: 4, updatedAt: new Date().toISOString() });
+
+  await reconcileWeekPageChains(weekId);
+  expect((await db.schedulePageChains.get(view.chain.id))?.deletedAt).toBeTruthy();
+});
+
+test('geçmiş gün otomatik yapılmadı sayılır ve kaydırır', async () => {
+  const pastWeek: ScheduleWeek = {
+    id: 'week-past',
+    weekStart: '2026-11-16',
+    note: '',
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+  await db.scheduleWeeks.add(pastWeek);
+  const pastRow: ScheduleRow = {
+    id: 'row-past',
+    weekId: pastWeek.id,
+    label: 'Matematik',
+    order: 0,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+  await db.scheduleRows.add(pastRow);
+
+  const view = await createPageChain({ weekId: pastWeek.id, rowId: pastRow.id, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3, 4, 5] });
+  const now = new Date(2026, 10, 17, 12); // Salı; Pazartesi geçmiş
+  await reconcileWeekPageChains(pastWeek.id, now);
+
+  const tasks = await db.scheduleTasks.where('weekId').equals(pastWeek.id).toArray();
+  expect(tasks.find((task) => task.dayIndex === 1)).toMatchObject({ fromPage: 100, toPage: 109 });
+  expect(tasks.find((task) => task.dayIndex === 1)?.missedAt).toBeUndefined();
+  expect(tasks.find((task) => task.dayIndex === 2)).toMatchObject({ fromPage: 100, toPage: 109 });
+  expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 130, toPage: 139 });
+  expect(view.chain).toBeTruthy();
+});
+
+test('bozuk zincir satırı listeyi patlatmaz', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3] });
+  await db.schedulePageChains.update(view.chain.id, { chunkCount: 99 });
+
+  await expect(listWeekPageChains(weekId)).resolves.toEqual([]);
+});
+
+test('tombstone slot recompute etmez', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3] });
+  const first = view.tasks[0];
+  await db.scheduleTasks.update(first.id, { deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+
+  await expect(recomputePageChain(view.chain.id)).resolves.toBeNull();
 });

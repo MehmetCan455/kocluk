@@ -36,6 +36,10 @@ export interface PageChainView {
 const PAGE_CHAIN_MIN_DAYS = 2;
 const PAGE_CHAIN_MAX_DAYS = 7;
 
+/** A chain always needs at least two chunks and never more than a week's days. */
+const PAGE_CHAIN_MIN_CHUNKS = 2;
+const PAGE_CHAIN_MAX_CHUNKS = 7;
+
 /** ISO weekdays, Monday = 1 … Sunday = 7. */
 function normalizeDays(days: number[]): number[] {
   if (
@@ -81,6 +85,29 @@ async function taskMapFor(ids: string[]): Promise<Map<string, ScheduleTask>> {
     }
   }
   return tasks;
+}
+
+/**
+ * A persisted chain is usable only when its chunk settings still describe its
+ * page range. Corrupt rows are skipped by reads and dissolved by reconcile.
+ */
+function isValidChainSettings(chain: SchedulePageChain): boolean {
+  if (
+    !Number.isInteger(chain.chunkCount) ||
+    chain.chunkCount < PAGE_CHAIN_MIN_CHUNKS ||
+    chain.chunkCount > PAGE_CHAIN_MAX_CHUNKS
+  ) {
+    return false;
+  }
+  if (!Number.isInteger(chain.chunkSize) || chain.chunkSize < 1) {
+    return false;
+  }
+  try {
+    splitPageRange(chain.startPage, chain.endPage, chain.chunkCount);
+  } catch {
+    return false;
+  }
+  return chain.chunkSize === pageChunkSize(chain.startPage, chain.endPage, chain.chunkCount);
 }
 
 function chunksFor(chain: SchedulePageChain): PageChainChunk[] {
@@ -273,7 +300,7 @@ export async function listWeekPageChains(
   const views: PageChainView[] = [];
   for (const chain of chains) {
     const slots = parseChainSlots(chain.slots);
-    if (!slots) {
+    if (!slots || !isValidChainSettings(chain)) {
       continue;
     }
     const chunks = chunksFor(chain);
@@ -303,17 +330,27 @@ export async function recomputePageChain(
     return null;
   }
   const slots = parseChainSlots(chain.slots);
-  if (!slots) {
+  if (!slots || !isValidChainSettings(chain)) {
     return null;
   }
 
   const tasks = await taskMapFor(slotTaskIds(slots));
+  // A missing or tombstoned slot task cannot be treated as pending; shifting
+  // the remaining pages around it would plan pages nobody holds. Reconcile
+  // decides whether such a chain is dissolved.
+  if (
+    slots.some((slot) => {
+      const task = tasks.get(slot.taskId);
+      return !task || Boolean(task.deletedAt);
+    })
+  ) {
+    return null;
+  }
+
   const statuses = new Map<string, ScheduleTaskStatus>();
   for (const slot of slots) {
-    const task = tasks.get(slot.taskId);
-    if (task && !task.deletedAt) {
-      statuses.set(task.id, scheduleTaskStatus(task, week.weekStart, now));
-    }
+    const task = tasks.get(slot.taskId)!;
+    statuses.set(task.id, scheduleTaskStatus(task, week.weekStart, now));
   }
 
   const result = assignChainChunks({
@@ -427,4 +464,165 @@ export async function findChainForTask(
     }
   }
   return null;
+}
+
+async function activeChainsForWeek(weekId: string): Promise<SchedulePageChain[]> {
+  return (
+    await db.schedulePageChains.where('weekId').equals(weekId).toArray()
+  ).filter((chain) => !chain.deletedAt);
+}
+
+/** Dissolves every active chain of the week that plans the given task. */
+export async function dissolveChainsForTask(
+  weekId: string,
+  taskId: string,
+): Promise<void> {
+  for (const chain of await activeChainsForWeek(weekId)) {
+    const slots = parseChainSlots(chain.slots);
+    if (slots?.some((slot) => slot.taskId === taskId)) {
+      await dissolvePageChain(chain.id);
+    }
+  }
+}
+
+/** Dissolves every active chain planned inside the given row. */
+export async function dissolveChainsForRow(
+  weekId: string,
+  rowId: string,
+): Promise<void> {
+  for (const chain of await activeChainsForWeek(weekId)) {
+    if (chain.rowId === rowId) {
+      await dissolvePageChain(chain.id);
+    }
+  }
+}
+
+/**
+ * Repairs drifted weeks: corrupt chains are dissolved, chains whose slot tasks
+ * disappeared are left alone (the view reports them incomplete), and chains
+ * whose tasks no longer match the plan row/identity are dissolved. Everything
+ * else is recomputed for the given clock.
+ */
+export async function reconcileWeekPageChains(
+  weekId: string,
+  now: Date = new Date(),
+): Promise<void> {
+  for (const chain of await activeChainsForWeek(weekId)) {
+    const slots = parseChainSlots(chain.slots);
+    if (!slots || !isValidChainSettings(chain)) {
+      await dissolvePageChain(chain.id);
+      continue;
+    }
+
+    const tasks = await taskMapFor(slotTaskIds(slots));
+    let hasMissing = false;
+    let hasBroken = false;
+    for (const slot of slots) {
+      const task = tasks.get(slot.taskId);
+      if (!task) {
+        // A row missing from the local snapshot is not proof of a broken
+        // chain; keep it and let the view show it incomplete.
+        hasMissing = true;
+        continue;
+      }
+      if (
+        task.deletedAt ||
+        task.weekId !== chain.weekId ||
+        task.rowId !== chain.rowId ||
+        task.userBookId !== chain.userBookId ||
+        task.type !== 'book' ||
+        task.dayIndex !== slot.dayIndex
+      ) {
+        hasBroken = true;
+      }
+    }
+
+    if (hasBroken) {
+      await dissolvePageChain(chain.id);
+    } else if (!hasMissing) {
+      await recomputePageChain(chain.id, now);
+    }
+  }
+}
+
+/**
+ * Puts the first unscheduled chunk on the first free day after the chain's last
+ * slot in the same row. The task and the new slot land together so an
+ * interrupted write cannot leave a task no chain knows about.
+ */
+export async function addUnscheduledChunk(chainId: string): Promise<void> {
+  const created = await db.transaction(
+    'rw',
+    [
+      db.scheduleTasks,
+      db.schedulePageChains,
+      db.scheduleRows,
+      db.scheduleWeeks,
+      db.userBooks,
+      db.catalogBooks,
+      db.topics,
+    ],
+    async () => {
+      const chain = await db.schedulePageChains.get(chainId);
+      if (!chain || chain.deletedAt || !isValidChainSettings(chain)) {
+        return false;
+      }
+      const slots = parseChainSlots(chain.slots);
+      if (!slots) {
+        return false;
+      }
+
+      const chunk = unscheduledChunks(chunksFor(chain), slots)[0];
+      if (!chunk) {
+        return false;
+      }
+      const dayIndex = await nextEmptyDay(chain, slots);
+      if (dayIndex === null) {
+        throw new Error('Bu haftada boş gün kalmadı.');
+      }
+
+      const fields = await validateTaskFields({
+        weekId: chain.weekId,
+        rowId: chain.rowId,
+        dayIndex,
+        type: 'book',
+        userBookId: chain.userBookId,
+        fromPage: chunk.fromPage,
+        toPage: chunk.toPage,
+      });
+      const timestamp = new Date().toISOString();
+      const task: ScheduleTask = {
+        id: newId(),
+        weekId: chain.weekId,
+        rowId: chain.rowId,
+        dayIndex,
+        ...fields,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      const nextSlotIndex =
+        slots.reduce((max, slot) => Math.max(max, slot.slotIndex), -1) + 1;
+      const nextSlots: PageChainSlot[] = [
+        ...slots,
+        {
+          taskId: task.id,
+          slotIndex: nextSlotIndex,
+          chunkIndex: chunk.chunkIndex,
+          dayIndex,
+        },
+      ];
+
+      await db.scheduleTasks.add(task);
+      await db.schedulePageChains.put({
+        ...chain,
+        slots: serializeChainSlots(nextSlots),
+        updatedAt: timestamp,
+      });
+      return true;
+    },
+  );
+
+  if (created) {
+    await recomputePageChain(chainId);
+  }
 }

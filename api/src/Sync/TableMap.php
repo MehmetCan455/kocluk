@@ -97,6 +97,9 @@ final class TableMap
     /** Day count selected when a page chain is created (client range). */
     private const RULE_CHUNK_COUNT = ['type' => 'int', 'min' => 2, 'max' => 7];
 
+    /** Pages per chunk; fits SMALLINT UNSIGNED and the client rejects zero. */
+    private const RULE_CHUNK_SIZE = ['type' => 'int', 'min' => 1, 'max' => 65535];
+
     /** @var array<string, array<string, mixed>> */
     private const TABLES = [
         'subjects' => [
@@ -486,9 +489,9 @@ final class TableMap
                 'userBookId' => self::RULE_ID,
                 'startPage' => self::RULE_UNSIGNED,
                 'endPage' => self::RULE_UNSIGNED,
-                'chunkSize' => self::RULE_SMALL_UNSIGNED,
+                'chunkSize' => self::RULE_CHUNK_SIZE,
                 'chunkCount' => self::RULE_CHUNK_COUNT,
-                'slots' => ['type' => 'string', 'maxBytes' => 65535],
+                'slots' => self::RULE_TEXT,
                 'createdAt' => self::RULE_TIMESTAMP,
                 'updatedAt' => self::RULE_TIMESTAMP,
                 'deletedAt' => self::RULE_TIMESTAMP,

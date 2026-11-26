@@ -363,7 +363,7 @@ final class TableMapTest extends TestCase
         self::assertArrayNotHasKey('user_id', $api);
     }
 
-    public function test_page_chain_chunk_count_stays_between_two_and_seven(): void
+    public function test_page_chain_chunk_count_and_size_stay_within_range(): void
     {
         $row = [
             'id' => self::ID,
@@ -389,6 +389,24 @@ final class TableMapTest extends TestCase
             self::assertRejected(fn () => TableMap::toDb(
                 'schedulePageChains',
                 array_replace($row, ['chunkCount' => $count]),
+            ));
+        }
+
+        // The client dissolves a chain whose chunkSize is below 1, so a zero
+        // page budget must never reach the database.
+        self::assertSame(1, TableMap::toDb(
+            'schedulePageChains',
+            array_replace($row, ['chunkSize' => 1]),
+        )['chunk_size']);
+        self::assertSame(65535, TableMap::toDb(
+            'schedulePageChains',
+            array_replace($row, ['chunkSize' => 65535]),
+        )['chunk_size']);
+
+        foreach ([0, 65536] as $size) {
+            self::assertRejected(fn () => TableMap::toDb(
+                'schedulePageChains',
+                array_replace($row, ['chunkSize' => $size]),
             ));
         }
     }

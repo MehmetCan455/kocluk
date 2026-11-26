@@ -366,6 +366,21 @@ export interface ScheduleTask {
   deletedAt?: string;
 }
 
+export interface SchedulePageChain {
+  id: string;
+  weekId: string;
+  rowId: string;
+  userBookId: string;
+  startPage: number;
+  endPage: number;
+  chunkSize: number;
+  chunkCount: number;
+  slots: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
 export interface TopicProgress {
   id: string;
   topicId: string;

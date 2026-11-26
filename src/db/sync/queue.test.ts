@@ -61,7 +61,7 @@ function subject(id: string, updatedAt?: string): Subject {
   };
 }
 
-test('SYNCED_TABLES backend TableMap ile birebir aynı 13 anahtardır', async () => {
+test('SYNCED_TABLES backend TableMap ile birebir aynı 14 anahtardır', async () => {
   expect(SYNCED_TABLES).toEqual([
     'subjects',
     'topics',
@@ -74,6 +74,7 @@ test('SYNCED_TABLES backend TableMap ile birebir aynı 13 anahtardır', async ()
     'scheduleWeeks',
     'scheduleRows',
     'scheduleTasks',
+    'schedulePageChains',
     'topicProgress',
     'settings',
   ]);

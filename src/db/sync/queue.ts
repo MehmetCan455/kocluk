@@ -21,7 +21,7 @@ import {
 /**
  * Local write queue (design §9.2).
  *
- * Dexie hooks on the 13 synced tables coalesce every mutation into one queue
+ * Dexie hooks on the 14 synced tables coalesce every mutation into one queue
  * row per table + row id. The queue write is scheduled for the transaction's
  * `complete` event, so an aborted transaction never leaves a queue entry, and
  * runs in its own transaction because a single-table `put()` transaction does

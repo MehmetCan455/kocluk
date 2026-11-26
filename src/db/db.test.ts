@@ -63,6 +63,7 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {
     'practiceSessions',
     'scheduleEntries',
     'scheduleFiles',
+    'schedulePageChains',
     'scheduleRows',
     'scheduleTables',
     'scheduleTasks',
@@ -85,6 +86,12 @@ test('şema tablolarını ve seedKey tekilliğini tanımlar', () => {
     'updatedAt',
   ]);
   expect(db.scheduleFiles.schema.indexes.map((index) => index.name)).toEqual(['createdAt']);
+  expect(db.schedulePageChains.schema.indexes.map((index) => index.name)).toEqual([
+    'weekId',
+    'rowId',
+    'updatedAt',
+    'deletedAt',
+  ]);
   expect(db.scheduleTables.schema.primKey.name).toBe('id');
   expect(db.userBooks.schema.indexes.find((index) => index.name === 'bookId')?.unique).toBe(true);
   expect(db.scheduleWeeks.schema.indexes.find((index) => index.name === 'weekStart')?.unique).toBe(true);

@@ -12,6 +12,7 @@ import type {
   PracticeSession,
   ScheduleEntry,
   ScheduleFile,
+  SchedulePageChain,
   ScheduleRow,
   ScheduleTable,
   ScheduleTask,
@@ -53,6 +54,7 @@ export class KoclukDB extends Dexie {
   scheduleWeeks!: Table<ScheduleWeek, string>;
   scheduleRows!: Table<ScheduleRow, string>;
   scheduleTasks!: Table<ScheduleTask, string>;
+  schedulePageChains!: Table<SchedulePageChain, string>;
   topicProgress!: Table<TopicProgress, string>;
   syncQueue!: Table<SyncQueueRow, string>;
   syncMeta!: Table<SyncMetaRow, string>;
@@ -157,6 +159,11 @@ export class KoclukDB extends Dexie {
           }
         });
       });
+
+    // v9 adds the page-chain layer without touching schedule_tasks.
+    this.version(9).stores({
+      schedulePageChains: 'id, weekId, rowId, updatedAt, deletedAt',
+    });
   }
 }
 

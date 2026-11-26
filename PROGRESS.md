@@ -36,6 +36,7 @@
 | GitHub Pages | Otomatik deploy **kapalı** (`workflow_dispatch`); canlı cPanel'den |
 | Ana dal | `main`, çalışma ağacı temiz |
 | Beta | Canlı kapalı beta; 10 kişiye açılım kullanıcının kontrolünde |
+| Aktif çalışma | `feat/page-chain` — sayfa zinciri; canlıya deploy edilmedi; PHPUnit CI + merge/deploy onayı bekliyor |
 
 > Build hash'i her deploy'da değişir. Canlı sürümü doğrulamak için
 > `https://zirveacademy.com/` HTML'indeki `assets/index-*.js` ile yerel
@@ -44,10 +45,10 @@
 ### Son doğrulama (2026-11-26)
 
 - `npm run typecheck` ✅
-- Vitest: **74 dosya / 798 test** ✅
+- Vitest: **76 dosya / 856 test** ✅
 - `npm run build` ✅
-- Playwright auth-sync: **5/5** ✅ (son tam E2E koşusu: 23/23)
-- PHPUnit (CI, son bilinen): **270 test / 3239 assertion** ✅
+- Playwright: **24/24** ✅ (sayfa zinciri dahil tam E2E)
+- PHPUnit: yerelde PHP yok; CI `api` işi bekliyor (son bilinen canlı öncesi: 270 test / 3239 assertion)
 - Canlı smoke: health 200, kayıt 201, `sync/status` 200, hesap silme 200 ✅
 - `npm audit`: yüksek/kritik yok; 4 moderate yalnızca build/dev zincirinde
 
@@ -260,6 +261,18 @@ Migration yalnızca gerektiğinde bir kez:
 - Çevrimdışı kuyruk, yeniden deneme, dead-letter, manuel tekrar/atma.
 - Eski yerel veriyi hesaba taşıma; kimlikleri koruma.
 - İki cihaz senkronu ve çevrimdışı→çevrimiçi akışı E2E ile test edildi.
+- Tablo seti büyüyünce (`syncTableVersion`) tek seferlik `full` backfill; eski istemci cursor’ı yeni tabloyu kaçırmaz.
+
+### Haftalık plan — sayfa zinciri (2026-11-26, `feat/page-chain`)
+
+- Aynı satırda 2–7 gün seç, tek kitap + başlangıç/bitiş sayfası; aralık `chunkCount` ile bitişik parçalara bölünür.
+- Kırmızı çarpı veya geçmiş gün otomatik “Yapılmadı” bekleyen aralıkları sağa kaydırır; yapılan/kaçırılan aralıklar sabit kalır.
+- Taşan aralık “Planlanmamış sayfalar” uyarısı + “Sonraki boş güne ekle”; hafta dolarsa uyarı.
+- Ayrı `schedulePageChains` senkron tablosu; `schedule_tasks` şeması değişmedi; eski istemciler görevleri normal kullanır.
+- Plan açılışında reconcile; gece/gün değişiminde visibility ile tekrar.
+- Panel, zincir rozeti, düzenle/sil uyarısı, erişilebilir etiketler.
+- Migration `004_page_chain.sql`, TableMap, mock API, yedek şeması v7.
+- Testler: 856 Vitest, 24 Playwright; PHPUnit CI bekliyor.
 
 ### Ürün
 
@@ -285,6 +298,9 @@ Migration yalnızca gerektiğinde bir kez:
 
 | Tarih | Konu | Durum / commit |
 |---|---|---|
+| 2026-11-26 | Sayfa zinciri eklendi | Yeni `schedulePageChains` tablosu, panel/reconcile/backup v7 — `feat/page-chain` (canlıya deploy edilmedi) |
+| 2026-11-26 | Yarıda kalan haftada zincir oluşturma | `createPageChain` artık oluştururken recompute eder; geçmiş günler anında kayar |
+| 2026-11-26 | Eski istemci yeni tabloyu kaçırıyordu | `syncTableVersion` ile tek seferlik `full` backfill |
 | 2026-11-26 | `invalid_response`: 2xx ama JSON olmayan host/WAF sayfası | Otomatik 30 sn retry + HTTP/content-type teşhisi — `4e59f99` |
 | 2026-11-26 | Tarayıcı yanlış "çevrimdışı" diyor | Manuel/açılış senkronu artık gerçekten ağa çıkıyor — `4e59f99` |
 | 2026-11-25 | Eski satırda `updatedAt` eksikti | Kuyruk zamanından tamamlanıyor — `53080a7` |
@@ -303,6 +319,9 @@ Migration yalnızca gerektiğinde bir kez:
 6. **`dist/` unutulması:** Kaynak commit edilip `dist/` edilmezse cPanel eski siteyi yayınlar.
 7. **Config yolu:** `public_html` içine konursa dış config'i gölgeler ve güvenlik riski olur.
 8. **DB şifresi karışıklığı:** cPanel giriş şifresi değil, MySQL kullanıcısının şifresi kullanılır.
+9. **Sayfa zinciri + Dexie v9 rollback:** yeni istemci bir kez v9 DB açtıktan sonra eski (v8) istemciye geri dönmek `VersionError` verebilir. Canlı geri dönüşte yalnızca API/migration geri alınır; istemci yeni sürümde kalır. Ayrıntı: `docs/ROLLBACK.md`.
+10. **Page chain deploy sırası:** önce `api/bin/migrate.php` (004) çalışır, sonra yeni API/istemci deploy edilir. Yeni API tablo yokken tüm sync çağrılarında 500 verir.
+11. **Sayfa zinciri planlanmamış aralık:** normal görevler otomatik çarpı görse de sayfa kaydırmaz; yalnızca zincir görevleri kayar.
 
 ---
 
@@ -317,6 +336,10 @@ Migration yalnızca gerektiğinde bir kez:
 - [ ] `docs/SECURITY-CHECKLIST.md` içindeki "staging yapılmadı" durumunu güncel canlı duruma göre yenile.
 - [ ] İleride gerekirse `test.zirveacademy.com` subdomain staging'i kur (ek domain ücreti yok).
 - [ ] API hata logunu ve yedek boyutlarını ara sıra kontrol et.
+- [ ] `feat/page-chain` için CI `api` işini (PHPUnit + MariaDB) çalıştır ve yeşil olduğunu doğrula.
+- [ ] Sayfa zincirini `main`’e merge et; `dist` build; **önce migration 004, sonra API/istemci** deploy et.
+- [ ] Canlıda sayfa zinciri smoke testi: 5 günlük zincir, bir günü kaçır, planlanmamış aralığı sonraki güne ekle, yenile.
+- [ ] Sayfa zinciri sonrası Dexie v9 rollback planını (`docs/ROLLBACK.md`) ekipte/ileride hatırla.
 
 ---
 
@@ -334,6 +357,15 @@ Migration yalnızca gerektiğinde bir kez:
 ---
 
 ## 13. Oturum kayıtları
+
+### 2026-11-26 — Sayfa zinciri (feat/page-chain)
+
+- Haftalık plana sayfa zinciri eklendi: seçilen günlere tek kitaptan ardışık sayfa aralıkları, kırmızı çarpı/geçmiş gün kaydırması, planlanmamış aralık uyarısı + sonraki boş güne ekleme.
+- Yeni `schedulePageChains` senkron tablosu; `schedule_tasks` değişmedi. Migration `004_page_chain.sql`, TableMap, mock API, yedek v7.
+- Plan açılışında reconcile; yarıda kalan haftada oluşturmada anında recompute; eski istemci için `syncTableVersion` full backfill.
+- Erişilebilir zincir rozeti, panel doğrulamaları, düzenle/sil uyarıları.
+- Testler: 856 Vitest, 24 Playwright, typecheck/build yeşil; PHPUnit CI bekliyor.
+- Final review “With fixes” dedi; Critical/Important fix wave + scoped re-review ile kapatıldı. Canlıya deploy edilmedi.
 
 ### 2026-11-26 — Canlı deploy doğrulama + bu dosya
 

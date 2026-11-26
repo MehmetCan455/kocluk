@@ -657,7 +657,7 @@ test('durum değişikliği zinciri kaydırır', async () => {
   const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3, 4, 5] });
   const second = view.tasks.find((task) => task.dayIndex === 2)!;
 
-  await setTaskStatus(second.id, 'missed');
+  await setTaskStatus(second.id, 'missed', new Date(2026, 11, 1, 12));
 
   const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
   expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({ fromPage: 110, toPage: 119 });
@@ -667,7 +667,7 @@ test('durum değişikliği zinciri kaydırır', async () => {
 test('sonraki boş güne ekle zincire yeni slot ekler', async () => {
   const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3, 4, 5] });
   const second = view.tasks.find((task) => task.dayIndex === 2)!;
-  await setTaskStatus(second.id, 'missed');
+  await setTaskStatus(second.id, 'missed', new Date(2026, 11, 1, 12));
 
   await addUnscheduledChunk(view.chain.id);
 
@@ -717,6 +717,21 @@ test('geçmiş gün otomatik yapılmadı sayılır ve kaydırır', async () => {
   expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 130, toPage: 139 });
   expect(view.chain).toBeTruthy();
 });
+
+test('bozuk zincir satırı listeyi patlatmaz', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3] });
+  await db.schedulePageChains.update(view.chain.id, { chunkCount: 99 });
+
+  await expect(listWeekPageChains(weekId)).resolves.toEqual([]);
+});
+
+test('tombstone slot recompute etmez', async () => {
+  const view = await createPageChain({ weekId, rowId, userBookId, startPage: 100, endPage: 150, days: [1, 2, 3] });
+  const first = view.tasks[0];
+  await db.scheduleTasks.update(first.id, { deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+
+  await expect(recomputePageChain(view.chain.id)).resolves.toBeNull();
+});
 ```
 
 Add to `src/db/scheduleRepository.test.ts` (or the existing schedule repository test file):
@@ -745,14 +760,15 @@ Expected: FAIL on the new functions/expectations.
 
 - [ ] **Step 3: Implement the integration**
 
-- `setTaskStatus`: capture the initial task; after its transaction completes, if `initial` exists, `const chainId = await findChainForTask(initial.weekId, taskId); if (chainId) await recomputePageChain(chainId);`.
-- `updateTask`/`deleteTask`: look up the chain id before the mutation; perform the task mutation; only after it succeeds, `await dissolvePageChain(chainId)`. If the mutation fails, the chain stays intact.
+- `setTaskStatus(taskId, status, now?)`: capture the initial task; after its transaction completes, find its chain and `recomputePageChain(chainId, now)`. The optional `now` is for deterministic tests; callers keep the default. If the task is not in a chain, do nothing.
+- `updateTask`/`deleteTask`: perform the mutation; only after it succeeds, `await dissolveChainsForTask(existing.weekId, taskId)` (no chain dissolve if the mutation fails). This uses the exported helper instead of a pre-captured chain id.
 - `deleteRow`: delete the row/tasks, then `await dissolveChainsForRow(row.weekId, rowId)`.
 - `reconcileWeekPageChains`: list active chains; parse/validate; for each:
   - invalid `slots`/`chunkCount`/`chunkSize` → dissolve;
   - a task absent → mark `incomplete` and skip (do not dissolve);
   - a task tombstoned or `weekId`/`rowId`/`userBookId`/`type`/`dayIndex` mismatch → dissolve;
   - otherwise recompute.
+- Guard the Task 4 view/recompute paths: `listWeekPageChains` skips (does not throw on) a chain whose `chunkCount`/`chunkSize`/page range is invalid; `recomputePageChain` returns `null` when any slot task is absent or tombstoned (do not feed missing tasks to `assignChainChunks` as pending). Reconcile remains the place that dissolves such chains.
 - `addUnscheduledChunk`: load view; take first `unscheduled`; find first empty day after the last slot in the same row; if none, throw `Bu haftada boş gün kalmadı.`; create the task + slot in one transaction, update chain `slots`; recompute.
 - `dissolveChainsForTask` / `dissolveChainsForRow`: scan active chains for the week, parse slots, dissolve matching chains.
 

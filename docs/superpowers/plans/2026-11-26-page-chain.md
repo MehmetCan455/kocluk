@@ -643,7 +643,7 @@ git commit -m "feat(schedule): create and recompute page chains"
 
 ```ts
 export async function reconcileWeekPageChains(weekId: string, now?: Date): Promise<void>;
-export async function addUnscheduledChunk(chainId: string): Promise<void>;
+export async function addUnscheduledChunk(chainId: string, now?: Date): Promise<void>;
 export async function dissolveChainsForTask(weekId: string, taskId: string): Promise<void>;
 export async function dissolveChainsForRow(weekId: string, rowId: string): Promise<void>;
 ```
@@ -669,7 +669,7 @@ test('sonraki boş güne ekle zincire yeni slot ekler', async () => {
   const second = view.tasks.find((task) => task.dayIndex === 2)!;
   await setTaskStatus(second.id, 'missed', new Date(2026, 11, 1, 12));
 
-  await addUnscheduledChunk(view.chain.id);
+  await addUnscheduledChunk(view.chain.id, new Date(2026, 11, 1, 12));
 
   const chains = await listWeekPageChains(weekId);
   expect(chains[0].slots).toHaveLength(6);
@@ -769,7 +769,7 @@ Expected: FAIL on the new functions/expectations.
   - a task tombstoned or `weekId`/`rowId`/`userBookId`/`type`/`dayIndex` mismatch → dissolve;
   - otherwise recompute.
 - Guard the Task 4 view/recompute paths: `listWeekPageChains` skips (does not throw on) a chain whose `chunkCount`/`chunkSize`/page range is invalid; `recomputePageChain` returns `null` when any slot task is absent or tombstoned (do not feed missing tasks to `assignChainChunks` as pending). Reconcile remains the place that dissolves such chains.
-- `addUnscheduledChunk`: load view; take first `unscheduled`; find first empty day after the last slot in the same row; if none, throw `Bu haftada boş gün kalmadı.`; create the task + slot in one transaction, update chain `slots`; recompute.
+- `addUnscheduledChunk(chainId, now?)`: guard `view.incomplete` (a missing/tombstoned slot must not append); take the first unscheduled chunk; find the first empty day after the last slot in the same row; if none, throw `Bu haftada boş gün kalmadı.`; create the task and a new slot in one transaction, update chain `slots`; recompute with the passed `now` (default `new Date()`). Rename the inner ISO timestamp in `setTaskStatus` to `nowIso` so it is not confused with the injected clock.
 - `dissolveChainsForTask` / `dissolveChainsForRow`: scan active chains for the week, parse slots, dissolve matching chains.
 
 - [ ] **Step 4: Run tests**

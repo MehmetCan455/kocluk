@@ -36,7 +36,6 @@ export interface WeeklyPlanTableProps {
   onAddTask: (row: WeeklyPlanRow, day: number) => void;
   onSetTaskStatus: (task: ScheduleTask, status: ScheduleTaskStatus) => void;
   onEditTask: (task: ScheduleTask) => void;
-  onDeleteTask: (task: ScheduleTask) => void;
   tickMode: boolean;
   onToggleTickMode: () => void;
   /** Task ids that belong to an active page chain in this week. */
@@ -73,7 +72,6 @@ export function WeeklyPlanTable({
   onAddTask,
   onSetTaskStatus,
   onEditTask,
-  onDeleteTask,
   tickMode,
   onToggleTickMode,
   chainTaskIds,
@@ -260,7 +258,6 @@ export function WeeklyPlanTable({
                                   onSetTaskStatus(task, status)
                                 }
                                 onEdit={() => onEditTask(task)}
-                                onDelete={() => onDeleteTask(task)}
                                 disabled={disabled}
                               />
                             );

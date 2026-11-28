@@ -990,7 +990,6 @@ export function WeeklyPlan() {
                 task,
               })
             }
-            onDeleteTask={requestDeleteTask}
             tickMode={tickMode}
             onToggleTickMode={() => setTickMode((current) => !current)}
             chainTaskIds={chainTaskIds}

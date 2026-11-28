@@ -1,5 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { Link2, Pencil, Trash2 } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 import type { ScheduleTaskStatus } from '@/domain/schedule';
 
@@ -16,7 +16,6 @@ export interface TaskChipProps {
   chain?: boolean;
   onStatusChange: (status: ScheduleTaskStatus) => void;
   onEdit: () => void;
-  onDelete: () => void;
   disabled?: boolean;
 }
 
@@ -32,13 +31,6 @@ const STATUS_TEXT: Record<ScheduleTaskStatus, string> = {
   missed: 'Yapılmadı',
   pending: 'Planlandı',
 };
-
-/**
- * Desktop actions stay hidden until the cell is hovered or focused. Touch
- * screens have no hover, so there the chip tap opens the editor instead.
- */
-const HOVER_ACTIONS =
-  'pointer-events-none opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 group-hover/cell:pointer-events-auto group-hover/cell:opacity-100 group-focus-within/cell:pointer-events-auto group-focus-within/cell:opacity-100';
 
 interface ChipLinesProps {
   title: string;
@@ -81,8 +73,9 @@ function ChipLines({ title, subtitle, detail, done }: ChipLinesProps) {
 
 /**
  * One planned task with only the three text lines and a status colour. Normal
- * mode opens the editor when the chip is tapped; tick mode turns the whole chip
- * into a left-click done / right-click missed target.
+ * mode opens the editor when the chip is clicked or tapped; the editor is the
+ * single edit/delete path on every device. Tick mode turns the whole chip into
+ * a left-click done / right-click missed target.
  */
 export function TaskChip({
   title,
@@ -93,7 +86,6 @@ export function TaskChip({
   chain = false,
   onStatusChange,
   onEdit,
-  onDelete,
   disabled = false,
 }: TaskChipProps) {
   const label = [title, detail].filter(Boolean).join(' ');
@@ -102,8 +94,6 @@ export function TaskChip({
   const accessibleLabel = chain
     ? `${label}: ${STATUS_TEXT[status]}, Sayfa zinciri`
     : `${label}: ${STATUS_TEXT[status]}`;
-  const actionClass =
-    'grid h-11 w-11 shrink-0 place-items-center rounded-md text-muted transition-colors disabled:pointer-events-none disabled:opacity-50';
 
   function markDone(): void {
     if (disabled) {
@@ -173,34 +163,6 @@ export function TaskChip({
           done={status === 'done'}
         />
       </div>
-      {tickMode ? null : (
-        <div
-          onClick={(event) => event.stopPropagation()}
-          className={cn(
-            'flex shrink-0 justify-end gap-1 max-[767px]:absolute max-[767px]:bottom-0 max-[767px]:right-0 min-[768px]:absolute min-[768px]:bottom-0 min-[768px]:right-0 min-[768px]:z-10',
-            HOVER_ACTIONS,
-          )}
-        >
-          <button
-            type="button"
-            aria-label={`${label} görevini düzenle`}
-            onClick={onEdit}
-            disabled={disabled}
-            className={cn(actionClass, 'hover:bg-surface hover:text-fg')}
-          >
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={`${label} görevini sil`}
-            onClick={onDelete}
-            disabled={disabled}
-            className={cn(actionClass, 'hover:bg-surface hover:text-danger')}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

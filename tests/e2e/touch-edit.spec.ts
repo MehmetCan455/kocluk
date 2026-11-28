@@ -97,11 +97,9 @@ test('masaüstünde çip tıklaması düzenler, tik modunda tamamlar', async ({
   const chip = page.locator('[data-status]').first();
   await expect(chip).toHaveAttribute('data-status', 'pending');
 
-  // The hover action strip (2 × 44 px) overlays the whole text block of the
-  // narrow day column, so a centre click lands on the edit/delete icon. Click
-  // the chip itself at its top-left, which is the part of the chip body the
-  // overlay does not cover.
-  await chip.click({ position: { x: 8, y: 8 } });
+  // A normal-mode chip click opens the editor; there are no hover icons to
+  // intercept the centre of the chip.
+  await chip.click();
   const editDialog = page.getByRole('dialog', { name: 'Görevi düzenle' });
   await expect(editDialog).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Görevi sil' })).toHaveCount(0);

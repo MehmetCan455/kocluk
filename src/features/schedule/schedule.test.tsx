@@ -905,11 +905,7 @@ test('rafta başka aktif kitap yokken de raf dışı kitabı uyarır ve kaydetme
 
   const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
   await screen.findByText(chipTitle, { selector: '[data-line="title"]' });
-  await userEvent.click(
-    screen.getByRole('button', {
-      name: new RegExp(`${chipTitle} Syf\\. 10–20 görevini düzenle`),
-    }),
-  );
+  await userEvent.click(taskChip(chipTitle));
   const dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
 
   // The active shelf is empty, so the picker shows its empty-shelf message;
@@ -1074,18 +1070,16 @@ test('arayüzden eklenen görev ISO gün indeksiyle saklanır ve bugünün plan�
   });
 
   const planChip = taskChip('Bugünün görevi');
-  // The three-line body and the icon buttons keep the 44px touch target rule.
+  // The three-line body keeps the 44px touch target rule.
   expect(planChip).toHaveAttribute('aria-label', 'Bugünün görevi: Planlandı');
   expect(
     planChip.querySelector('[data-line="title"]')?.closest('div'),
   ).toHaveClass('min-h-11');
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  // The editor is the only task edit/delete path; chips have no action icons.
   expect(
-    screen.getByRole('button', { name: 'Bugünün görevi görevini düzenle' }),
-  ).toHaveClass('h-11', 'w-11');
-  expect(
-    screen.getByRole('button', { name: 'Bugünün görevi görevini sil' }),
-  ).toHaveClass('h-11', 'w-11');
+    screen.queryByRole('button', { name: /görevini (düzenle|sil)/ }),
+  ).not.toBeInTheDocument();
 
   view.unmount();
   renderApp('/');
@@ -1115,11 +1109,7 @@ test('serbest görev eklenir, düzenlenir ve silinir', async () => {
   await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
   expect(await screen.findByText('Deneme çözümü')).toBeInTheDocument();
 
-  await userEvent.click(
-    screen.getByRole('button', {
-      name: 'Deneme çözümü görevini düzenle',
-    }),
-  );
+  await userEvent.click(taskChip('Deneme çözümü'));
   dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
   const titleInput = within(dialog).getByLabelText('Görev adı');
   await userEvent.clear(titleInput);
@@ -1127,10 +1117,10 @@ test('serbest görev eklenir, düzenlenir ve silinir', async () => {
   await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
   expect(await screen.findByText('Deneme analizi')).toBeInTheDocument();
 
+  await userEvent.click(taskChip('Deneme analizi'));
+  dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
   await userEvent.click(
-    screen.getByRole('button', {
-      name: 'Deneme analizi görevini sil',
-    }),
+    within(dialog).getByRole('button', { name: 'Görevi sil' }),
   );
   const deleteDialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
   expect(deleteDialog).toHaveTextContent('tiki kaldır');
@@ -1185,8 +1175,12 @@ test('görev silme onayı vazgeçilince görev korunur', async () => {
 
   await openSchedule(`/program?week=${weekStart}`);
   await screen.findByText('Kalacak görev');
+  await userEvent.click(taskChip('Kalacak görev'));
+  const editDialog = await screen.findByRole('dialog', {
+    name: 'Görevi düzenle',
+  });
   await userEvent.click(
-    screen.getByRole('button', { name: 'Kalacak görev görevini sil' }),
+    within(editDialog).getByRole('button', { name: 'Görevi sil' }),
   );
   const dialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
   await userEvent.click(within(dialog).getByRole('button', { name: 'Vazgeç' }));
@@ -1194,6 +1188,9 @@ test('görev silme onayı vazgeçilince görev korunur', async () => {
   await waitFor(() => {
     expect(screen.queryByRole('dialog', { name: 'Görevi sil' })).not.toBeInTheDocument();
   });
+  expect(
+    screen.queryByRole('dialog', { name: 'Görevi düzenle' }),
+  ).not.toBeInTheDocument();
   expect(screen.getByText('Kalacak görev')).toBeInTheDocument();
   expect((await getWeek(weekStart))?.tasks).toHaveLength(1);
 });
@@ -1222,13 +1219,7 @@ test('tik modu sol tıkla yapıldı, sağ tıkla yapılmadı, tekrar tıkla nöt
   expect(
     screen.getByText('Sol tık: yapıldı · Sağ tık: yapılmadı'),
   ).toBeInTheDocument();
-  // Tik modunda düzenle/sil gizlenir; çipin tamamı tıklama hedefi olur.
-  expect(
-    screen.queryByRole('button', { name: 'Türev tekrarı görevini düzenle' }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole('button', { name: 'Türev tekrarı görevini sil' }),
-  ).not.toBeInTheDocument();
+  // Tik modunda çipin tamamı tıklama hedefi olur.
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   expect(taskChip('Türev tekrarı')).toHaveAttribute('role', 'button');
   expect(taskChip('Türev tekrarı')).toHaveAttribute('tabindex', '0');
@@ -1297,7 +1288,7 @@ test('normal modda görev çipi tıklanınca durum değiştirmez', async () => {
   expect(chip).toHaveAttribute('data-status', 'pending');
   expect((await db.scheduleTasks.get(task.id))?.completedAt).toBeUndefined();
   expect(
-    screen.getByRole('button', { name: 'Türev tekrarı görevini düzenle' }),
+    screen.getByRole('dialog', { name: 'Görevi düzenle' }),
   ).toBeInTheDocument();
 });
 
@@ -1315,10 +1306,12 @@ test('normal modda görev çipine tıklamak düzenleme modalını açar', async 
     selector: '[data-line="title"]',
   });
 
+  // A single chip click opens exactly one editor; there is no nested action
+  // button that could bubble a second open.
   await userEvent.click(taskChip('Matematik denemesi'));
   expect(
-    screen.getByRole('dialog', { name: 'Görevi düzenle' }),
-  ).toBeInTheDocument();
+    screen.getAllByRole('dialog', { name: 'Görevi düzenle' }),
+  ).toHaveLength(1);
 });
 
 test('düzenleme modalındaki Görevi sil onay modalını açar ve görevi siler', async () => {
@@ -1418,28 +1411,6 @@ test('yeni görev modalında Görevi sil düğmesi yoktur', async () => {
   expect(
     within(dialog).queryByRole('button', { name: 'Görevi sil' }),
   ).not.toBeInTheDocument();
-});
-
-test('hover düzenle ikonuna tıklamak modalı iki kez açmaz', async () => {
-  const { weekId, rowId } = await seedPlanRow();
-  await addTask({
-    weekId,
-    rowId,
-    dayIndex: todayScheduleDayIndex() + 1,
-    type: 'free',
-    title: 'Matematik denemesi',
-  });
-  await openSchedule();
-  await screen.findByText('Matematik denemesi', {
-    selector: '[data-line="title"]',
-  });
-
-  await userEvent.click(
-    screen.getByRole('button', { name: /görevini düzenle/ }),
-  );
-  expect(
-    screen.getAllByRole('dialog', { name: 'Görevi düzenle' }),
-  ).toHaveLength(1);
 });
 
 test('tick modunda çip tıklaması durumu değiştirir, modal açmaz', async () => {
@@ -1545,7 +1516,7 @@ test('geçmiş haftada işaretsiz görev kırmızı, tamamlanan görev yeşil g�
   expect(taskChip('Bitirilen görev').className).toContain('text-success');
 });
 
-test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu hücrede ekleme sunmaz', async () => {
+test('görev çipi üç satırı kırar ve dolu hücrede ekleme sunmaz', async () => {
   const { weekId, rowId } = await seedPlanRow();
   const shelfBook = await seedBilgiSarmalBook();
   await addTask({
@@ -1583,32 +1554,11 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
   expect(detailLine).toHaveClass('truncate', 'whitespace-nowrap');
   expect(taskChip(bookChipTitle).querySelector('.break-words')).toBeNull();
 
-  const label = `${bookChipTitle} Syf. 123–128`;
-  const editButton = screen.getByRole('button', {
-    name: `${label} görevini düzenle`,
-  });
-  const deleteButton = screen.getByRole('button', {
-    name: `${label} görevini sil`,
-  });
-  for (const button of [editButton, deleteButton]) {
-    expect(button).toHaveClass('h-11', 'w-11');
-  }
-  expect(editButton.parentElement).toHaveClass(
-    'opacity-0',
-    'group-hover/cell:opacity-100',
-    'group-focus-within/cell:opacity-100',
-    'max-[767px]:absolute',
-    'max-[767px]:bottom-0',
-    'max-[767px]:right-0',
-    'min-[768px]:absolute',
-  );
-  // Dokunmatikte ayrı eylem düğmeleri yok; çipe dokunmak düzenlemeyi açar.
-  expect(editButton.parentElement?.className).not.toContain(
-    'max-[767px]:opacity-100',
-  );
-  expect(editButton.parentElement?.className).not.toContain(
-    'max-[767px]:pointer-events-auto',
-  );
+  // Görev düzenleme/silme yalnızca çipe tıklayınca açılan modaldedir; çipte
+  // ayrı eylem düğmeleri yoktur.
+  expect(
+    screen.queryByRole('button', { name: /görevini (düzenle|sil)/ }),
+  ).not.toBeInTheDocument();
 
   // Dolu hücrede ne büyük kesikli kutu ne de kompakt + vardır; hücre başına
   // tek görev kuralı yeni ikinci görev eklemeyi engeller.
@@ -1977,11 +1927,7 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
   expect(within(normalChip).queryByText('Sayfa zinciri')).not.toBeInTheDocument();
   expect(normalChip).toHaveAttribute('aria-label', 'Zincirsiz görev: Planlandı');
 
-  await userEvent.click(
-    within(mondayChip).getByRole('button', {
-      name: `${chipTitle} Syf. 100–110 görevini düzenle`,
-    }),
-  );
+  await userEvent.click(mondayChip);
   const editDialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
   expect(editDialog).toHaveTextContent(
     'Bu görev bir sayfa zincirinin parçası. Düzenlersen zincir çözülür.',
@@ -1989,11 +1935,18 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
   await userEvent.click(
     within(editDialog).getByRole('button', { name: 'Vazgeç' }),
   );
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('dialog', { name: 'Görevi düzenle' }),
+    ).not.toBeInTheDocument();
+  });
 
+  await userEvent.click(mondayChip);
+  const secondEditDialog = await screen.findByRole('dialog', {
+    name: 'Görevi düzenle',
+  });
   await userEvent.click(
-    within(mondayChip).getByRole('button', {
-      name: `${chipTitle} Syf. 100–110 görevini sil`,
-    }),
+    within(secondEditDialog).getByRole('button', { name: 'Görevi sil' }),
   );
   const deleteDialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
   expect(deleteDialog).toHaveTextContent(

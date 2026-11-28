@@ -38,6 +38,30 @@ function isValidChunkIndex(chunkIndex: number, chunkCount: number): boolean {
   return Number.isInteger(chunkIndex) && chunkIndex >= 0 && chunkIndex < chunkCount;
 }
 
+/** Shared range rules: integers, 2..7 chunks and a range wide enough for them. */
+function validatePageChainRange(
+  startPage: number,
+  endPage: number,
+  chunkCount: number,
+): void {
+  if (
+    !Number.isInteger(startPage) ||
+    !Number.isInteger(endPage) ||
+    !Number.isInteger(chunkCount)
+  ) {
+    throw new Error('Sayfa aralığı ve parça sayısı tam sayı olmalı.');
+  }
+  if (chunkCount < PAGE_CHAIN_MIN_CHUNKS || chunkCount > PAGE_CHAIN_MAX_CHUNKS) {
+    throw new Error('Parça sayısı 2 ile 7 arasında olmalı.');
+  }
+  if (startPage < 1 || endPage <= startPage) {
+    throw new Error('Geçersiz sayfa aralığı.');
+  }
+  if (endPage - startPage + 1 < chunkCount) {
+    throw new Error('Sayfa aralığı parça sayısına yetmiyor.');
+  }
+}
+
 /**
  * Pages per chunk, with the last chunk absorbing the remainder. The page span
  * is inclusive, so a 20-page range over two days splits 10/10 rather than 9/11.
@@ -55,22 +79,7 @@ export function splitPageRange(
   endPage: number,
   chunkCount: number,
 ): PageChainChunk[] {
-  if (
-    !Number.isInteger(startPage) ||
-    !Number.isInteger(endPage) ||
-    !Number.isInteger(chunkCount)
-  ) {
-    throw new Error('Sayfa aralığı ve parça sayısı tam sayı olmalı.');
-  }
-  if (chunkCount < PAGE_CHAIN_MIN_CHUNKS || chunkCount > PAGE_CHAIN_MAX_CHUNKS) {
-    throw new Error('Parça sayısı 2 ile 7 arasında olmalı.');
-  }
-  if (startPage < 1 || endPage <= startPage) {
-    throw new Error('Geçersiz sayfa aralığı.');
-  }
-  if (endPage - startPage + 1 < chunkCount) {
-    throw new Error('Sayfa aralığı parça sayısına yetmiyor.');
-  }
+  validatePageChainRange(startPage, endPage, chunkCount);
 
   const chunkSize = pageChunkSize(startPage, endPage, chunkCount);
   return Array.from({ length: chunkCount }, (_, chunkIndex) => {
@@ -78,6 +87,44 @@ export function splitPageRange(
     const toPage =
       chunkIndex === chunkCount - 1 ? endPage : Math.min(fromPage + chunkSize - 1, endPage);
     return { chunkIndex, fromPage, toPage };
+  });
+}
+
+/**
+ * Page counts per chunk that differ by at most one page. The remainder is
+ * handed to the earliest chunks one page at a time, so a 20-page range over
+ * seven days reads 3/3/3/3/3/3/2 instead of leaving the last day short by six.
+ */
+export function balancedChunkSizes(
+  startPage: number,
+  endPage: number,
+  chunkCount: number,
+): number[] {
+  validatePageChainRange(startPage, endPage, chunkCount);
+
+  const totalPages = endPage - startPage + 1;
+  const base = Math.floor(totalPages / chunkCount);
+  const remainder = totalPages % chunkCount;
+  return Array.from({ length: chunkCount }, (_, index) => base + (index < remainder ? 1 : 0));
+}
+
+/**
+ * Builds contiguous, inclusive ranges from explicit chunk sizes, so a stored
+ * distribution survives an edit instead of being recomputed from scratch.
+ */
+export function chunksFromSizes(startPage: number, sizes: readonly number[]): PageChainChunk[] {
+  for (const size of sizes) {
+    if (!Number.isInteger(size) || size < 1) {
+      throw new Error('Parça boyları pozitif tam sayı olmalı.');
+    }
+  }
+
+  let fromPage = startPage;
+  return sizes.map((size, chunkIndex) => {
+    const toPage = fromPage + size - 1;
+    const chunk: PageChainChunk = { chunkIndex, fromPage, toPage };
+    fromPage = toPage + 1;
+    return chunk;
   });
 }
 
@@ -243,4 +290,43 @@ export function parseSkippedChunks(value: unknown, chunkCount: number): Set<numb
     }
   }
   return skipped;
+}
+
+/**
+ * Strict read of stored chunk sizes. Unlike the skip list this is chain
+ * identity: empty, malformed, wrong-length, non-positive or mismatched page
+ * counts all fall back to `null` so the caller recomputes the distribution.
+ */
+export function parseChunkSizes(
+  value: unknown,
+  chunkCount: number,
+  totalPages: number,
+): number[] | null {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length !== chunkCount) {
+    return null;
+  }
+
+  const sizes: number[] = [];
+  for (const entry of parsed) {
+    if (!isInteger(entry) || entry < 1) {
+      return null;
+    }
+    sizes.push(entry);
+  }
+
+  if (sizes.reduce((total, size) => total + size, 0) !== totalPages) {
+    return null;
+  }
+  return sizes;
 }

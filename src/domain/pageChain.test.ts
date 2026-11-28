@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   assignChainChunks,
+  balancedChunkSizes,
+  chunksFromSizes,
   pageChunkSize,
   parseChainSlots,
+  parseChunkSizes,
   parseSkippedChunks,
   serializeChainSlots,
   splitPageRange,
@@ -45,6 +48,59 @@ describe('splitPageRange', () => {
     expect(pageChunkSize(100, 150, 5)).toBe(10);
     expect(pageChunkSize(100, 119, 2)).toBe(10);
     expect(pageChunkSize(100, 104, 5)).toBe(1);
+  });
+});
+
+describe('balancedChunkSizes', () => {
+  test('dengeli dağılım kalanı ilk günlere birer birer verir', () => {
+    expect(balancedChunkSizes(1, 20, 7)).toEqual([3, 3, 3, 3, 3, 3, 2]);
+    expect(balancedChunkSizes(100, 150, 5)).toEqual([11, 10, 10, 10, 10]);
+    expect(balancedChunkSizes(1, 8, 7)).toEqual([2, 1, 1, 1, 1, 1, 1]);
+  });
+
+  test('splitPageRange ile aynı geçersiz girdileri reddeder', () => {
+    expect(() => balancedChunkSizes(100, 100, 2)).toThrow();
+    expect(() => balancedChunkSizes(100, 101, 5)).toThrow();
+    expect(() => balancedChunkSizes(100, 150, 1)).toThrow();
+    expect(() => balancedChunkSizes(100, 150, 5.5)).toThrow();
+  });
+});
+
+describe('chunksFromSizes', () => {
+  test('chunksFromSizes bitişik ve bitiş dahil aralıklar üretir', () => {
+    expect(chunksFromSizes(100, [11, 10, 10, 10, 10])).toEqual([
+      { chunkIndex: 0, fromPage: 100, toPage: 110 },
+      { chunkIndex: 1, fromPage: 111, toPage: 120 },
+      { chunkIndex: 2, fromPage: 121, toPage: 130 },
+      { chunkIndex: 3, fromPage: 131, toPage: 140 },
+      { chunkIndex: 4, fromPage: 141, toPage: 150 },
+    ]);
+  });
+
+  test('pozitif olmayan parça boylarını reddeder', () => {
+    expect(() => chunksFromSizes(100, [10, 0, 10])).toThrow();
+    expect(() => chunksFromSizes(100, [10, -1, 10])).toThrow();
+    expect(() => chunksFromSizes(100, [10, 1.5, 10])).toThrow();
+  });
+});
+
+describe('parseChunkSizes', () => {
+  test('parseChunkSizes boş ve bozuk değerleri legacy sayar', () => {
+    expect(parseChunkSizes(JSON.stringify([3, 3, 3, 3, 3, 3, 2]), 7, 20)).toEqual([
+      3, 3, 3, 3, 3, 3, 2,
+    ]);
+    for (const value of [
+      null,
+      undefined,
+      '',
+      '[]',
+      'bozuk',
+      '[1,2]',
+      '[0,1,2,3,4,5,14]',
+      '["3",3,3,3,3,3,2]',
+    ]) {
+      expect(parseChunkSizes(value, 7, 20)).toBeNull();
+    }
   });
 });
 

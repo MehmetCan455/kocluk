@@ -79,7 +79,7 @@ tests/e2e/touch-edit.spec.ts                         touch + desktop E2E
 
 ## Part A — Sayfa zinciri özel dağılımı
 
-### Task A1: Dengeli boyut, aralık ve parse yardımcıları
+### Task 1 (A1): Dengeli boyut, aralık ve parse yardımcıları
 
 **Files:**
 - Modify: `src/domain/pageChain.ts`
@@ -157,7 +157,7 @@ git commit -m "feat: add balanced page-chain chunk helpers"
 
 ---
 
-### Task A2: `assignChainChunks` özel boyutları kullanır
+### Task 2 (A2): `assignChainChunks` özel boyutları kullanır
 
 **Files:**
 - Modify: `src/domain/pageChain.ts`
@@ -241,7 +241,7 @@ git commit -m "feat: support custom page-chain chunk sizes"
 
 ---
 
-### Task A3: Repository `chunkSizes` + legacy koruması
+### Task 3 (A3): Repository `chunkSizes` + legacy koruması
 
 **Files:**
 - Modify: `src/domain/types.ts` (`SchedulePageChain`)
@@ -346,7 +346,7 @@ git commit -m "feat: persist custom page-chain layouts"
 
 ---
 
-### Task A4: Önizlemede düzenlenebilir günlük adetler
+### Task 4 (A4): Önizlemede düzenlenebilir günlük adetler
 
 **Files:**
 - Modify: `src/features/schedule/PageChainModal.tsx`
@@ -433,7 +433,7 @@ git commit -m "feat: edit daily page counts in chain preview"
 
 ---
 
-### Task A5: Sync, yedek ve mock parity
+### Task 5 (A5): Sync, yedek ve mock parity
 
 **Files:**
 - Modify: `src/db/sync/constants.ts`
@@ -499,7 +499,7 @@ git commit -m "feat: sync nullable page-chain chunk sizes"
 
 ---
 
-### Task A6: Sunucu TableMap, migration ve eski istemci koruması
+### Task 6 (A6): Sunucu TableMap, migration ve eski istemci koruması
 
 **Files:**
 - Modify: `api/src/Sync/TableMap.php`
@@ -591,7 +591,7 @@ git commit -m "feat(api): preserve page-chain chunk sizes"
 
 ---
 
-### Task A7: Sayfa zinciri E2E ve odaklı doğrulama
+### Task 7 (A7): Sayfa zinciri E2E ve odaklı doğrulama
 
 **Files:**
 - Modify: `tests/e2e/page-chain.spec.ts`
@@ -634,7 +634,7 @@ git commit -m "test: cover balanced and custom page-chain layouts"
 
 ## Part B — Test PDF
 
-### Task B1: PDF layout motoru
+### Task 8 (B1): PDF layout motoru
 
 **Files:**
 - Create: `src/features/practice/practicePdf.ts`
@@ -768,7 +768,7 @@ git commit -m "feat: add practice PDF layout"
 
 ---
 
-### Task B2: Font, jsPDF builder ve indirme
+### Task 9 (B2): Font, jsPDF builder ve indirme
 
 **Files:**
 - Modify: `package.json` (`jspdf`)
@@ -871,7 +871,7 @@ git commit -m "feat: build practice PDFs with embedded Roboto"
 
 ---
 
-### Task B3: PDF indirme düğmesi ve oturum entegrasyonu
+### Task 10 (B3): PDF indirme düğmesi ve oturum entegrasyonu
 
 **Files:**
 - Create: `src/features/practice/PracticePdfButton.tsx`
@@ -923,7 +923,7 @@ git commit -m "feat: add practice PDF download button"
 
 ---
 
-### Task B4: PDF E2E
+### Task 11 (B4): PDF E2E
 
 **Files:**
 - Modify: `tests/e2e/photos.spec.ts`
@@ -972,7 +972,7 @@ git commit -m "test: verify practice PDF download"
 
 ## Part C — Dokunmatik düzenleme
 
-### Task C1: Görev çipine dokun → düzenleme
+### Task 12 (C1): Görev çipine dokun → düzenleme
 
 **Files:**
 - Modify: `src/features/schedule/TaskChip.tsx`
@@ -1032,7 +1032,7 @@ git commit -m "feat: open task editor by tapping the chip"
 
 ---
 
-### Task C2: Modal içinden görev silme
+### Task 13 (C2): Modal içinden görev silme
 
 **Files:**
 - Modify: `src/features/schedule/ScheduleTaskModal.tsx`
@@ -1090,7 +1090,7 @@ git commit -m "feat: delete a task from its editor"
 
 ---
 
-### Task C3: Dokunmatik satır silme görünürlüğü
+### Task 14 (C3): Dokunmatik satır silme görünürlüğü
 
 **Files:**
 - Modify: `src/features/schedule/WeeklyPlanTable.tsx`
@@ -1132,7 +1132,7 @@ git commit -m "feat: show row delete on touch devices"
 
 ---
 
-### Task C4: Dokunmatik ve masaüstü E2E
+### Task 15 (C4): Dokunmatik ve masaüstü E2E
 
 **Files:**
 - Create: `tests/e2e/touch-edit.spec.ts`
@@ -1187,7 +1187,7 @@ git commit -m "test: cover touch task editing and deletion"
 
 ---
 
-## Release Task R1: Tam doğrulama ve yayın hazırlığı
+### Task 16 (R1): Tam doğrulama ve yayın hazırlığı
 
 **Files:**
 - Modify: `PROGRESS.md`

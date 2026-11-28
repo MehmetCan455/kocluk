@@ -7,7 +7,11 @@ import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/components/ui/cn';
 import { listShelfBooks } from '@/db/bookRepositories';
 import { createPageChain } from '@/db/pageChainRepository';
-import { splitPageRange, type PageChainChunk } from '@/domain/pageChain';
+import {
+  balancedChunkSizes,
+  chunksFromSizes,
+  type PageChainChunk,
+} from '@/domain/pageChain';
 import { dayLabel, validateTaskPages } from '@/domain/schedule';
 import type { ScheduleTask } from '@/domain/types';
 import { SCHEDULE_DAYS } from './scheduleDays';
@@ -29,6 +33,16 @@ function parsePageInput(value: string): number | undefined {
 
 function messageFor(caught: unknown, fallback: string): string {
   return caught instanceof Error && caught.message ? caught.message : fallback;
+}
+
+/** A daily page count is a positive integer, never a blank or a decimal. */
+function parseDailySize(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
 }
 
 function rowName(row: WeeklyPlanRow, index: number): string {
@@ -77,6 +91,12 @@ export function PageChainModal({
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A manual daily split survives only while the range and days stay the
+  // same; any change to the distribution key falls back to the balanced draft.
+  const [distributionDraft, setDistributionDraft] = useState<{
+    key: string;
+    values: string[];
+  } | null>(null);
 
   const savedRows = rows.filter(
     (row): row is WeeklyPlanRow & { id: string } => row.id !== undefined,
@@ -111,10 +131,11 @@ export function PageChainModal({
 
   let chunks: PageChainChunk[] | null = null;
   let rangeError: string | null = null;
+  let balancedSizes: string[] | null = null;
   if (pageError === null && from !== undefined && to !== undefined) {
     if (days.length >= 2) {
       try {
-        chunks = splitPageRange(from, to, days.length);
+        balancedSizes = balancedChunkSizes(from, to, days.length).map(String);
       } catch (caught: unknown) {
         rangeError = messageFor(
           caught,
@@ -126,7 +147,53 @@ export function PageChainModal({
     }
   }
 
-  const validationError = pagesTouched ? (pageError ?? rangeError) : null;
+  const distributionKey = `${fromPage.trim()}:${toPage.trim()}:${days.join(',')}`;
+  const draft =
+    distributionDraft?.key === distributionKey ? distributionDraft : null;
+  const sizeValues = balancedSizes === null ? null : (draft?.values ?? balancedSizes);
+  const lastDay =
+    days.length >= 2
+      ? SCHEDULE_DAYS.find((day) => day.day === days[days.length - 1])
+      : undefined;
+
+  let distributionSizes: number[] | null = null;
+  let lastSize: number | null = null;
+  let distributionError: string | null = null;
+  if (
+    sizeValues !== null &&
+    from !== undefined &&
+    to !== undefined &&
+    pageError === null &&
+    rangeError === null
+  ) {
+    const nonLastSizes: number[] = [];
+    let invalidEntry = false;
+    for (let index = 0; index < days.length - 1; index += 1) {
+      const size = parseDailySize(sizeValues[index] ?? '');
+      if (size === null) {
+        invalidEntry = true;
+        break;
+      }
+      nonLastSizes.push(size);
+    }
+    if (invalidEntry) {
+      distributionError = 'Her gün için en az 1 sayfa gir.';
+    } else {
+      const last =
+        to - from + 1 - nonLastSizes.reduce((sum, size) => sum + size, 0);
+      if (last < 1) {
+        distributionError = 'Günlük sayfa adetleri toplam sayfayı aşamaz.';
+      } else {
+        lastSize = last;
+        distributionSizes = [...nonLastSizes, last];
+        chunks = chunksFromSizes(from, distributionSizes);
+      }
+    }
+  }
+
+  const validationError = pagesTouched
+    ? (pageError ?? rangeError ?? distributionError)
+    : null;
   const canCreate =
     !saving &&
     !created &&
@@ -135,7 +202,8 @@ export function PageChainModal({
     days.length >= 2 &&
     selectedBook !== undefined &&
     pageError === null &&
-    rangeError === null;
+    rangeError === null &&
+    distributionSizes !== null;
 
   function changeRow(nextRowId: string): void {
     setSelectedRowId(nextRowId);
@@ -169,9 +237,24 @@ export function PageChainModal({
     });
   }
 
+  /** Editing any day switches the whole preview to a manual split. */
+  function changeDailySize(index: number, value: string): void {
+    if (sizeValues === null) {
+      return;
+    }
+    const next = [...sizeValues];
+    next[index] = value;
+    setDistributionDraft({ key: distributionKey, values: next });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canCreate || from === undefined || to === undefined) {
+    if (
+      !canCreate ||
+      from === undefined ||
+      to === undefined ||
+      distributionSizes === null
+    ) {
       return;
     }
 
@@ -185,6 +268,7 @@ export function PageChainModal({
         startPage: from,
         endPage: to,
         days,
+        chunkSizes: distributionSizes,
       });
     } catch (caught: unknown) {
       console.error('Sayfa zinciri oluşturulamadı', caught);
@@ -387,43 +471,83 @@ export function PageChainModal({
           </Field>
         </div>
 
-        {chunks ? (
+        {sizeValues !== null ? (
           <div className="space-y-2" aria-live="polite">
-            <p className="text-sm font-medium text-fg">Günlük dağılım</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-fg">Günlük dağılım</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => setDistributionDraft(null)}
+                disabled={saving}
+              >
+                Dengeli dağıt
+              </Button>
+            </div>
             <p className="sr-only">
               {`${weekStart} haftasında ${days.length} güne dağıtılıyor.`}
             </p>
             <ul className="divide-y divide-line rounded-xl border border-line bg-canvas">
-              {chunks.map((chunk, index) => {
+              {days.map((dayIndex, index) => {
                 const day = SCHEDULE_DAYS.find(
-                  (item) => item.day === days[index],
+                  (item) => item.day === dayIndex,
                 );
-                const pageCount = chunk.toPage - chunk.fromPage + 1;
+                const chunk = chunks?.[index];
+                const editable = index < days.length - 1;
                 return (
                   <li
-                    key={chunk.chunkIndex}
+                    key={dayIndex}
                     title={
                       day ? dayLabel(weekStart, day.day) : undefined
                     }
                     className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
                   >
                     <span className="text-muted">{day?.label}</span>
-                    <span className="flex items-baseline gap-2 tabular-nums">
-                      <span className="font-medium">
-                        {`${day?.short} ${chunk.fromPage}–${chunk.toPage}`}
-                      </span>
-                      <span className="text-xs text-muted">{`${pageCount} sayfa`}</span>
+                    <span className="flex items-center gap-2 tabular-nums">
+                      {editable ? (
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          step={1}
+                          aria-label={`${day?.label} sayfa sayısı`}
+                          value={sizeValues[index] ?? ''}
+                          onChange={(event) =>
+                            changeDailySize(index, event.target.value)
+                          }
+                          disabled={saving}
+                          className="min-h-11 w-16 rounded-xl border border-line bg-canvas px-2 py-1 text-right text-sm text-fg focus:border-[var(--accent)]"
+                        />
+                      ) : null}
+                      {chunk ? (
+                        <>
+                          <span className="font-medium">
+                            {`${day?.short} ${chunk.fromPage}–${chunk.toPage}`}
+                          </span>
+                          <span className="text-xs text-muted">
+                            {`${chunk.toPage - chunk.fromPage + 1} sayfa`}
+                          </span>
+                        </>
+                      ) : null}
                     </span>
                   </li>
                 );
               })}
             </ul>
-            <p className="text-xs text-muted tabular-nums">
-              {`Toplam ${chunks.reduce(
-                (sum, chunk) => sum + (chunk.toPage - chunk.fromPage + 1),
-                0,
-              )} sayfa · ${days.length} gün`}
-            </p>
+            {chunks ? (
+              <p className="text-xs text-muted tabular-nums">
+                {`Toplam ${chunks.reduce(
+                  (sum, chunk) => sum + (chunk.toPage - chunk.fromPage + 1),
+                  0,
+                )} sayfa · ${days.length} gün`}
+              </p>
+            ) : null}
+            {lastDay && lastSize !== null ? (
+              <p className="text-xs text-muted tabular-nums">
+                {`${lastDay.label} sayfa sayısı: ${lastSize}`}
+              </p>
+            ) : null}
           </div>
         ) : null}
 

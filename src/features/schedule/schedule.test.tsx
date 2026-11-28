@@ -223,6 +223,38 @@ async function chooseShelfBook(
   );
 }
 
+/**
+ * Opens the chain modal in next week with all seven days selected and a
+ * 20-page range, so the balanced preview reads 3/3/3/3/3/3/2.
+ */
+async function openBalancedChainDialog(): Promise<HTMLElement> {
+  const { weekStart } = await seedPlanRow(shiftWeek(currentWeekStart(), 1));
+  await seedBilgiSarmalBook();
+  await openSchedule(`/program?week=${weekStart}`);
+
+  await screen.findByLabelText('1. satır');
+  await userEvent.click(screen.getByRole('button', { name: 'Sayfa zinciri' }));
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Sayfa zinciri oluştur',
+  });
+  await userEvent.selectOptions(
+    within(dialog).getByLabelText('Satır'),
+    within(dialog).getByRole('option', { name: 'Matematik' }),
+  );
+  for (const day of SCHEDULE_DAYS) {
+    await userEvent.click(
+      within(dialog).getByRole('checkbox', { name: day.label }),
+    );
+  }
+  await chooseShelfBook(dialog, 'bilgi sarmal', /Bilgi Sarmal/);
+  await userEvent.type(
+    within(dialog).getByLabelText('Başlangıç sayfası'),
+    '1',
+  );
+  await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '20');
+  return dialog;
+}
+
 async function subjectByKey(seedKey: string): Promise<Subject> {
   const subject = await db.subjects.where('seedKey').equals(seedKey).first();
   if (!subject) {
@@ -1495,7 +1527,7 @@ test('sayfa zinciri paneli beş günü önizler ve oluşturur', async () => {
   );
   await userEvent.type(within(dialog).getByLabelText('Bitiş sayfası'), '150');
 
-  expect(within(dialog).getByText('Pzt 100–109')).toBeInTheDocument();
+  expect(within(dialog).getByText('Pzt 100–110')).toBeInTheDocument();
   expect(within(dialog).getAllByText('10 sayfa')).toHaveLength(4);
   expect(within(dialog).getByText('11 sayfa')).toBeInTheDocument();
   expect(
@@ -1512,17 +1544,129 @@ test('sayfa zinciri paneli beş günü önizler ve oluşturur', async () => {
     .sort((left, right) => left.dayIndex - right.dayIndex)
     .map((task) => [task.fromPage, task.toPage]);
   expect(chunks).toEqual([
-    [100, 109],
-    [110, 119],
-    [120, 129],
-    [130, 139],
-    [140, 150],
+    [100, 110],
+    [111, 120],
+    [121, 130],
+    [131, 140],
+    [141, 150],
   ]);
   await waitFor(() => {
     expect(
       screen.queryByRole('dialog', { name: 'Sayfa zinciri oluştur' }),
     ).not.toBeInTheDocument();
   });
+});
+
+test('önizleme dengeli dağılımla başlar', async () => {
+  const dialog = await openBalancedChainDialog();
+
+  expect(within(dialog).getByText('Pzt 1–3')).toBeInTheDocument();
+  expect(within(dialog).getByText('Paz 19–20')).toBeInTheDocument();
+  expect(
+    within(dialog).getByLabelText('Pazartesi sayfa sayısı'),
+  ).toHaveValue(3);
+  expect(
+    within(dialog).getByText('Pazar sayfa sayısı: 2'),
+  ).toBeInTheDocument();
+});
+
+test('günlük adet değişince aralıklar ve son gün güncellenir', async () => {
+  const dialog = await openBalancedChainDialog();
+
+  const monday = within(dialog).getByLabelText('Pazartesi sayfa sayısı');
+  await userEvent.clear(monday);
+  await userEvent.type(monday, '4');
+
+  expect(within(dialog).getByText('Pzt 1–4')).toBeInTheDocument();
+  expect(within(dialog).getByText('Sal 5–7')).toBeInTheDocument();
+  expect(within(dialog).getByText('Paz 20–20')).toBeInTheDocument();
+  expect(
+    within(dialog).getByText('Pazar sayfa sayısı: 1'),
+  ).toBeInTheDocument();
+});
+
+test('geçersiz dağılım oluşturmayı kapatır', async () => {
+  const dialog = await openBalancedChainDialog();
+
+  const monday = within(dialog).getByLabelText('Pazartesi sayfa sayısı');
+  await userEvent.clear(monday);
+  await userEvent.type(monday, '99');
+
+  expect(within(dialog).getByRole('alert')).toHaveTextContent(
+    /toplam sayfayı aşamaz/,
+  );
+  expect(
+    within(dialog).getByRole('button', { name: 'Zinciri oluştur' }),
+  ).toBeDisabled();
+  expect(await db.schedulePageChains.count()).toBe(0);
+});
+
+test('dengeli dağıt elle düzenlemeyi sıfırlar', async () => {
+  const dialog = await openBalancedChainDialog();
+
+  const monday = within(dialog).getByLabelText('Pazartesi sayfa sayısı');
+  await userEvent.clear(monday);
+  await userEvent.type(monday, '4');
+  expect(within(dialog).getByText('Pzt 1–4')).toBeInTheDocument();
+
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Dengeli dağıt' }),
+  );
+
+  expect(within(dialog).getByText('Pzt 1–3')).toBeInTheDocument();
+  expect(
+    within(dialog).getByLabelText('Pazartesi sayfa sayısı'),
+  ).toHaveValue(3);
+});
+
+test('bitiş sayfası değişince elle dağılım otomatiğe döner', async () => {
+  const dialog = await openBalancedChainDialog();
+
+  const monday = within(dialog).getByLabelText('Pazartesi sayfa sayısı');
+  await userEvent.clear(monday);
+  await userEvent.type(monday, '4');
+  expect(within(dialog).getByText('Pzt 1–4')).toBeInTheDocument();
+
+  const toPage = within(dialog).getByLabelText('Bitiş sayfası');
+  await userEvent.clear(toPage);
+  await userEvent.type(toPage, '21');
+
+  expect(within(dialog).getByText('Pzt 1–3')).toBeInTheDocument();
+  expect(within(dialog).getByText('Paz 19–21')).toBeInTheDocument();
+  expect(
+    within(dialog).getByText('Pazar sayfa sayısı: 3'),
+  ).toBeInTheDocument();
+});
+
+test('düzenlenen günlük adetler zincire yazılır', async () => {
+  const dialog = await openBalancedChainDialog();
+
+  const monday = within(dialog).getByLabelText('Pazartesi sayfa sayısı');
+  await userEvent.clear(monday);
+  await userEvent.type(monday, '4');
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: 'Zinciri oluştur' }),
+  );
+
+  expect(await screen.findByText('Zincir oluşturuldu.')).toBeInTheDocument();
+  await waitFor(async () => expect(await db.scheduleTasks.count()).toBe(7));
+  const chains = await db.schedulePageChains.toArray();
+  expect(chains).toHaveLength(1);
+  expect(JSON.parse(chains[0].chunkSizes ?? 'null')).toEqual([
+    4, 3, 3, 3, 3, 3, 1,
+  ]);
+  const ranges = (await db.scheduleTasks.toArray())
+    .sort((left, right) => left.dayIndex - right.dayIndex)
+    .map((task) => [task.fromPage, task.toPage]);
+  expect(ranges).toEqual([
+    [1, 4],
+    [5, 7],
+    [8, 10],
+    [11, 13],
+    [14, 16],
+    [17, 19],
+    [20, 20],
+  ]);
 });
 
 test('sayfa zinciri paneli boş rafta kitaplar sayfasına yönlendirir', async () => {
@@ -1638,7 +1782,7 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
   // part of the accessible name itself.
   expect(within(mondayChip).getByText('Sayfa zinciri')).toBeInTheDocument();
   const accessibleName = mondayChip.getAttribute('aria-label') ?? '';
-  expect(accessibleName).toContain(`${chipTitle} Syf. 100–109`);
+  expect(accessibleName).toContain(`${chipTitle} Syf. 100–110`);
   expect(accessibleName).toContain('Sayfa zinciri');
 
   const normalChip = taskChip('Zincirsiz görev');
@@ -1647,7 +1791,7 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
 
   await userEvent.click(
     within(mondayChip).getByRole('button', {
-      name: `${chipTitle} Syf. 100–109 görevini düzenle`,
+      name: `${chipTitle} Syf. 100–110 görevini düzenle`,
     }),
   );
   const editDialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
@@ -1660,7 +1804,7 @@ test('zincir görevi rozet taşır, düzenleme ve silme zinciri çözeceğini s�
 
   await userEvent.click(
     within(mondayChip).getByRole('button', {
-      name: `${chipTitle} Syf. 100–109 görevini sil`,
+      name: `${chipTitle} Syf. 100–110 görevini sil`,
     }),
   );
   const deleteDialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
@@ -1687,21 +1831,21 @@ test('kaçırılan gün planlanmamış aralığı gösterir ve sonraki boş gün
   // user-event has no context-menu helper; the existing tick test uses
   // fireEvent for the right click as well.
   fireEvent.contextMenu(
-    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+    screen.getByRole('button', { name: /111–120.*Planlandı/ }),
   );
 
   expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
-  expect(screen.getByText('140–150')).toBeInTheDocument();
+  expect(screen.getByText('141–150')).toBeInTheDocument();
   const addButton = screen.getByRole('button', {
     name: 'Sonraki boş güne ekle',
   });
-  expect(addButton).toHaveAccessibleDescription(/Matematik.*140–150/);
+  expect(addButton).toHaveAccessibleDescription(/Matematik.*141–150/);
   await userEvent.click(addButton);
 
   await waitFor(async () => {
     const tasks = await db.scheduleTasks.toArray();
     expect(tasks.find((task) => task.dayIndex === 6)).toMatchObject({
-      fromPage: 140,
+      fromPage: 141,
       toPage: 150,
     });
   });
@@ -1718,7 +1862,7 @@ test('planlanmamış aralık Sil ile yok sayılır, görevler ve zincir kalır',
   await screen.findAllByText(chipTitle, { selector: '[data-line="title"]' });
   await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
   fireEvent.contextMenu(
-    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+    screen.getByRole('button', { name: /111–120.*Planlandı/ }),
   );
 
   expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
@@ -1728,9 +1872,9 @@ test('planlanmamış aralık Sil ile yok sayılır, görevler ve zincir kalır',
     ),
   ).toBeInTheDocument();
   const skipButton = screen.getByRole('button', {
-    name: 'Matematik planlanmamış 140–150 aralığını sil',
+    name: 'Matematik planlanmamış 141–150 aralığını sil',
   });
-  expect(skipButton).toHaveAccessibleDescription(/Matematik.*140–150/);
+  expect(skipButton).toHaveAccessibleDescription(/Matematik.*141–150/);
   await userEvent.click(skipButton);
 
   await waitFor(() =>
@@ -1745,8 +1889,8 @@ test('planlanmamış aralık Sil ile yok sayılır, görevler ve zincir kalır',
     const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
     expect(tasks).toHaveLength(5);
     expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({
-      fromPage: 130,
-      toPage: 139,
+      fromPage: 131,
+      toPage: 140,
     });
   });
   expect(await db.schedulePageChains.where('weekId').equals(weekId).count()).toBe(1);
@@ -1760,7 +1904,7 @@ test('Sil başarısız olursa hata gösterir ve aralık kalır', async () => {
   await screen.findAllByText(chipTitle, { selector: '[data-line="title"]' });
   await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
   fireEvent.contextMenu(
-    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+    screen.getByRole('button', { name: /111–120.*Planlandı/ }),
   );
 
   expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
@@ -1768,7 +1912,7 @@ test('Sil başarısız olursa hata gösterir ve aralık kalır', async () => {
     new Error('Aralık silinemedi.'),
   );
   const skipButton = screen.getByRole('button', {
-    name: 'Matematik planlanmamış 140–150 aralığını sil',
+    name: 'Matematik planlanmamış 141–150 aralığını sil',
   });
   await userEvent.click(skipButton);
 
@@ -1798,7 +1942,7 @@ test('boş gün kalmayınca planlanmamış aralık eklenemez', async () => {
   await screen.findByText('Cumartesi görevi', { selector: '[data-line="title"]' });
   await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
   fireEvent.contextMenu(
-    screen.getByRole('button', { name: /110–119.*Planlandı/ }),
+    screen.getByRole('button', { name: /111–120.*Planlandı/ }),
   );
 
   expect(await screen.findByText('Planlanmamış sayfalar')).toBeInTheDocument();
@@ -1821,8 +1965,8 @@ test('plan açılışında zincirleri reconcile eder', async () => {
   await waitFor(async () => {
     const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
     expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({
-      fromPage: 110,
-      toPage: 119,
+      fromPage: 111,
+      toPage: 120,
     });
   });
 });
@@ -1841,8 +1985,8 @@ test('gün değişimi görünürlükte zinciri yeniden hesaplar', async () => {
     .equals(weekId)
     .toArray();
   expect(mondayTasks.find((task) => task.dayIndex === 3)).toMatchObject({
-    fromPage: 120,
-    toPage: 129,
+    fromPage: 121,
+    toPage: 130,
   });
 
   vi.setSystemTime(new Date(2026, 10, 24, 9));
@@ -1853,8 +1997,8 @@ test('gün değişimi görünürlükte zinciri yeniden hesaplar', async () => {
   await waitFor(async () => {
     const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
     expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({
-      fromPage: 110,
-      toPage: 119,
+      fromPage: 111,
+      toPage: 120,
     });
   });
 });

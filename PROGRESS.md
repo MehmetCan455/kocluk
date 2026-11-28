@@ -1,6 +1,6 @@
 # Zirve Akademi — Proje Durumu, Kurallar ve Oturum Hafızası
 
-> **Son güncelleme:** 2026-11-26
+> **Son güncelleme:** 2026-11-28
 > **Amaç:** Yeni bir oturum/agent, projeyi sıfırdan öğrenmeden kaldığı yerden devam edebilsin.
 > **Öncelik:** Bu dosya ile `README.md` veya `docs/*` çelişirse **bu dosyadaki güncel durum esas alınır**.
 > **Sır kuralı:** DB/e-posta şifresi, davet kodu, oturum tokenı bu dosyaya yazılmaz.
@@ -31,26 +31,26 @@
 | Gönderen | `no-reply@zirveacademy.com` |
 | API health | **200** — `{"ok":true,...,"environment":"production"}` |
 | Migration | Uygulandı |
-| Son canlı commit | `4e59f99` |
-| Son canlı build | `index-OlxWTaAn.js` |
+| Son canlı commit | `2fd9775` |
+| Son canlı build | `index-BQQehRpI.js` |
 | GitHub Pages | Otomatik deploy **kapalı** (`workflow_dispatch`); canlı cPanel'den |
 | Ana dal | `main`, çalışma ağacı temiz |
 | Beta | Canlı kapalı beta; 10 kişiye açılım kullanıcının kontrolünde |
-| Aktif çalışma | `feat/page-chain` — sayfa zinciri; canlıya deploy edilmedi; PHPUnit CI + merge/deploy onayı bekliyor |
+| Aktif çalışma | `feat/preview-pdf-touch` — plan önizleme, test PDF ve dokunmatik düzenleme; canlıya deploy edilmedi; PHPUnit CI + merge/deploy onayı bekliyor |
 
 > Build hash'i her deploy'da değişir. Canlı sürümü doğrulamak için
 > `https://zirveacademy.com/` HTML'indeki `assets/index-*.js` ile yerel
 > `dist/index.html` içindeki hash'i karşılaştır.
 
-### Son doğrulama (2026-11-26)
+### Son doğrulama (2026-11-28)
 
 - `npm run typecheck` ✅
-- Vitest: **76 dosya / 856 test** ✅
-- `npm run build` ✅
-- Playwright: **24/24** ✅ (sayfa zinciri dahil tam E2E)
-- PHPUnit: yerelde PHP yok; CI `api` işi bekliyor (son bilinen canlı öncesi: 270 test / 3239 assertion)
-- Canlı smoke: health 200, kayıt 201, `sync/status` 200, hesap silme 200 ✅
-- `npm audit`: yüksek/kritik yok; 4 moderate yalnızca build/dev zincirinde
+- Vitest: **77 dosya / 907 test** ✅
+- `npm run build` ✅ (yalnızca mevcut 500 kB chunk boyutu uyarısı)
+- Playwright: **28/28** ✅ (özel sayfa dağılımı, PDF indirme ve dokunmatik düzenleme dahil tam E2E)
+- Canlı kontrol: ana sayfa 200; canlı `index-BQQehRpI.js` yerel `main` build'iyle aynı (sayfa zinciri canlıda)
+- PHPUnit: yerelde PHP yok; CI `api` işi push sonrası yeşil olmalı (son bilinen canlı öncesi: 270 test / 3239 assertion)
+- `npm audit --audit-level=high`: yüksek/kritik yok; 4 moderate yalnızca build/dev zincirinde (`glob`/`minimatch` → `vite-plugin-pwa`)
 
 ---
 
@@ -275,6 +275,15 @@ Migration yalnızca gerektiğinde bir kez:
 - Migration `004_page_chain.sql`, TableMap, mock API, yedek şeması v7.
 - Testler: 856 Vitest, 24 Playwright; PHPUnit CI bekliyor.
 
+### Plan önizleme, test PDF ve dokunmatik düzenleme (2026-11-28, `feat/preview-pdf-touch`)
+
+- **Sayfa zinciri özel dağılımı:** Önizleme dengeli dağılım önerir (kalan ilk günlere birer birer); günlük sayfa adetleri elle düzenlenebilir, son gün toplamdan hesaplanır. Yeni `SchedulePageChain.chunkSizes` alanı saklanır; alanı olmayan eski zincirler mevcut `floor + son gün` formülüyle aynen çalışır.
+- **Sunucu/migration:** `schedule_page_chains` tablosuna nullable `chunk_sizes TEXT NULL` (`006_page_chain_chunk_sizes.sql`). TableMap’de opsiyonel; `preserveWhenNull` sayesinde eski istemcinin push’u mevcut dağılımı silmez.
+- **Test PDF:** Rastgele test A4 yatay PDF olarak indirilir; iki soru bir sayfada (sol/sağ), numaralı, sonda cevap anahtarı. `jspdf` yalnızca indirmede dinamik yüklenir; gömülü Roboto TTF Türkçe karakterleri taşır. Fotoğraflar cihazda kalır; font ve jsPDF PWA önbelleğindedir.
+- **Dokunmatik düzenleme:** Görev çipine dokunmak düzenleme modalını açar; “Görevi sil” modal içindedir. Dokunmatikte satır çöpü görünür; masaüstünde çip tıklaması, Enter/Space ve tick modu korunur. DB şeması ve veri göçü yoktur.
+- **Testler:** 907 Vitest / 77 dosya, 28 Playwright; typecheck ve build yeşil; `npm audit` yüksek/kritik yok. PHPUnit CI bekliyor.
+- **Geri dönüş:** `chunk_sizes` dolu en az bir zincir varsa istemci geri alımı desteklenmez; ileriye dönük düzeltme yapılır. Deploy sırası **006 → API → istemci**. Ayrıntı ve kapı sorgusu: `docs/ROLLBACK.md`.
+
 ### Ürün
 
 - Sayfa bazlı kitap modeli, 528 kitaplık katalog, okuma aralıkları.
@@ -299,7 +308,8 @@ Migration yalnızca gerektiğinde bir kez:
 
 | Tarih | Konu | Durum / commit |
 |---|---|---|
-| 2026-11-26 | Sayfa zinciri eklendi | Yeni `schedulePageChains` tablosu, panel/reconcile/backup v7 — `feat/page-chain` (canlıya deploy edilmedi) |
+| 2026-11-28 | Plan önizleme + test PDF + dokunmatik düzenleme | `chunkSizes`/006, jsPDF/Roboto, dokun-düzenle — `feat/preview-pdf-touch` (canlıya deploy edilmedi) |
+| 2026-11-26 | Sayfa zinciri eklendi | Yeni `schedulePageChains` tablosu, panel/reconcile/backup v7 — `2fd9775` ile `main`'e merge edildi ve canlıda |
 | 2026-11-26 | Yarıda kalan haftada zincir oluşturma | `createPageChain` artık oluştururken recompute eder; geçmiş günler anında kayar |
 | 2026-11-26 | Eski istemci yeni tabloyu kaçırıyordu | `syncTableVersion` ile tek seferlik `full` backfill |
 | 2026-11-26 | `invalid_response`: 2xx ama JSON olmayan host/WAF sayfası | Otomatik 30 sn retry + HTTP/content-type teşhisi — `4e59f99` |
@@ -320,9 +330,11 @@ Migration yalnızca gerektiğinde bir kez:
 6. **`dist/` unutulması:** Kaynak commit edilip `dist/` edilmezse cPanel eski siteyi yayınlar.
 7. **Config yolu:** `public_html` içine konursa dış config'i gölgeler ve güvenlik riski olur.
 8. **DB şifresi karışıklığı:** cPanel giriş şifresi değil, MySQL kullanıcısının şifresi kullanılır.
-9. **Sayfa zinciri + Dexie v9 rollback:** yeni istemci bir kez v9 DB açtıktan sonra eski (v8) istemciye geri dönmek `VersionError` verebilir. Canlı geri dönüşte yalnızca API/migration geri alınır; istemci yeni sürümde kalır. Ayrıntı: `docs/ROLLBACK.md`.
+9. **Sayfa zinciri + Dexie v9 rollback:** yeni istemci bir kez v9 DB açtıktan sonra eski (v8) istemciye geri dönmek `VersionError` verebilir. Canlı geri dönüşte yalnızca API/migration geri alınır; istemci yeni sürümde kalır. Ayrıntı: `docs/ROLLBACK.md`. (004 dönemi; 006 sonrası API/migration tek başına geri alınmaz — bkz. 12.)
 10. **Page chain deploy sırası:** önce `api/bin/migrate.php` (004) çalışır, sonra yeni API/istemci deploy edilir. Yeni API tablo yokken tüm sync çağrılarında 500 verir.
 11. **Sayfa zinciri planlanmamış aralık:** normal görevler otomatik çarpı görse de sayfa kaydırmaz; yalnızca zincir görevleri kayar.
+12. **Özel dağılım geri dönüş eşiği:** `chunk_sizes` dolu tek zincir varsa eski istemci dağılımı legacy formülle yeniden yazar; istemci geri alımı desteklenmez. Kapı sorgusu `SELECT COUNT(*) FROM schedule_page_chains WHERE chunk_sizes IS NOT NULL;` — sonuç `0` değilse ileriye dönük düzeltme yapılır. Yeni istemci yayındayken API/migration tek başına geri alınmaz (yeni istemci `chunkSizes` gönderir, eski API reddeder → dead-letter). Ayrıntı: `docs/ROLLBACK.md`.
+13. **006 deploy sırası:** `006_page_chain_chunk_sizes.sql` → API → istemci. Migration önce çalışmazsa yeni istemcinin `chunkSizes` push’u sunucuda bilinmeyen alan olur.
 
 ---
 
@@ -337,10 +349,10 @@ Migration yalnızca gerektiğinde bir kez:
 - [ ] `docs/SECURITY-CHECKLIST.md` içindeki "staging yapılmadı" durumunu güncel canlı duruma göre yenile.
 - [ ] İleride gerekirse `test.zirveacademy.com` subdomain staging'i kur (ek domain ücreti yok).
 - [ ] API hata logunu ve yedek boyutlarını ara sıra kontrol et.
-- [ ] `feat/page-chain` için CI `api` işini (PHPUnit + MariaDB) çalıştır ve yeşil olduğunu doğrula.
-- [ ] Sayfa zincirini `main`’e merge et; `dist` build; **önce migration 004, sonra API/istemci** deploy et.
-- [ ] Canlıda sayfa zinciri smoke testi: 5 günlük zincir, bir günü kaçır, planlanmamış aralığı sonraki güne ekle, yenile.
-- [ ] Sayfa zinciri sonrası Dexie v9 rollback planını (`docs/ROLLBACK.md`) ekipte/ileride hatırla.
+- [ ] `feat/preview-pdf-touch` için CI `api` işini (PHPUnit + MariaDB) çalıştır ve yeşil olduğunu doğrula.
+- [ ] `feat/preview-pdf-touch` dalını `main`’e merge et; `dist` build; **önce migration 006, sonra API/istemci** deploy et.
+- [ ] Canlıda yeni sürüm smoke testi: özel dağılımlı zincir oluştur, yenile; test PDF indir; telefonda çipe dokunup düzenle/sil.
+- [ ] Dexie v9 ve özel dağılım (`chunk_sizes`) geri dönüş kurallarını (`docs/ROLLBACK.md`) yayından önce bir kez daha oku; kapı sorgusunu not et.
 
 ---
 
@@ -358,6 +370,13 @@ Migration yalnızca gerektiğinde bir kez:
 ---
 
 ## 13. Oturum kayıtları
+
+### 2026-11-28 — Plan önizleme, test PDF ve dokunmatik düzenleme (`feat/preview-pdf-touch`)
+
+- Ne yapıldı: Sayfa zinciri önizlemesine dengeli/elle düzenlenebilir günlük dağılım (`chunkSizes`), rastgele testler için iki soru/sayfa A4 yatay PDF indirme (jsPDF + Roboto) ve görev çipine dokununca açılan düzenleme/silme modalı eklendi.
+- Değişen dosyalar / commit: Migration `006_page_chain_chunk_sizes.sql`, TableMap `preserveWhenNull`, sync/backup/mock parity; `practicePdf*`, `PracticePdfButton`; `TaskChip`/`ScheduleTaskModal`/`WeeklyPlanTable`. Branch 24 commit; docs commit’i bu oturumda.
+- Test sonucu: typecheck ✅, Vitest **77 dosya / 907 test** ✅, build ✅, Playwright **28/28** ✅, `npm audit` yüksek/kritik yok (4 moderate build/dev zinciri).
+- Açık kalan: PHPUnit yerelde yok; CI `api` işi push sonrası yeşil olmalı. `main`’e merge ve deploy kullanıcı onayına bağlı; sıra **006 → API → istemci**. Canlıya deploy edilmedi.
 
 ### 2026-11-26 — Sayfa zinciri (feat/page-chain)
 

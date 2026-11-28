@@ -94,3 +94,34 @@ v9 istemcisini açtıktan sonra tarayıcıdaki veritabanı v9 şemasındadır; d
 - GitHub Pages yayını `main` dalına push ile tetiklenir; bu kayıt sırasında
   canlı site `1afd5c0` sürümündedir.
 - `d7eaf46` yalnızca dokümantasyon içerir; canlı siteyi değiştirmez.
+
+## Sayfa zinciri özel dağılımı (`chunk_sizes`) geri dönüşü — 2026-11-28
+
+Bu bölüm, yukarıdaki 004 dönemi değerlendirmesini tamamlar. `006_page_chain_chunk_sizes.sql`
+sonrası “API/migration geri dönüşü tek başına güvenlidir” kuralı geçerli değildir.
+
+`006_page_chain_chunk_sizes.sql` yalnızca `schedule_page_chains` tablosuna nullable
+`chunk_sizes TEXT NULL` kolonu ekler. `NULL` “legacy formül” demektir; eski zincirler
+backfill edilmez ve mevcut `floor + son gün` aralıklarını korur.
+
+- **API/migration geri alımı tek başına güvenli değildir.** Yeni istemci
+  `chunkSizes` alanını push eder; alanı bilmeyen eski API bunu reddeder ve her
+  zincir push’u dead-letter olur. Yeni istemci yayındayken yalnızca API veya
+  migration’ı geri almayın.
+- **Deploy sırası:** `006_page_chain_chunk_sizes.sql` → API → istemci. Migration
+  önce çalışmazsa yeni istemci alanı gönderdiğinde sunucu kolonu tanımaz.
+- **Geri dönüş kapı sorgusu** (karardan önce çalıştır):
+  ```sql
+  SELECT COUNT(*) FROM `schedule_page_chains` WHERE `chunk_sizes` IS NOT NULL;
+  ```
+  Sonuç `0` ise ve yeni dağılımlı zincir yoksa geri dönüş sırası
+  **istemci → API → migration** olabilir: önce eski istemci yayınlanır (o sürüm
+  alanı göndermez), yeni API `NULL` kabul eder, sonra API/migration geri alınır.
+- **Sonuç `0` değilse istemci geri alımı desteklenmez.** Eski istemci yeni
+  zincirin dağılımını bilmez; bekleyen görev aralıklarını legacy formülle
+  yeniden yazar ve günlük sayfa adetleri yanlış olur. Sunucu koruması yalnızca
+  `chunk_sizes` değerinin silinmesini engeller; eski istemcinin aralık hesabını
+  düzeltmez. Bu durumda **ileriye dönük düzeltme** yapılır: hata yeni istemcide
+  düzeltilir, geri dönüş denenmez.
+- Dexie sürümü artmadığı için `VersionError` riski yoktur; kısıt veri şemasından
+  değil, eski istemcinin dağılımı yanlış hesaplamasından doğar.

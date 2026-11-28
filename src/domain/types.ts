@@ -378,6 +378,11 @@ export interface SchedulePageChain {
   slots: string;
   /** JSON array of chunk indexes the user chose to ignore, e.g. "[4]". */
   skippedChunks: string;
+  /**
+   * JSON array of page counts per chunk, e.g. "[3,3,3,3,3,3,2]". Absent or null
+   * marks a legacy chain that keeps its even split with the last chunk long.
+   */
+  chunkSizes?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;

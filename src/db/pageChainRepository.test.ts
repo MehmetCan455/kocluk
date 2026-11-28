@@ -1,6 +1,11 @@
 import { beforeEach, expect, test } from 'vitest';
 import { parseChainSlots } from '@/domain/pageChain';
-import type { CatalogBook, ScheduleRow, ScheduleWeek } from '@/domain/types';
+import type {
+  CatalogBook,
+  ScheduleRow,
+  ScheduleTask,
+  ScheduleWeek,
+} from '@/domain/types';
 import { addCatalogBookToShelf, updateUserBook } from './bookRepositories';
 import { db } from './db';
 import {
@@ -99,6 +104,134 @@ async function addWeekRow(
   return { weekId: week.id, rowId: row.id };
 }
 
+/**
+ * Persists a chain the way the first v7 build wrote it: no `chunkSizes` column
+ * at all, an even chunk size and the last day absorbing the remainder. Reads
+ * and recomputes must keep those ranges instead of backfilling a balanced
+ * distribution.
+ */
+async function seedLegacyChain(input: {
+  startPage: number;
+  endPage: number;
+  chunkCount: number;
+}): Promise<void> {
+  const { startPage, endPage, chunkCount } = input;
+  const chunkSize = Math.floor((endPage - startPage + 1) / chunkCount);
+  const tasks: ScheduleTask[] = Array.from(
+    { length: chunkCount },
+    (_, index) => {
+      const fromPage = startPage + index * chunkSize;
+      return {
+        id: `legacy-task-${index + 1}`,
+        weekId,
+        rowId,
+        dayIndex: index + 1,
+        type: 'book',
+        userBookId,
+        fromPage,
+        toPage: index === chunkCount - 1 ? endPage : fromPage + chunkSize - 1,
+        createdAt: CREATED_AT,
+        updatedAt: CREATED_AT,
+      };
+    },
+  );
+
+  await db.scheduleTasks.bulkAdd(tasks);
+  await db.schedulePageChains.add({
+    id: 'legacy-chain',
+    weekId,
+    rowId,
+    userBookId,
+    startPage,
+    endPage,
+    chunkSize,
+    chunkCount,
+    slots: JSON.stringify(
+      tasks.map((task, index) => ({
+        taskId: task.id,
+        slotIndex: index,
+        chunkIndex: index,
+        dayIndex: task.dayIndex,
+      })),
+    ),
+    skippedChunks: '[]',
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  });
+}
+
+test('yeni zincir varsayılan dengeli boyutlarla oluşur', async () => {
+  const view = await createPageChain({
+    weekId,
+    rowId,
+    userBookId,
+    startPage: 1,
+    endPage: 20,
+    days: [1, 2, 3, 4, 5, 6, 7],
+  });
+
+  expect(view.chain.chunkSizes).toBe('[3,3,3,3,3,3,2]');
+  expect(view.tasks.map((task) => [task.fromPage, task.toPage])).toEqual([
+    [1, 3],
+    [4, 6],
+    [7, 9],
+    [10, 12],
+    [13, 15],
+    [16, 18],
+    [19, 20],
+  ]);
+});
+
+test('özel boyutlar görev aralıklarına ve görünüme yansır', async () => {
+  const view = await createPageChain({
+    weekId,
+    rowId,
+    userBookId,
+    startPage: 1,
+    endPage: 20,
+    days: [1, 2, 3, 4],
+    chunkSizes: [2, 3, 5, 10],
+  });
+
+  expect(view.tasks.map((task) => [task.fromPage, task.toPage])).toEqual([
+    [1, 2],
+    [3, 5],
+    [6, 10],
+    [11, 20],
+  ]);
+});
+
+test('chunkSizes alanı olmayan eski zincir legacy aralıkları korur', async () => {
+  const fixedNow = PRE_WEEK_NOW;
+  await seedLegacyChain({ startPage: 100, endPage: 150, chunkCount: 5 });
+
+  const [view] = await listWeekPageChains(weekId);
+  expect(view.chunks[0]).toMatchObject({ fromPage: 100, toPage: 109 });
+  expect(view.chunks[4]).toMatchObject({ fromPage: 140, toPage: 150 });
+
+  await recomputePageChain(view.chain.id, fixedNow);
+
+  const [after] = await listWeekPageChains(weekId);
+  expect(after.chunks[0]).toMatchObject({ fromPage: 100, toPage: 109 });
+});
+
+test('geçersiz özel boyutlar oluşturmayı reddeder ve satır yazmaz', async () => {
+  await expect(
+    createPageChain({
+      weekId,
+      rowId,
+      userBookId,
+      startPage: 1,
+      endPage: 20,
+      days: [1, 2, 3, 4, 5, 6, 7],
+      chunkSizes: [1, 1],
+    }),
+  ).rejects.toThrow();
+
+  expect(await db.schedulePageChains.where('weekId').equals(weekId).count()).toBe(0);
+  expect(await db.scheduleTasks.where('weekId').equals(weekId).count()).toBe(0);
+});
+
 test('beş günlük zincir beş görev ve bir zincir satırı oluşturur', async () => {
   const view = await createPageChain({
     weekId,
@@ -111,11 +244,11 @@ test('beş günlük zincir beş görev ve bir zincir satırı oluşturur', async
 
   expect(view.tasks).toHaveLength(5);
   expect(view.tasks.map((task) => [task.fromPage, task.toPage])).toEqual([
-    [100, 109],
-    [110, 119],
-    [120, 129],
-    [130, 139],
-    [140, 150],
+    [100, 110],
+    [111, 120],
+    [121, 130],
+    [131, 140],
+    [141, 150],
   ]);
   expect(view.slots).toHaveLength(5);
   expect(view.unscheduled).toEqual([]);
@@ -142,14 +275,14 @@ test('geçmiş günleri olan haftada oluşturulan zincir dönmeden kaydırılır
 
   const byDay = (day: number) =>
     view.tasks.find((task) => task.dayIndex === day)!;
-  expect(byDay(1)).toMatchObject({ fromPage: 100, toPage: 109 });
-  expect(byDay(2)).toMatchObject({ fromPage: 110, toPage: 119 });
-  expect(byDay(3)).toMatchObject({ fromPage: 100, toPage: 109 });
-  expect(byDay(4)).toMatchObject({ fromPage: 110, toPage: 119 });
-  expect(byDay(5)).toMatchObject({ fromPage: 120, toPage: 129 });
+  expect(byDay(1)).toMatchObject({ fromPage: 100, toPage: 110 });
+  expect(byDay(2)).toMatchObject({ fromPage: 111, toPage: 120 });
+  expect(byDay(3)).toMatchObject({ fromPage: 100, toPage: 110 });
+  expect(byDay(4)).toMatchObject({ fromPage: 111, toPage: 120 });
+  expect(byDay(5)).toMatchObject({ fromPage: 121, toPage: 130 });
   expect(view.unscheduled).toEqual([
-    { chunkIndex: 3, fromPage: 130, toPage: 139 },
-    { chunkIndex: 4, fromPage: 140, toPage: 150 },
+    { chunkIndex: 3, fromPage: 131, toPage: 140 },
+    { chunkIndex: 4, fromPage: 141, toPage: 150 },
   ]);
   // Auto-missed days stay "unmarked"; the derived status is not persisted.
   expect(byDay(1).missedAt).toBeUndefined();
@@ -190,15 +323,15 @@ test('kaçırılan gün sonraki günü kaydırır ve taşan aralığı bildirir'
   const recomputed = await recomputePageChain(view.chain.id, new Date(2026, 11, 1, 12));
 
   expect(recomputed?.tasks.find((task) => task.dayIndex === 3)).toMatchObject({
-    fromPage: 110,
-    toPage: 119,
+    fromPage: 111,
+    toPage: 120,
   });
   expect(recomputed?.tasks.find((task) => task.dayIndex === 5)).toMatchObject({
-    fromPage: 130,
-    toPage: 139,
+    fromPage: 131,
+    toPage: 140,
   });
   expect(recomputed?.unscheduled).toEqual([
-    { chunkIndex: 4, fromPage: 140, toPage: 150 },
+    { chunkIndex: 4, fromPage: 141, toPage: 150 },
   ]);
 
   const storedChain = await db.schedulePageChains.get(view.chain.id);
@@ -206,7 +339,7 @@ test('kaçırılan gün sonraki günü kaydırır ve taşan aralığı bildirir'
     parseChainSlots(storedChain!.slots)?.map((slot) => slot.chunkIndex),
   ).toEqual([0, 1, 1, 2, 3]);
   const third = recomputed?.tasks.find((task) => task.dayIndex === 3);
-  expect((await db.scheduleTasks.get(third!.id))?.fromPage).toBe(110);
+  expect((await db.scheduleTasks.get(third!.id))?.fromPage).toBe(111);
 });
 
 test('liste görünümü slotları, görevleri ve sonraki boş günü döndürür', async () => {
@@ -320,8 +453,8 @@ test('durum değişikliği zinciri kaydırır', async () => {
   await setTaskStatus(second.id, 'missed', new Date(2026, 11, 1, 12));
 
   const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
-  expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({ fromPage: 110, toPage: 119 });
-  expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 130, toPage: 139 });
+  expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({ fromPage: 111, toPage: 120 });
+  expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 131, toPage: 140 });
 });
 
 test('yapıldı işaretlenen kaçırılmış gün zinciri eski sırasına döndürür, nötr tekrar kaydırır', async () => {
@@ -346,8 +479,8 @@ test('yapıldı işaretlenen kaçırılmış gün zinciri eski sırasına dönd�
   await setTaskStatus(second.id, 'missed', now);
   const shifted = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
   expect(shifted.find((task) => task.dayIndex === 3)).toMatchObject({
-    fromPage: 110,
-    toPage: 119,
+    fromPage: 111,
+    toPage: 120,
   });
 
   await setTaskStatus(second.id, 'done', now);
@@ -355,25 +488,25 @@ test('yapıldı işaretlenen kaçırılmış gün zinciri eski sırasına dönd�
     await db.scheduleTasks.where('weekId').equals(weekId).toArray()
   ).sort((left, right) => left.dayIndex - right.dayIndex);
   expect(restored.map((task) => [task.fromPage, task.toPage])).toEqual([
-    [100, 109],
-    [110, 119],
-    [120, 129],
-    [130, 139],
-    [140, 150],
+    [100, 110],
+    [111, 120],
+    [121, 130],
+    [131, 140],
+    [141, 150],
   ]);
 
   await setTaskStatus(second.id, 'pending', now);
   const cleared = (
     await db.scheduleTasks.where('weekId').equals(weekId).toArray()
   ).sort((left, right) => left.dayIndex - right.dayIndex);
-  // The pending Tuesday holds 110–119 again; later days stay in their
+  // The pending Tuesday holds 111–120 again; later days stay in their
   // original slots and nothing is unscheduled.
   expect(cleared.map((task) => [task.fromPage, task.toPage])).toEqual([
-    [100, 109],
-    [110, 119],
-    [120, 129],
-    [130, 139],
-    [140, 150],
+    [100, 110],
+    [111, 120],
+    [121, 130],
+    [131, 140],
+    [141, 150],
   ]);
   expect(cleared.find((task) => task.dayIndex === 2)?.completedAt).toBeUndefined();
   expect(cleared.find((task) => task.dayIndex === 2)?.missedAt).toBeUndefined();
@@ -401,28 +534,28 @@ test('arka arkaya iki kaçırma bekleyen günleri aynı aralığa toplar', async
 
   const tasks = await db.scheduleTasks.where('weekId').equals(weekId).toArray();
   expect(tasks.find((task) => task.dayIndex === 2)).toMatchObject({
-    fromPage: 110,
-    toPage: 119,
+    fromPage: 111,
+    toPage: 120,
     missedAt: expect.any(String),
   });
   expect(tasks.find((task) => task.dayIndex === 3)).toMatchObject({
-    fromPage: 110,
-    toPage: 119,
+    fromPage: 111,
+    toPage: 120,
     missedAt: expect.any(String),
   });
   expect(tasks.find((task) => task.dayIndex === 4)).toMatchObject({
-    fromPage: 110,
-    toPage: 119,
+    fromPage: 111,
+    toPage: 120,
   });
   expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({
-    fromPage: 120,
-    toPage: 129,
+    fromPage: 121,
+    toPage: 130,
   });
 
   const [listed] = await listWeekPageChains(weekId);
   expect(listed.unscheduled).toEqual([
-    { chunkIndex: 3, fromPage: 130, toPage: 139 },
-    { chunkIndex: 4, fromPage: 140, toPage: 150 },
+    { chunkIndex: 3, fromPage: 131, toPage: 140 },
+    { chunkIndex: 4, fromPage: 141, toPage: 150 },
   ]);
 });
 
@@ -615,7 +748,7 @@ test('sonraki boş güne ekle zincire yeni slot ekler', async () => {
   const chains = await listWeekPageChains(weekId);
   expect(chains[0].slots).toHaveLength(6);
   expect(chains[0].tasks.find((task) => task.dayIndex === 6)).toMatchObject({
-    fromPage: 140,
+    fromPage: 141,
     toPage: 150,
   });
   expect(chains[0].unscheduled).toEqual([]);
@@ -686,10 +819,10 @@ test('geçmiş gün otomatik yapılmadı sayılır ve kaydırır', async () => {
   await reconcileWeekPageChains(pastWeek.id, now);
 
   const tasks = await db.scheduleTasks.where('weekId').equals(pastWeek.id).toArray();
-  expect(tasks.find((task) => task.dayIndex === 1)).toMatchObject({ fromPage: 100, toPage: 109 });
+  expect(tasks.find((task) => task.dayIndex === 1)).toMatchObject({ fromPage: 100, toPage: 110 });
   expect(tasks.find((task) => task.dayIndex === 1)?.missedAt).toBeUndefined();
-  expect(tasks.find((task) => task.dayIndex === 2)).toMatchObject({ fromPage: 100, toPage: 109 });
-  expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 130, toPage: 139 });
+  expect(tasks.find((task) => task.dayIndex === 2)).toMatchObject({ fromPage: 100, toPage: 110 });
+  expect(tasks.find((task) => task.dayIndex === 5)).toMatchObject({ fromPage: 131, toPage: 140 });
   expect(view.chain).toBeTruthy();
 });
 
@@ -776,11 +909,11 @@ test('yok sayılan aralık sonraki boş güne eklenmez', async () => {
   const [listed] = await listWeekPageChains(weekId);
   expect(listed.slots).toHaveLength(6);
   expect(listed.tasks.find((task) => task.dayIndex === 6)).toMatchObject({
-    fromPage: 140,
+    fromPage: 141,
     toPage: 150,
   });
   expect(
-    listed.tasks.some((task) => task.fromPage === 130 && task.toPage === 139),
+    listed.tasks.some((task) => task.fromPage === 131 && task.toPage === 140),
   ).toBe(false);
   expect(listed.unscheduled).toEqual([]);
 });

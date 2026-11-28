@@ -1,7 +1,10 @@
 import {
   assignChainChunks,
+  balancedChunkSizes,
+  chunksFromSizes,
   pageChunkSize,
   parseChainSlots,
+  parseChunkSizes,
   parseSkippedChunks,
   serializeChainSlots,
   splitPageRange,
@@ -21,6 +24,8 @@ export interface CreatePageChainInput {
   startPage: number;
   endPage: number;
   days: number[];
+  /** Page counts per chunk; absent means a balanced default distribution. */
+  chunkSizes?: readonly number[];
 }
 
 export interface PageChainView {
@@ -110,11 +115,39 @@ function isValidChainSettings(chain: SchedulePageChain): boolean {
   } catch {
     return false;
   }
-  return chain.chunkSize === pageChunkSize(chain.startPage, chain.endPage, chain.chunkCount);
+  if (chain.chunkSize !== pageChunkSize(chain.startPage, chain.endPage, chain.chunkCount)) {
+    return false;
+  }
+  // Legacy rows have no chunkSizes (or an explicit null/empty list) and keep
+  // the even split. A stored distribution must describe the chain exactly.
+  const storedSizes = chain.chunkSizes;
+  if (storedSizes === undefined || storedSizes === null) {
+    return true;
+  }
+  if (typeof storedSizes !== 'string') {
+    return false;
+  }
+  if (storedSizes.trim() === '' || storedSizes === '[]') {
+    return true;
+  }
+  return (
+    parseChunkSizes(
+      storedSizes,
+      chain.chunkCount,
+      chain.endPage - chain.startPage + 1,
+    ) !== null
+  );
 }
 
 function chunksFor(chain: SchedulePageChain): PageChainChunk[] {
-  return splitPageRange(chain.startPage, chain.endPage, chain.chunkCount);
+  const sizes = parseChunkSizes(
+    chain.chunkSizes,
+    chain.chunkCount,
+    chain.endPage - chain.startPage + 1,
+  );
+  return sizes
+    ? chunksFromSizes(chain.startPage, sizes)
+    : splitPageRange(chain.startPage, chain.endPage, chain.chunkCount);
 }
 
 /** A chunk with no slot holding it is unscheduled; skipped chunks are ignored. */
@@ -223,12 +256,20 @@ export async function createPageChain(
         throw new Error('Bu güne zaten bir görev eklenmiş.');
       }
 
+      const totalPages = input.endPage - input.startPage + 1;
+      const sizes =
+        input.chunkSizes ??
+        balancedChunkSizes(input.startPage, input.endPage, days.length);
+      if (input.chunkSizes !== undefined) {
+        const coveredPages = sizes.reduce((total, size) => total + size, 0);
+        if (sizes.length !== days.length || coveredPages !== totalPages) {
+          throw new Error('Parça boyutları sayfa aralığıyla uyuşmuyor.');
+        }
+      }
+      const chunks = chunksFromSizes(input.startPage, sizes);
+      // Kept for the legacy pageChunkSize invariant the repository still
+      // checks; the distribution itself comes from `sizes`.
       const chunkSize = pageChunkSize(
-        input.startPage,
-        input.endPage,
-        days.length,
-      );
-      const chunks = splitPageRange(
         input.startPage,
         input.endPage,
         days.length,
@@ -276,6 +317,7 @@ export async function createPageChain(
         chunkCount: days.length,
         slots: serializeChainSlots(slots),
         skippedChunks: '[]',
+        chunkSizes: JSON.stringify(sizes),
         createdAt: timestamp,
         updatedAt: timestamp,
       };
@@ -380,6 +422,11 @@ export async function recomputePageChain(
   }
 
   const skippedChunks = parseSkippedChunks(chain.skippedChunks, chain.chunkCount);
+  const chunkSizes = parseChunkSizes(
+    chain.chunkSizes,
+    chain.chunkCount,
+    chain.endPage - chain.startPage + 1,
+  );
   const result = assignChainChunks({
     slots,
     statuses,
@@ -387,6 +434,7 @@ export async function recomputePageChain(
     endPage: chain.endPage,
     chunkSize: chain.chunkSize,
     chunkCount: chain.chunkCount,
+    chunkSizes: chunkSizes ?? undefined,
     skipped: skippedChunks,
   });
 

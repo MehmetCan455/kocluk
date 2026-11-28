@@ -1279,7 +1279,8 @@ test('normal modda görev çipi tıklanınca durum değiştirmez', async () => {
 
   await screen.findByText('Türev tekrarı', { selector: '[data-line="title"]' });
   const chip = taskChip('Türev tekrarı');
-  expect(chip).not.toHaveAttribute('role');
+  expect(chip).toHaveAttribute('role', 'button');
+  expect(chip).toHaveAttribute('tabindex', '0');
   expect(chip).toHaveAttribute('aria-label', 'Türev tekrarı: Planlandı');
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
 
@@ -1312,6 +1313,42 @@ test('normal modda görev çipine tıklamak düzenleme modalını açar', async 
   expect(
     screen.getAllByRole('dialog', { name: 'Görevi düzenle' }),
   ).toHaveLength(1);
+});
+
+test('normal modda görev çipi klavyeyle düzenleme modalını açar', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: todayScheduleDayIndex() + 1,
+    type: 'free',
+    title: 'Klavye görevi',
+  });
+  await openSchedule();
+  await screen.findByText('Klavye görevi', { selector: '[data-line="title"]' });
+
+  const chip = taskChip('Klavye görevi');
+  expect(chip).toHaveAttribute('role', 'button');
+  expect(chip).toHaveAttribute('tabindex', '0');
+  chip.focus();
+  expect(chip).toHaveFocus();
+
+  await userEvent.keyboard('{Enter}');
+  let dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
+  expect(dialog).toBeInTheDocument();
+
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Vazgeç' }));
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('dialog', { name: 'Görevi düzenle' }),
+    ).not.toBeInTheDocument();
+  });
+
+  // Space activates the chip as well.
+  chip.focus();
+  await userEvent.keyboard(' ');
+  dialog = await screen.findByRole('dialog', { name: 'Görevi düzenle' });
+  expect(dialog).toBeInTheDocument();
 });
 
 test('düzenleme modalındaki Görevi sil onay modalını açar ve görevi siler', async () => {

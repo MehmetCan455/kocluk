@@ -73,9 +73,9 @@ function ChipLines({ title, subtitle, detail, done }: ChipLinesProps) {
 
 /**
  * One planned task with only the three text lines and a status colour. Normal
- * mode opens the editor when the chip is clicked or tapped; the editor is the
- * single edit/delete path on every device. Tick mode turns the whole chip into
- * a left-click done / right-click missed target.
+ * mode opens the editor when the chip is clicked, tapped or activated with
+ * Enter/Space; the editor is the single edit/delete path on every device. Tick
+ * mode turns the whole chip into a left-click done / right-click missed target.
  */
 export function TaskChip({
   title,
@@ -114,12 +114,22 @@ export function TaskChip({
     markMissed();
   }
 
-  /** Enter/Space toggles done and neutral; Shift+Enter marks it missed. */
+  /**
+   * Normal mode: Enter/Space opens the editor. Tick mode: Enter/Space toggles
+   * done and neutral, Shift+Enter marks it missed. Disabled chips ignore keys.
+   */
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (disabled) {
+      return;
+    }
     if (event.key !== 'Enter' && event.key !== ' ') {
       return;
     }
     event.preventDefault();
+    if (!tickMode) {
+      onEdit();
+      return;
+    }
     if (event.shiftKey) {
       markMissed();
     } else {
@@ -131,11 +141,11 @@ export function TaskChip({
     <div
       data-status={status}
       aria-label={accessibleLabel}
-      role={tickMode ? 'button' : undefined}
-      tabIndex={tickMode ? (disabled ? -1 : 0) : undefined}
-      aria-disabled={tickMode && disabled ? true : undefined}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled || undefined}
       onClick={tickMode ? markDone : disabled ? undefined : onEdit}
-      onKeyDown={tickMode ? handleKeyDown : undefined}
+      onKeyDown={handleKeyDown}
       onContextMenu={tickMode ? handleContextMenu : undefined}
       className={cn(
         'relative flex cursor-pointer flex-col gap-1 rounded-lg border px-1.5 py-1 text-xs min-[768px]:flex-row min-[768px]:items-start',

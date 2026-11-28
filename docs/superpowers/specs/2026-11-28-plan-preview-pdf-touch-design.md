@@ -379,8 +379,11 @@ Sıra:
 ## 8. Riskler ve notlar
 
 - **Eski istemci + yeni zincir:** Eski istemci `chunkSizes`’ı bilmez, yeni
-  zinciri legacy formülle gösterir. PWA güncelleme uyarısıyla çözülür; veri
-  kaybı yok.
+  zinciri legacy formülle gösterir. Yalnızca görüntüleme değil, eski istemcide
+  o zinciri düzenlemek/kaçırmak da yanlış aralık atamasına yol açabilir. Bu
+  yüzden yeni özel dağılımlı zincirler oluşturulduktan sonra o haftayı eski
+  istemciyle düzenlemeyin; önce tüm cihazları güncelleyin. Kapalı betada bu
+  operasyonel bir kısıt; mevcut (eski) zincirler etkilenmez.
 - **PDF fontu:** Roboto TTF repoya eklenir; lisans dosyası konur. Font
   yüklenemezse PDF üretimi hata verir, uygulama çökmez.
 - **PDF belleği:** 1600 px JPEG’ler 20+ soruda büyük PDF üretebilir; düğme

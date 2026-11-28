@@ -62,15 +62,9 @@ const SECTIONS: ReadonlyArray<{ title: string; body: readonly string[] }> = [
     ],
   },
   {
-    title: 'Çocukların verileri',
-    body: [
-      '18 yaşından küçük kullanıcılar için veli onayı gerekebilir. Kapalı beta davet kodu bu riski azaltır; kesin metin için hukuki danışmanlık önerilir.',
-    ],
-  },
-  {
     title: 'Değişiklikler',
     body: [
-      'Bu metin önemli bir değişiklikte güncellenir ve yeni sürüm kayıt sırasında yeniden onayına sunulur. Son güncelleme: 24 Kasım 2026.',
+      'Bu metin önemli bir değişiklikte güncellenir ve yeni sürüm kayıt sırasında yeniden onayına sunulur. Son güncelleme: 28 Kasım 2026.',
     ],
   },
 ];

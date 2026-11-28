@@ -513,6 +513,7 @@ test('gizlilik sayfası veri kategorilerini, Natro yu ve cihazda kalan fotoğraf
   expect(screen.getByText(/Fotoğraflar ve ekler yalnızca bu cihazda kalır/i)).toBeInTheDocument();
   expect(screen.getAllByText(/destek@zirveacademy\.com/).length).toBeGreaterThan(0);
   expect(screen.getByText(/14 gün/)).toBeInTheDocument();
+  expect(screen.queryByText('Çocukların verileri')).not.toBeInTheDocument();
 });
 
 test('ayarlardaki gizlilik bağlantısı /gizlilik yoluna gider', async () => {

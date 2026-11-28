@@ -227,6 +227,15 @@ davranışı korunur. Yeni zincirler `chunksFromSizes` kullanır.
   kalır (eski yedekler `null` ile legacy okunur).
 - Push: alan varsa gönderilir; yoksa sunucu `NULL` yazar, dead-letter oluşmaz.
   Yeni zincirler her zaman JSON string yazar.
+- **Sunucu koruması (eski istemci):** `TableMap`’e
+  `preserveWhenNull: ['chunkSizes']` benzeri bir kural eklenir;
+  `SyncService::update()` gelen `chunk_sizes` NULL ise kolonu SET listesinden
+  çıkarır, mevcut değeri korur. Böylece `chunkSizes` bilmeyen eski istemcinin
+  zincir satırı push’u yeni dağılımı silmez.
+  - Yeni istemci de bilinçli olarak `chunkSizes`’ı temizlemez; bu yüzden
+    koruma davranışı ürün akışını kısıtlamaz.
+  - Test: önce `chunkSizes` ile push et, sonra aynı satırı alansız push et;
+    veritabanındaki değer korunur.
 
 ### 5.6 Testler
 
@@ -249,16 +258,35 @@ davranışı korunur. Yeni zincirler `chunksFromSizes` kullanır.
 Sıra:
 
 1. `006_page_chain_chunk_sizes.sql`
-2. API (`TableMap`)
+2. API (`TableMap` + sunucu koruması)
 3. İstemci build/deploy
 
 - Migration önce çalışmazsa yeni istemci `chunkSizes` gönderdiğinde sunucu
   alanı bilmez; bu yüzden sıra önemli.
-- Eski istemciler alanı göndermez; sunucu opsiyonel kabul eder.
-- API/migration geri alınabilir. İstemci geri alınırsa yeni özel dağılımlı
-  zincirler eski formülle görünür (veri kaybı yok, görsel fark). Dexie sürümü
-  artmadığı için `VersionError` riski yok; yine de yeni zincirler oluştuktan
-  sonra istemciyi geri almamak tercih edilir.
+- Eski istemciler alanı göndermez; sunucu opsiyonel kabul eder ve mevcut
+  değeri korur.
+
+**Geri dönüş politikası (forward-only eşiği):**
+
+- Eski API (`chunkSizes` bilmeyen `TableMap`), yeni istemcinin gönderdiği alanı
+  “bilinmeyen alan” diye reddeder. Bu yüzden **API/migration’ı tek başına geri
+  almak güvenli değildir**; yeni istemci yayındayken her zincir push’u
+  dead-letter olur.
+- Yeni dağılımlı zincir yoksa geri dönüş sırası:
+  **istemci → API → migration**. (Önce istemci eski sürüme döner; o sürüm
+  `chunkSizes` göndermez, yeni API `NULL` kabul eder; sonra API/migration.)
+- Aşağıdaki kapı sorgusu `0` değilse **istemci geri alımı desteklenmez**;
+  ileriye dönük düzeltme yapılır:
+  ```sql
+  SELECT COUNT(*) FROM `schedule_page_chains` WHERE `chunk_sizes` IS NOT NULL;
+  ```
+- Sunucu koruması, eski istemcinin zincir satırı push’unda dağılımı silmesini
+  engeller; ancak eski istemci bekleyen görev aralıklarını legacy formülle
+  yeniden yazabilir. Bu yüzden yeni zincirler oluştuktan sonra eski istemciyle
+  çalışmak desteklenmez.
+- Dexie sürümü artmadığı için `VersionError` yok; geri dönüş kısıtı veri
+  şemasından değil, zincir dağılımının eski istemcide yanlış hesaplanmasından
+  kaynaklanır.
 
 ## 6. Test PDF
 
@@ -379,11 +407,15 @@ Sıra:
 ## 8. Riskler ve notlar
 
 - **Eski istemci + yeni zincir:** Eski istemci `chunkSizes`’ı bilmez, yeni
-  zinciri legacy formülle gösterir. Yalnızca görüntüleme değil, eski istemcide
-  o zinciri düzenlemek/kaçırmak da yanlış aralık atamasına yol açabilir. Bu
-  yüzden yeni özel dağılımlı zincirler oluşturulduktan sonra o haftayı eski
-  istemciyle düzenlemeyin; önce tüm cihazları güncelleyin. Kapalı betada bu
-  operasyonel bir kısıt; mevcut (eski) zincirler etkilenmez.
+  zinciri legacy formülle gösterir. Sunucu koruması sayesinde eski istemcinin
+  zincir satırı push’u dağılımı **silmez**; ancak eski istemci bekleyen görev
+  aralıklarını legacy formülle yeniden yazabilir. Bu yüzden yeni özel dağılımlı
+  zincirler oluşturulduktan sonra o haftayı eski istemciyle düzenlemeyin; önce
+  tüm cihazları güncelleyin. Kapalı betada bu operasyonel bir kısıt; mevcut
+  (eski) zincirler etkilenmez.
+- **İstemci geri dönüşü:** Yeni dağılımlı zincir varsa desteklenmez; sunucu
+  dağılımı korusa bile eski istemcinin görev aralığı yazımları geçici olarak
+  yanlış olabilir. Geri dönüş yerine ileriye dönük düzeltme yapılır.
 - **PDF fontu:** Roboto TTF repoya eklenir; lisans dosyası konur. Font
   yüklenemezse PDF üretimi hata verir, uygulama çökmez.
 - **PDF belleği:** 1600 px JPEG’ler 20+ soruda büyük PDF üretebilir; düğme

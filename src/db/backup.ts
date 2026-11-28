@@ -608,6 +608,8 @@ const schedulePageChainSchema = z.object({
   slots: z.string().max(65535),
   // Added after the first v7 build; an older archive defaults to no skips.
   skippedChunks: z.string().max(65535).default('[]'),
+  // JSON page counts per chunk; null/absent marks a legacy even split.
+  chunkSizes: z.string().max(65535).nullish().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
   deletedAt: z.string().optional(),

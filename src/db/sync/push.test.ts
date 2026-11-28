@@ -223,6 +223,51 @@ test('skippedChunks eksik eski zincir boş diziyle gönderilir', async () => {
   expect(await database.syncQueue.count()).toBe(0);
 });
 
+test('chunkSizes yeni zincirde gönderilir, eski satırda alan atlanır', async () => {
+  const base = (id: string): SchedulePageChain => ({
+    id,
+    weekId: 'week-1',
+    rowId: 'row-1',
+    userBookId: 'book-1',
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 10,
+    chunkCount: 2,
+    slots:
+      '[{"taskId":"t1","slotIndex":0,"chunkIndex":0,"dayIndex":1},' +
+      '{"taskId":"t2","slotIndex":1,"chunkIndex":1,"dayIndex":2}]',
+    skippedChunks: '[]',
+    createdAt: now(),
+    updatedAt: now(),
+  });
+  const legacy = base('legacy-chain');
+  const modern: SchedulePageChain = {
+    ...base('modern-chain'),
+    chunkSizes: '[3,17]',
+  };
+
+  setApplyingRemote(true);
+  await database.schedulePageChains.bulkAdd([legacy, modern]);
+  setApplyingRemote(false);
+  // The hooks never saw the writes, so queue them explicitly.
+  await enqueueChange(database, 'schedulePageChains', legacy.id);
+  await enqueueChange(database, 'schedulePageChains', modern.id);
+
+  const { client, calls } = recordingClient((body) => appliedResults(body));
+  const summary = await pushOnce(database, client, 'csrf');
+
+  expect(summary.applied).toBe(2);
+  expect(calls[0].body.changes).toHaveLength(2);
+  const rows = new Map(
+    calls[0].body.changes.map((change) => [String(change.row?.id), change.row]),
+  );
+  // A new chain carries its real layout string.
+  expect(rows.get('modern-chain')?.chunkSizes).toBe('[3,17]');
+  // A legacy chain has no column; the API treats omission as the legacy split.
+  expect(rows.get('legacy-chain')).not.toHaveProperty('chunkSizes');
+  expect(await pendingCount(database)).toBe(0);
+});
+
 test('silinen ve yeniden eklenen raf kitabı tek aktif upsert olarak kuyruğa girer', async () => {
   await database.userBooks.add(userBook('ub-1'));
   await whenQueueIdle();

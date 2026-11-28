@@ -1344,6 +1344,79 @@ test('skippedChunks alanı olmayan v7 yedeği boş diziyle okunur', async () => 
   expect(restored?.skippedChunks).toBe('[]');
 });
 
+test('chunkSizes yedekten kayıpsız döner', async () => {
+  await fullSeed();
+  const createdAt = '2026-11-01T09:00:00.000Z';
+  await db.schedulePageChains.add({
+    id: 'zincir-chunk-sizes',
+    weekId: 'hafta-1',
+    rowId: 'satir-1',
+    userBookId: 'kitap-1',
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 3,
+    chunkCount: 7,
+    slots: '[]',
+    skippedChunks: '[]',
+    chunkSizes: '[3,3,3,3,3,3,2]',
+    createdAt,
+    updatedAt: createdAt,
+  });
+
+  const exported = await exportBackup();
+  const zip = await JSZip.loadAsync(await blobToArrayBuffer(exported));
+  const data = JSON.parse((await zip.file('veri.json')!.async('string')) as string) as Record<
+    string,
+    Array<Record<string, unknown>>
+  >;
+  // The archive must carry the field; the import is not allowed to invent it.
+  expect(data.schedulePageChains[0]).toMatchObject({
+    chunkSizes: '[3,3,3,3,3,3,2]',
+  });
+
+  await resetDb();
+  const imported = await importBackup(new File([exported], 'chunk-sizes.zip'));
+
+  expect(imported.counts).toMatchObject({ schedulePageChains: 1 });
+  expect(await db.schedulePageChains.get('zincir-chunk-sizes')).toMatchObject({
+    chunkSizes: '[3,3,3,3,3,3,2]',
+  });
+});
+
+test('chunkSizes alanı olmayan eski yedek null ile okunur', async () => {
+  await fullSeed();
+  const createdAt = '2026-11-01T09:00:00.000Z';
+  await db.schedulePageChains.add({
+    id: 'zincir-eski-chunk-sizes',
+    weekId: 'hafta-1',
+    rowId: 'satir-1',
+    userBookId: 'kitap-1',
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 10,
+    chunkCount: 2,
+    slots: '[]',
+    skippedChunks: '[]',
+    createdAt,
+    updatedAt: createdAt,
+  });
+
+  const exported = await exportBackup();
+  const legacyWithoutField = await mutateZip(exported, async (_zip, data) => {
+    for (const row of data.schedulePageChains as Array<Record<string, unknown>>) {
+      delete row.chunkSizes;
+    }
+  });
+
+  await resetDb();
+  await importBackup(new File([legacyWithoutField], 'eski-chunk-sizes.zip'));
+
+  const restored = await db.schedulePageChains.get('zincir-eski-chunk-sizes');
+  expect(restored?.chunkSizes ?? null).toBeNull();
+  // The schema default materializes the column as null, never undefined.
+  expect(restored).toHaveProperty('chunkSizes', null);
+});
+
 test('v6 yedeği sayfa zinciri tablosunu boş yükler', async () => {
   await fullSeed();
   const exported = await exportBackup();

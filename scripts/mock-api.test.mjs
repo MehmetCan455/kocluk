@@ -982,6 +982,73 @@ test('schedulePageChains push/pull round-trip yapar', async () => {
   expect(rejected.results[0].error.code).toBe('validation_failed');
 });
 
+test('chunkSizes push/pull/full arasında kayıpsız döner', async () => {
+  const account = await register('chunk-sizes@example.com');
+  const now = iso();
+  const chunkSizes = '[3,3,3,3,3,3,2]';
+  const row = {
+    id: 'chain-chunk-sizes',
+    weekId: 'week-1',
+    rowId: 'row-1',
+    userBookId: 'book-1',
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 3,
+    chunkCount: 7,
+    slots: '[{"taskId":"task-1","slotIndex":0,"chunkIndex":0,"dayIndex":1}]',
+    skippedChunks: '[]',
+    chunkSizes,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const pushed = await push(account.cookie, account.csrf, [
+    { table: 'schedulePageChains', op: 'upsert', row },
+  ]);
+  expect(pushed.results[0].status).toBe('applied');
+  expect(pushed.results[0].row.chunkSizes).toBe(chunkSizes);
+
+  const pulled = await call('/api/sync/pull?since=0&limit=500', {
+    cookie: account.cookie,
+  });
+  const change = pulled.json.changes.find(
+    (item) => item.table === 'schedulePageChains',
+  );
+  expect(change.row.chunkSizes).toBe(chunkSizes);
+
+  const full = await call('/api/sync/full', { cookie: account.cookie });
+  expect(full.json.tables.schedulePageChains).toHaveLength(1);
+  expect(full.json.tables.schedulePageChains[0].chunkSizes).toBe(chunkSizes);
+});
+
+test('chunkSizes içermeyen eski zincir validation hatası vermez, null saklanır', async () => {
+  const account = await register('eski-chunk-sizes@example.com');
+  const now = iso();
+  const row = {
+    id: 'chain-legacy',
+    weekId: 'week-1',
+    rowId: 'row-1',
+    userBookId: 'book-1',
+    startPage: 1,
+    endPage: 20,
+    chunkSize: 10,
+    chunkCount: 2,
+    slots: '[]',
+    skippedChunks: '[]',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const pushed = await push(account.cookie, account.csrf, [
+    { table: 'schedulePageChains', op: 'upsert', row },
+  ]);
+  expect(pushed.results[0].status).toBe('applied');
+  expect(pushed.results[0].row.chunkSizes).toBeNull();
+
+  const full = await call('/api/sync/full', { cookie: account.cookie });
+  expect(full.json.tables.schedulePageChains[0].chunkSizes).toBeNull();
+});
+
 test('eski zincir satırı skippedChunks varsayılanıyla yüklenir', () => {
   const normalized = normalizeData({
     tables: {
@@ -997,6 +1064,11 @@ test('eski zincir satırı skippedChunks varsayılanıyla yüklenir', () => {
   });
 
   expect(normalized.tables.schedulePageChains['chain-old'].skippedChunks).toBe('[]');
+  // The nullable page-layout column is materialized as null for legacy rows.
+  expect(normalized.tables.schedulePageChains['chain-old']).toHaveProperty(
+    'chunkSizes',
+    null,
+  );
 });
 
 test('hesap silme veriyi ve oturumları kaldırır; test reset temiz başlatır', async () => {

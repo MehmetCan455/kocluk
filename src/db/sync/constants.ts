@@ -199,6 +199,7 @@ export const SYNC_TABLE_FIELDS: Record<SyncedTable, readonly string[]> = {
     'chunkCount',
     'slots',
     'skippedChunks',
+    'chunkSizes',
     'createdAt',
     'updatedAt',
     'deletedAt',

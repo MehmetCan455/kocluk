@@ -286,6 +286,7 @@ const TABLE_DEFS = {
       'chunkCount',
       'slots',
       'skippedChunks',
+      'chunkSizes',
       'createdAt',
       'updatedAt',
       'deletedAt',
@@ -489,15 +490,22 @@ export function normalizeData(data) {
     const stored = isRecord(data.tables) ? data.tables[table] : null;
     const rows = isRecord(stored) ? { ...stored } : {};
     if (table === 'schedulePageChains') {
-      // Rows written before the skip list existed still have to satisfy the
-      // required field; normalize the file once instead of rejecting pushes.
+      // Rows written before the skip list or the nullable page-layout column
+      // existed still have to match the current row shape; normalize the file
+      // once instead of rejecting writes. `chunkSizes: null` marks a legacy
+      // chain that keeps the even split.
       for (const [rowId, row] of Object.entries(rows)) {
-        if (
-          isRecord(row) &&
-          !Object.prototype.hasOwnProperty.call(row, 'skippedChunks')
-        ) {
-          rows[rowId] = { ...row, skippedChunks: '[]' };
+        if (!isRecord(row)) {
+          continue;
         }
+        const normalizedRow = { ...row };
+        if (!Object.prototype.hasOwnProperty.call(row, 'skippedChunks')) {
+          normalizedRow.skippedChunks = '[]';
+        }
+        if (!Object.prototype.hasOwnProperty.call(row, 'chunkSizes')) {
+          normalizedRow.chunkSizes = null;
+        }
+        rows[rowId] = normalizedRow;
       }
     }
     normalized.tables[table] = rows;

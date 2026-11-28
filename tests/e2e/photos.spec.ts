@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { completeOnboarding, TEST_NAME } from './helpers';
 
@@ -78,4 +79,16 @@ test('fotoğraf yüklenir, filtre sonucu değiştirir ve rastgele test tamamlan�
 
   await expect(page.getByRole('heading', { name: 'Test tamamlandı' })).toBeVisible();
   await expect(page.getByText('1/1 doğru')).toBeVisible();
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'PDF indir' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(
+    /^rastgele-test-\d{4}-\d{2}-\d{2}-\d{4}\.pdf$/,
+  );
+  const path = await download.path();
+  expect(path).toBeTruthy();
+  const bytes = await readFile(path!);
+  expect(bytes.subarray(0, 4).toString('latin1')).toBe('%PDF');
 });

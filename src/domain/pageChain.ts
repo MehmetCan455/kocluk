@@ -20,6 +20,8 @@ export interface AssignChainChunksInput {
   endPage: number;
   chunkSize: number;
   chunkCount: number;
+  /** User-chosen page counts per chunk; absent means the legacy even split. */
+  chunkSizes?: readonly number[];
   /** Chunks the user chose to ignore; they never take a pending day. */
   skipped?: ReadonlySet<number>;
 }
@@ -129,6 +131,31 @@ export function chunksFromSizes(startPage: number, sizes: readonly number[]): Pa
 }
 
 /**
+ * Custom distribution chosen by the user. It must name one size per chunk and
+ * cover the whole range exactly, so no page is dropped or split across days.
+ */
+function chunksFromCustomSizes(
+  startPage: number,
+  endPage: number,
+  chunkCount: number,
+  sizes: readonly number[],
+): PageChainChunk[] {
+  validatePageChainRange(startPage, endPage, chunkCount);
+
+  if (sizes.length !== chunkCount) {
+    throw new Error('Parça boyu sayısı parça sayısıyla uyuşmuyor.');
+  }
+
+  const totalPages = endPage - startPage + 1;
+  const coveredPages = sizes.reduce((total, size) => total + size, 0);
+  if (coveredPages !== totalPages) {
+    throw new Error('Parça boyları sayfa aralığını tam kapsamıyor.');
+  }
+
+  return chunksFromSizes(startPage, sizes);
+}
+
+/**
  * Keeps done ranges fixed, shifts waiting ranges into the lowest free chunk
  * and reports the chunks no slot holds at all. Missed slots keep their
  * historical chunk but release it for a waiting day to take over.
@@ -136,7 +163,10 @@ export function chunksFromSizes(startPage: number, sizes: readonly number[]): Pa
 export function assignChainChunks(input: AssignChainChunksInput): AssignChainChunksResult {
   const { slots, statuses, startPage, endPage, chunkSize, chunkCount } = input;
   const skipped = input.skipped ?? new Set<number>();
-  const chunks = splitPageRange(startPage, endPage, chunkCount);
+  const chunks =
+    input.chunkSizes === undefined
+      ? splitPageRange(startPage, endPage, chunkCount)
+      : chunksFromCustomSizes(startPage, endPage, chunkCount, input.chunkSizes);
 
   if (chunkSize !== pageChunkSize(startPage, endPage, chunkCount)) {
     throw new Error('Parça boyu sayfa aralığıyla uyuşmuyor.');

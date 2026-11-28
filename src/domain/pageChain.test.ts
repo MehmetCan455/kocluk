@@ -292,6 +292,49 @@ describe('assignChainChunks', () => {
     expect(result.assignments.has('t4')).toBe(false);
     expect(result.unscheduled).toEqual([]);
   });
+
+  test('özel boyutlar atamaya ve planlanmamışa yansır', () => {
+    const slots = Array.from({ length: 7 }, (_, index) => ({
+      taskId: `t${index}`,
+      slotIndex: index,
+      chunkIndex: index,
+      dayIndex: index + 1,
+    }));
+    const statuses = new Map(slots.map((slot) => [slot.taskId, 'pending' as const]));
+    const result = assignChainChunks({
+      slots,
+      statuses,
+      startPage: 1,
+      endPage: 20,
+      chunkSize: 2,
+      chunkCount: 7,
+      chunkSizes: [3, 3, 3, 3, 3, 3, 2],
+    });
+
+    expect(result.chunks).toEqual(chunksFromSizes(1, [3, 3, 3, 3, 3, 3, 2]));
+    expect(result.assignments.get('t0')).toMatchObject({ fromPage: 1, toPage: 3 });
+    expect(result.assignments.get('t6')).toMatchObject({ fromPage: 19, toPage: 20 });
+  });
+
+  test('chunkSizes yoksa legacy splitPageRange kullanılır', () => {
+    const slots = Array.from({ length: 7 }, (_, index) => ({
+      taskId: `t${index}`,
+      slotIndex: index,
+      chunkIndex: index,
+      dayIndex: index + 1,
+    }));
+    const statuses = new Map(slots.map((slot) => [slot.taskId, 'pending' as const]));
+    const result = assignChainChunks({
+      slots,
+      statuses,
+      startPage: 1,
+      endPage: 20,
+      chunkSize: 2,
+      chunkCount: 7,
+    });
+
+    expect(result.chunks[6]).toMatchObject({ fromPage: 13, toPage: 20 });
+  });
 });
 
 describe('parseSkippedChunks', () => {

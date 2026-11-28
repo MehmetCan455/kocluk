@@ -216,7 +216,7 @@ export function WeeklyPlanTable({
                         type="button"
                         aria-label={`${rowIndex + 1}. satırı sil`}
                         onClick={() => onDeleteRow(row.key)}
-                        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition-opacity focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-[767px]:opacity-100 hover:bg-raised hover:text-danger"
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition-opacity focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-[767px]:opacity-100 pointer-coarse:opacity-100 any-pointer-coarse:opacity-100 hover:bg-raised hover:text-danger"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>

@@ -478,6 +478,17 @@ test('var olan satır adı düzenlenir ve yeniden açınca korunur', async () =>
   expect(await screen.findByLabelText('1. satır')).toHaveValue('Geometri');
 });
 
+test('satır silme düğmesi dokunmatikte görünür', async () => {
+  const current = currentWeekStart();
+  const { week } = await getOrCreateWeek(current);
+  await addRow(week.id, 'Matematik');
+
+  await openSchedule();
+  await screen.findByLabelText('1. satır');
+  const button = screen.getByRole('button', { name: /satırı sil/ });
+  expect(button).toHaveClass('pointer-coarse:opacity-100', 'any-pointer-coarse:opacity-100');
+});
+
 test('var olan satır adı boşaltılınca sahte başarı gösterilmez', async () => {
   const current = currentWeekStart();
   const { week } = await getOrCreateWeek(current);

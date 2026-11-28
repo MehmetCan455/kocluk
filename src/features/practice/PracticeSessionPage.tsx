@@ -36,6 +36,7 @@ import {
   formatPracticeDuration,
   scorePracticeSession,
 } from './practiceSummary';
+import { PracticePdfButton } from './PracticePdfButton';
 
 /** Same fallback as `photoLabel`, without requiring a full photo row. */
 function photoNoteLabel(note: string | undefined): string {
@@ -128,6 +129,7 @@ function CompletedPractice({ session }: { session: PracticeSession }) {
         <Link to="/yanlislar" className={secondaryLinkClass}>
           Yanlışlara dön
         </Link>
+        <PracticePdfButton session={session} />
       </div>
     </section>
   );
@@ -425,7 +427,10 @@ export function PracticeSessionPage() {
             {`Soru ${safeIndex + 1} / ${photos.length}`}
           </p>
         </div>
-        <p className="text-sm text-muted">{`${answeredVisible} / ${photos.length} cevaplandı`}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-muted">{`${answeredVisible} / ${photos.length} cevaplandı`}</p>
+          <PracticePdfButton session={session} />
+        </div>
       </header>
 
       <ProgressBar

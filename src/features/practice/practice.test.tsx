@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { CURRICULUM } from '@/data/curriculum';
@@ -16,7 +16,7 @@ import {
   updatePhoto,
 } from '@/db/repositories';
 import type { CurriculumSeed } from '@/db/repositories';
-import type { ExamType, Photo, Subject, Topic } from '@/domain/types';
+import type { ExamType, Photo, PracticeSession, Subject, Topic } from '@/domain/types';
 import { compressImage } from '@/lib/image';
 import { scorePracticeSession } from '@/features/practice/practiceSummary';
 import { seedOnboarded } from '@/test/fixtures';
@@ -40,6 +40,18 @@ vi.mock('@/lib/image', async (importOriginal) => {
   return {
     ...actual,
     compressImage: vi.fn(),
+  };
+});
+
+const pdfMocks = vi.hoisted(() => ({
+  downloadPracticePdf: vi.fn<(session: PracticeSession) => Promise<void>>(),
+}));
+
+vi.mock('@/features/practice/practicePdf', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/practice/practicePdf')>();
+  return {
+    ...actual,
+    downloadPracticePdf: pdfMocks.downloadPracticePdf,
   };
 });
 
@@ -83,6 +95,8 @@ beforeEach(async () => {
     width: 1600,
     height: 900,
   });
+  pdfMocks.downloadPracticePdf.mockReset();
+  pdfMocks.downloadPracticePdf.mockResolvedValue(undefined);
 });
 
 async function subjectByKey(seedKey: string): Promise<Subject> {
@@ -629,4 +643,72 @@ test('rastgele test deneme seçicisi branş denemelerini göstermez', async () =
   expect(
     within(examSelect).queryByRole('option', { name: new RegExp(branch.name) }),
   ).not.toBeInTheDocument();
+});
+
+test('PDF indir düğmesi hazırlanıyor durumunu gösterir ve indirmeyi başlatır', async () => {
+  const photo = await createPhoto({ note: 'PDF sorusu' });
+  const session = await createPracticeSession({ filters: {}, photoIds: [photo.id] });
+  let resolveDownload: (() => void) | undefined;
+  pdfMocks.downloadPracticePdf.mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        resolveDownload = resolve;
+      }),
+  );
+
+  renderApp(`/yanlislar/test/${session.id}`);
+
+  expect(await screen.findByRole('img', { name: 'PDF sorusu' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'PDF indir' }));
+
+  const busy = await screen.findByRole('button', { name: 'PDF hazırlanıyor…' });
+  expect(busy).toBeDisabled();
+  expect(pdfMocks.downloadPracticePdf).toHaveBeenCalledTimes(1);
+  expect(pdfMocks.downloadPracticePdf).toHaveBeenCalledWith(
+    expect.objectContaining({ id: session.id }),
+  );
+
+  await act(async () => {
+    resolveDownload?.();
+  });
+
+  expect(await screen.findByRole('button', { name: 'PDF indir' })).toBeEnabled();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+test('PDF indirme hatası uyarı olarak görünür ve düğme yeniden denenebilir kalır', async () => {
+  const photo = await createPhoto({ note: 'Hatalı PDF sorusu' });
+  const session = await createPracticeSession({ filters: {}, photoIds: [photo.id] });
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  pdfMocks.downloadPracticePdf.mockRejectedValueOnce(new Error('pdf hatası'));
+
+  renderApp(`/yanlislar/test/${session.id}`);
+
+  expect(
+    await screen.findByRole('img', { name: 'Hatalı PDF sorusu' }),
+  ).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'PDF indir' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'PDF oluşturulamadı. Lütfen tekrar dene.',
+  );
+  expect(screen.getByRole('button', { name: 'PDF indir' })).toBeEnabled();
+
+  consoleSpy.mockRestore();
+});
+
+test('tamamlanan testte PDF indir düğmesi ve gezinme bağlantıları görünür', async () => {
+  const photo = await createPhoto({ note: 'Tamamlanan PDF sorusu' });
+  const session = await createPracticeSession({ filters: {}, photoIds: [photo.id] });
+  await recordPracticeAnswer(session.id, photo.id, 'correct');
+  await completePracticeSession(session.id);
+
+  renderApp(`/yanlislar/test/${session.id}`);
+
+  expect(
+    await screen.findByRole('heading', { level: 1, name: 'Test tamamlandı' }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'PDF indir' })).toBeEnabled();
+  expect(screen.getByRole('link', { name: 'Rastgele teste dön' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Yanlışlara dön' })).toBeInTheDocument();
 });

@@ -33,7 +33,7 @@ test('haftalık planda sayfa zinciri oluşturur, kaçırır ve sonraki güne ekl
   await dialog.getByRole('option', { name: /Hiç Problem Değil/ }).click();
   await dialog.getByLabel('Başlangıç sayfası').fill('100');
   await dialog.getByLabel('Bitiş sayfası').fill('150');
-  await expect(dialog.getByText('Pzt 100–109')).toBeVisible();
+  await expect(dialog.getByText('Pzt 100–110')).toBeVisible();
   await dialog.getByRole('button', { name: 'Zinciri oluştur' }).click();
 
   await page.getByRole('button', { name: 'Tik modu' }).click();
@@ -42,9 +42,9 @@ test('haftalık planda sayfa zinciri oluşturur, kaçırır ve sonraki güne ekl
     .getByRole('group', { name: 'Çizelge günü' })
     .getByRole('button', { name: 'Sal Salı' })
     .click();
-  await page.getByRole('button', { name: /110–119.*Planlandı/ }).click({ button: 'right' });
+  await page.getByRole('button', { name: /111–120.*Planlandı/ }).click({ button: 'right' });
   await expect(page.getByText('Planlanmamış sayfalar')).toBeVisible();
-  await expect(page.getByText('140–150')).toBeVisible();
+  await expect(page.getByText('141–150')).toBeVisible();
   await page.getByRole('button', { name: 'Sonraki boş güne ekle' }).click();
   await expect(page.getByText('Planlanmamış sayfalar')).not.toBeVisible();
 
@@ -55,7 +55,7 @@ test('haftalık planda sayfa zinciri oluşturur, kaçırır ve sonraki güne ekl
     .getByRole('group', { name: 'Çizelge günü' })
     .getByRole('button', { name: 'Cmt Cumartesi' })
     .click();
-  await expect(page.getByText(/Syf\. 140–150/)).toBeVisible();
+  await expect(page.getByText(/Syf\. 141–150/)).toBeVisible();
 });
 
 test('planlanmamış aralığı Sil ile yok sayar ve zincir görevleri kalır', async ({ page }) => {
@@ -90,13 +90,13 @@ test('planlanmamış aralığı Sil ile yok sayar ve zincir görevleri kalır', 
     .getByRole('group', { name: 'Çizelge günü' })
     .getByRole('button', { name: 'Sal Salı' })
     .click();
-  await page.getByRole('button', { name: /110–119.*Planlandı/ }).click({ button: 'right' });
+  await page.getByRole('button', { name: /111–120.*Planlandı/ }).click({ button: 'right' });
 
   await expect(page.getByText('Planlanmamış sayfalar')).toBeVisible();
-  await expect(page.getByText('140–150')).toBeVisible();
+  await expect(page.getByText('141–150')).toBeVisible();
   await page
     .getByRole('button', {
-      name: 'Matematik planlanmamış 140–150 aralığını sil',
+      name: 'Matematik planlanmamış 141–150 aralığını sil',
     })
     .click();
   await expect(page.getByText('Planlanmamış sayfalar')).not.toBeVisible();
@@ -108,11 +108,64 @@ test('planlanmamış aralığı Sil ile yok sayar ve zincir görevleri kalır', 
     .getByRole('group', { name: 'Çizelge günü' })
     .getByRole('button', { name: 'Pzt Pazartesi' })
     .click();
-  await expect(page.getByText(/Syf\. 100–109/)).toBeVisible();
+  await expect(page.getByText(/Syf\. 100–110/)).toBeVisible();
   await page
     .getByRole('group', { name: 'Çizelge günü' })
     .getByRole('button', { name: 'Cum Cuma' })
     .click();
-  await expect(page.getByText(/Syf\. 130–139/)).toBeVisible();
+  await expect(page.getByText(/Syf\. 131–140/)).toBeVisible();
   await expect(page.getByText('Planlanmamış sayfalar')).not.toBeVisible();
+});
+
+test('sayfa zincirini özel günlük dağılımla oluşturur', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await completeOnboarding(page, TEST_NAME, 'Tümü');
+
+  await page.goto('./#/kitaplar');
+  await page.getByRole('button', { name: 'Kitap ekle' }).first().click();
+  await page.getByLabel('Kitap, yayınevi veya ders ara').fill('Hiç Problem Değil');
+  await page.getByRole('button', { name: /Hiç Problem Değil.*rafıma ekle/ }).click();
+
+  await page.goto('./#/program');
+  await page.getByRole('button', { name: 'Sonraki hafta' }).click();
+  await page.getByRole('button', { name: 'Satır ekle' }).click();
+  await page.getByLabel('1. satır', { exact: true }).fill('Matematik');
+  await expect(page.getByText('Kaydedildi', { exact: true })).toBeVisible({ timeout: 5_000 });
+
+  await page.getByRole('button', { name: 'Sayfa zinciri' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Sayfa zinciri oluştur' });
+  await dialog.getByLabel('Satır').selectOption({ label: 'Matematik' });
+  for (const day of ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']) {
+    await dialog.locator(`label:has(input[aria-label="${day}"])`).click();
+    await expect(
+      dialog.getByRole('checkbox', { name: day, exact: true }),
+    ).toBeChecked();
+  }
+  await dialog.getByLabel('Kitap ara').fill('Hiç Problem Değil');
+  await dialog.getByRole('option', { name: /Hiç Problem Değil/ }).click();
+  await dialog.getByLabel('Başlangıç sayfası').fill('1');
+  await dialog.getByLabel('Bitiş sayfası').fill('20');
+
+  // Editing a day's count switches the preview to the custom split; the last
+  // day takes the remainder automatically.
+  await dialog.getByLabel('Pazartesi sayfa sayısı').fill('4');
+  await expect(dialog.getByText('Pzt 1–4')).toBeVisible();
+  await expect(dialog.getByText('Sal 5–7')).toBeVisible();
+  await expect(dialog.getByText('Paz 20–20')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Zinciri oluştur' }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.reload();
+  // Reload resets the plan to the current week; return to the chain week.
+  await page.getByRole('button', { name: 'Sonraki hafta' }).click();
+  await page
+    .getByRole('group', { name: 'Çizelge günü' })
+    .getByRole('button', { name: 'Pzt Pazartesi' })
+    .click();
+  await expect(page.getByText(/Syf\. 1–4/)).toBeVisible();
+  await page
+    .getByRole('group', { name: 'Çizelge günü' })
+    .getByRole('button', { name: 'Paz Pazar' })
+    .click();
+  await expect(page.getByText(/Syf\. 20–20/)).toBeVisible();
 });

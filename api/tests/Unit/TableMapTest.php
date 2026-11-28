@@ -339,6 +339,7 @@ final class TableMapTest extends TestCase
             'chunkCount',
             'slots',
             'skippedChunks',
+            'chunkSizes',
             'createdAt',
             'updatedAt',
             'deletedAt',
@@ -381,6 +382,44 @@ final class TableMapTest extends TestCase
             'createdAt' => self::CREATED_AT,
             'updatedAt' => self::UPDATED_AT,
         ]));
+    }
+
+    public function test_chunk_sizes_is_optional_and_null_by_default(): void
+    {
+        $row = [
+            'id' => self::ID,
+            'weekId' => self::OTHER_ID,
+            'rowId' => self::OTHER_ID,
+            'userBookId' => self::OTHER_ID,
+            'startPage' => 100,
+            'endPage' => 150,
+            'chunkSize' => 10,
+            'chunkCount' => 5,
+            'slots' => '[{"taskId":"a","slotIndex":0,"chunkIndex":0,"dayIndex":1}]',
+            'skippedChunks' => '[4]',
+            'createdAt' => self::CREATED_AT,
+            'updatedAt' => self::UPDATED_AT,
+        ];
+
+        $db = TableMap::toDb('schedulePageChains', $row);
+
+        // An old client omits the field entirely; the nullable column keeps the
+        // insert valid and marks the chain as a legacy even split.
+        self::assertArrayHasKey('chunk_sizes', $db);
+        self::assertNull($db['chunk_sizes']);
+        self::assertNotContains('chunkSizes', TableMap::definition('schedulePageChains')['required']);
+
+        // A custom layout written by a new client is stored as JSON text and
+        // read back unchanged.
+        $withLayout = TableMap::toDb('schedulePageChains', $row + [
+            'chunkSizes' => '[3,3,3,3,3,3,2]',
+        ]);
+
+        self::assertSame('[3,3,3,3,3,3,2]', $withLayout['chunk_sizes']);
+        self::assertSame(
+            '[3,3,3,3,3,3,2]',
+            TableMap::toApi('schedulePageChains', $withLayout)['chunkSizes'],
+        );
     }
 
     public function test_page_chain_chunk_count_and_size_stay_within_range(): void

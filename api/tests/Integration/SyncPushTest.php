@@ -804,6 +804,47 @@ final class SyncPushTest extends ApiTestCase
         self::assertCount(3, $this->changes($account['userId']));
     }
 
+    public function test_missing_chunk_sizes_does_not_clear_an_existing_layout(): void
+    {
+        $account = $this->account();
+        $row = $this->pageChain(Uuid::v4(), $this->minutesAgo(20));
+        $row['chunkSizes'] = '[3,3,3,3,3,3,2]';
+
+        $first = $this->push(
+            [['table' => 'schedulePageChains', 'op' => 'upsert', 'row' => $row]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        $firstResult = $this->payload($first)['results'][0];
+
+        self::assertSame('applied', $firstResult['status']);
+        self::assertSame('[3,3,3,3,3,3,2]', $firstResult['row']['chunkSizes']);
+
+        // A client that predates `chunkSizes` sends the full row without the
+        // field. Every other column is a replacement, but the stored layout
+        // written by a newer client must survive.
+        $without = $row;
+        unset($without['chunkSizes']);
+        $without['updatedAt'] = $this->minutesAgo(10);
+
+        $second = $this->push(
+            [['table' => 'schedulePageChains', 'op' => 'upsert', 'row' => $without]],
+            $account['csrf'],
+            $account['jar'],
+        );
+
+        self::assertSame('applied', $this->payload($second)['results'][0]['status']);
+
+        $stored = TestDatabase::database()->fetchOne(
+            'SELECT `chunk_sizes` FROM `schedule_page_chains` WHERE `id` = ?',
+            [$row['id']],
+        );
+
+        self::assertIsArray($stored);
+        self::assertSame('[3,3,3,3,3,3,2]', $stored['chunk_sizes']);
+    }
+
     public function test_settings_are_one_account_level_row_per_user(): void
     {
         $account = $this->account();
@@ -985,6 +1026,28 @@ final class SyncPushTest extends ApiTestCase
             'createdAt' => $updatedAt,
             'updatedAt' => $updatedAt,
             'deletedAt' => $deletedAt,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function pageChain(string $id, string $updatedAt): array
+    {
+        return [
+            'id' => $id,
+            'weekId' => Uuid::v4(),
+            'rowId' => Uuid::v4(),
+            'userBookId' => Uuid::v4(),
+            'startPage' => 100,
+            'endPage' => 150,
+            'chunkSize' => 10,
+            'chunkCount' => 5,
+            'slots' => '[]',
+            'skippedChunks' => '[]',
+            'createdAt' => $updatedAt,
+            'updatedAt' => $updatedAt,
+            'deletedAt' => null,
         ];
     }
 

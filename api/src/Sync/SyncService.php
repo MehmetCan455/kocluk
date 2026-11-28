@@ -833,6 +833,11 @@ final class SyncService
     }
 
     /**
+     * Full-row replacement on an existing row, except immutable columns and
+     * `preserveWhenNull` columns whose incoming value is null. A legacy client
+     * omits a field added later; writing that absent value as NULL would erase
+     * what a newer client stored.
+     *
      * @param array<string, mixed> $dbRow
      * @param array<string, mixed> $definition
      */
@@ -846,11 +851,25 @@ final class SyncService
             }
         }
 
+        $preserveWhenNull = [];
+
+        foreach ($definition['preserveWhenNull'] ?? [] as $field) {
+            if (isset($definition['columns'][$field])) {
+                $preserveWhenNull[] = (string) $definition['columns'][$field];
+            }
+        }
+
         $sets = [];
         $params = [];
 
         foreach ($dbRow as $column => $value) {
-            if (in_array((string) $column, $immutable, true)) {
+            $column = (string) $column;
+
+            if (in_array($column, $immutable, true)) {
+                continue;
+            }
+
+            if ($value === null && in_array($column, $preserveWhenNull, true)) {
                 continue;
             }
 

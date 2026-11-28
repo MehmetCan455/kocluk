@@ -360,6 +360,22 @@ final class MigrationTest extends TestCase
         self::assertSame('[]', trim((string) $column['column_default'], "'"));
     }
 
+    public function test_schedule_page_chains_chunk_sizes_is_nullable_text(): void
+    {
+        $column = self::$db->fetchOne(
+            'SELECT `data_type` AS data_type, `is_nullable` AS is_nullable
+             FROM `information_schema`.`columns`
+             WHERE `table_schema` = DATABASE() AND `table_name` = ? AND `column_name` = ?',
+            ['schedule_page_chains', 'chunk_sizes'],
+        );
+
+        // Nullable because TableMap::toDb writes an absent optional field as
+        // an explicit NULL; a legacy insert must still succeed.
+        self::assertNotNull($column);
+        self::assertSame('text', strtolower((string) $column['data_type']));
+        self::assertSame('YES', $column['is_nullable']);
+    }
+
     public function test_rate_limits_user_id_is_nullable(): void
     {
         $column = self::$db->fetchOne(

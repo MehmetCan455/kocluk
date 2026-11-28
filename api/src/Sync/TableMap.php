@@ -24,6 +24,8 @@ use Throwable;
  *   * `immutable` API fields that cannot change after the first insert
  *   * `natural`   DB columns of the active natural key (unique index)
  *   * `rules`     per-field type, maximum width/bytes, numeric range and enum
+ *   * `preserveWhenNull` API fields an update leaves untouched when the
+ *                 incoming value is null (legacy clients that omit them)
  *
  * The map also drives account export/deletion, so a new synced table cannot be
  * silently missing there. Only public API fields are produced by toApi();
@@ -464,6 +466,7 @@ final class TableMap
                 'chunkCount' => 'chunk_count',
                 'slots' => 'slots',
                 'skippedChunks' => 'skipped_chunks',
+                'chunkSizes' => 'chunk_sizes',
                 'createdAt' => 'created_at',
                 'updatedAt' => 'updated_at',
                 'deletedAt' => 'deleted_at',
@@ -495,10 +498,14 @@ final class TableMap
                 'chunkCount' => self::RULE_CHUNK_COUNT,
                 'slots' => self::RULE_TEXT,
                 'skippedChunks' => self::RULE_TEXT,
+                'chunkSizes' => self::RULE_TEXT,
                 'createdAt' => self::RULE_TIMESTAMP,
                 'updatedAt' => self::RULE_TIMESTAMP,
                 'deletedAt' => self::RULE_TIMESTAMP,
             ],
+            // A legacy client cannot send a field it does not know; an update
+            // must not erase a layout written by a newer client.
+            'preserveWhenNull' => ['chunkSizes'],
         ],
         'topicProgress' => [
             'table' => 'topic_progress',

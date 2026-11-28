@@ -1,4 +1,6 @@
-import type { CorrectOption } from '@/domain/types';
+import { db } from '@/db/db';
+import type { CorrectOption, PracticeSession } from '@/domain/types';
+import { loadRobotoFont } from './practicePdfFont';
 
 export interface PdfDocLike {
   text(
@@ -33,6 +35,15 @@ export interface PracticePdfInput {
   dateLabel: string;
   questions: PracticePdfQuestion[];
 }
+
+export interface PracticePdfBuildInput {
+  title: string;
+  dateLabel: string;
+  questions: PracticePdfQuestion[];
+}
+
+const PDF_TITLE = 'Rastgele Test';
+const EMPTY_QUESTIONS_MESSAGE = 'PDF oluşturulacak soru yok.';
 
 const PAGE_W = 297;
 const PAGE_H = 210;
@@ -103,6 +114,103 @@ function drawAnswerKey(
       ANSWER_TOP + row * ANSWER_ROW_H,
     );
   });
+}
+
+function two(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function formatPdfDate(isoDate: string): string {
+  const date = new Date(isoDate);
+  const day = `${two(date.getDate())}.${two(date.getMonth() + 1)}`;
+  return `${day}.${date.getFullYear()}`;
+}
+
+/** Local `rastgele-test-YYYY-MM-DD-HHmm.pdf` name for a session export. */
+function practicePdfFileName(createdAt: string): string {
+  const date = new Date(createdAt);
+  const yearMonthDay = [
+    date.getFullYear(),
+    two(date.getMonth() + 1),
+    two(date.getDate()),
+  ].join('-');
+  const hoursMinutes = `${two(date.getHours())}${two(date.getMinutes())}`;
+  return `rastgele-test-${yearMonthDay}-${hoursMinutes}.pdf`;
+}
+
+function readBlobAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error('Fotoğraf okunamadı.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Loads the session's photo blobs in order and turns them into PDF questions.
+ * Hard-deleted photos are simply absent from the bulk read and are skipped.
+ */
+export async function loadPracticePdfQuestions(
+  photoIds: readonly string[],
+): Promise<PracticePdfQuestion[]> {
+  if (photoIds.length === 0) {
+    return [];
+  }
+  const photos = await db.photos.bulkGet([...photoIds]);
+  const questions: PracticePdfQuestion[] = [];
+  for (const photo of photos) {
+    if (!photo) {
+      continue;
+    }
+    questions.push({
+      number: questions.length + 1,
+      imageDataUrl: await readBlobAsDataUrl(photo.blob),
+      width: photo.width,
+      height: photo.height,
+      answer: photo.correctOption,
+    });
+  }
+  return questions;
+}
+
+/** Renders the questions into an A4 landscape PDF with the embedded font. */
+export async function buildPracticePdf(
+  input: PracticePdfBuildInput,
+): Promise<Blob> {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  await loadRobotoFont(doc);
+  layoutPracticePdf(doc, input);
+  return doc.output('blob');
+}
+
+/** Builds the session PDF and saves it through a temporary object URL. */
+export async function downloadPracticePdf(
+  session: PracticeSession,
+): Promise<void> {
+  const questions = await loadPracticePdfQuestions(session.photoIds);
+  if (questions.length === 0) {
+    throw new Error(EMPTY_QUESTIONS_MESSAGE);
+  }
+  const blob = await buildPracticePdf({
+    title: PDF_TITLE,
+    dateLabel: formatPdfDate(session.createdAt),
+    questions,
+  });
+  const url = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = practicePdfFileName(session.createdAt);
+    anchor.rel = 'noopener';
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /**

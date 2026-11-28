@@ -35,10 +35,10 @@ const STATUS_TEXT: Record<ScheduleTaskStatus, string> = {
 
 /**
  * Desktop actions stay hidden until the cell is hovered or focused. Touch
- * screens have no hover, so there the row is always visible under the text.
+ * screens have no hover, so there the chip tap opens the editor instead.
  */
 const HOVER_ACTIONS =
-  'pointer-events-none opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 group-hover/cell:pointer-events-auto group-hover/cell:opacity-100 group-focus-within/cell:pointer-events-auto group-focus-within/cell:opacity-100 max-[767px]:pointer-events-auto max-[767px]:opacity-100';
+  'pointer-events-none opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 group-hover/cell:pointer-events-auto group-hover/cell:opacity-100 group-focus-within/cell:pointer-events-auto group-focus-within/cell:opacity-100';
 
 interface ChipLinesProps {
   title: string;
@@ -81,8 +81,8 @@ function ChipLines({ title, subtitle, detail, done }: ChipLinesProps) {
 
 /**
  * One planned task with only the three text lines and a status colour. Normal
- * mode is read-only and edits through the hover-revealed pencil; tick mode
- * turns the whole chip into a left-click done / right-click missed target.
+ * mode opens the editor when the chip is tapped; tick mode turns the whole chip
+ * into a left-click done / right-click missed target.
  */
 export function TaskChip({
   title,
@@ -144,14 +144,14 @@ export function TaskChip({
       role={tickMode ? 'button' : undefined}
       tabIndex={tickMode ? (disabled ? -1 : 0) : undefined}
       aria-disabled={tickMode && disabled ? true : undefined}
-      onClick={tickMode ? markDone : undefined}
+      onClick={tickMode ? markDone : disabled ? undefined : onEdit}
       onKeyDown={tickMode ? handleKeyDown : undefined}
       onContextMenu={tickMode ? handleContextMenu : undefined}
       className={cn(
-        'relative flex flex-col gap-1 rounded-lg border px-1.5 py-1 text-xs min-[768px]:flex-row min-[768px]:items-start',
+        'relative flex cursor-pointer flex-col gap-1 rounded-lg border px-1.5 py-1 text-xs min-[768px]:flex-row min-[768px]:items-start',
         STATUS_CLASSES[status],
         tickMode &&
-          'cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
+          'select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]',
       )}
     >
       <span className="sr-only">{STATUS_TEXT[status]}</span>
@@ -175,6 +175,7 @@ export function TaskChip({
       </div>
       {tickMode ? null : (
         <div
+          onClick={(event) => event.stopPropagation()}
           className={cn(
             'flex shrink-0 justify-end gap-1 min-[768px]:absolute min-[768px]:bottom-0 min-[768px]:right-0 min-[768px]:z-10',
             HOVER_ACTIONS,

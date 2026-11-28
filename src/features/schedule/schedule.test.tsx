@@ -1290,6 +1290,75 @@ test('normal modda görev çipi tıklanınca durum değiştirmez', async () => {
   ).toBeInTheDocument();
 });
 
+test('normal modda görev çipine tıklamak düzenleme modalını açar', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: todayScheduleDayIndex() + 1,
+    type: 'free',
+    title: 'Matematik denemesi',
+  });
+  await openSchedule();
+  await screen.findByText('Matematik denemesi', {
+    selector: '[data-line="title"]',
+  });
+
+  await userEvent.click(taskChip('Matematik denemesi'));
+  expect(
+    screen.getByRole('dialog', { name: 'Görevi düzenle' }),
+  ).toBeInTheDocument();
+});
+
+test('hover düzenle ikonuna tıklamak modalı iki kez açmaz', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: todayScheduleDayIndex() + 1,
+    type: 'free',
+    title: 'Matematik denemesi',
+  });
+  await openSchedule();
+  await screen.findByText('Matematik denemesi', {
+    selector: '[data-line="title"]',
+  });
+
+  await userEvent.click(
+    screen.getByRole('button', { name: /görevini düzenle/ }),
+  );
+  expect(
+    screen.getAllByRole('dialog', { name: 'Görevi düzenle' }),
+  ).toHaveLength(1);
+});
+
+test('tick modunda çip tıklaması durumu değiştirir, modal açmaz', async () => {
+  const { weekId, rowId } = await seedPlanRow();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: todayScheduleDayIndex() + 1,
+    type: 'free',
+    title: 'Matematik denemesi',
+  });
+  await openSchedule();
+  await screen.findByText('Matematik denemesi', {
+    selector: '[data-line="title"]',
+  });
+
+  await userEvent.click(screen.getByRole('button', { name: 'Tik modu' }));
+  await userEvent.click(taskChip('Matematik denemesi'));
+  expect(
+    screen.queryByRole('dialog', { name: 'Görevi düzenle' }),
+  ).not.toBeInTheDocument();
+  await waitFor(() => {
+    expect(taskChip('Matematik denemesi')).toHaveAttribute(
+      'data-status',
+      'done',
+    );
+  });
+});
+
 test('tik modunda çip klavyeyle yapıldı ve yapılmadı işaretlenir', async () => {
   const { weekId, rowId } = await seedPlanRow();
   const task = await addTask({
@@ -1418,8 +1487,14 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
     'opacity-0',
     'group-hover/cell:opacity-100',
     'group-focus-within/cell:opacity-100',
-    'max-[767px]:opacity-100',
     'min-[768px]:absolute',
+  );
+  // Dokunmatikte ayrı eylem düğmeleri yok; çipe dokunmak düzenlemeyi açar.
+  expect(editButton.parentElement?.className).not.toContain(
+    'max-[767px]:opacity-100',
+  );
+  expect(editButton.parentElement?.className).not.toContain(
+    'max-[767px]:pointer-events-auto',
   );
 
   // Dolu hücrede ne büyük kesikli kutu ne de kompakt + vardır; hücre başına

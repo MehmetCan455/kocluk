@@ -1310,6 +1310,105 @@ test('normal modda görev çipine tıklamak düzenleme modalını açar', async 
   ).toBeInTheDocument();
 });
 
+test('düzenleme modalındaki Görevi sil onay modalını açar ve görevi siler', async () => {
+  const { weekStart, weekId, rowId } = await seedPlanRow();
+  await addTask({
+    weekId,
+    rowId,
+    dayIndex: todayScheduleDayIndex() + 1,
+    type: 'free',
+    title: 'Silinecek görev',
+  });
+  await openSchedule(`/program?week=${weekStart}`);
+  await screen.findByText('Silinecek görev', { selector: '[data-line="title"]' });
+
+  await userEvent.click(taskChip('Silinecek görev'));
+  const editDialog = await screen.findByRole('dialog', {
+    name: 'Görevi düzenle',
+  });
+  await userEvent.click(
+    within(editDialog).getByRole('button', { name: 'Görevi sil' }),
+  );
+
+  // The editor closes and the existing confirmation opens; the task is not
+  // removed until the confirmation is accepted.
+  const deleteDialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
+  expect(
+    screen.queryByRole('dialog', { name: 'Görevi düzenle' }),
+  ).not.toBeInTheDocument();
+  expect((await getWeek(weekStart))?.tasks).toHaveLength(1);
+
+  await userEvent.click(within(deleteDialog).getByRole('button', { name: 'Sil' }));
+  await waitFor(() => {
+    expect(screen.queryByText('Silinecek görev')).not.toBeInTheDocument();
+  });
+  expect((await getWeek(weekStart))?.tasks).toEqual([]);
+});
+
+test('zincir görevini düzenleme modalından Görevi sil onayı zincir uyarısını korur', async () => {
+  const { weekStart, weekId, rowId } = await seedPlanRow(
+    shiftWeek(currentWeekStart(), 1),
+  );
+  const shelfBook = await seedBilgiSarmalBook();
+  await createPageChain({
+    weekId,
+    rowId,
+    userBookId: shelfBook.userBook.id,
+    startPage: 100,
+    endPage: 150,
+    days: [1, 2, 3, 4, 5],
+  });
+  await openSchedule(`/program?week=${weekStart}`);
+
+  const chipTitle = 'Bilgi Sarmal · TYT Matematik Soru Bankası';
+  const titleLines = await screen.findAllByText(chipTitle, {
+    selector: '[data-line="title"]',
+  });
+  const mondayChip = titleLines[0].closest('[data-status]');
+  if (!(mondayChip instanceof HTMLElement)) {
+    throw new Error('Pazartesi zincir çipi bulunamadı');
+  }
+
+  await userEvent.click(mondayChip);
+  const editDialog = await screen.findByRole('dialog', {
+    name: 'Görevi düzenle',
+  });
+  expect(editDialog).toHaveTextContent(
+    'Bu görev bir sayfa zincirinin parçası. Düzenlersen zincir çözülür.',
+  );
+  await userEvent.click(
+    within(editDialog).getByRole('button', { name: 'Görevi sil' }),
+  );
+
+  const deleteDialog = await screen.findByRole('dialog', { name: 'Görevi sil' });
+  expect(deleteDialog).toHaveTextContent(
+    'Bu görev bir sayfa zincirinin parçası; silmek zinciri çözer.',
+  );
+  await userEvent.click(
+    within(deleteDialog).getByRole('button', { name: 'Vazgeç' }),
+  );
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('dialog', { name: 'Görevi sil' }),
+    ).not.toBeInTheDocument();
+  });
+  expect(await db.scheduleTasks.where('weekId').equals(weekId).count()).toBe(5);
+});
+
+test('yeni görev modalında Görevi sil düğmesi yoktur', async () => {
+  await seedPlanRow();
+  await openSchedule();
+  await screen.findByLabelText('1. satır');
+
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Matematik Cuma görev ekle' }),
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Görev ekle' });
+  expect(
+    within(dialog).queryByRole('button', { name: 'Görevi sil' }),
+  ).not.toBeInTheDocument();
+});
+
 test('hover düzenle ikonuna tıklamak modalı iki kez açmaz', async () => {
   const { weekId, rowId } = await seedPlanRow();
   await addTask({

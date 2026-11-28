@@ -44,6 +44,8 @@ export interface ScheduleTaskModalProps {
   task?: ScheduleTask;
   /** The edited task belongs to a page chain, so saving dissolves it. */
   chain?: boolean;
+  /** Only edits get a delete action; the parent owns the confirmation. */
+  onDelete?: () => void;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }
@@ -54,6 +56,7 @@ export function ScheduleTaskModal({
   dayIndex,
   task,
   chain = false,
+  onDelete,
   onClose,
   onSaved,
 }: ScheduleTaskModalProps) {
@@ -155,6 +158,16 @@ export function ScheduleTaskModal({
       onClose={onClose}
       footer={
         <>
+          {task && onDelete ? (
+            <Button
+              variant="danger"
+              className="mr-auto"
+              onClick={onDelete}
+              disabled={saving}
+            >
+              Görevi sil
+            </Button>
+          ) : null}
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Vazgeç
           </Button>

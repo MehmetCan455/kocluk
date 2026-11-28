@@ -896,6 +896,8 @@ export function WeeklyPlan() {
   }
 
   const currentWeekStart = weekStartOf(new Date());
+  // A const keeps the optional task narrowed inside the delete callback.
+  const editedTask = taskEditor?.task;
   const saving = rowsSaving || noteSaving;
   const statusText = saving
     ? 'Kaydediliyor…'
@@ -1075,6 +1077,14 @@ export function WeeklyPlan() {
           chain={
             taskEditor.task !== undefined &&
             chainTaskIds.has(taskEditor.task.id)
+          }
+          onDelete={
+            editedTask
+              ? () => {
+                  setTaskEditor(null);
+                  requestDeleteTask(editedTask);
+                }
+              : undefined
           }
           onClose={() => setTaskEditor(null)}
           onSaved={async () => {

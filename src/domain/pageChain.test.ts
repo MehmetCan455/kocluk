@@ -102,6 +102,10 @@ describe('parseChunkSizes', () => {
       expect(parseChunkSizes(value, 7, 20)).toBeNull();
     }
   });
+
+  test('parseChunkSizes toplam uyuşmazlığını reddeder', () => {
+    expect(parseChunkSizes(JSON.stringify([3, 3, 3, 3, 3, 3, 3]), 7, 20)).toBeNull();
+  });
 });
 
 describe('assignChainChunks', () => {

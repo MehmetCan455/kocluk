@@ -117,6 +117,10 @@ backfill edilmez ve mevcut `floor + son gün` aralıklarını korur.
   Sonuç `0` ise ve yeni dağılımlı zincir yoksa geri dönüş sırası
   **istemci → API → migration** olabilir: önce eski istemci yayınlanır (o sürüm
   alanı göndermez), yeni API `NULL` kabul eder, sonra API/migration geri alınır.
+- **Kapı sorgusu yalnızca sunucuya senkron edilmiş satırları sayar.** Çevrimdışı
+  oluşturulmuş veya istemcinin kuyruğunda bekleyen özel dağılımlar görünmez.
+  Karar öncesi tüm istemcilerin senkron olmasını bekleyin; emin değilseniz
+  sonucu sıfır değil kabul edin.
 - **Sonuç `0` değilse istemci geri alımı desteklenmez.** Eski istemci yeni
   zincirin dağılımını bilmez; bekleyen görev aralıklarını legacy formülle
   yeniden yazar ve günlük sayfa adetleri yanlış olur. Sunucu koruması yalnızca

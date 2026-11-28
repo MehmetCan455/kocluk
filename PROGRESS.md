@@ -30,7 +30,7 @@
 | SMTP | `mail.kurumsaleposta.com`, port `465`, SSL |
 | Gönderen | `no-reply@zirveacademy.com` |
 | API health | **200** — `{"ok":true,...,"environment":"production"}` |
-| Migration | Uygulandı |
+| Migration | 006 bekliyor; 004/005'in canlıda uygulandığı doğrulanmadı (yalnızca istemci build'i doğrulandı) |
 | Son canlı commit | `2fd9775` |
 | Son canlı build | `index-BQQehRpI.js` |
 | GitHub Pages | Otomatik deploy **kapalı** (`workflow_dispatch`); canlı cPanel'den |
@@ -48,7 +48,7 @@
 - Vitest: **77 dosya / 907 test** ✅
 - `npm run build` ✅ (yalnızca mevcut 500 kB chunk boyutu uyarısı)
 - Playwright: **28/28** ✅ (özel sayfa dağılımı, PDF indirme ve dokunmatik düzenleme dahil tam E2E)
-- Canlı kontrol: ana sayfa 200; canlı `index-BQQehRpI.js` yerel `main` build'iyle aynı (sayfa zinciri canlıda)
+- Canlı kontrol: ana sayfa 200; canlı istemci build'i `index-BQQehRpI.js`, yerel `main` build'iyle aynı (sayfa zinciri istemcide canlı); API/migration 004/005 doğrulanmadı
 - PHPUnit: yerelde PHP yok; CI `api` işi push sonrası yeşil olmalı (son bilinen canlı öncesi: 270 test / 3239 assertion)
 - `npm audit --audit-level=high`: yüksek/kritik yok; 4 moderate yalnızca build/dev zincirinde (`glob`/`minimatch` → `vite-plugin-pwa`)
 
@@ -309,7 +309,7 @@ Migration yalnızca gerektiğinde bir kez:
 | Tarih | Konu | Durum / commit |
 |---|---|---|
 | 2026-11-28 | Plan önizleme + test PDF + dokunmatik düzenleme | `chunkSizes`/006, jsPDF/Roboto, dokun-düzenle — `feat/preview-pdf-touch` (canlıya deploy edilmedi) |
-| 2026-11-26 | Sayfa zinciri eklendi | Yeni `schedulePageChains` tablosu, panel/reconcile/backup v7 — `2fd9775` ile `main`'e merge edildi ve canlıda |
+| 2026-11-26 | Sayfa zinciri eklendi | Yeni `schedulePageChains` tablosu, panel/reconcile/backup v7 — `2fd9775` ile `main`'e merge edildi; canlı istemci build'i doğrulandı, API/migration 004/005 doğrulanmadı |
 | 2026-11-26 | Yarıda kalan haftada zincir oluşturma | `createPageChain` artık oluştururken recompute eder; geçmiş günler anında kayar |
 | 2026-11-26 | Eski istemci yeni tabloyu kaçırıyordu | `syncTableVersion` ile tek seferlik `full` backfill |
 | 2026-11-26 | `invalid_response`: 2xx ama JSON olmayan host/WAF sayfası | Otomatik 30 sn retry + HTTP/content-type teşhisi — `4e59f99` |
@@ -374,7 +374,7 @@ Migration yalnızca gerektiğinde bir kez:
 ### 2026-11-28 — Plan önizleme, test PDF ve dokunmatik düzenleme (`feat/preview-pdf-touch`)
 
 - Ne yapıldı: Sayfa zinciri önizlemesine dengeli/elle düzenlenebilir günlük dağılım (`chunkSizes`), rastgele testler için iki soru/sayfa A4 yatay PDF indirme (jsPDF + Roboto) ve görev çipine dokununca açılan düzenleme/silme modalı eklendi.
-- Değişen dosyalar / commit: Migration `006_page_chain_chunk_sizes.sql`, TableMap `preserveWhenNull`, sync/backup/mock parity; `practicePdf*`, `PracticePdfButton`; `TaskChip`/`ScheduleTaskModal`/`WeeklyPlanTable`. Branch 24 commit; docs commit’i bu oturumda.
+- Değişen dosyalar / commit: Migration `006_page_chain_chunk_sizes.sql`, TableMap `preserveWhenNull`, sync/backup/mock parity; `practicePdf*`, `PracticePdfButton`; `TaskChip`/`ScheduleTaskModal`/`WeeklyPlanTable`. 24 önceki commit + docs commit'leri (bu düzeltmeyle toplam 26).
 - Test sonucu: typecheck ✅, Vitest **77 dosya / 907 test** ✅, build ✅, Playwright **28/28** ✅, `npm audit` yüksek/kritik yok (4 moderate build/dev zinciri).
 - Açık kalan: PHPUnit yerelde yok; CI `api` işi push sonrası yeşil olmalı. `main`’e merge ve deploy kullanıcı onayına bağlı; sıra **006 → API → istemci**. Canlıya deploy edilmedi.
 

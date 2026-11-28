@@ -177,7 +177,7 @@ export function TaskChip({
         <div
           onClick={(event) => event.stopPropagation()}
           className={cn(
-            'flex shrink-0 justify-end gap-1 min-[768px]:absolute min-[768px]:bottom-0 min-[768px]:right-0 min-[768px]:z-10',
+            'flex shrink-0 justify-end gap-1 max-[767px]:absolute max-[767px]:bottom-0 max-[767px]:right-0 min-[768px]:absolute min-[768px]:bottom-0 min-[768px]:right-0 min-[768px]:z-10',
             HOVER_ACTIONS,
           )}
         >

@@ -1487,6 +1487,9 @@ test('görev çipi üç satırı kırar, eylemleri hover/focus ile açar ve dolu
     'opacity-0',
     'group-hover/cell:opacity-100',
     'group-focus-within/cell:opacity-100',
+    'max-[767px]:absolute',
+    'max-[767px]:bottom-0',
+    'max-[767px]:right-0',
     'min-[768px]:absolute',
   );
   // Dokunmatikte ayrı eylem düğmeleri yok; çipe dokunmak düzenlemeyi açar.
